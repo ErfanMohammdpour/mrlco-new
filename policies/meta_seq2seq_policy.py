@@ -4,6 +4,7 @@ import joblib
 import numpy as np
 import tensorflow as tf
 import policies.model_helper as model_helper
+from policies.graph2seq_encoder import create_graph2seq_encoder
 
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
@@ -117,10 +118,15 @@ class Seq2SeqNetwork():
 
             self.output_layer = tf.compat.v1.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
-            if self.is_bidencoder:
-                self.encoder_outputs, self.encoder_state = self.create_bidrect_encoder(hparams)
-            else:
-                self.encoder_outputs, self.encoder_state = self.create_encoder(hparams)
+            # Use Graph2Seq encoder instead of original encoder
+            self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
+                encoder_inputs=self.encoder_embeddings,
+                encoder_units=self.encoder_hidden_unit,
+                num_layers=self.num_layers,
+                is_bidirectional=self.is_bidencoder,
+                mode=self.mode,
+                scope_name="encoder"
+            )
 
             # training decoder
             self.decoder_outputs, self.decoder_state = self.create_decoder(hparams, self.encoder_outputs,
@@ -200,19 +206,20 @@ class Seq2SeqNetwork():
     def logp(self):
         return -self.neglogp()
 
-    def _build_encoder_cell(self, hparams, num_layers, num_residual_layers, base_gpu=0):
-        """Build a multi-layer RNN cell that can be used by encoder."""
-        return model_helper.create_rnn_cell(
-            unit_type=hparams.unit_type,
-            num_units=hparams.encoder_units,
-            num_layers=num_layers,
-            num_residual_layers=num_residual_layers,
-            forget_bias=hparams.forget_bias,
-            dropout=hparams.dropout,
-            num_gpus=hparams.num_gpus,
-            mode=self.mode,
-            base_gpu=base_gpu,
-            single_cell_fn=self.single_cell_fn)
+    # DEPRECATED: Original encoder cell builder - replaced by Graph2Seq encoder
+    # def _build_encoder_cell(self, hparams, num_layers, num_residual_layers, base_gpu=0):
+    #     """Build a multi-layer RNN cell that can be used by encoder."""
+    #     return model_helper.create_rnn_cell(
+    #         unit_type=hparams.unit_type,
+    #         num_units=hparams.encoder_units,
+    #         num_layers=num_layers,
+    #         num_residual_layers=num_residual_layers,
+    #         forget_bias=hparams.forget_bias,
+    #         dropout=hparams.dropout,
+    #         num_gpus=hparams.num_gpus,
+    #         mode=self.mode,
+    #         base_gpu=base_gpu,
+    #         single_cell_fn=self.single_cell_fn)
 
     def _build_decoder_cell(self, hparams, num_layers, num_residual_layers, base_gpu=0):
         """Build a multi-layer RNN cell that can be used by decoder"""
@@ -228,59 +235,61 @@ class Seq2SeqNetwork():
             base_gpu=base_gpu,
             single_cell_fn=self.single_cell_fn)
 
-    def create_encoder(self, hparams):
-        # Build RNN cell
-        with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE) as scope:
-            encoder_cell = self._build_encoder_cell(hparams=hparams,
-                                                    num_layers=self.num_layers,
-                                                    num_residual_layers=self.num_residual_layers)
+    # DEPRECATED: Original RNN encoder - replaced by Graph2Seq encoder
+    # def create_encoder(self, hparams):
+    #     # Build RNN cell
+    #     with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE) as scope:
+    #         encoder_cell = self._build_encoder_cell(hparams=hparams,
+    #                                                 num_layers=self.num_layers,
+    #                                                 num_residual_layers=self.num_residual_layers)
+    #
+    #         # encoder_cell = tf.contrib.rnn.GRUCell(self.encoder_hidden_unit)
+    #         # currently only consider the normal dynamic rnn
+    #         encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
+    #             cell=encoder_cell,
+    #             sequence_length = None,
+    #             inputs=self.encoder_embeddings,
+    #             dtype=tf.float32,
+    #             time_major=self.time_major,
+    #             swap_memory=True,
+    #             scope=scope
+    #         )
+    #
+    #     return encoder_outputs, encoder_state
 
-            # encoder_cell = tf.contrib.rnn.GRUCell(self.encoder_hidden_unit)
-            # currently only consider the normal dynamic rnn
-            encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
-                cell=encoder_cell,
-                sequence_length = None,
-                inputs=self.encoder_embeddings,
-                dtype=tf.float32,
-                time_major=self.time_major,
-                swap_memory=True,
-                scope=scope
-            )
-
-        return encoder_outputs, encoder_state
-
-    def create_bidrect_encoder(self, hparams):
-        with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE) as scope:
-            num_bi_layers = int(self.num_layers / 2)
-            num_bi_residual_layers = int(self.num_residual_layers / 2)
-            forward_cell = self._build_encoder_cell(hparams=hparams,
-                                                    num_layers=num_bi_layers,
-                                                    num_residual_layers=num_bi_residual_layers)
-            backward_cell = self._build_encoder_cell(hparams=hparams,
-                                                     num_layers=num_bi_layers,
-                                                     num_residual_layers=num_bi_residual_layers)
-
-            bi_outputs, bi_state = tf.nn.bidirectional_dynamic_rnn(
-                forward_cell,
-                backward_cell,
-                inputs=self.encoder_embeddings,
-                time_major=self.time_major,
-                swap_memory=True,
-                dtype=tf.float32)
-
-            encoder_outputs = tf.concat(bi_outputs, -1)
-
-            if num_bi_layers == 1:
-                encoder_state = bi_state
-            else:
-                encoder_state = []
-                for layer_id in range(num_bi_layers):
-                    encoder_state.append(bi_state[0][layer_id])  # forward
-                    encoder_state.append(bi_state[1][layer_id])  # backward
-
-                encoder_state = tuple(encoder_state)
-
-            return encoder_outputs, encoder_state
+    # DEPRECATED: Original bidirectional RNN encoder - replaced by Graph2Seq encoder
+    # def create_bidrect_encoder(self, hparams):
+    #     with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE) as scope:
+    #         num_bi_layers = int(self.num_layers / 2)
+    #         num_bi_residual_layers = int(self.num_residual_layers / 2)
+    #         forward_cell = self._build_encoder_cell(hparams=hparams,
+    #                                                 num_layers=num_bi_layers,
+    #                                                 num_residual_layers=num_bi_residual_layers)
+    #         backward_cell = self._build_encoder_cell(hparams=hparams,
+    #                                                  num_layers=num_bi_layers,
+    #                                                  num_residual_layers=num_bi_residual_layers)
+    #
+    #         bi_outputs, bi_state = tf.nn.bidirectional_dynamic_rnn(
+    #             forward_cell,
+    #             backward_cell,
+    #             inputs=self.encoder_embeddings,
+    #             time_major=self.time_major,
+    #             swap_memory=True,
+    #             dtype=tf.float32)
+    #
+    #         encoder_outputs = tf.concat(bi_outputs, -1)
+    #
+    #         if num_bi_layers == 1:
+    #             encoder_state = bi_state
+    #         else:
+    #             encoder_state = []
+    #             for layer_id in range(num_bi_layers):
+    #                 encoder_state.append(bi_state[0][layer_id])  # forward
+    #                 encoder_state.append(bi_state[1][layer_id])  # backward
+    #
+    #             encoder_state = tuple(encoder_state)
+    #
+    #         return encoder_outputs, encoder_state
 
     def create_decoder(self, hparams, encoder_outputs, encoder_state, model):
         with tf.compat.v1.variable_scope("decoder", reuse=tf.compat.v1.AUTO_REUSE) as decoder_scope:
