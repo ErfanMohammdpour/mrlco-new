@@ -89,6 +89,10 @@ def test_tensor_operations():
         # Test full encode
         outputs, state = adapter.encode(test_input)
         
+        # Initialize variables before running
+        init_op = tf.global_variables_initializer()
+        sess.run(init_op)
+        
         enc_result = sess.run({
             'outputs': outputs,
             'state': state if not isinstance(state, tuple) else state[0]

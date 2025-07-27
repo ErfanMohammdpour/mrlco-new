@@ -186,11 +186,22 @@ class Graph2SeqEncoderAdapter:
             state_size = 2 * self.hidden_dim
             
         # For multi-layer compatibility, create tuple of states
+        # The decoder expects states with dimension matching decoder_units
+        # If state_size > hidden_dim, we need to project it down
+        if state_size > self.hidden_dim:
+            # Project the state to match decoder expectations
+            with tf.variable_scope("state_projection"):
+                final_state_proj = tf.layers.dense(final_state, self.hidden_dim, 
+                                                  activation=None, 
+                                                  name="state_dense")
+        else:
+            final_state_proj = final_state
+            
         if self.num_layers == 1:
-            encoder_state = tf.nn.rnn_cell.LSTMStateTuple(c=final_state, h=final_state)
+            encoder_state = tf.nn.rnn_cell.LSTMStateTuple(c=final_state_proj, h=final_state_proj)
         else:
             encoder_state = tuple([
-                tf.nn.rnn_cell.LSTMStateTuple(c=final_state, h=final_state)
+                tf.nn.rnn_cell.LSTMStateTuple(c=final_state_proj, h=final_state_proj)
                 for _ in range(self.num_layers)
             ])
         

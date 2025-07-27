@@ -72,7 +72,8 @@ def scan_directory(root_dir):
     excluded_files = [
         'verify_encoder_replacement.py',
         'test_encoder_compatibility.py',
-        'graph2seq_encoder.py'
+        'graph2seq_encoder.py',
+        'comprehensive_encoder_verification.py'  # This file contains references in strings
     ]
     
     for root, dirs, files in os.walk(root_dir):
