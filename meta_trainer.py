@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import time
 from utils import logger
+from automated_reporting import create_training_report
 
 class Trainer(object):
     def __init__(self,algo,
@@ -34,6 +35,11 @@ class Trainer(object):
         avg_ret = []
         avg_loss = []
         avg_latencies = []
+        
+        # Additional metrics for comprehensive reporting
+        policy_losses_all = []
+        value_losses_all = []
+        greedy_latencies_all = []
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -46,6 +52,7 @@ class Trainer(object):
 
             greedy_run_time = [self.greedy_finish_time[x] for x in task_ids]
             logger.logkv('Average greedy latency,', np.mean(greedy_run_time))
+            greedy_latencies_all.append(np.mean(greedy_run_time))
 
             """ ----------------- Processing Samples ---------------------"""
             logger.log("Processing samples...")
@@ -57,8 +64,10 @@ class Trainer(object):
             #print("task losses: ", losses)
             print("average task losses: ", np.mean(policy_losses))
             avg_loss.append(np.mean(policy_losses))
+            policy_losses_all.append(np.mean(policy_losses))
 
             print("average value losses: ", np.mean(value_losses))
+            value_losses_all.append(np.mean(value_losses))
 
             """ ------------------ Resample from updated sub-task policy ------------"""
             print("Evaluate the one-step update for sub-task policy")
@@ -96,6 +105,27 @@ class Trainer(object):
                 self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_"+str(itr)+".ckpt")
 
         self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_final.ckpt")
+
+        # Generate automated report
+        try:
+            print("\n==================== GENERATING AUTOMATED REPORT ====================")
+            additional_metrics = {
+                'policy_losses': policy_losses_all,
+                'value_losses': value_losses_all,
+                'greedy_latencies': greedy_latencies_all
+            }
+            
+            report_dir = create_training_report(
+                avg_ret=avg_ret,
+                avg_loss=avg_loss,
+                avg_latencies=avg_latencies,
+                additional_metrics=additional_metrics
+            )
+            print(f"Report generated successfully at: {report_dir}")
+            print("=====================================================================\n")
+        except Exception as e:
+            print(f"WARNING: Failed to generate automated report: {str(e)}")
+            print("Training completed successfully but report generation failed.")
 
         return avg_ret, avg_loss, avg_latencies
 
