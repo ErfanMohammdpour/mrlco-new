@@ -43,27 +43,41 @@ class Graph2SeqEncoderAdapter:
         seq_len = tf.shape(sequence_inputs)[1]
         feature_dim = tf.shape(sequence_inputs)[2]
         
-        # Create fully connected graph adjacency (each node connected to all others)
-        # For sequences, we can use temporal adjacency (each node connected to previous/next)
-        # Forward adjacency: each node connected to next nodes
-        fw_adj = []
-        bw_adj = []
+        # Total number of nodes across all batches
+        total_nodes = batch_size * seq_len
         
-        # Create adjacency lists for sequential connections
-        # Each position connects to its neighbors within a window
-        window_size = min(5, seq_len)  # Connect to up to 5 neighbors
+        # Create adjacency info for fully connected graph within each sequence
+        # Each node connects to all nodes in its sequence
         
-        # Placeholder for actual graph construction - for now using fully connected
-        # In practice, you might want to use attention scores or learned adjacency
-        all_indices = tf.range(seq_len)
-        fw_adj_info = tf.tile(tf.expand_dims(all_indices, 0), [batch_size * seq_len, 1])
-        bw_adj_info = tf.tile(tf.expand_dims(all_indices, 0), [batch_size * seq_len, 1])
+        # Method: Create an adjacency matrix where each node points to all nodes in its sequence
+        # For node i in batch b, it connects to nodes [b*seq_len, (b+1)*seq_len)
         
-        # Flatten sequence for graph processing
-        feature_info = tf.reshape(sequence_inputs, [batch_size * seq_len, feature_dim])
+        # Create base indices for one sequence
+        seq_indices = tf.range(seq_len)
         
-        # Create batch nodes tensor
-        batch_nodes = tf.reshape(tf.range(batch_size * seq_len), [batch_size, seq_len])
+        # Tile to create adjacency for all nodes
+        # Shape: [seq_len, seq_len] - each row is the adjacency list for that position
+        single_seq_adj = tf.tile(tf.expand_dims(seq_indices, 0), [seq_len, 1])
+        
+        # Create batch offsets
+        # Shape: [batch_size, 1, 1]
+        batch_offsets = tf.reshape(tf.range(batch_size) * seq_len, [batch_size, 1, 1])
+        
+        # Expand single sequence adjacency to all batches
+        # Shape: [batch_size, seq_len, seq_len]
+        batch_adj = tf.expand_dims(single_seq_adj, 0) + batch_offsets
+        
+        # Reshape to [total_nodes, seq_len]
+        fw_adj_info = tf.reshape(batch_adj, [total_nodes, seq_len])
+        bw_adj_info = fw_adj_info  # Same for backward
+        
+        # Flatten sequence features for graph processing
+        # Shape: [total_nodes, feature_dim]
+        feature_info = tf.reshape(sequence_inputs, [total_nodes, feature_dim])
+        
+        # Create batch nodes tensor - identifies which nodes belong to which batch
+        # Shape: [batch_size, seq_len]
+        batch_nodes = tf.reshape(tf.range(total_nodes), [batch_size, seq_len])
         
         return fw_adj_info, bw_adj_info, feature_info, batch_nodes
         
@@ -101,9 +115,10 @@ class Graph2SeqEncoderAdapter:
         if self.bidirectional:
             bw_sampled_neighbors = bw_sampler((nodes, sample_size_per_layer))
         
-        fw_sampled_neighbors_len = tf.constant(seq_len, shape=[batch_size * seq_len])
+        # Create neighbor length tensors - all nodes have access to full sequence
+        fw_sampled_neighbors_len = tf.fill([batch_size * seq_len], seq_len)
         if self.bidirectional:
-            bw_sampled_neighbors_len = tf.constant(seq_len, shape=[batch_size * seq_len])
+            bw_sampled_neighbors_len = tf.fill([batch_size * seq_len], seq_len)
         
         # Graph convolution layers
         for layer in range(self.sample_layer_size):
