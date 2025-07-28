@@ -134,7 +134,12 @@ class AutomatedReporter:
     
     def _generate_plots(self, metrics_data, report_dir):
         """Generate plots for all metrics."""
-        plt.style.use('seaborn-v0_8-darkgrid')
+        # Use a matplotlib style that's available in older versions
+        try:
+            plt.style.use('seaborn-darkgrid')
+        except:
+            # Fallback to default if seaborn style not available
+            plt.style.use('default')
         
         for metric_name, values in metrics_data.items():
             if len(values) > 0:

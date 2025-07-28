@@ -47,6 +47,8 @@ class MRLCO():
 
         self.surr_obj = []
         self.vf_loss = []
+        self.likelihood_ratio = []
+        self.clipped_obj = []
         self.total_loss = []
         self._train = []
 
@@ -69,11 +71,13 @@ class MRLCO():
 
             with tf.compat.v1.variable_scope("inner_update_parameters_task_"+str(i)) as scope:
                 likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(self.actions[i], self.old_logits[i], self.new_logits[i])
+                self.likelihood_ratio.append(likelihood_ratio)
 
                 clipped_obj = tf.minimum(likelihood_ratio * self.advs[i] ,
                                          tf.clip_by_value(likelihood_ratio,
                                                           1.0 - self.clip_value,
                                                           1.0 + self.clip_value) * self.advs[i])
+                self.clipped_obj.append(clipped_obj)
                 self.surr_obj.append(-tf.reduce_mean(clipped_obj))
 
                 vpredclipped = self.vpred[i] + tf.clip_by_value(self.vpred[i] - self.old_v[i], -self.clip_value, self.clip_value)
@@ -179,7 +183,21 @@ class MRLCO():
                             self.decoder_inputs[task_id]: shift_actions,
                              self.decoder_full_length[task_id]: decoder_full_length, self.advs[task_id]: advs, self.r[task_id]: r}
 
-                _, value_loss, policy_loss = sess.run([self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id]], feed_dict=feed_dict)
+                _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
+                    [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id], 
+                     self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]], 
+                    feed_dict=feed_dict)
+                
+                # Debug logging
+                if i == 0 and task_id == 0:  # Log only for first iteration and task
+                    print(f"\n[DEBUG] Loss calculation details:")
+                    print(f"  Policy loss (surr_obj): {policy_loss}")
+                    print(f"  Value loss: {value_loss}")
+                    print(f"  Likelihood ratio mean: {np.mean(likelihood_ratio_val)}")
+                    print(f"  Likelihood ratio std: {np.std(likelihood_ratio_val)}")
+                    print(f"  Advantages mean: {np.mean(advs_val)}")
+                    print(f"  Advantages std: {np.std(advs_val)}")
+                    print(f"  Clipped objective mean: {np.mean(clipped_obj_val)}")
 
                 vf_loss += value_loss
                 pg_loss += policy_loss

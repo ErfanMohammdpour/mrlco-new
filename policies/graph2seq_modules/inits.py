@@ -16,6 +16,8 @@ def glorot(shape, name=None):
     """Glorot & Bengio (AISTATS 2010) init."""
     init_range = np.sqrt(6.0/(shape[0]+shape[1]))
     initial = tf.random_uniform(shape, minval=-init_range, maxval=init_range, dtype=tf.float32)
+    # Scale down initialization for better gradient flow with Graph2Seq
+    initial = initial * 0.5
     return tf.Variable(initial, name=name)
 
 
