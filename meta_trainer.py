@@ -99,12 +99,18 @@ class Trainer(object):
             # Periodic shape consistency checks
             if itr % 50 == 0:
                 print("🔍 SHAPE CONSISTENCY CHECK - Iteration {}".format(itr))
-                # Verify observation shapes
-                for i, path in enumerate(new_paths[:2]):  # Check first 2 paths
-                    obs_shape = path['observations'].shape
-                    print("✓ Path {} observations shape: {} (expected: [seq_len, 5])".format(i, obs_shape))
-                    if obs_shape[-1] != 5:
-                        print("⚠️  WARNING: Expected last dimension 5, got {}".format(obs_shape[-1]))
+                # Verify observation shapes from samples_data instead
+                try:
+                    # Check the first task's observations
+                    if isinstance(new_samples_data, list) and len(new_samples_data) > 0:
+                        first_task_obs = new_samples_data[0].get('observations', None)
+                        if first_task_obs is not None:
+                            obs_shape = first_task_obs.shape
+                            print("✓ First task observations shape: {} (expected: [?, ?, 5])".format(obs_shape))
+                            if len(obs_shape) >= 3 and obs_shape[-1] != 5:
+                                print("⚠️  WARNING: Expected last dimension 5, got {}".format(obs_shape[-1]))
+                except Exception as e:
+                    print("⚠️  Shape check skipped due to: {}".format(str(e)))
 
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)

@@ -62,6 +62,11 @@ class FeatureTransformer:
             task_indices = tf.cast(old_features[:, :, 0], tf.int32)  # [batch_size, seq_len]
             cost_vector = old_features[:, :, 1:5]  # [batch_size, seq_len, 4]
             
+            # Handle invalid task indices (-1 used for padding)
+            # Clip task indices to valid range [0, max_task_id]
+            task_indices = tf.maximum(task_indices, 0)
+            task_indices = tf.minimum(task_indices, self.max_task_id)
+            
             # 1. Cost vector (4 scalars) -> shared MLP -> cost_embed (64 dims)
             # Dense(4->32) -> ReLU -> LayerNorm -> Dense(32->64)
             cost_hidden = self.cost_dense1(cost_vector)  # [batch_size, seq_len, 32]
