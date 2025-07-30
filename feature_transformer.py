@@ -34,7 +34,7 @@ class FeatureTransformer:
             
             # Task index embedding: Embedding(num_ids=max_id+1, dim=8)
             self.task_embedding = tf.Variable(
-                tf.random.uniform([self.max_task_id + 1, 8], -0.1, 0.1),
+                tf.random_uniform([self.max_task_id + 1, 8], -0.1, 0.1),
                 name="task_embedding_matrix",
                 dtype=tf.float32
             )
@@ -47,9 +47,9 @@ class FeatureTransformer:
         Transform old 17-dim features to new 72-dim features.
         
         Args:
-            old_features: Tensor of shape [batch_size, seq_len, 17]
+            old_features: Tensor of shape [batch_size, seq_len, 5]
                          Format: [task_index, local_process_cost, up_link_cost, 
-                                 mec_process_cost, down_link_cost, pre_tasks..., succ_tasks...]
+                                 mec_process_cost, down_link_cost]
         
         Returns:
             new_features: Tensor of shape [batch_size, seq_len, 72]
@@ -83,17 +83,17 @@ class FeatureTransformer:
     
     def add_shape_check(self, tensor, expected_shape_suffix, name):
         """Add shape consistency check"""
-        with tf.name_scope(f"shape_check_{name}"):
+        with tf.name_scope("shape_check_" + name):
             actual_shape = tf.shape(tensor)
             expected_last_dim = expected_shape_suffix[-1]
             
             check_op = tf.assert_equal(
                 actual_shape[-1], expected_last_dim,
-                message=f"Shape mismatch in {name}: expected last dim {expected_last_dim}"
+                message="Shape mismatch in " + name
             )
             
             with tf.control_dependencies([check_op]):
-                return tf.identity(tensor, name=f"checked_{name}")
+                return tf.identity(tensor, name="checked_" + name)
 
 
 def create_feature_transformer(max_task_id, training=True):
@@ -110,16 +110,16 @@ def add_shape_consistency_check(tensor, expected_shape, checkpoint_name):
         expected_shape: Expected shape (can use None for dynamic dimensions)
         checkpoint_name: Name for this checkpoint
     """
-    with tf.name_scope(f"shape_check_{checkpoint_name}"):
+    with tf.name_scope("shape_check_" + checkpoint_name):
         actual_shape = tf.shape(tensor)
         
         # Check the last dimension (feature dimension)
         if expected_shape[-1] is not None:
             check_op = tf.assert_equal(
                 actual_shape[-1], expected_shape[-1],
-                message=f"Shape check failed at {checkpoint_name}: expected last dim {expected_shape[-1]}, got {actual_shape[-1]}"
+                message="Shape check failed at " + checkpoint_name
             )
             with tf.control_dependencies([check_op]):
-                return tf.identity(tensor, name=f"shape_checked_{checkpoint_name}")
+                return tf.identity(tensor, name="shape_checked_" + checkpoint_name)
         
         return tensor
