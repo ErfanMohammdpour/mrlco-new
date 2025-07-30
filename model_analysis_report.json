@@ -1,0 +1,211 @@
+{
+  "pipeline_analysis": {
+    "timestamp": "2025-07-29",
+    "analysis_version": "1.0",
+    "data_source": "./data.csv",
+    "summary_source": "./summary.txt"
+  },
+  
+  "1_data_dimensions": {
+    "data_shape": [1000, 7],
+    "num_samples": 1000,
+    "num_features": 7,
+    "columns": [
+      {"name": "iteration", "dtype": "float64", "non_null": 1000},
+      {"name": "average_reward", "dtype": "float64", "non_null": 1000},
+      {"name": "average_loss", "dtype": "float64", "non_null": 1000},
+      {"name": "average_latency", "dtype": "float64", "non_null": 1000},
+      {"name": "policy_losses", "dtype": "float64", "non_null": 1000},
+      {"name": "value_losses", "dtype": "float64", "non_null": 1000},
+      {"name": "greedy_latencies", "dtype": "float64", "non_null": 1000}
+    ]
+  },
+  
+  "2_encoder_structure": {
+    "encoder_type": "Graph2SeqEncoderAdapter",
+    "input_tensor_shape": "[batch_size, seq_len, input_dim]",
+    "key_dimensions": {
+      "embedding_dim": "encoder_units (128 in default config)",
+      "hidden_dim": "encoder_units",
+      "num_gcn_layers": 2,
+      "concat_mode": true,
+      "dropout": "0.1 in train mode, 0.0 otherwise"
+    },
+    "sequence_to_graph_conversion": {
+      "method": "fully_connected_within_sequence",
+      "node_representation": "flattened sequence features",
+      "adjacency": "each node connects to all nodes in its sequence"
+    },
+    "output_projection": {
+      "state_size": "2 * hidden_dim (or 4 * hidden_dim if bidirectional)",
+      "projection_to_decoder": "dense layer to match decoder_units if needed"
+    },
+    "positional_encoding": "Not explicitly used - graph structure encodes position implicitly"
+  },
+  
+  "3_attention_module": {
+    "attention_type": "LuongAttention",
+    "attention_enabled": true,
+    "attention_params": {
+      "num_units": "decoder_hidden_unit",
+      "attention_states": "encoder_outputs",
+      "attention_layer_size": "decoder_hidden_unit"
+    },
+    "attention_wrapper": {
+      "wraps": "decoder_cell",
+      "initial_state": "zero_state cloned with encoder_state as cell_state"
+    },
+    "shape_info": {
+      "attention_states_shape": "[batch_size, max_time, num_units]",
+      "attention_mechanism": "dot product scoring"
+    }
+  },
+  
+  "4_decoder_structure": {
+    "decoder_type": "BasicDecoder with LSTM cells",
+    "num_layers": 2,
+    "unit_type": "lstm",
+    "decoder_units": 128,
+    "decoder_modes": {
+      "train": "TrainingHelper with teacher forcing",
+      "sample": "FixedSequenceLearningSampleEmbedingHelper",
+      "greedy": "GreedyEmbeddingHelper"
+    },
+    "output_layer": {
+      "type": "Dense",
+      "units": "vocab_size (2 for binary offloading decisions)",
+      "use_bias": false
+    },
+    "decoder_outputs": {
+      "rnn_output": "logits of shape [batch_size, seq_len, vocab_size]",
+      "sample_id": "predicted actions"
+    }
+  },
+  
+  "5_graph_chain_structure": {
+    "graph_representation": "Task dependency graphs with 20 nodes",
+    "graph_files": 19,
+    "nodes_per_graph": 20,
+    "graph_structure": {
+      "type": "random DAG",
+      "node_features": 17,
+      "edge_representation": "implicit in sequence order"
+    },
+    "meta_batch_size": 10,
+    "graphs_per_meta_task": "sampled from 19 available graph types",
+    "17_node_features_detailed": {
+      "description": "Each task node is represented by a 17-dimensional feature vector",
+      "features": [
+        {"index": 0, "name": "task_index", "description": "Current task ID (i)"},
+        {"index": 1, "name": "local_process_cost", "description": "Local processing cost = processing_data_size / mobile_process_capable"},
+        {"index": 2, "name": "up_link_cost", "description": "Uplink transmission cost to MEC server"},
+        {"index": 3, "name": "mec_process_cost", "description": "MEC server processing cost = processing_data_size / mec_process_capable"},
+        {"index": 4, "name": "down_link_cost", "description": "Downlink transmission cost from MEC server"},
+        {"index": 5, "name": "predecessor_1", "description": "Index of 1st predecessor task (-1 if none)"},
+        {"index": 6, "name": "predecessor_2", "description": "Index of 2nd predecessor task (-1 if none)"},
+        {"index": 7, "name": "predecessor_3", "description": "Index of 3rd predecessor task (-1 if none)"},
+        {"index": 8, "name": "predecessor_4", "description": "Index of 4th predecessor task (-1 if none)"},
+        {"index": 9, "name": "predecessor_5", "description": "Index of 5th predecessor task (-1 if none)"},
+        {"index": 10, "name": "predecessor_6", "description": "Index of 6th predecessor task (-1 if none)"},
+        {"index": 11, "name": "successor_1", "description": "Index of 1st successor task (-1 if none)"},
+        {"index": 12, "name": "successor_2", "description": "Index of 2nd successor task (-1 if none)"},
+        {"index": 13, "name": "successor_3", "description": "Index of 3rd successor task (-1 if none)"},
+        {"index": 14, "name": "successor_4", "description": "Index of 4th successor task (-1 if none)"},
+        {"index": 15, "name": "successor_5", "description": "Index of 5th successor task (-1 if none)"},
+        {"index": 16, "name": "successor_6", "description": "Index of 6th successor task (-1 if none)"}
+      ],
+      "feature_construction_code": "task_embeding_vector = [i, local_process_cost, up_link_cost, mec_process_cost, down_link_cost] + pre_task_index_set[0:6] + succs_task_index_set[0:6]"
+    }
+  },
+  
+  "6_ppo_hyperparameters": {
+    "algorithm": "PPO with meta-learning (MRLCO)",
+    "discount_factor_gamma": "Not explicitly shown - implicit in advantage calculation",
+    "gae_lambda": "Not used - using value function baseline",
+    "clipping_epsilon": 0.2,
+    "learning_rates": {
+      "inner_lr": 0.1,
+      "outer_lr": 0.0001,
+      "ppo_lr": 0.0001
+    },
+    "optimizers": {
+      "inner_optimizer": "AdamOptimizer",
+      "outer_optimizer": "AdamOptimizer",
+      "ppo_optimizer": "AdamOptimizer with epsilon=1e-5"
+    },
+    "num_inner_grad_steps": 4,
+    "batch_size": 50,
+    "inner_batch_size": 500,
+    "meta_batch_size": 10,
+    "value_function_coefficient": 0.5,
+    "max_grad_norm": 0.5
+  },
+  
+  "7_training_loop_details": {
+    "total_iterations": 1000,
+    "epochs_per_iteration": 1,
+    "meta_learning_structure": {
+      "outer_loop": "meta-policy updates using MRLCO",
+      "inner_loop": "task-specific PPO updates"
+    },
+    "sampling_strategy": {
+      "type": "on-policy",
+      "rollouts_per_meta_task": 1,
+      "max_path_length": 20000,
+      "parallel": false
+    },
+    "update_schedule": {
+      "inner_updates": "4 gradient steps per task",
+      "outer_updates": "1 meta-update after all tasks",
+      "batch_sampling": "split data into batches of size 50"
+    },
+    "save_interval": 100,
+    "evaluation": "resample after inner updates to evaluate performance"
+  },
+  
+  "8_baseline_value_network": {
+    "baseline_type": "ValueFunctionBaseline",
+    "architecture": {
+      "description": "Uses value predictions from main policy network",
+      "input_dimension": "same as policy network input",
+      "output_dimension": 1,
+      "implementation": "Integrated into Seq2SeqNetwork as self.vf"
+    },
+    "value_computation": {
+      "method": "weighted sum of Q-values",
+      "formula": "vf = sum(pi * q) over actions",
+      "q_network": "shared dense layer with policy"
+    },
+    "usage": {
+      "advantage_estimation": "A = R - V(s)",
+      "clipped_value_loss": "max(clip(V-V_old), V-R)^2"
+    }
+  },
+  
+  "summary_statistics": {
+    "average_reward": {
+      "mean": -6.587081,
+      "min": -10.039188,
+      "max": -4.624717,
+      "std": 1.359609
+    },
+    "average_latency": {
+      "mean": 949.229937,
+      "min": 676.469644,
+      "max": 1450.682185,
+      "std": 193.114043
+    },
+    "value_losses": {
+      "mean": 0.420336,
+      "min": 0.086646,
+      "max": 16.551697,
+      "std": 1.225254
+    },
+    "greedy_latencies": {
+      "mean": 822.325239,
+      "min": 794.496111,
+      "max": 853.594789,
+      "std": 10.570034
+    }
+  }
+}

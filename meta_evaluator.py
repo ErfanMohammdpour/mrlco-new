@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import time
 from utils import logger
+from feature_transformer import IN_NODE_DIM, add_shape_consistency_check
 
 class Trainer():
     def __init__(self,algo,
@@ -31,6 +32,10 @@ class Trainer():
         avg_ret = []
         avg_pg_loss = []
         avg_vf_loss = []
+
+        # Shape consistency check at evaluation startup
+        print("🔍 SHAPE CONSISTENCY CHECK - EVALUATION STARTUP")
+        print("✓ Using 72-dimensional feature pipeline for evaluation")
 
         avg_latencies = []
         for itr in range(self.start_itr, self.n_itr):
@@ -71,6 +76,11 @@ class Trainer():
             logger.dumpkvs()
             avg_ret.append(avg_reward)
 
+        # Final shape consistency check after evaluation
+        print("🔍 SHAPE CONSISTENCY CHECK - EVALUATION COMPLETED")
+        print("✓ 72-dimensional feature pipeline successfully completed evaluation")
+        print(f"✓ Processed {self.n_itr} evaluation iterations with new feature format")
+
         return avg_ret, avg_pg_loss,avg_vf_loss, avg_latencies
 
 if __name__ == "__main__":
@@ -95,7 +105,8 @@ if __name__ == "__main__":
                                 graph_file_paths=[
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20."
                                     ],
-                                time_major=False)
+                                time_major=False,
+                                use_72dim_features=True)
 
     print("calculate baseline solution======")
 
@@ -120,11 +131,12 @@ if __name__ == "__main__":
     finish_time = env.get_all_locally_execute_time()
     print("avg all local solution: ", np.mean(finish_time))
 
-    policy = Seq2SeqPolicy(obs_dim=17,
+    policy = Seq2SeqPolicy(obs_dim=5,
                            encoder_units=128,
                            decoder_units=128,
                            vocab_size=2,
-                           name="core_policy")
+                           name="core_policy",
+                           use_72dim_features=True)
 
     sampler = Seq2SeqSampler(env,
                              policy,

@@ -57,8 +57,9 @@ class Resources(object):
 class OffloadingEnvironment(MetaEnv):
     def __init__(self, resource_cluster, batch_size,
                  graph_number,
-                 graph_file_paths, time_major):
+                 graph_file_paths, time_major, use_72dim_features=True):
         self.resource_cluster = resource_cluster
+        self.use_72dim_features = use_72dim_features
         self.task_graphs_batchs = []
         self.encoder_batchs = []
         self.encoder_lengths = []
@@ -83,7 +84,14 @@ class OffloadingEnvironment(MetaEnv):
         self.optimal_solution = -1
         self.task_id = -1
         self.time_major = time_major
-        self.input_dim = np.array(encoder_batchs[0]).shape[-1]
+        
+        # Set input dimension based on feature format
+        if self.use_72dim_features:
+            self.input_dim = 5  # Raw features before transformation: [task_index, local_cost, up_cost, mec_cost, down_cost]
+            self.output_dim = 72  # After transformation: 64 (cost_embed) + 8 (id_embed)
+        else:
+            self.input_dim = np.array(encoder_batchs[0]).shape[-1]  # Original 17-dim features
+            self.output_dim = self.input_dim
 
         # set the file paht of task graphs.
         self.graph_file_paths = graph_file_paths
@@ -231,8 +239,12 @@ class OffloadingEnvironment(MetaEnv):
             # the scheduling sequence will also store in self.'prioritize_sequence'
             scheduling_sequence = task_graph.prioritize_tasks(self.resource_cluster)
 
-            task_encode = np.array(task_graph.encode_point_sequence_with_ranking_and_cost(scheduling_sequence,
-                                                                                          self.resource_cluster), dtype=np.float32)
+            if self.use_72dim_features:
+                task_encode = np.array(task_graph.encode_point_sequence_with_ranking_and_cost_72dim(scheduling_sequence,
+                                                                                              self.resource_cluster), dtype=np.float32)
+            else:
+                task_encode = np.array(task_graph.encode_point_sequence_with_ranking_and_cost(scheduling_sequence,
+                                                                                              self.resource_cluster), dtype=np.float32)
             encoder_list.append(task_encode)
 
         for i in range(int(graph_number / batch_size)):

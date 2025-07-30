@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 import policies.model_helper as model_helper
 from policies.graph2seq_encoder import create_graph2seq_encoder
+from feature_transformer import FeatureTransformer, IN_NODE_DIM, add_shape_consistency_check
 
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
@@ -67,11 +68,13 @@ class Seq2SeqNetwork():
                  encoder_inputs,
                  decoder_inputs,
                  decoder_full_length,
-                 decoder_targets):
+                 decoder_targets,
+                 use_72dim_features=True):
         self.encoder_hidden_unit = hparams.encoder_units
         self.decoder_hidden_unit = hparams.decoder_units
         self.is_bidencoder = hparams.is_bidencoder
         self.reuse = reuse
+        self.use_72dim_features = use_72dim_features
 
         self.n_features = hparams.n_features
         self.time_major = hparams.time_major
@@ -102,12 +105,45 @@ class Seq2SeqNetwork():
                  self.encoder_hidden_unit],
                 -1.0, 1.0), dtype=tf.float32)
 
-            # using a fully connected layer as embeddings
-            self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
+            # Feature transformation and embedding processing
+            if self.use_72dim_features:
+                # Shape check: input features should be 5-dimensional
+                encoder_inputs_checked = add_shape_consistency_check(
+                    self.encoder_inputs, [None, None, 5], "input_features"
+                )
+                
+                # Apply feature transformer to convert 5-dim to 72-dim
+                with tf.variable_scope("feature_transformer", reuse=tf.AUTO_REUSE):
+                    # Calculate max task ID from the data (assuming reasonable task count)
+                    max_task_id = 1000  # Adjust based on your dataset
+                    feature_transformer = FeatureTransformer(
+                        max_task_id=max_task_id, 
+                        training=(self.mode == tf.contrib.learn.ModeKeys.TRAIN)
+                    )
+                    transformed_features = feature_transformer.transform(encoder_inputs_checked)
+                
+                # Shape check: transformed features should be 72-dimensional  
+                transformed_features = add_shape_consistency_check(
+                    transformed_features, [None, None, IN_NODE_DIM], "transformed_features"
+                )
+                
+                # Use transformed features as encoder input
+                encoder_input_for_embedding = transformed_features
+            else:
+                # Use original features (17-dim)
+                encoder_input_for_embedding = self.encoder_inputs
+
+            # Using a fully connected layer as embeddings
+            self.encoder_embeddings = tf.contrib.layers.fully_connected(encoder_input_for_embedding,
                                                                         self.encoder_hidden_unit,
                                                                         activation_fn = None,
                                                                         scope="encoder_embeddings",
                                                                         reuse=tf.compat.v1.AUTO_REUSE)
+
+            # Shape check: encoder embeddings
+            self.encoder_embeddings = add_shape_consistency_check(
+                self.encoder_embeddings, [None, None, self.encoder_hidden_unit], "encoder_embeddings"
+            )
 
             self.decoder_embeddings = tf.nn.embedding_lookup(self.embeddings,
                                                              self.decoder_inputs)
@@ -126,6 +162,11 @@ class Seq2SeqNetwork():
                 is_bidirectional=self.is_bidencoder,
                 mode=self.mode,
                 scope_name="encoder"
+            )
+            
+            # Shape check: encoder outputs
+            self.encoder_outputs = add_shape_consistency_check(
+                self.encoder_outputs, [None, None, None], "encoder_outputs"  # Variable last dim due to bidirectional
             )
 
             # training decoder
@@ -369,7 +410,7 @@ class Seq2SeqNetwork():
 
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
-                 decoder_units, vocab_size, name="pi"):
+                 decoder_units, vocab_size, name="pi", use_72dim_features=True):
         self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
         self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
         self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
@@ -400,7 +441,7 @@ class Seq2SeqPolicy():
                  encoder_inputs=self.obs,
                  decoder_inputs=self.decoder_inputs,
                  decoder_full_length=self.decoder_full_length,
-                 decoder_targets=self.decoder_targets,name = name)
+                 decoder_targets=self.decoder_targets,name = name, use_72dim_features=use_72dim_features)
 
         self.vf = self.network.vf
 
@@ -461,13 +502,13 @@ class Seq2SeqPolicy():
 
 class MetaSeq2SeqPolicy():
     def __init__(self, meta_batch_size, obs_dim, encoder_units, decoder_units,
-                 vocab_size):
+                 vocab_size, use_72dim_features=True):
 
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
 
-        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy')
+        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy', use_72dim_features=use_72dim_features)
 
 
         self.meta_policies = []
@@ -476,7 +517,7 @@ class MetaSeq2SeqPolicy():
 
         for i in range(meta_batch_size):
             self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
-                                                    vocab_size, name="task_"+str(i)+"_policy"))
+                                                    vocab_size, name="task_"+str(i)+"_policy", use_72dim_features=use_72dim_features))
 
             self.assign_old_eq_new_tasks.append(
                 U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
