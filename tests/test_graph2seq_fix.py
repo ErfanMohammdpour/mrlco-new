@@ -1,6 +1,11 @@
 """
 Test the Graph2Seq encoder fix for TensorFlow graph mode compatibility.
 """
+import os
+import sys
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import tensorflow as tf
 import numpy as np
 from policies.meta_seq2seq_policy import Seq2SeqPolicy, MetaSeq2SeqPolicy

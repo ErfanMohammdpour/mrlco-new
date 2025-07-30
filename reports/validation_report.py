@@ -5,14 +5,18 @@ This script validates that all components have been correctly modified
 according to the specifications in test.txt.
 """
 import os
+import sys
 import re
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def validate_feature_transformer():
     """Validate the feature transformer implementation"""
     print("🔍 VALIDATING FEATURE TRANSFORMER")
     print("-" * 50)
     
-    feature_transformer_path = "feature_transformer.py"
+    feature_transformer_path = "../feature_transformer.py"
     if not os.path.exists(feature_transformer_path):
         print("❌ feature_transformer.py not found")
         return False
@@ -47,7 +51,7 @@ def validate_task_graph_modifications():
     print("\n🔍 VALIDATING TASK GRAPH MODIFICATIONS")
     print("-" * 50)
     
-    task_graph_path = "env/mec_offloaing_envs/offloading_task_graph.py"
+    task_graph_path = "../env/mec_offloaing_envs/offloading_task_graph.py"
     if not os.path.exists(task_graph_path):
         print("❌ offloading_task_graph.py not found")
         return False
@@ -77,7 +81,7 @@ def validate_environment_modifications():
     print("\n🔍 VALIDATING ENVIRONMENT MODIFICATIONS")
     print("-" * 50)
     
-    env_path = "env/mec_offloaing_envs/offloading_env.py"
+    env_path = "../env/mec_offloaing_envs/offloading_env.py"
     if not os.path.exists(env_path):
         print("❌ offloading_env.py not found")
         return False
@@ -107,7 +111,7 @@ def validate_policy_modifications():
     print("\n🔍 VALIDATING POLICY MODIFICATIONS")
     print("-" * 50)
     
-    policy_path = "policies/meta_seq2seq_policy.py"
+    policy_path = "../policies/meta_seq2seq_policy.py"
     if not os.path.exists(policy_path):
         print("❌ meta_seq2seq_policy.py not found")
         return False
@@ -139,7 +143,7 @@ def validate_trainer_modifications():
     print("\n🔍 VALIDATING TRAINER MODIFICATIONS")
     print("-" * 50)
     
-    trainer_path = "meta_trainer.py"
+    trainer_path = "../meta_trainer.py"
     if not os.path.exists(trainer_path):
         print("❌ meta_trainer.py not found")
         return False
@@ -169,7 +173,7 @@ def validate_evaluator_modifications():
     print("\n🔍 VALIDATING EVALUATOR MODIFICATIONS")
     print("-" * 50)
     
-    evaluator_path = "meta_evaluator.py"
+    evaluator_path = "../meta_evaluator.py"
     if not os.path.exists(evaluator_path):
         print("❌ meta_evaluator.py not found")
         return False

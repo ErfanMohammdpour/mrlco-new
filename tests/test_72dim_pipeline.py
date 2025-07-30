@@ -7,8 +7,8 @@ import numpy as np
 import os
 import sys
 
-# Add current directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from feature_transformer import FeatureTransformer, IN_NODE_DIM, add_shape_consistency_check
 from env.mec_offloaing_envs.offloading_env import Resources, OffloadingEnvironment
