@@ -126,7 +126,7 @@ class Trainer(object):
 
         # Final shape consistency check after training
         print("🔍 SHAPE CONSISTENCY CHECK - TRAINING COMPLETED")
-        print("✓ 72-dimensional feature pipeline successfully completed training")
+        print("✓ 40-dimensional feature pipeline successfully completed training")
         print("✓ Processed {} iterations with new feature format".format(self.n_itr))
 
         # Generate automated report
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     baseline = ValueFunctionBaseline()
 
-    # Use 5-dim input (raw features) that will be transformed to 72-dim internally
+    # Use 5-dim input (raw features) that will be transformed to 40-dim internally
     meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=5, encoder_units=128, decoder_units=128,
                                     vocab_size=2, use_72dim_features=True)
 
@@ -262,7 +262,7 @@ if __name__ == "__main__":
             # Test if the feature transformation works correctly
             dummy_actions, dummy_logits, dummy_values = meta_policy.get_actions(test_obs_list)
             print("✓ Input shape check passed: Meta batch size {}, seq_len 10, features 5".format(META_BATCH_SIZE))
-            print("✓ Feature pipeline working correctly with 72-dim transformation")
+            print("✓ Feature pipeline working correctly with 40-dim transformation")
         except Exception as e:
             print("⚠️  Shape check warning: {}".format(str(e)))
             print("Continuing with training...")

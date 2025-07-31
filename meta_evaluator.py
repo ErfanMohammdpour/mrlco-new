@@ -35,7 +35,7 @@ class Trainer():
 
         # Shape consistency check at evaluation startup
         print("🔍 SHAPE CONSISTENCY CHECK - EVALUATION STARTUP")
-        print("✓ Using 72-dimensional feature pipeline for evaluation")
+        print("✓ Using 40-dimensional feature pipeline for evaluation")
 
         avg_latencies = []
         for itr in range(self.start_itr, self.n_itr):
@@ -78,7 +78,7 @@ class Trainer():
 
         # Final shape consistency check after evaluation
         print("🔍 SHAPE CONSISTENCY CHECK - EVALUATION COMPLETED")
-        print("✓ 72-dimensional feature pipeline successfully completed evaluation")
+        print("✓ 40-dimensional feature pipeline successfully completed evaluation")
         print(f"✓ Processed {self.n_itr} evaluation iterations with new feature format")
 
         return avg_ret, avg_pg_loss,avg_vf_loss, avg_latencies

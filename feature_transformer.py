@@ -1,20 +1,21 @@
 """
-Feature transformation module for converting 17-dim features to 72-dim features.
+Feature transformation module for converting 17-dim features to 40-dim features.
 This module handles the transformation from old node features to new enhanced features.
 """
 import tensorflow as tf
 import numpy as np
 
-# Global constant for new node feature dimensions
-IN_NODE_DIM = 72
+# Global constants for new node feature dimensions
+COST_EMBED_DIM = 32
+IN_NODE_DIM = 40  # 32 + 8
 
 class FeatureTransformer:
     """
-    Transforms node features from the original format to the new 72-dimensional format.
+    Transforms node features from the original format to the new 40-dimensional format.
     
     Original format: [task_index, local_process_cost, up_link_cost, mec_process_cost, down_link_cost, 
                      pre_task_indices..., succ_task_indices...]
-    New format: cost_embed (64) + id_embed (8) = 72 dimensions
+    New format: cost_embed (32) + id_embed (8) = 40 dimensions
     """
     
     def __init__(self, max_task_id, training=True, name="feature_transformer"):
@@ -23,11 +24,11 @@ class FeatureTransformer:
         self.name = name
         
         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
-            # Shared MLP for cost embedding: Dense(4->32) -> ReLU -> Dense(32->64)
-            self.cost_dense1 = tf.layers.Dense(32, activation=None, 
+            # Shared MLP for cost embedding: Dense(4->16) -> ReLU -> Dense(16->32)
+            self.cost_dense1 = tf.layers.Dense(16, activation=None, 
                                              kernel_initializer=tf.variance_scaling_initializer(mode='fan_in'),
                                              name="cost_dense1")
-            self.cost_dense2 = tf.layers.Dense(64, activation=None,
+            self.cost_dense2 = tf.layers.Dense(32, activation=None,
                                              kernel_initializer=tf.variance_scaling_initializer(mode='fan_in'), 
                                              name="cost_dense2")
             self.cost_layer_norm = tf.layers.BatchNormalization(name="cost_layer_norm")
@@ -44,7 +45,7 @@ class FeatureTransformer:
     
     def transform(self, old_features):
         """
-        Transform old 17-dim features to new 72-dim features.
+        Transform old 17-dim features to new 40-dim features.
         
         Args:
             old_features: Tensor of shape [batch_size, seq_len, 5]
@@ -52,7 +53,7 @@ class FeatureTransformer:
                                  mec_process_cost, down_link_cost]
         
         Returns:
-            new_features: Tensor of shape [batch_size, seq_len, 72]
+            new_features: Tensor of shape [batch_size, seq_len, 40]
         """
         with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
             batch_size = tf.shape(old_features)[0]
@@ -67,18 +68,18 @@ class FeatureTransformer:
             task_indices = tf.maximum(task_indices, 0)
             task_indices = tf.minimum(task_indices, self.max_task_id)
             
-            # 1. Cost vector (4 scalars) -> shared MLP -> cost_embed (64 dims)
-            # Dense(4->32) -> ReLU -> LayerNorm -> Dense(32->64)
-            cost_hidden = self.cost_dense1(cost_vector)  # [batch_size, seq_len, 32]
+            # 1. Cost vector (4 scalars) -> shared MLP -> cost_embed (32 dims)
+            # Dense(4->16) -> ReLU -> Dense(16->32) -> LayerNorm
+            cost_hidden = self.cost_dense1(cost_vector)  # [batch_size, seq_len, 16]
             cost_hidden = tf.nn.relu(cost_hidden)
-            cost_hidden = self.cost_layer_norm(cost_hidden, training=self.training)
-            cost_embed = self.cost_dense2(cost_hidden)  # [batch_size, seq_len, 64]
+            cost_embed = self.cost_dense2(cost_hidden)  # [batch_size, seq_len, 32]
+            cost_embed = self.cost_layer_norm(cost_embed, training=self.training)
             
             # 2. Task index -> embedding -> id_embed (8 dims)
             id_embed = tf.nn.embedding_lookup(self.task_embedding, task_indices)  # [batch_size, seq_len, 8]
             
-            # 3. Concatenate: cost_embed + id_embed = 72 dims
-            node_feat_new = tf.concat([cost_embed, id_embed], axis=-1)  # [batch_size, seq_len, 72]
+            # 3. Concatenate: cost_embed + id_embed = 40 dims
+            node_feat_new = tf.concat([cost_embed, id_embed], axis=-1)  # [batch_size, seq_len, 40]
             
             # 4. Apply Dropout during training
             if self.training:

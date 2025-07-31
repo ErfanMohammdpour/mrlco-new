@@ -122,7 +122,7 @@ class Seq2SeqNetwork():
                     )
                     transformed_features = feature_transformer.transform(encoder_inputs_checked)
                 
-                # Shape check: transformed features should be 72-dimensional  
+                # Shape check: transformed features should be 40-dimensional  
                 transformed_features = add_shape_consistency_check(
                     transformed_features, [None, None, IN_NODE_DIM], "transformed_features"
                 )

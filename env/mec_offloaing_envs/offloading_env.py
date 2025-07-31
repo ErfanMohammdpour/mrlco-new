@@ -88,7 +88,8 @@ class OffloadingEnvironment(MetaEnv):
         # Set input dimension based on feature format
         if self.use_72dim_features:
             self.input_dim = 5  # Raw features before transformation: [task_index, local_cost, up_cost, mec_cost, down_cost]
-            self.output_dim = 72  # After transformation: 64 (cost_embed) + 8 (id_embed)
+            from feature_transformer import IN_NODE_DIM
+            self.output_dim = IN_NODE_DIM  # After transformation: 32 (cost_embed) + 8 (id_embed)
         else:
             self.input_dim = np.array(encoder_batchs[0]).shape[-1]  # Original 17-dim features
             self.output_dim = self.input_dim
