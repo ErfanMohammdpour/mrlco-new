@@ -113,36 +113,6 @@ class MRLCO():
 
             self._outer_train = self.outer_optimizer.apply_gradients(outer_grads_and_var)
 
-    def build_meta_gradient_averaging(meta_batch_size, meta_losses, meta_params):
-        """
-        Builds symbolic averaging of gradients across meta-tasks for second-order MAML.
-
-        Args:
-            meta_batch_size (int): number of meta-tasks.
-            meta_losses (list of tf.Tensor): scalar loss per meta-task.
-            meta_params (list of tf.Variable): model parameters to compute gradients for.
-
-        Returns:
-            avg_grads (list of tf.Tensor): averaged gradients across tasks.
-        """
-        # Compute per-task gradients: shape [task][param]
-        per_task_grads = [
-            tf.gradients(loss, meta_params) for loss in meta_losses
-        ]
-
-        # Transpose: [param][task]
-        grads_per_param = list(zip(*per_task_grads))
-
-        # Average each parameter’s gradient across tasks
-        avg_grads = []
-        for param_grads in grads_per_param:
-            # Ensure dense tensors if needed
-            dense_grads = [tf.convert_to_tensor(g) if isinstance(g, tf.IndexedSlices) else g for g in param_grads]
-            avg = tf.add_n(dense_grads) / meta_batch_size
-            avg_grads.append(avg)
-
-        return avg_grads
-    
     def UpdateMetaPolicyWithFullMAML(self, val_data):
         def shifted(actions):
             return np.column_stack(

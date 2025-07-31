@@ -13,7 +13,7 @@ class Trainer(object):
                 n_itr,
                 greedy_finish_time,
                 start_itr=0,
-                inner_batch_size = 500,
+                inner_batch_size = 1000,
                 save_interval = 100):
         self.algo = algo
         self.env = env
