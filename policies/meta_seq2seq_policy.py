@@ -111,12 +111,11 @@ class Seq2SeqNetwork():
             actual_input_dim = self.encoder_inputs.get_shape()[-1]
             
             # Add assertion for input dimension
-            with tf.control_dependencies([
-                tf.debugging.assert_equal(
-                    actual_input_dim, expected_input_dim,
-                    message=f"Expected input dimension {expected_input_dim} for {self.feature_mode} mode, but got {actual_input_dim}"
-                )
-            ]):
+            dimension_assertion = tf.debugging.assert_equal(
+                actual_input_dim, expected_input_dim,
+                message=f"Expected input dimension {expected_input_dim} for {self.feature_mode} mode, but got {actual_input_dim}"
+            )
+            with tf.control_dependencies([dimension_assertion]):
                 self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
                                                                             self.encoder_hidden_unit,
                                                                             activation_fn = None,
@@ -253,10 +252,13 @@ class Seq2SeqNetwork():
                                             num_gpus=hparams.num_gpus,
                                             mode=self.mode,
                                             base_gpu=base_gpu,
-                                            single_cell_fn=single_cell
+                                            single_cell_fn=None
                                             )
 
-        return cell_list
+        if len(cell_list) == 1:
+            return cell_list[0]
+        else:
+            return tf.contrib.rnn.MultiRNNCell(cell_list)
 
     def create_decoder(self, hparams, encoder_outputs, encoder_state, model):
         with tf.compat.v1.variable_scope("decoder", reuse=tf.compat.v1.AUTO_REUSE) as decoder_scope:
@@ -431,10 +433,13 @@ class Seq2SeqPolicy():
             core5_features = tf.concat([core_scalars, depth_norm, task_embeddings], axis=-1)
             
             # Assert shape is correct
-            tf.debugging.assert_equal(
+            shape_assertion = tf.debugging.assert_equal(
                 tf.shape(core5_features)[-1], 13,
                 message="Core5 features should have 13 dimensions"
             )
+            # Mark assertion as used to avoid TensorFlow warnings
+            with tf.control_dependencies([shape_assertion]):
+                core5_features = tf.identity(core5_features)
             
             return core5_features
 
@@ -540,10 +545,6 @@ class MetaSeq2SeqPolicy():
     def async_parameters(self):
         for i in range(self.meta_batch_size):
             self.assign_old_eq_new_tasks[i]()
-
-    @property
-    def core_policy(self):
-        return self.core_policy
 
     @property
     def distribution(self):

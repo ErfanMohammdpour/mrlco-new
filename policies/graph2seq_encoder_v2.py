@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 
 from .graph2seq_modules.neigh_samplers import UniformNeighborSampler
-from .graph2seq_modules.aggregators import EdgeGatedAggregator
+from .graph2seq_modules.edge_gated_aggregator import EdgeGatedAggregator
 from .graph2seq_modules.inits import glorot, zeros
 from .graph2seq_modules.layers import Layer
 
