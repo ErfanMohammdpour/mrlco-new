@@ -238,7 +238,7 @@ class ImprovedGraph2SeqEncoder:
         
         # Add virtual node if enabled
         if self.use_virtual_node:
-            (feature_info, batch_nodes_with_virtual, 
+            (feature_info_with_virtual, batch_nodes_with_virtual, 
              fw_adj_layer1, fw_adj_layer2, 
              bw_adj_layer1, bw_adj_layer2) = self.add_virtual_node(
                 feature_info, batch_nodes, fw_adj_info, bw_adj_info)
@@ -246,15 +246,16 @@ class ImprovedGraph2SeqEncoder:
             # Update seq_len to include virtual node
             seq_len_with_virtual = seq_len + 1
             total_nodes_with_virtual = batch_size * seq_len + batch_size
+            # Use the feature info that includes virtual nodes
+            embedded_node_rep = feature_info_with_virtual
         else:
             fw_adj_layer1 = fw_adj_layer2 = fw_adj_info
             bw_adj_layer1 = bw_adj_layer2 = bw_adj_info
             batch_nodes_with_virtual = batch_nodes
             seq_len_with_virtual = seq_len
             total_nodes_with_virtual = batch_size * seq_len
-            
-        # Initialize node embeddings
-        embedded_node_rep = feature_info
+            # Use original feature info when no virtual nodes
+            embedded_node_rep = feature_info
         
         # Create samplers for different layers
         fw_sampler_layer1 = UniformNeighborSampler(fw_adj_layer1)
