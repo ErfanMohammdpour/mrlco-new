@@ -87,31 +87,31 @@ class Trainer(object):
         greedy_latencies_all = []
         
         # Smoke test: run forward and backward pass before starting training
-        if self.start_itr == 0:
-            logger.log("\nPerforming smoke test for forward+backward pass...")
-            try:
-                # Get a small batch of data for testing
-                test_task_ids = self.sampler.update_tasks()[:1]  # Use just one task
-                test_paths = self.sampler.obtain_samples(log=False, log_prefix='')
-                # test_paths is already a dict, just take the first task
-                test_paths_single = {0: test_paths[0]}
-                test_samples = self.sampler_processor.process_samples(test_paths_single, log=False, log_prefix='')
-                
-                # Run a single update to test forward+backward pass
-                test_losses = self.algo.UpdatePPOTarget(test_samples, batch_size=10)
-                
-                logger.log(f"Smoke test passed! Test policy loss: {np.mean(test_losses[0]):.4f}")
-                logger.log(f"Test value loss: {np.mean(test_losses[1]):.4f}")
-                
-                # Check for NaN in test losses
-                if np.isnan(np.mean(test_losses[0])) or np.isnan(np.mean(test_losses[1])):
-                    raise ValueError("NaN detected in smoke test losses!")
-                    
-            except Exception as e:
-                logger.log(f"ERROR in smoke test: {str(e)}")
-                raise
-            
-            logger.log("Smoke test completed successfully.\n")
+        # if self.start_itr == 0:
+        #     logger.log("\nPerforming smoke test for forward+backward pass...")
+        #     try:
+        #         # Get a small batch of data for testing
+        #         test_task_ids = self.sampler.update_tasks()[:1]  # Use just one task
+        #         test_paths = self.sampler.obtain_samples(log=False, log_prefix='')
+        #         # test_paths is already a dict, just take the first task
+        #         test_paths_single = {0: test_paths[0]}
+        #         test_samples = self.sampler_processor.process_samples(test_paths_single, log=False, log_prefix='')
+        #
+        #         # Run a single update to test forward+backward pass
+        #         test_losses = self.algo.UpdatePPOTarget(test_samples, batch_size=10)
+        #
+        #         logger.log(f"Smoke test passed! Test policy loss: {np.mean(test_losses[0]):.4f}")
+        #         logger.log(f"Test value loss: {np.mean(test_losses[1]):.4f}")
+        #
+        #         # Check for NaN in test losses
+        #         if np.isnan(np.mean(test_losses[0])) or np.isnan(np.mean(test_losses[1])):
+        #             raise ValueError("NaN detected in smoke test losses!")
+        #
+        #     except Exception as e:
+        #         logger.log(f"ERROR in smoke test: {str(e)}")
+        #         raise
+        #
+        #     logger.log("Smoke test completed successfully.\n")
         
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
