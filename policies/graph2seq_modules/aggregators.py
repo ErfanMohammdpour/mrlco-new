@@ -2,6 +2,7 @@ import tensorflow as tf
 from .layers import Layer, Dense
 from .inits import glorot, zeros
 from .pooling import mean_pool
+from .edge_gated_aggregator import EdgeGatedAggregator
 
 class GatedMeanAggregator(Layer):
     def __init__(self, input_dim, output_dim, neigh_input_dim=None,

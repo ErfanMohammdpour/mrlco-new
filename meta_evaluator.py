@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import time
+import argparse
 from utils import logger
 
 class Trainer():
@@ -23,6 +24,30 @@ class Trainer():
         self.num_inner_grad_steps = num_inner_grad_steps
         self.batch_size = batch_size
 
+    def _check_model_health(self, sess, step=0):
+        """
+        Check for NaN values and shape consistency in model parameters.
+        """
+        print(f"\nPerforming model health check at step {step}...")
+        
+        # Get all trainable variables
+        trainable_vars = tf.trainable_variables()
+        
+        # Check for NaN values
+        nan_checks = []
+        for var in trainable_vars:
+            nan_checks.append(tf.reduce_any(tf.is_nan(var)))
+            
+        has_nan = sess.run(nan_checks)
+        
+        for i, (var, has_nan_val) in enumerate(zip(trainable_vars, has_nan)):
+            if has_nan_val:
+                print(f"WARNING: NaN detected in variable {var.name}")
+                
+        print("Model health check completed.\n")
+        
+        return not any(has_nan)
+    
     def train(self):
         """
         Implement the repilte algorithm for ppo reinforcement learning
@@ -33,6 +58,28 @@ class Trainer():
         avg_vf_loss = []
 
         avg_latencies = []
+        
+        # Smoke test: run forward pass before starting evaluation
+        if self.start_itr == 0:
+            logger.log("\nPerforming smoke test for forward pass...")
+            try:
+                # Get a small batch of data for testing
+                test_paths = self.sampler.obtain_samples(log=False, log_prefix='')
+                test_samples = self.sampler_processor.process_samples(test_paths, log=False, log_prefix='')
+                
+                # Run a single forward pass
+                test_reward = np.mean(np.sum(test_samples['rewards'], axis=-1))
+                logger.log(f"Smoke test passed! Test reward: {test_reward:.4f}")
+                
+                if np.isnan(test_reward):
+                    raise ValueError("NaN detected in smoke test reward!")
+                    
+            except Exception as e:
+                logger.log(f"ERROR in smoke test: {str(e)}")
+                raise
+            
+            logger.log("Smoke test completed successfully.\n")
+        
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -83,6 +130,12 @@ if __name__ == "__main__":
     from meta_algos.ppo_offloading import PPO
     from utils import utils, logger
 
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='MRLCO Meta Evaluation')
+    parser.add_argument('--feature_mode', type=str, choices=['full17', 'core5'], default='full17',
+                        help='Feature mode: full17 (17-dim) or core5 (5 scalars + 8-dim embedding)')
+    args = parser.parse_args()
+
     logger.configure(dir="./meta_evaluate_ppo_log/task_offloading", format_strs=['stdout', 'log', 'csv'])
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
@@ -120,10 +173,13 @@ if __name__ == "__main__":
     finish_time = env.get_all_locally_execute_time()
     print("avg all local solution: ", np.mean(finish_time))
 
-    policy = Seq2SeqPolicy(obs_dim=17,
+    # Set observation dimension based on feature mode
+    obs_dim = 17 if args.feature_mode == 'full17' else 13
+    policy = Seq2SeqPolicy(obs_dim=obs_dim,
                            encoder_units=128,
                            decoder_units=128,
                            vocab_size=2,
+                           feature_mode=args.feature_mode,
                            name="core_policy")
 
     sampler = Seq2SeqSampler(env,
@@ -162,6 +218,10 @@ if __name__ == "__main__":
     with tf.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
         policy.load_variables(load_path="./meta_model_inner_step1/meta_model_final.ckpt")
+        
+        # Perform initial model health check
+        trainer._check_model_health(sess, step=0)
+        
         avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
 
 

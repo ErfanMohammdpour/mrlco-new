@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 import policies.model_helper as model_helper
 from policies.graph2seq_encoder import create_graph2seq_encoder
+from policies.graph2seq_encoder_v2 import create_improved_graph2seq_encoder
 
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
@@ -67,7 +68,8 @@ class Seq2SeqNetwork():
                  encoder_inputs,
                  decoder_inputs,
                  decoder_full_length,
-                 decoder_targets):
+                 decoder_targets,
+                 feature_mode='full17'):
         self.encoder_hidden_unit = hparams.encoder_units
         self.decoder_hidden_unit = hparams.decoder_units
         self.is_bidencoder = hparams.is_bidencoder
@@ -76,6 +78,7 @@ class Seq2SeqNetwork():
         self.n_features = hparams.n_features
         self.time_major = hparams.time_major
         self.is_attention = hparams.is_attention
+        self.feature_mode = feature_mode
 
         self.unit_type = hparams.unit_type
 
@@ -103,11 +106,23 @@ class Seq2SeqNetwork():
                 -1.0, 1.0), dtype=tf.float32)
 
             # using a fully connected layer as embeddings
-            self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
-                                                                        self.encoder_hidden_unit,
-                                                                        activation_fn = None,
-                                                                        scope="encoder_embeddings",
-                                                                        reuse=tf.compat.v1.AUTO_REUSE)
+            # Assert correct input dimensions based on feature mode
+            expected_input_dim = 13 if self.feature_mode == 'core5' else 17
+            input_shape = tf.shape(self.encoder_inputs)
+            actual_input_dim = self.encoder_inputs.get_shape()[-1]
+            
+            # Add assertion for input dimension
+            with tf.control_dependencies([
+                tf.debugging.assert_equal(
+                    actual_input_dim, expected_input_dim,
+                    message=f"Expected input dimension {expected_input_dim} for {self.feature_mode} mode, but got {actual_input_dim}"
+                )
+            ]):
+                self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
+                                                                            self.encoder_hidden_unit,
+                                                                            activation_fn = None,
+                                                                            scope="encoder_embeddings",
+                                                                            reuse=tf.compat.v1.AUTO_REUSE)
 
             self.decoder_embeddings = tf.nn.embedding_lookup(self.embeddings,
                                                              self.decoder_inputs)
@@ -118,13 +133,15 @@ class Seq2SeqNetwork():
 
             self.output_layer = tf.compat.v1.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
-            # Use Graph2Seq encoder instead of original encoder
-            self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
+            # Use improved Graph2Seq encoder with gated convolution
+            self.encoder_outputs, self.encoder_state = create_improved_graph2seq_encoder(
                 encoder_inputs=self.encoder_embeddings,
                 encoder_units=self.encoder_hidden_unit,
                 num_layers=self.num_layers,
                 is_bidirectional=self.is_bidencoder,
                 mode=self.mode,
+                feature_mode=feature_mode,
+                use_virtual_node=True,
                 scope_name="encoder"
             )
 
@@ -400,7 +417,58 @@ class Seq2SeqPolicy():
                  encoder_inputs=self.obs,
                  decoder_inputs=self.decoder_inputs,
                  decoder_full_length=self.decoder_full_length,
-                 decoder_targets=self.decoder_targets,name = name)
+                 decoder_targets=self.decoder_targets,
+                 feature_mode=self.feature_mode,
+                 name = name)
+                 
+    def _build_core5_features(self, obs_raw, name):
+        """
+        Transform 17-dim features to 13-dim features for core5 mode:
+        - Extract 5 core scalars: [task_index, local_cost, up_cost, mec_cost, down_cost]
+        - Add depth normalization (1 scalar)
+        - Add 8-dim task embedding
+        """
+        with tf.compat.v1.variable_scope(name + "_core5_transform", reuse=tf.compat.v1.AUTO_REUSE):
+            # Extract core 5 scalars
+            task_index = obs_raw[:, :, 0:1]  # Keep dims
+            core_scalars = obs_raw[:, :, 1:5]  # local, up, mec, down costs
+            
+            # Calculate depth from predecessor indices (positions 5-10)
+            # Depth is the number of valid predecessors (not -1)
+            pred_indices = obs_raw[:, :, 5:11]
+            valid_preds = tf.cast(tf.not_equal(pred_indices, -1.0), tf.float32)
+            depth = tf.reduce_sum(valid_preds, axis=-1, keepdims=True)
+            
+            # Normalize depth to [0, 1]
+            max_depth = 6.0  # Maximum possible predecessors
+            depth_norm = depth / max_depth
+            
+            # Create task embedding
+            # Use task_index as integer for embedding lookup
+            task_idx_int = tf.cast(task_index, tf.int32)
+            task_idx_int = tf.squeeze(task_idx_int, axis=-1)  # Remove last dim for embedding lookup
+            
+            # Create embedding layer (20 tasks, 8-dim embedding)
+            embedding_table = tf.compat.v1.get_variable(
+                name="task_embedding",
+                shape=[20, 8],
+                initializer=tf.glorot_uniform_initializer(),
+                dtype=tf.float32
+            )
+            
+            # Lookup embeddings
+            task_embeddings = tf.nn.embedding_lookup(embedding_table, task_idx_int)
+            
+            # Concatenate all features: [core_scalars(4), depth_norm(1), task_embedding(8)] = 13 dims
+            core5_features = tf.concat([core_scalars, depth_norm, task_embeddings], axis=-1)
+            
+            # Assert shape is correct
+            tf.debugging.assert_equal(
+                tf.shape(core5_features)[-1], 13,
+                message="Core5 features should have 13 dimensions"
+            )
+            
+            return core5_features
 
         self.vf = self.network.vf
 
@@ -414,7 +482,7 @@ class Seq2SeqPolicy():
         actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
                                              self.network.sample_decoder_logits,
                                              self.network.sample_vf],
-                                            feed_dict={self.obs: observations, self.decoder_full_length: decoder_full_length})
+                                            feed_dict={self.obs_raw: observations, self.decoder_full_length: decoder_full_length})
 
         return actions, logits, v_value
 
@@ -461,13 +529,15 @@ class Seq2SeqPolicy():
 
 class MetaSeq2SeqPolicy():
     def __init__(self, meta_batch_size, obs_dim, encoder_units, decoder_units,
-                 vocab_size):
+                 vocab_size, feature_mode='full17'):
 
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
+        self.feature_mode = feature_mode
 
-        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy')
+        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, 
+                                        feature_mode=feature_mode, name='core_policy')
 
 
         self.meta_policies = []
@@ -476,7 +546,8 @@ class MetaSeq2SeqPolicy():
 
         for i in range(meta_batch_size):
             self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
-                                                    vocab_size, name="task_"+str(i)+"_policy"))
+                                                    vocab_size, feature_mode=feature_mode, 
+                                                    name="task_"+str(i)+"_policy"))
 
             self.assign_old_eq_new_tasks.append(
                 U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
