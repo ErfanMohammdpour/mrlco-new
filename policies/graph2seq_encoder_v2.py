@@ -79,11 +79,21 @@ class ImprovedGraph2SeqEncoder:
         # For Layer 2: virtual node -> real nodes
         # Virtual nodes connect back to all nodes in their batch
         virtual_to_real = tf.reshape(batch_nodes, [batch_size, seq_len])
-        # Pad with -1 for other batches
-        max_neighbors = seq_len + 1  # +1 for self-connection
         
-        # Create adjacency for virtual nodes
-        virtual_adj = tf.pad(virtual_to_real, [[0, 0], [0, 1]], constant_values=-1)
+        # Get the number of columns in fw_adj_info to match dimensions
+        fw_adj_cols = tf.shape(fw_adj_info)[1]
+        
+        # Create adjacency for virtual nodes with matching dimensions
+        # Pad or truncate virtual_to_real to match fw_adj_info columns
+        virtual_adj_cols = tf.shape(virtual_to_real)[1]
+        
+        # If virtual_to_real has fewer columns, pad with -1
+        # If it has more columns, truncate
+        virtual_adj = tf.cond(
+            virtual_adj_cols < fw_adj_cols,
+            lambda: tf.pad(virtual_to_real, [[0, 0], [0, fw_adj_cols - virtual_adj_cols]], constant_values=-1),
+            lambda: virtual_to_real[:, :fw_adj_cols]
+        )
         
         # Combine adjacencies
         # Real nodes keep their original adjacency for layer 2
