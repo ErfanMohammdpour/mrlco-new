@@ -74,30 +74,29 @@ class ImprovedGraph2SeqEncoder:
         virtual_connections = tf.expand_dims(virtual_connections, 1)
         
         # Update forward adjacency for Layer 1
-        fw_adj_layer1 = tf.concat([fw_adj_info, virtual_connections], axis=1)
+        # Add virtual connections as new columns to existing nodes
+        fw_adj_extended = tf.concat([fw_adj_info, virtual_connections], axis=1)
+        
+        # Create adjacency rows for virtual nodes
+        # Virtual nodes don't connect to others in layer 1 (only serve as targets)
+        virtual_adj_rows = tf.fill([batch_size, tf.shape(fw_adj_extended)[1]], -1)
+        
+        # Combine: original nodes + virtual node rows
+        fw_adj_layer1 = tf.concat([fw_adj_extended, virtual_adj_rows], axis=0)
         
         # For Layer 2: virtual node -> real nodes
         # Virtual nodes connect back to all nodes in their batch
         virtual_to_real = tf.reshape(batch_nodes, [batch_size, seq_len])
         
-        # Get the number of columns in fw_adj_info to match dimensions
+        # For Layer 2: virtual node -> real nodes
+        # Get dimensions
         fw_adj_cols = tf.shape(fw_adj_info)[1]
         
-        # Create adjacency for virtual nodes with matching dimensions
-        # Pad or truncate virtual_to_real to match fw_adj_info columns
-        virtual_adj_cols = tf.shape(virtual_to_real)[1]
+        # Make virtual adjacency match fw_adj_info columns
+        virtual_adj = tf.pad(virtual_to_real, [[0, 0], [0, tf.maximum(0, fw_adj_cols - tf.shape(virtual_to_real)[1])]], constant_values=-1)
+        virtual_adj = virtual_adj[:, :fw_adj_cols]
         
-        # If virtual_to_real has fewer columns, pad with -1
-        # If it has more columns, truncate
-        virtual_adj = tf.cond(
-            virtual_adj_cols < fw_adj_cols,
-            lambda: tf.pad(virtual_to_real, [[0, 0], [0, fw_adj_cols - virtual_adj_cols]], constant_values=-1),
-            lambda: virtual_to_real[:, :fw_adj_cols]
-        )
-        
-        # Combine adjacencies
-        # Real nodes keep their original adjacency for layer 2
-        # Virtual nodes use virtual_adj
+        # Create full adjacency matrix for layer 2 (original + virtual rows)
         fw_adj_layer2 = tf.concat([fw_adj_info, virtual_adj], axis=0)
         
         # For backward direction (if bidirectional)
