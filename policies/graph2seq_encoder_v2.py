@@ -141,7 +141,9 @@ class ImprovedGraph2SeqEncoder:
         padded_hidden = tf.concat([hidden, tf.zeros([1, input_dim])], 0)
         # Replace -1 indices with the padding index (last index)
         padding_idx = tf.shape(padded_hidden)[0] - 1
-        safe_neighbors = tf.where(fw_sampled_neighbors >= 0, fw_sampled_neighbors, padding_idx)
+        # Broadcast scalar padding_idx to match fw_sampled_neighbors shape
+        padding_tensor = tf.fill(tf.shape(fw_sampled_neighbors), padding_idx)
+        safe_neighbors = tf.where(fw_sampled_neighbors >= 0, fw_sampled_neighbors, padding_tensor)
         neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, safe_neighbors)
             
         # Apply aggregator
@@ -161,7 +163,9 @@ class ImprovedGraph2SeqEncoder:
             # Always pad with zeros for invalid indices (-1) in backward direction too
             padded_hidden_bw = tf.concat([hidden, tf.zeros([1, input_dim])], 0)
             padding_idx_bw = tf.shape(padded_hidden_bw)[0] - 1
-            safe_bw_neighbors = tf.where(bw_sampled_neighbors >= 0, bw_sampled_neighbors, padding_idx_bw)
+            # Broadcast scalar padding_idx_bw to match bw_sampled_neighbors shape
+            padding_tensor_bw = tf.fill(tf.shape(bw_sampled_neighbors), padding_idx_bw)
+            safe_bw_neighbors = tf.where(bw_sampled_neighbors >= 0, bw_sampled_neighbors, padding_tensor_bw)
             neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden_bw, safe_bw_neighbors)
                 
             bw_hidden = bw_aggregator((hidden, neigh_vec_hidden))
