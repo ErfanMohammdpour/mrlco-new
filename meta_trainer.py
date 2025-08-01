@@ -93,7 +93,9 @@ class Trainer(object):
                 # Get a small batch of data for testing
                 test_task_ids = self.sampler.update_tasks()[:1]  # Use just one task
                 test_paths = self.sampler.obtain_samples(log=False, log_prefix='')
-                test_samples = self.sampler_processor.process_samples([test_paths[0]], log=False, log_prefix='')
+                # test_paths is already a dict, just take the first task
+                test_paths_single = {0: test_paths[0]}
+                test_samples = self.sampler_processor.process_samples(test_paths_single, log=False, log_prefix='')
                 
                 # Run a single update to test forward+backward pass
                 test_losses = self.algo.UpdatePPOTarget(test_samples, batch_size=10)
