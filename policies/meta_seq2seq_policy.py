@@ -105,7 +105,6 @@ class Seq2SeqNetwork():
                  self.encoder_hidden_unit],
                 -1.0, 1.0), dtype=tf.float32)
 
-            # using a fully connected layer as embeddings
             # Assert correct input dimensions based on feature mode
             expected_input_dim = 13 if self.feature_mode == 'core5' else 17
             input_shape = tf.shape(self.encoder_inputs)
@@ -216,97 +215,48 @@ class Seq2SeqNetwork():
         # return tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=x)
         # Note: we can't use sparse_softmax_cross_entropy_with_logits because
         #       the implementation does not allow second-order derivatives...
+        # x_shape = x.get_shape()
+        # logits_shape = self.logits.get_shape()
+        # x = tf.one_hot(x, logits_shape[2])
+        # Sparse to dense
         return tf.nn.softmax_cross_entropy_with_logits_v2(
             logits=self.decoder_logits,
             labels=self.decoder_targets_embeddings)
 
-    def logp(self):
-        return -self.neglogp()
-
-    # DEPRECATED: Original encoder cell builder - replaced by Graph2Seq encoder
-    # def _build_encoder_cell(self, hparams, num_layers, num_residual_layers, base_gpu=0):
-    #     """Build a multi-layer RNN cell that can be used by encoder."""
-    #     return model_helper.create_rnn_cell(
-    #         unit_type=hparams.unit_type,
-    #         num_units=hparams.encoder_units,
-    #         num_layers=num_layers,
-    #         num_residual_layers=num_residual_layers,
-    #         forget_bias=hparams.forget_bias,
-    #         dropout=hparams.dropout,
-    #         num_gpus=hparams.num_gpus,
-    #         mode=self.mode,
-    #         base_gpu=base_gpu,
-    #         single_cell_fn=self.single_cell_fn)
-
     def _build_decoder_cell(self, hparams, num_layers, num_residual_layers, base_gpu=0):
-        """Build a multi-layer RNN cell that can be used by decoder"""
-        return model_helper.create_rnn_cell(
-            unit_type=hparams.unit_type,
-            num_units=hparams.decoder_units,
-            num_layers=num_layers,
-            num_residual_layers=num_residual_layers,
-            forget_bias=hparams.forget_bias,
-            dropout=hparams.dropout,
-            num_gpus=hparams.num_gpus,
-            mode=self.mode,
-            base_gpu=base_gpu,
-            single_cell_fn=self.single_cell_fn)
 
-    # DEPRECATED: Original RNN encoder - replaced by Graph2Seq encoder
-    # def create_encoder(self, hparams):
-    #     # Build RNN cell
-    #     with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE) as scope:
-    #         encoder_cell = self._build_encoder_cell(hparams=hparams,
-    #                                                 num_layers=self.num_layers,
-    #                                                 num_residual_layers=self.num_residual_layers)
-    #
-    #         # encoder_cell = tf.contrib.rnn.GRUCell(self.encoder_hidden_unit)
-    #         # currently only consider the normal dynamic rnn
-    #         encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
-    #             cell=encoder_cell,
-    #             sequence_length = None,
-    #             inputs=self.encoder_embeddings,
-    #             dtype=tf.float32,
-    #             time_major=self.time_major,
-    #             swap_memory=True,
-    #             scope=scope
-    #         )
-    #
-    #     return encoder_outputs, encoder_state
+        """Build an RNN cell that can be used by decoder."""
+        # We only make use of encoder_unit_type in the decoder
+        # unit_type = hparams.encoder_unit_type
+        num_units = self.decoder_hidden_unit
+        dropout = hparams.dropout
 
-    # DEPRECATED: Original bidirectional RNN encoder - replaced by Graph2Seq encoder
-    # def create_bidrect_encoder(self, hparams):
-    #     with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE) as scope:
-    #         num_bi_layers = int(self.num_layers / 2)
-    #         num_bi_residual_layers = int(self.num_residual_layers / 2)
-    #         forward_cell = self._build_encoder_cell(hparams=hparams,
-    #                                                 num_layers=num_bi_layers,
-    #                                                 num_residual_layers=num_bi_residual_layers)
-    #         backward_cell = self._build_encoder_cell(hparams=hparams,
-    #                                                  num_layers=num_bi_layers,
-    #                                                  num_residual_layers=num_bi_residual_layers)
-    #
-    #         bi_outputs, bi_state = tf.nn.bidirectional_dynamic_rnn(
-    #             forward_cell,
-    #             backward_cell,
-    #             inputs=self.encoder_embeddings,
-    #             time_major=self.time_major,
-    #             swap_memory=True,
-    #             dtype=tf.float32)
-    #
-    #         encoder_outputs = tf.concat(bi_outputs, -1)
-    #
-    #         if num_bi_layers == 1:
-    #             encoder_state = bi_state
-    #         else:
-    #             encoder_state = []
-    #             for layer_id in range(num_bi_layers):
-    #                 encoder_state.append(bi_state[0][layer_id])  # forward
-    #                 encoder_state.append(bi_state[1][layer_id])  # backward
-    #
-    #             encoder_state = tuple(encoder_state)
-    #
-    #         return encoder_outputs, encoder_state
+        # Cell Type
+        # if unit_type == "lstm":
+        single_cell = tf.contrib.rnn.BasicLSTMCell(num_units, forget_bias=hparams.forget_bias)
+        # elif unit_type == "gru":
+        #    single_cell = tf.contrib.rnn.GRUCell(num_units)
+        # elif unit_type == "layer_norm_lstm":
+        #    single_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(num_units, forget_bias=hparams.forget_bias,
+        # 							    layer_norm=True)
+        # elif unit_type == "nas":
+        # 	single_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(num_units)
+        # else:
+        # 	raise ValueError("Unknown unit type %s!" % unit_type)
+
+        cell_list = model_helper._cell_list(unit_type=hparams.unit_type,
+                                            num_units=num_units,
+                                            num_layers=num_layers,
+                                            num_residual_layers=num_residual_layers,
+                                            forget_bias=hparams.forget_bias,
+                                            dropout=dropout,
+                                            num_gpus=hparams.num_gpus,
+                                            mode=self.mode,
+                                            base_gpu=base_gpu,
+                                            single_cell_fn=single_cell
+                                            )
+
+        return cell_list
 
     def create_decoder(self, hparams, encoder_outputs, encoder_state, model):
         with tf.compat.v1.variable_scope("decoder", reuse=tf.compat.v1.AUTO_REUSE) as decoder_scope:
@@ -386,14 +336,29 @@ class Seq2SeqNetwork():
 
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
-                 decoder_units, vocab_size, name="pi"):
+                 decoder_units, vocab_size, feature_mode='full17', name="pi"):
         self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
         self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
-        self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
-        self.decoder_full_length = tf.compat.v1.placeholder(shape=[None], dtype=tf.int32, name="decoder_full_length"+name)
-
+        
+        # Store feature_mode before using it
+        self.feature_mode = feature_mode
+        self.obs_dim = obs_dim
         self.action_dim = vocab_size
         self.name = name
+        
+        # For full17 mode, obs_dim should be 17; for core5 mode, it should be 13
+        input_obs_dim = 17 if feature_mode == 'full17' else 13
+        self.obs_raw = tf.compat.v1.placeholder(shape=[None, None, 17], dtype=tf.float32, name="obs_raw_ph"+name)  # Always receive 17-dim input
+        
+        # Feature transformation based on mode
+        if feature_mode == 'core5':
+            # Extract core features and add embeddings
+            self.obs = self._build_core5_features(self.obs_raw, name)
+        else:
+            # Use full 17-dimensional features
+            self.obs = self.obs_raw
+            
+        self.decoder_full_length = tf.compat.v1.placeholder(shape=[None], dtype=tf.int32, name="decoder_full_length"+name)
 
         hparams = tf.contrib.training.HParams(
             unit_type="lstm",
@@ -420,6 +385,9 @@ class Seq2SeqPolicy():
                  decoder_targets=self.decoder_targets,
                  feature_mode=self.feature_mode,
                  name = name)
+
+        self.vf = self.network.vf
+        self._dist = CategoricalPd(vocab_size)
                  
     def _build_core5_features(self, obs_raw, name):
         """
@@ -469,10 +437,6 @@ class Seq2SeqPolicy():
             )
             
             return core5_features
-
-        self.vf = self.network.vf
-
-        self._dist = CategoricalPd(vocab_size)
 
     def get_actions(self, observations):
         sess = tf.compat.v1.get_default_session()
@@ -574,11 +538,13 @@ class MetaSeq2SeqPolicy():
         return meta_actions, meta_logits, meta_v_values
 
     def async_parameters(self):
-        # async_parameters.
         for i in range(self.meta_batch_size):
             self.assign_old_eq_new_tasks[i]()
 
     @property
+    def core_policy(self):
+        return self.core_policy
+
+    @property
     def distribution(self):
         return self._dist
-
