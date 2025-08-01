@@ -1,6 +1,10 @@
 """
 Test script to demonstrate automated reporting functionality
 """
+import os
+import sys
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 from automated_reporting import AutomatedReporter, create_training_report

@@ -254,6 +254,36 @@ class OffloadingTaskGraph(object):
 
         return point_sequence
 
+    def encode_point_sequence_with_cost_72dim(self, resource_cluster):
+        """
+        Create new 40-dimensional node features following the specified format:
+        - Read only ["task_index", "local_process_cost", "up_link_cost", "mec_process_cost", "down_link_cost"]
+        - Return as raw vectors that will be processed by FeatureTransformer
+        """
+        point_sequence = []
+        for i in range(self.task_number):
+            task = self.task_list[i]
+            local_process_cost = task.processing_data_size / resource_cluster.mobile_process_capable
+            up_link_cost = resource_cluster.up_transmission_cost(task.processing_data_size)
+            mec_process_cost = task.processing_data_size / resource_cluster.mec_process_capble
+            down_link_cost = resource_cluster.dl_transmission_cost(task.transmission_data_size)
+
+            # Only the 5 specified columns - transformation to 40-dim happens in FeatureTransformer
+            task_vector = [i, local_process_cost, up_link_cost, mec_process_cost, down_link_cost]
+            point_sequence.append(task_vector)
+
+        return point_sequence
+
+    def encode_point_sequence_with_ranking_and_cost_72dim(self, sorted_task, resource_cluster):
+        """Create 40-dim features with task ranking"""
+        point_sequence = self.encode_point_sequence_with_cost_72dim(resource_cluster)
+        
+        prioritize_point_sequence = []
+        for task_id in sorted_task:
+            prioritize_point_sequence.append(point_sequence[task_id])
+        
+        return prioritize_point_sequence
+
     def encode_point_sequence_with_ranking_and_cost(self, sorted_task, resource_cluster):
         point_sequence = self.encode_point_sequence_with_cost(resource_cluster)
 

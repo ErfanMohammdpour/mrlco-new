@@ -2,6 +2,11 @@
 Test script to validate Graph2Seq encoder compatibility with metarl-offloading.
 Ensures output shapes and dtypes match the original encoder interface.
 """
+import os
+import sys
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import tensorflow as tf
 import numpy as np
 from policies.meta_seq2seq_policy import Seq2SeqNetwork
