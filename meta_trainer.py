@@ -93,7 +93,7 @@ class Trainer(object):
                 # Get a small batch of data for testing
                 test_task_ids = self.sampler.update_tasks()[:1]  # Use just one task
                 test_paths = self.sampler.obtain_samples(log=False, log_prefix='')
-                test_samples = self.sampler_processor.process_samples(test_paths[:1], log=False, log_prefix='')
+                test_samples = self.sampler_processor.process_samples([test_paths[0]], log=False, log_prefix='')
                 
                 # Run a single update to test forward+backward pass
                 test_losses = self.algo.UpdatePPOTarget(test_samples, batch_size=10)
@@ -256,7 +256,7 @@ if __name__ == "__main__":
                                     # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
                                     # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
                                     # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
 
