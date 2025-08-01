@@ -415,13 +415,21 @@ class Seq2SeqPolicy():
             batch_size = tf.shape(obs_raw)[0]
             seq_len = tf.shape(obs_raw)[1]
             
-            # Create position indices [0, 1, 2, ..., seq_len-1] for each sequence
-            position_indices = tf.range(seq_len, dtype=tf.float32)
-            position_indices = tf.tile(tf.expand_dims(position_indices, 0), [batch_size, 1])
+            # For TensorFlow 1.x compatibility, use a simpler approach for depth proxy
+            # Since we know the max sequence length is typically 20 for this problem,
+            # we'll create a fixed-size range and slice it dynamically
+            max_seq_len = 50  # Conservative upper bound
+            fixed_range = tf.cast(tf.range(max_seq_len), tf.float32)
+            
+            # Create position indices for each batch
+            position_indices = tf.tile(tf.expand_dims(fixed_range, 0), [batch_size, 1])
+            # Slice to actual sequence length
+            position_indices = position_indices[:, :seq_len]
             position_indices = tf.expand_dims(position_indices, -1)
             
             # Normalize position to [0, 1] as depth proxy
-            depth_norm = position_indices / (tf.cast(seq_len, tf.float32) - 1.0 + 1e-8)
+            seq_len_float = tf.cast(seq_len, tf.float32)
+            depth_norm = position_indices / tf.maximum(seq_len_float - 1.0, 1.0)
             
             # Create task embedding
             # Use task_index as integer for embedding lookup
