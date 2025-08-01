@@ -137,14 +137,12 @@ class ImprovedGraph2SeqEncoder:
         self.fw_aggregators.append(fw_aggregator)
         
         # Get neighbor embeddings
-        if layer_idx == 0 and block_idx == 0:
-            # First layer uses original features
-            neigh_vec_hidden = tf.nn.embedding_lookup(hidden, fw_sampled_neighbors)
-        else:
-            # Subsequent layers use computed hidden states
-            # Pad with zeros for invalid indices
-            padded_hidden = tf.concat([hidden, tf.zeros([1, input_dim])], 0)
-            neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, fw_sampled_neighbors)
+        # Always pad with zeros for invalid indices (-1)
+        padded_hidden = tf.concat([hidden, tf.zeros([1, input_dim])], 0)
+        # Replace -1 indices with the padding index (last index)
+        padding_idx = tf.shape(padded_hidden)[0] - 1
+        safe_neighbors = tf.where(fw_sampled_neighbors >= 0, fw_sampled_neighbors, padding_idx)
+        neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, safe_neighbors)
             
         # Apply aggregator
         fw_hidden = fw_aggregator((hidden, neigh_vec_hidden))
@@ -160,11 +158,11 @@ class ImprovedGraph2SeqEncoder:
             )
             self.bw_aggregators.append(bw_aggregator)
             
-            if layer_idx == 0 and block_idx == 0:
-                neigh_vec_hidden = tf.nn.embedding_lookup(hidden, bw_sampled_neighbors)
-            else:
-                padded_hidden = tf.concat([hidden, tf.zeros([1, input_dim])], 0)
-                neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, bw_sampled_neighbors)
+            # Always pad with zeros for invalid indices (-1) in backward direction too
+            padded_hidden_bw = tf.concat([hidden, tf.zeros([1, input_dim])], 0)
+            padding_idx_bw = tf.shape(padded_hidden_bw)[0] - 1
+            safe_bw_neighbors = tf.where(bw_sampled_neighbors >= 0, bw_sampled_neighbors, padding_idx_bw)
+            neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden_bw, safe_bw_neighbors)
                 
             bw_hidden = bw_aggregator((hidden, neigh_vec_hidden))
             
