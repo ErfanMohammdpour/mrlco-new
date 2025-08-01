@@ -2,7 +2,11 @@ import tensorflow as tf
 import numpy as np
 import time
 import argparse
+import warnings
 from utils import logger
+
+# Suppress specific TensorFlow warnings about IndexedSlices
+warnings.filterwarnings('ignore', message='Converting sparse IndexedSlices.*')
 
 class Trainer():
     def __init__(self,algo,
@@ -142,9 +146,13 @@ if __name__ == "__main__":
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0)
 
+    # Configure environment based on feature mode
+    use_72dim_features = (args.feature_mode == 'core5')
+    
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
                                 graph_number=100,
+                                use_72dim_features=use_72dim_features,
                                 graph_file_paths=[
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20."
                                     ],

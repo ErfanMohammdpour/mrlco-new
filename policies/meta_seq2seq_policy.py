@@ -348,9 +348,14 @@ class Seq2SeqPolicy():
         self.action_dim = vocab_size
         self.name = name
         
-        # For full17 mode, obs_dim should be 17; for core5 mode, it should be 13
-        input_obs_dim = 17 if feature_mode == 'full17' else 13
-        self.obs_raw = tf.compat.v1.placeholder(shape=[None, None, 17], dtype=tf.float32, name="obs_raw_ph"+name)  # Always receive 17-dim input
+        # Determine the input dimension based on feature mode
+        # For the new 72dim system, we receive 5-dim raw features that get transformed
+        if feature_mode == 'core5':
+            input_raw_dim = 5  # New format: [task_index, local_cost, up_cost, mec_cost, down_cost]
+        else:
+            input_raw_dim = 17  # Legacy format: full 17-dimensional features
+            
+        self.obs_raw = tf.compat.v1.placeholder(shape=[None, None, input_raw_dim], dtype=tf.float32, name="obs_raw_ph"+name)
         
         # Feature transformation based on mode
         if feature_mode == 'core5':
@@ -393,25 +398,30 @@ class Seq2SeqPolicy():
                  
     def _build_core5_features(self, obs_raw, name):
         """
-        Transform 17-dim features to 13-dim features for core5 mode:
-        - Extract 5 core scalars: [task_index, local_cost, up_cost, mec_cost, down_cost]
-        - Add depth normalization (1 scalar)
+        Transform 5-dim raw features to 13-dim features for core5 mode:
+        - Input: [task_index, local_cost, up_cost, mec_cost, down_cost] (5 dims)
+        - Add depth normalization (1 scalar) - computed from task_index
         - Add 8-dim task embedding
+        - Output: 13 dimensions total
         """
         with tf.compat.v1.variable_scope(name + "_core5_transform", reuse=tf.compat.v1.AUTO_REUSE):
-            # Extract core 5 scalars
+            # Input is already the 5 core scalars: [task_index, local_cost, up_cost, mec_cost, down_cost]
             task_index = obs_raw[:, :, 0:1]  # Keep dims
             core_scalars = obs_raw[:, :, 1:5]  # local, up, mec, down costs
             
-            # Calculate depth from predecessor indices (positions 5-10)
-            # Depth is the number of valid predecessors (not -1)
-            pred_indices = obs_raw[:, :, 5:11]
-            valid_preds = tf.cast(tf.not_equal(pred_indices, -1.0), tf.float32)
-            depth = tf.reduce_sum(valid_preds, axis=-1, keepdims=True)
+            # For depth calculation in the new system, we'll use the task_index position
+            # as a proxy for depth (tasks earlier in sequence tend to have fewer dependencies)
+            # This is a simplification since we don't have the predecessor info in the 5-dim format
+            batch_size = tf.shape(obs_raw)[0]
+            seq_len = tf.shape(obs_raw)[1]
             
-            # Normalize depth to [0, 1]
-            max_depth = 6.0  # Maximum possible predecessors
-            depth_norm = depth / max_depth
+            # Create position indices [0, 1, 2, ..., seq_len-1] for each sequence
+            position_indices = tf.range(seq_len, dtype=tf.float32)
+            position_indices = tf.tile(tf.expand_dims(position_indices, 0), [batch_size, 1])
+            position_indices = tf.expand_dims(position_indices, -1)
+            
+            # Normalize position to [0, 1] as depth proxy
+            depth_norm = position_indices / (tf.cast(seq_len, tf.float32) - 1.0 + 1e-8)
             
             # Create task embedding
             # Use task_index as integer for embedding lookup
