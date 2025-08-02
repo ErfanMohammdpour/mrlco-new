@@ -418,23 +418,48 @@ class Seq2SeqPolicy():
 
         # MIGRATION: Store hparams for network creation in forward calls
         self.hparams = hparams
-        self.network = None  # Will be created in forward calls with actual tensors
+        self.network = None  # Will be created on first use
+        self._initialized = False
 
         self._dist = CategoricalPd(vocab_size)
 
-    def _ensure_network(self, obs, decoder_inputs, decoder_targets, decoder_full_length):
-        """Lazy creation of network with actual tensors"""
-        if self.network is None:
+    def _ensure_network_initialized(self):
+        """Initialize network with dummy tensors if not already initialized"""
+        if not self._initialized:
+            # Create dummy tensors for initialization
+            dummy_obs = tf.zeros([1, 1, self.obs_dim])
+            dummy_inputs = tf.zeros([1, 1], dtype=tf.int32)
+            dummy_targets = tf.zeros([1, 1], dtype=tf.int32)
+            dummy_length = tf.ones([1], dtype=tf.int32)
+            
             self.network = Seq2SeqNetwork(
-                hparams=self.hparams, 
+                name=self.name,
+                hparams=self.hparams,
                 reuse=tf.compat.v1.AUTO_REUSE,
-                encoder_inputs=obs,
-                decoder_inputs=decoder_inputs,
-                decoder_full_length=decoder_full_length,
-                decoder_targets=decoder_targets,
-                name=self.name
+                encoder_inputs=dummy_obs,
+                decoder_inputs=dummy_inputs,
+                decoder_full_length=dummy_length,
+                decoder_targets=dummy_targets
             )
+            self._initialized = True
         return self.network
+    
+    def _create_network_for_tensors(self, obs, decoder_inputs, decoder_targets, decoder_full_length):
+        """Create network computation for specific tensors"""
+        # Ensure base network is initialized for variable sharing
+        self._ensure_network_initialized()
+        
+        # Create network with actual tensors (reusing variables from initialized network)
+        network = Seq2SeqNetwork(
+            name=self.name,
+            hparams=self.hparams,
+            reuse=True,  # Reuse variables from initialized network
+            encoder_inputs=obs,
+            decoder_inputs=decoder_inputs,
+            decoder_full_length=decoder_full_length,
+            decoder_targets=decoder_targets
+        )
+        return network
     
     def forward(self, obs, decoder_inputs, training=True, adj=None, mask=None):
         """Forward pass with tensor inputs"""
@@ -446,7 +471,7 @@ class Seq2SeqPolicy():
         # Create dummy targets for network creation
         decoder_targets = tf.zeros_like(decoder_inputs)
         
-        network = self._ensure_network(obs, decoder_inputs, decoder_targets, decoder_full_length)
+        network = self._create_network_for_tensors(obs, decoder_inputs, decoder_targets, decoder_full_length)
         
         if training:
             logits = network.decoder_logits
@@ -464,7 +489,7 @@ class Seq2SeqPolicy():
         decoder_inputs = tf.zeros([batch_size, max_len], dtype=tf.int32)
         decoder_targets = tf.zeros([batch_size, max_len], dtype=tf.int32)
         
-        network = self._ensure_network(obs, decoder_inputs, decoder_targets, decoder_full_length)
+        network = self._create_network_for_tensors(obs, decoder_inputs, decoder_targets, decoder_full_length)
         return network.greedy_decoder_prediction
     
     def get_actions(self, observations):
@@ -491,7 +516,7 @@ class Seq2SeqPolicy():
         seq_len = tf.shape(obs)[1]
         decoder_full_length = tf.fill([batch_size], seq_len)
         
-        network = self._ensure_network(obs, decoder_inputs, decoder_targets, decoder_full_length)
+        network = self._create_network_for_tensors(obs, decoder_inputs, decoder_targets, decoder_full_length)
         
         # Policy loss (negative log probability)
         policy_loss = network.neglogp()
@@ -520,26 +545,22 @@ class Seq2SeqPolicy():
         return self._dist
 
     def get_variables(self):
-        if self.network is None:
-            return []
-        return self.network.get_variables()
+        network = self._ensure_network_initialized()
+        return network.get_variables()
 
     def get_trainable_variables(self):
-        if self.network is None:
-            return []
-        return self.network.get_trainable_variables()
+        network = self._ensure_network_initialized()
+        return network.get_trainable_variables()
 
     def save_variables(self, save_path, sess=None):
         # EAGER: No session needed - use compat checkpoint helper
-        if self.network is not None:
-            variables = self.get_variables()
-            compat_checkpoint.save_variables_joblib(variables, save_path)
+        variables = self.get_variables()
+        compat_checkpoint.save_variables_joblib(variables, save_path)
 
     def load_variables(self, load_path, sess=None):
         # EAGER: No session needed - use compat checkpoint helper
-        if self.network is not None:
-            variables = self.get_variables()
-            compat_checkpoint.load_variables_joblib(variables, load_path)
+        variables = self.get_variables()
+        compat_checkpoint.load_variables_joblib(variables, load_path)
         # EAGER: Variable assignment happens immediately in load_variables_joblib
 
 

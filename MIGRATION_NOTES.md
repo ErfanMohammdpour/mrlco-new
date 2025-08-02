@@ -197,3 +197,10 @@ All 9 steps of the migration have been completed successfully:
   - `self.r.append(tf.compat.v1.placeholder(...))`
   - `self.grads_placeholders.append(tf.compat.v1.placeholder(...))`
 - **Removed method**: `build_graph_legacy()` - replaced with eager execution
+
+### Additional tf.contrib Fixes
+
+#### policies/meta_seq2seq_policy.py  
+- **Replaced** `tf.contrib.training.HParams` with local HParams class
+- **Issue**: `AttributeError: module 'tensorflow' has no attribute 'contrib'`
+- **Solution**: Simple class with same interface: `HParams(**kwargs)` sets attributes dynamically
