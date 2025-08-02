@@ -1,0 +1,51 @@
+{
+  "description": "Expected tensor shapes for MRLCO TF2 migration validation",
+  "graph2seq_encoder": {
+    "input_shape": ["batch_size", 20, 17],
+    "encoder_outputs_shape": ["batch_size", 20, 256],
+    "encoder_state_shape": ["batch_size", 128],
+    "notes": "Encoder outputs are 256-dim in concat mode, state is projected to 128-dim"
+  },
+  "seq2seq_policy": {
+    "observations_shape": ["batch_size", 20, 17],
+    "decoder_inputs_shape": ["batch_size", 20],
+    "decoder_targets_shape": ["batch_size", 20],
+    "logits_shape": ["batch_size", 20, 2],
+    "value_function_shape": ["batch_size"],
+    "action_dim": 2,
+    "notes": "Binary offloading decision (local=0, remote=1)"
+  },
+  "ppo_training": {
+    "advantages_shape": ["batch_size", 20],
+    "returns_shape": ["batch_size", 20],
+    "old_logits_shape": ["batch_size", 20, 2],
+    "old_values_shape": ["batch_size", 20],
+    "clip_epsilon": 0.2,
+    "vf_coef": 0.5,
+    "notes": "PPO hyperparameters must match exactly"
+  },
+  "meta_learning": {
+    "meta_batch_size": 10,
+    "inner_lr": 0.001,
+    "outer_lr": 0.001,
+    "num_inner_grad_steps": 1,
+    "first_order_approximation": true,
+    "notes": "Meta-gradient formula: (theta_core - theta_task) / (alpha * K * M)"
+  },
+  "checkpoint_format": {
+    "legacy_format": "joblib",
+    "variable_names": [
+      "core_policy/encoder_embeddings/kernel:0",
+      "core_policy/encoder_embeddings/bias:0",
+      "core_policy/graph2seq_encoder/state_projection/kernel:0",
+      "core_policy/decoder/output_projection/kernel:0",
+      "core_policy/vf_fc1/kernel:0",
+      "core_policy/vf_fc1/bias:0",
+      "core_policy/vf_fc2/kernel:0",
+      "core_policy/vf_fc2/bias:0",
+      "core_policy/vf_fc3/kernel:0",
+      "core_policy/vf_fc3/bias:0"
+    ],
+    "notes": "Variable names are examples - actual names depend on model structure"
+  }
+}
