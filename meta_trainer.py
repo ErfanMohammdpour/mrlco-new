@@ -139,7 +139,9 @@ if __name__ == "__main__":
     from baselines.vf_baseline import ValueFunctionBaseline
     from meta_algos.MRLCO import MRLCO
 
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    # MIGRATION: TF2 uses Python logging
+    import logging
+    logging.getLogger('tensorflow').setLevel(logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
     META_BATCH_SIZE = 10
@@ -222,8 +224,9 @@ if __name__ == "__main__":
                         start_itr=0,
                         inner_batch_size=1000)
 
-    with tf.compat.v1.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        avg_ret, avg_loss, avg_latencies = trainer.train()
+    # EAGER: No more sessions in TF2
+    # Model initialization happens in constructors
+    # TODO(runtime): Verify model initialization without global_variables_initializer
+    avg_ret, avg_loss, avg_latencies = trainer.train()
 
 

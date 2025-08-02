@@ -6,22 +6,25 @@ import tensorflow as tf
 import policies.model_helper as model_helper
 from policies.graph2seq_encoder import create_graph2seq_encoder
 
-from tensorflow.python.ops import control_flow_ops
-from tensorflow.python.ops import math_ops
-from tensorflow.python.framework import ops
-from tensorflow.python.ops.distributions import categorical
+# MIGRATION: Removed internal TF ops imports - using public API
+# from tensorflow.python.ops import control_flow_ops
+# from tensorflow.python.ops import math_ops
+# from tensorflow.python.framework import ops
+# from tensorflow.python.ops.distributions import categorical
 from policies.distributions.categorical_pd import CategoricalPd
 import utils as U
 from utils.utils import zipsame
+from compat import seq2seq as contrib_seq2seq
+from compat import checkpoint as compat_checkpoint
 
 tf.get_logger().setLevel('WARNING')
 
-class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddingHelper):
+class FixedSequenceLearningSampleEmbedingHelper(contrib_seq2seq.SampleEmbeddingHelper):
     def __init__(self, sequence_length, embedding, start_tokens, end_token, softmax_temperature=None, seed=None):
         super(FixedSequenceLearningSampleEmbedingHelper, self).__init__(
             embedding, start_tokens, end_token, softmax_temperature, seed
         )
-        self._sequence_length = ops.convert_to_tensor(
+        self._sequence_length = tf.convert_to_tensor(
             sequence_length, name="sequence_length")
         if self._sequence_length.get_shape().ndims != 1:
             raise ValueError(
@@ -32,7 +35,7 @@ class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddi
         """sample for SampleEmbeddingHelper."""
         del time, state  # unused by sample_fn
         # Outputs are logits, we sample instead of argmax (greedy).
-        if not isinstance(outputs, ops.Tensor):
+        if not isinstance(outputs, tf.Tensor):
             raise TypeError("Expected outputs to be a single Tensor, got: %s" %
                             type(outputs))
         if self._softmax_temperature is None:
@@ -40,8 +43,9 @@ class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddi
         else:
             logits = outputs / self._softmax_temperature
 
-        sample_id_sampler = categorical.Categorical(logits=logits)
-        sample_ids = sample_id_sampler.sample(seed=self._seed)
+        sample_id_sampler = tf.random.categorical(logits=logits, num_samples=1)
+        # MIGRATION: tf.random.categorical returns [batch, num_samples]
+        sample_ids = tf.squeeze(sample_id_sampler, axis=-1)
 
         return sample_ids
 
@@ -51,9 +55,9 @@ class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddi
 
         next_time = time + 1
         finished = (next_time >= self._sequence_length)
-        all_finished = math_ops.reduce_all(finished)
+        all_finished = tf.reduce_all(finished)
 
-        next_inputs = control_flow_ops.cond(
+        next_inputs = tf.cond(
             all_finished,
             # If we're finished, the next_inputs value doesn't matter
             lambda: self._start_inputs,
@@ -80,7 +84,8 @@ class Seq2SeqNetwork():
         self.unit_type = hparams.unit_type
 
         # default setting
-        self.mode = tf.contrib.learn.ModeKeys.TRAIN
+        # MIGRATION: Using string mode instead of ModeKeys enum
+        self.mode = 'train'
 
         self.num_layers = hparams.num_layers
         self.num_residual_layers = hparams.num_residual_layers
@@ -103,11 +108,13 @@ class Seq2SeqNetwork():
                 -1.0, 1.0), dtype=tf.float32)
 
             # using a fully connected layer as embeddings
-            self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
-                                                                        self.encoder_hidden_unit,
-                                                                        activation_fn = None,
-                                                                        scope="encoder_embeddings",
-                                                                        reuse=tf.compat.v1.AUTO_REUSE)
+            # MIGRATION: tf.contrib.layers.fully_connected -> tf.keras.layers.Dense
+            self.encoder_embedding_layer = tf.keras.layers.Dense(
+                self.encoder_hidden_unit,
+                activation=None,
+                name="encoder_embeddings"
+            )
+            self.encoder_embeddings = self.encoder_embedding_layer(self.encoder_inputs)
 
             self.decoder_embeddings = tf.nn.embedding_lookup(self.embeddings,
                                                              self.decoder_inputs)
@@ -294,7 +301,7 @@ class Seq2SeqNetwork():
     def create_decoder(self, hparams, encoder_outputs, encoder_state, model):
         with tf.compat.v1.variable_scope("decoder", reuse=tf.compat.v1.AUTO_REUSE) as decoder_scope:
             if model == "greedy":
-                helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+                helper = contrib_seq2seq.GreedyEmbeddingHelper(
                     self.embeddings,
                     # Batchsize * Start_token
                     start_tokens=tf.fill([tf.size(self.decoder_full_length)], self.start_token),
@@ -310,12 +317,12 @@ class Seq2SeqNetwork():
                 )
 
             elif model == "train":
-                helper = tf.contrib.seq2seq.TrainingHelper(
+                helper = contrib_seq2seq.TrainingHelper(
                     self.decoder_embeddings,
                     self.decoder_full_length,
                     time_major=self.time_major)
             else:
-                helper = tf.contrib.seq2seq.TrainingHelper(
+                helper = contrib_seq2seq.TrainingHelper(
                     self.decoder_embeddings,
                     self.decoder_full_length,
                     time_major=self.time_major)
@@ -331,10 +338,10 @@ class Seq2SeqNetwork():
                 else:
                     attention_states = encoder_outputs
 
-                attention_mechanism = tf.contrib.seq2seq.LuongAttention(
+                attention_mechanism = contrib_seq2seq.LuongAttention(
                     self.decoder_hidden_unit, attention_states)
 
-                decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+                decoder_cell = contrib_seq2seq.AttentionWrapper(
                     decoder_cell, attention_mechanism,
                     attention_layer_size=self.decoder_hidden_unit)
 
@@ -349,13 +356,13 @@ class Seq2SeqNetwork():
 
                 decoder_initial_state = encoder_state
 
-            decoder = tf.contrib.seq2seq.BasicDecoder(
+            decoder = contrib_seq2seq.BasicDecoder(
                 cell=decoder_cell,
                 helper=helper,
                 initial_state=decoder_initial_state,
                 output_layer=self.output_layer)
 
-            outputs, last_state, _ = tf.contrib.seq2seq.dynamic_decode(decoder,
+            outputs, last_state, _ = contrib_seq2seq.dynamic_decode(decoder,
                                                                        output_time_major=self.time_major,
                                                                        maximum_iterations=self.decoder_full_length[0])
         return outputs, last_state
@@ -429,34 +436,15 @@ class Seq2SeqPolicy():
         return self.network.get_trainable_variables()
 
     def save_variables(self, save_path, sess=None):
-        sess = sess or tf.compat.v1.get_default_session()
+        # EAGER: No session needed - use compat checkpoint helper
         variables = self.get_variables()
-
-        ps = sess.run(variables)
-        save_dict = {v.name: value for v, value in zip(variables, ps)}
-
-        dirname = os.path.dirname(save_path)
-        if any(dirname):
-            os.makedirs(dirname, exist_ok=True)
-
-        joblib.dump(save_dict, save_path)
+        compat_checkpoint.save_variables_joblib(variables, save_path)
 
     def load_variables(self, load_path, sess=None):
-        sess = sess or tf.compat.v1.get_default_session()
+        # EAGER: No session needed - use compat checkpoint helper
         variables = self.get_variables()
-
-        loaded_params = joblib.load(os.path.expanduser(load_path))
-        restores = []
-
-        if isinstance(loaded_params, list):
-            assert len(loaded_params) == len(variables), 'number of variables loaded mismatches len(variables)'
-            for d, v in zip(loaded_params, variables):
-                restores.append(v.assign(d))
-        else:
-            for v in variables:
-                restores.append(v.assign(loaded_params[v.name]))
-
-        sess.run(restores)
+        compat_checkpoint.load_variables_joblib(variables, load_path)
+        # EAGER: Variable assignment happens immediately in load_variables_joblib
 
 
 class MetaSeq2SeqPolicy():

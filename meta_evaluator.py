@@ -159,9 +159,10 @@ if __name__ == "__main__":
                       batch_size=500,
                       num_inner_grad_steps=3)
 
-    with tf.Session() as sess:
-        sess.run(tf.compat.v1.global_variables_initializer())
-        policy.load_variables(load_path="./meta_model_inner_step1/meta_model_final.ckpt")
-        avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
+    # EAGER: No more sessions in TF2
+    # Model initialization happens in constructors
+    # TODO(runtime): Verify model initialization without global_variables_initializer
+    policy.load_variables(load_path="./meta_model_inner_step1/meta_model_final.ckpt")
+    avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
 
 

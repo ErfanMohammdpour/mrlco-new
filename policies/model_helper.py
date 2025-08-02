@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+from compat import rnn as contrib_rnn
 import utils.logger as logger
 
 tf.get_logger().setLevel('WARNING')
@@ -8,32 +9,33 @@ def _single_cell(unit_type, num_units, forget_bias, dropout, mode,
                  residual_connection=False, device_str=None, residual_fn=None):
   """Create an instance of a single RNN cell."""
   # dropout (= 1 - keep_prob) is set to 0 during eval and infer
-  dropout = dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 0.0
+  # MIGRATION: Using string mode instead of ModeKeys enum
+  dropout = dropout if mode == 'train' else 0.0
 
   # Cell Type
   if unit_type == "lstm":
-    single_cell = tf.contrib.rnn.BasicLSTMCell(
+    single_cell = contrib_rnn.BasicLSTMCell(
         num_units,
         forget_bias=forget_bias)
   elif unit_type == "gru":
-    single_cell = tf.contrib.rnn.GRUCell(num_units)
+    single_cell = contrib_rnn.GRUCell(num_units)
   elif unit_type == "layer_norm_lstm":
-    single_cell = tf.contrib.rnn.LayerNormBasicLSTMCell(
+    single_cell = contrib_rnn.LayerNormBasicLSTMCell(
         num_units,
         forget_bias=forget_bias,
         layer_norm=True)
   elif unit_type == "nas":
-    single_cell = tf.contrib.rnn.NASCell(num_units)
+    single_cell = contrib_rnn.NASCell(num_units)
   else:
     raise ValueError("Unknown unit type %s!" % unit_type)
 
   if dropout > 0.0:
-    single_cell = tf.contrib.rnn.DropoutWrapper(
+    single_cell = contrib_rnn.DropoutWrapper(
         cell=single_cell, input_keep_prob=(1.0 - dropout))
 
   # Residual
   if residual_connection:
-    single_cell = tf.contrib.rnn.ResidualWrapper(
+    single_cell = contrib_rnn.ResidualWrapper(
         single_cell, residual_fn=residual_fn)
 
   return single_cell
@@ -79,4 +81,4 @@ def create_rnn_cell(unit_type, num_units, num_layers, num_residual_layers,
   if len(cell_list) == 1:  # Single layer.
     return cell_list[0]
   else:  # Multi layers
-    return tf.contrib.rnn.MultiRNNCell(cell_list)
+    return contrib_rnn.MultiRNNCell(cell_list)

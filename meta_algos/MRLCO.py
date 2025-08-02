@@ -26,35 +26,63 @@ class MRLCO():
 
         #self.optimizer = MpiAdamOptimizer(MPI.COMM_WORLD, learning_rate=self.lr, epsilon=1e-5)
         #self.inner_optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=self.inner_lr)
-        self.inner_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.inner_lr)
-        self.outer_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.outer_lr)
+        # MIGRATION: Use Keras optimizers
+        self.inner_optimizer = tf.keras.optimizers.Adam(learning_rate=self.inner_lr)
+        self.outer_optimizer = tf.keras.optimizers.Adam(learning_rate=self.outer_lr)
         self.clip_value = clip_value
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
 
-        # initialize the place hoder for each task place holder.
-        self.new_logits = []
-        self.decoder_inputs =[]
-        self.old_logits = []
-        self.actions = []
-        self.obs = []
-        self.vpred = []
-        self.decoder_full_length = []
+        # MIGRATION: No placeholders or build_graph in TF2
+        # Training will use @tf.function and GradientTape
+        # TODO(runtime): Verify meta-learning parameter updates
 
-        self.old_v =[]
-        self.advs = []
-        self.r = []
-
-        self.surr_obj = []
-        self.vf_loss = []
-        self.likelihood_ratio = []
-        self.clipped_obj = []
-        self.total_loss = []
-        self._train = []
-
-        self.build_graph()
-
-    def build_graph(self):
+    # MIGRATION: build_graph replaced with TF2 training functions
+    @tf.function
+    def train_step_per_task(self, task_idx, observations, actions, decoder_inputs, 
+                           decoder_full_length, old_logits, old_v, advs, r):
+        """Training step for a single task"""
+        # Get the specific task policy
+        task_policy = self.policy.meta_policies[task_idx]
+        
+        with tf.GradientTape() as tape:
+            # Forward pass
+            # TODO(runtime): Verify policy forward pass interface
+            new_logits, vpred = task_policy.call_with_inputs(
+                observations, decoder_inputs, decoder_full_length
+            )
+            
+            # PPO loss computation
+            likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(
+                actions, old_logits, new_logits
+            )
+            
+            clipped_obj = tf.minimum(
+                likelihood_ratio * advs,
+                tf.clip_by_value(likelihood_ratio, 1.0 - self.clip_value, 1.0 + self.clip_value) * advs
+            )
+            surr_obj = -tf.reduce_mean(clipped_obj)
+            
+            # Value loss with clipping
+            vpredclipped = old_v + tf.clip_by_value(vpred - old_v, -self.clip_value, self.clip_value)
+            vf_losses1 = tf.square(vpred - r)
+            vf_losses2 = tf.square(vpredclipped - r)
+            vf_loss = 0.5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
+            
+            total_loss = surr_obj + self.vf_coef * vf_loss
+        
+        # Compute and apply gradients
+        params = task_policy.network.get_trainable_variables()
+        grads = tape.gradient(total_loss, params)
+        
+        if self.max_grad_norm is not None:
+            grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+        
+        self.inner_optimizer.apply_gradients(zip(grads, params))
+        
+        return vf_loss, surr_obj
+    
+    def build_graph_legacy(self):
         # build inner update for each tasks
         for i in range(self.meta_batch_size):
             self.new_logits.append(self.policy.meta_policies[i].network.decoder_logits)
@@ -114,25 +142,29 @@ class MRLCO():
             self._outer_train = self.outer_optimizer.apply_gradients(outer_grads_and_var)
 
     def UpdateMetaPolicy(self):
-        # get the parameters value of the policy network
-        sess = tf.compat.v1.get_default_session()
-
-        for i in range(self.meta_batch_size):
-            params_symbol = self.policy.meta_policies[i].get_trainable_variables()
-            core_params_symble = self.policy.core_policy.get_trainable_variables()
-            params = sess.run(params_symbol)
-            core_params = sess.run(core_params_symble)
-
-            update_feed_dict = {}
-
-            # calcuate the gradient updates for the meta policy through first-order approximation.
-            for i, core_var, meta_var in zip(itertools.count(), core_params, params):
-                grads = (core_var - meta_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
-                update_feed_dict[self.grads_placeholders[i]] = grads
-
-            # update the meta policy parameters.
-            _ = sess.run(self._outer_train, feed_dict=update_feed_dict)
-
+        # EAGER: Meta-policy update using first-order approximation
+        # TODO(runtime): Verify meta-learning gradient computation
+        
+        # Collect gradients from all tasks
+        accumulated_grads = []
+        core_params = self.policy.core_policy.get_trainable_variables()
+        
+        # Initialize gradient accumulators
+        for param in core_params:
+            accumulated_grads.append(tf.zeros_like(param))
+        
+        # Compute meta-gradients from each task
+        for task_idx in range(self.meta_batch_size):
+            task_params = self.policy.meta_policies[task_idx].get_trainable_variables()
+            
+            # First-order approximation: (theta_core - theta_task) / (alpha * K * M)
+            for i, (core_var, task_var) in enumerate(zip(core_params, task_params)):
+                grad = (core_var - task_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
+                accumulated_grads[i] = accumulated_grads[i] + grad
+        
+        # Apply accumulated gradients to core policy
+        self.outer_optimizer.apply_gradients(zip(accumulated_grads, core_params))
+        
         print("async core policy to meta-policy")
         self.policy.async_parameters()
 
@@ -147,14 +179,12 @@ class MRLCO():
         return total_policy_losses, total_value_losses
 
     def UpdatePPOTargetPerTask(self, task_samples, task_id, batch_size=50):
+        # EAGER: Refactored to use TF2 training step
         policy_losses = []
         value_losses = []
 
         batch_number = int(task_samples['observations'].shape[0] / batch_size)
         self.update_numbers = batch_number
-        #:q!
-        # print("update number is: ", self.update_numbers)
-        #observations = task_samples['observations']
 
         shift_actions = np.column_stack(
                     (np.zeros(task_samples['actions'].shape[0], dtype=np.int32), task_samples['actions'][:, 0:-1]))
@@ -168,39 +198,25 @@ class MRLCO():
         oldvpred = np.split(np.array(task_samples['values'], dtype=np.float32), batch_number)
         returns = np.split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
 
-        sess = tf.compat.v1.get_default_session()
-
         vf_loss = 0.0
         pg_loss = 0.0
-        # copy_policy.set_weights(self.policy.get_weights())
+        
         for i in range(self.num_inner_grad_steps):
-            # action, old_logits, _ = copy_policy(observations)
-            for old_logits, old_v, observations, actions, shift_actions, advs, r in zip(old_logits_batchs, oldvpred, observations_batchs, actions_batchs,
-                                                                                        shift_action_batchs, advs_batchs, returns):
+            for old_logits, old_v, observations, actions, shift_actions, advs, r in zip(
+                    old_logits_batchs, oldvpred, observations_batchs, actions_batchs,
+                    shift_action_batchs, advs_batchs, returns):
                 decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
 
-                feed_dict = {self.old_logits[task_id]: old_logits, self.old_v[task_id]: old_v, self.obs[task_id]: observations, self.actions[task_id]: actions,
-                            self.decoder_inputs[task_id]: shift_actions,
-                             self.decoder_full_length[task_id]: decoder_full_length, self.advs[task_id]: advs, self.r[task_id]: r}
-
-                _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
-                    [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id], 
-                     self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]], 
-                    feed_dict=feed_dict)
+                # EAGER: Use TF2 training step
+                value_loss, policy_loss = self.train_step_per_task(
+                    task_id, observations, actions, shift_actions,
+                    decoder_full_length, old_logits, old_v, advs, r
+                )
                 
-                # Debug logging
-                if i == 0 and task_id == 0:  # Log only for first iteration and task
-                    print(f"\n[DEBUG] Loss calculation details:")
-                    print(f"  Policy loss (surr_obj): {policy_loss}")
-                    print(f"  Value loss: {value_loss}")
-                    print(f"  Likelihood ratio mean: {np.mean(likelihood_ratio_val)}")
-                    print(f"  Likelihood ratio std: {np.std(likelihood_ratio_val)}")
-                    print(f"  Advantages mean: {np.mean(advs_val)}")
-                    print(f"  Advantages std: {np.std(advs_val)}")
-                    print(f"  Clipped objective mean: {np.mean(clipped_obj_val)}")
-
-                vf_loss += value_loss
-                pg_loss += policy_loss
+                # TODO(runtime): Add debug logging if needed
+                
+                vf_loss += value_loss.numpy()
+                pg_loss += policy_loss.numpy()
 
             vf_loss = vf_loss / float(self.num_inner_grad_steps)
             pg_loss = pg_loss / float(self.num_inner_grad_steps)

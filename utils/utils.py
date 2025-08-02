@@ -177,7 +177,8 @@ def set_seed(seed):
     seed %= 4294967294
     random.seed(seed)
     np.random.seed(seed)
-    tf.set_random_seed(seed)
+    # MIGRATION: tf.set_random_seed -> tf.random.set_seed
+    tf.random.set_seed(seed)
     print('using seed %s' % (str(seed)))
 
 class ClassEncoder(json.JSONEncoder):
@@ -275,27 +276,28 @@ def adjust_shape(placeholder, data):
     return np.reshape(data, placeholder_shape)
 
 def make_session(config=None, num_cpu=None, make_default=False, graph=None):
-    """Returns a session that will use <num_cpu> CPU's only"""
+    """MIGRATION: Sessions not used in TF2 - configure via tf.config instead"""
     if num_cpu is None:
         num_cpu = int(os.getenv('RCALL_NUM_CPU', multiprocessing.cpu_count()))
-    if config is None:
-        config = tf.ConfigProto(
-            allow_soft_placement=True,
-            inter_op_parallelism_threads=num_cpu,
-            intra_op_parallelism_threads=num_cpu)
-        config.gpu_options.allow_growth = True
-
-    if make_default:
-        return tf.InteractiveSession(config=config, graph=graph)
-    else:
-        return tf.Session(config=config, graph=graph)
+    
+    # TODO(runtime): Configure TF2 settings
+    # tf.config.threading.set_inter_op_parallelism_threads(num_cpu)
+    # tf.config.threading.set_intra_op_parallelism_threads(num_cpu)
+    # 
+    # For GPU memory growth:
+    # gpus = tf.config.experimental.list_physical_devices('GPU')
+    # if gpus:
+    #     for gpu in gpus:
+    #         tf.config.experimental.set_memory_growth(gpu, True)
+    
+    # EAGER: Return None as sessions are not used
+    return None
 
 
 def get_session(config=None):
-    """Get default session or create one with a given config"""
-    sess = tf.get_default_session()
-    if sess is None:
-        sess = make_session(config=config, make_default=True)
+    """MIGRATION: Sessions not used in TF2"""
+    # EAGER: No sessions in TF2
+    return None
     return sess
 
 class _Function(object):
