@@ -232,6 +232,8 @@ if __name__ == "__main__":
     # EAGER: No more sessions in TF2
     # Model initialization happens in constructors
     # TODO(runtime): Verify model initialization without global_variables_initializer
+    # TODO(runtime): Wire up @tf.function for performance optimization
+    # TODO(runtime): Configure TF2 summaries for tensorboard logging
     avg_ret, avg_loss, avg_latencies = trainer.train()
 
 

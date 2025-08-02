@@ -162,6 +162,8 @@ if __name__ == "__main__":
     # EAGER: No more sessions in TF2
     # Model initialization happens in constructors
     # TODO(runtime): Verify model initialization without global_variables_initializer
+    # TODO(runtime): Add @tf.function decorators for performance
+    # TODO(runtime): Setup TF2 summary writers if needed
     # MIGRATION: Use centralized checkpoint loading
     from io.checkpointing import load_checkpoint
     load_checkpoint(policy, "./meta_model_inner_step1/meta_model_final.ckpt")
