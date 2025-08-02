@@ -162,7 +162,9 @@ if __name__ == "__main__":
     # EAGER: No more sessions in TF2
     # Model initialization happens in constructors
     # TODO(runtime): Verify model initialization without global_variables_initializer
-    policy.load_variables(load_path="./meta_model_inner_step1/meta_model_final.ckpt")
+    # MIGRATION: Use centralized checkpoint loading
+    from io.checkpointing import load_checkpoint
+    load_checkpoint(policy, "./meta_model_inner_step1/meta_model_final.ckpt")
     avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
 
 

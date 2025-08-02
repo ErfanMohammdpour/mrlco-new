@@ -102,9 +102,14 @@ class Trainer(object):
             avg_ret.append(avg_reward)
 
             if itr % self.save_interval == 0:
-                self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_"+str(itr)+".ckpt")
+                # MIGRATION: Use centralized checkpoint manager
+                from io.checkpointing import save_checkpoint
+                save_path = f"./meta_model_inner_step1/meta_model_{itr}.ckpt"
+                save_checkpoint(self.policy.core_policy, save_path, legacy_format=True)
 
-        self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_final.ckpt")
+        # Save final model
+        from io.checkpointing import save_checkpoint
+        save_checkpoint(self.policy.core_policy, "./meta_model_inner_step1/meta_model_final.ckpt", legacy_format=True)
 
         # Generate automated report
         try:
