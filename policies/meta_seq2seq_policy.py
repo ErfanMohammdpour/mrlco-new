@@ -1,3 +1,8 @@
+"""
+MIGRATION NOTE: This file contains TF1 constructs and should be replaced with
+meta_seq2seq_policy_keras.py for full TF2 compatibility. The Keras version
+maintains the same interface but uses proper TF2/Keras patterns.
+"""
 import os
 import joblib
 
