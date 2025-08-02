@@ -170,3 +170,30 @@ All 9 steps of the migration have been completed successfully:
    - Profile @tf.function decorated methods
    - Check for memory leaks in training loops
    - Optimize data pipeline if needed
+
+## Placeholder Removal - PHASE 2
+
+### Files Modified to Remove Placeholders
+
+#### policies/meta_seq2seq_policy.py
+- **Removed placeholders** (lines 385-388):
+  - `self.decoder_targets = tf.compat.v1.placeholder(...)`
+  - `self.decoder_inputs = tf.compat.v1.placeholder(...)`
+  - `self.obs = tf.compat.v1.placeholder(...)`
+  - `self.decoder_full_length = tf.compat.v1.placeholder(...)`
+- **Added new methods**:
+  - `forward(obs, decoder_inputs, training=True, adj=None, mask=None)` → returns (logits, value)
+  - `compute_loss(obs, decoder_inputs, decoder_targets, old_logits=None, advantages=None, returns=None, mask=None, training=True)` → returns loss dict
+  - `greedy_decode(obs, max_len, adj=None, mask=None)` → returns sample_ids
+- **Updated methods**:
+  - `get_actions()` now converts numpy to tensors internally
+  - `_ensure_network()` for lazy network creation with actual tensors
+
+#### meta_algos/MRLCO.py
+- **Removed placeholders** (lines 90, 96, 97, 98, 138):
+  - `self.old_logits.append(tf.compat.v1.placeholder(...))`
+  - `self.old_v.append(tf.compat.v1.placeholder(...))`
+  - `self.advs.append(tf.compat.v1.placeholder(...))`
+  - `self.r.append(tf.compat.v1.placeholder(...))`
+  - `self.grads_placeholders.append(tf.compat.v1.placeholder(...))`
+- **Removed method**: `build_graph_legacy()` - replaced with eager execution

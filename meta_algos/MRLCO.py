@@ -82,64 +82,8 @@ class MRLCO():
         
         return vf_loss, surr_obj
     
-    def build_graph_legacy(self):
-        # build inner update for each tasks
-        for i in range(self.meta_batch_size):
-            self.new_logits.append(self.policy.meta_policies[i].network.decoder_logits)
-            self.decoder_inputs.append(self.policy.meta_policies[i].decoder_inputs)
-            self.old_logits.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, self.policy.action_dim], name='old_logits_ph_task_'+str(i)))
-            self.actions.append(self.policy.meta_policies[i].decoder_targets)
-            self.obs.append(self.policy.meta_policies[i].obs)
-            self.vpred.append(self.policy.meta_policies[i].vf)
-            self.decoder_full_length.append(self.policy.meta_policies[i].decoder_full_length)
-
-            self.old_v.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='old_v_ph_task_'+str(i)))
-            self.advs.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='advs_ph_task'+str(i)))
-            self.r.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='r_ph_task_'+str(i)))
-
-            with tf.compat.v1.variable_scope("inner_update_parameters_task_"+str(i)) as scope:
-                likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(self.actions[i], self.old_logits[i], self.new_logits[i])
-                self.likelihood_ratio.append(likelihood_ratio)
-
-                clipped_obj = tf.minimum(likelihood_ratio * self.advs[i] ,
-                                         tf.clip_by_value(likelihood_ratio,
-                                                          1.0 - self.clip_value,
-                                                          1.0 + self.clip_value) * self.advs[i])
-                self.clipped_obj.append(clipped_obj)
-                self.surr_obj.append(-tf.reduce_mean(clipped_obj))
-
-                vpredclipped = self.vpred[i] + tf.clip_by_value(self.vpred[i] - self.old_v[i], -self.clip_value, self.clip_value)
-                vf_losses1 = tf.square(self.vpred[i] - self.r[i])
-                vf_losses2 = tf.square(vpredclipped - self.r[i])
-
-                self.vf_loss.append( .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2)) )
-
-                self.total_loss.append( self.surr_obj[i] + self.vf_coef * self.vf_loss[i])
-
-                params = self.policy.meta_policies[i].network.get_trainable_variables()
-
-                grads_and_var = self.inner_optimizer.compute_gradients(self.total_loss[i], params)
-                grads, var = zip(*grads_and_var)
-
-                if self.max_grad_norm is not None:
-                    # Clip the gradients (normalize)
-                    grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
-                grads_and_var = list(zip(grads, var))
-
-                self._train.append(self.inner_optimizer.apply_gradients(grads_and_var))
-
-        # Outer update for the parameters
-        # feed in the parameters of inner policy network and update outer parameters.
-        with tf.compat.v1.variable_scope("outer_update_parameters") as scope:
-            core_network_parameters = self.policy.core_policy.get_trainable_variables()
-            self.grads_placeholders = []
-
-            for i, var in enumerate(core_network_parameters):
-                self.grads_placeholders.append(tf.compat.v1.placeholder(shape=var.shape, dtype=var.dtype, name="grads_"+str(i)))
-
-            outer_grads_and_var = list(zip(self.grads_placeholders, core_network_parameters))
-
-            self._outer_train = self.outer_optimizer.apply_gradients(outer_grads_and_var)
+    # MIGRATION: Removed build_graph_legacy method - now using eager execution
+    # All placeholder-based graph building replaced with tensor-based method calls in UpdatePPOTargetPerTask
 
     def UpdateMetaPolicy(self):
         # EAGER: Meta-policy update using first-order approximation

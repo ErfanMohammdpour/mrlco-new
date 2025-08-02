@@ -382,14 +382,17 @@ class Seq2SeqNetwork():
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
                  decoder_units, vocab_size, name="pi"):
-        self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
-        self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
-        self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
-        self.decoder_full_length = tf.compat.v1.placeholder(shape=[None], dtype=tf.int32, name="decoder_full_length"+name)
+        # MIGRATION: Removed placeholders - tensors now passed as method arguments
+        self.obs_dim = obs_dim
 
         self.action_dim = vocab_size
         self.name = name
 
+        # Store parameters for method calls
+        self.encoder_units = encoder_units
+        self.decoder_units = decoder_units
+        self.vocab_size = vocab_size
+        
         hparams = tf.contrib.training.HParams(
             unit_type="lstm",
             encoder_units=encoder_units,
@@ -408,47 +411,130 @@ class Seq2SeqPolicy():
             is_bidencoder=False
         )
 
-        self.network = Seq2SeqNetwork( hparams = hparams, reuse=tf.compat.v1.AUTO_REUSE,
-                 encoder_inputs=self.obs,
-                 decoder_inputs=self.decoder_inputs,
-                 decoder_full_length=self.decoder_full_length,
-                 decoder_targets=self.decoder_targets,name = name)
-
-        self.vf = self.network.vf
+        # MIGRATION: Store hparams for network creation in forward calls
+        self.hparams = hparams
+        self.network = None  # Will be created in forward calls with actual tensors
 
         self._dist = CategoricalPd(vocab_size)
 
+    def _ensure_network(self, obs, decoder_inputs, decoder_targets, decoder_full_length):
+        """Lazy creation of network with actual tensors"""
+        if self.network is None:
+            self.network = Seq2SeqNetwork(
+                hparams=self.hparams, 
+                reuse=tf.compat.v1.AUTO_REUSE,
+                encoder_inputs=obs,
+                decoder_inputs=decoder_inputs,
+                decoder_full_length=decoder_full_length,
+                decoder_targets=decoder_targets,
+                name=self.name
+            )
+        return self.network
+    
+    def forward(self, obs, decoder_inputs, training=True, adj=None, mask=None):
+        """Forward pass with tensor inputs"""
+        # Create decoder_full_length from obs shape
+        batch_size = tf.shape(obs)[0]
+        seq_len = tf.shape(obs)[1] 
+        decoder_full_length = tf.fill([batch_size], seq_len)
+        
+        # Create dummy targets for network creation
+        decoder_targets = tf.zeros_like(decoder_inputs)
+        
+        network = self._ensure_network(obs, decoder_inputs, decoder_targets, decoder_full_length)
+        
+        if training:
+            logits = network.decoder_logits
+            value = network.vf
+        else:
+            logits = network.sample_decoder_logits
+            value = network.sample_vf
+            
+        return logits, value
+    
+    def greedy_decode(self, obs, max_len, adj=None, mask=None):
+        """Greedy decoding with tensor inputs"""
+        batch_size = tf.shape(obs)[0]
+        decoder_full_length = tf.fill([batch_size], max_len)
+        decoder_inputs = tf.zeros([batch_size, max_len], dtype=tf.int32)
+        decoder_targets = tf.zeros([batch_size, max_len], dtype=tf.int32)
+        
+        network = self._ensure_network(obs, decoder_inputs, decoder_targets, decoder_full_length)
+        return network.greedy_decoder_prediction
+    
     def get_actions(self, observations):
-        sess = tf.compat.v1.get_default_session()
-
-        decoder_full_length = np.array( [observations.shape[1]] * observations.shape[0] , dtype=np.int32)
-
-        actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
-                                             self.network.sample_decoder_logits,
-                                             self.network.sample_vf],
-                                            feed_dict={self.obs: observations, self.decoder_full_length: decoder_full_length})
-
-        return actions, logits, v_value
+        """Legacy method for compatibility - converts numpy to tensors"""
+        obs_tensor = tf.convert_to_tensor(observations, dtype=tf.float32)
+        batch_size = observations.shape[0]
+        seq_len = observations.shape[1]
+        
+        decoder_inputs = tf.zeros([batch_size, seq_len], dtype=tf.int32)
+        decoder_targets = tf.zeros([batch_size, seq_len], dtype=tf.int32)
+        decoder_full_length = tf.fill([batch_size], seq_len)
+        
+        network = self._ensure_network(obs_tensor, decoder_inputs, decoder_targets, decoder_full_length)
+        
+        actions = network.sample_decoder_prediction
+        logits = network.sample_decoder_logits
+        v_value = network.sample_vf
+        
+        return actions.numpy(), logits.numpy(), v_value.numpy()
+    
+    def compute_loss(self, obs, decoder_inputs, decoder_targets, old_logits=None, advantages=None, returns=None, mask=None, training=True):
+        """Compute loss with tensor inputs"""
+        batch_size = tf.shape(obs)[0]
+        seq_len = tf.shape(obs)[1]
+        decoder_full_length = tf.fill([batch_size], seq_len)
+        
+        network = self._ensure_network(obs, decoder_inputs, decoder_targets, decoder_full_length)
+        
+        # Policy loss (negative log probability)
+        policy_loss = network.neglogp()
+        
+        # Value loss 
+        value_pred = network.vf
+        if returns is not None:
+            value_loss = tf.reduce_mean(tf.square(value_pred - returns))
+        else:
+            value_loss = tf.constant(0.0)
+        
+        # Apply advantages if provided
+        if advantages is not None:
+            policy_loss = tf.reduce_mean(policy_loss * advantages)
+        else:
+            policy_loss = tf.reduce_mean(policy_loss)
+            
+        return {
+            'policy_loss': policy_loss,
+            'value_loss': value_loss,
+            'total_loss': policy_loss + 0.5 * value_loss
+        }
 
     @property
     def distribution(self):
         return self._dist
 
     def get_variables(self):
+        if self.network is None:
+            return []
         return self.network.get_variables()
 
     def get_trainable_variables(self):
+        if self.network is None:
+            return []
         return self.network.get_trainable_variables()
 
     def save_variables(self, save_path, sess=None):
         # EAGER: No session needed - use compat checkpoint helper
-        variables = self.get_variables()
-        compat_checkpoint.save_variables_joblib(variables, save_path)
+        if self.network is not None:
+            variables = self.get_variables()
+            compat_checkpoint.save_variables_joblib(variables, save_path)
 
     def load_variables(self, load_path, sess=None):
         # EAGER: No session needed - use compat checkpoint helper
-        variables = self.get_variables()
-        compat_checkpoint.load_variables_joblib(variables, load_path)
+        if self.network is not None:
+            variables = self.get_variables()
+            compat_checkpoint.load_variables_joblib(variables, load_path)
         # EAGER: Variable assignment happens immediately in load_variables_joblib
 
 

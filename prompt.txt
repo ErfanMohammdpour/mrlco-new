@@ -1,164 +1,126 @@
-START NOW — Code-Only Migration on tf2.19.0 (TF 1.15 → TF 2.19.0)
-Constraints (must follow):
+Context & Error:
+Runtime error under TF 2.19.0:
 
-Do NOT install anything.
+RuntimeError: tf.placeholder() is not compatible with eager execution.
+at policies/meta_seq2seq_policy.py:385  # decoder_targets placeholder
+This indicates remaining TF1 patterns (tf.placeholder/tf.compat.v1.placeholder) in the codebase. We must migrate these to TF2-style inputs.
 
-Do NOT run any code, scripts, or tests.
+Goals
+Remove every usage of tf.placeholder / tf.compat.v1.placeholder across the repo.
 
-Edit files only (pure refactor for TF2 style).
+Refactor policy/encoder/decoder code to accept tensors as function/method arguments or tf.keras.Input in model definitions (no sessions/feed_dict).
 
-Stay on the existing branch: tf2.19.0.
+Keep I/O shapes and semantics identical to the current code (teacher forcing, greedy, logits shape [B, T, 2], etc.).
 
-Commit early/often with clear messages.
+Update training/eval scripts to pass real tensors instead of feeding placeholders.
 
-Definition of Done (for this pass): All TF1.15 constructs are refactored to TF2/Keras/eager-style (with local shims where needed). Public APIs/shapes/semantics are preserved to the greatest extent possible. No execution.
+Run a smoke test to confirm the placeholder error is gone and report the next blocking issue if any.
 
-0) Repo hygiene (no execution)
-Confirm you’re on tf2.19.0.
+Step 0 — Branch & Notes
+Stay on the current branch: tf2.19.0.
 
-Create MIGRATION_NOTES.md at repo root. For every change, log: file, symbols replaced, and any TODOs for runtime verification.
+Maintain MIGRATION_NOTES.md: list each file changed and which placeholders were removed.
 
-1) Add local compat shims (replace tf.contrib.* without external deps)
-Create mrlco_new/compat/ with:
+Step 1 — Locate All Placeholders (repo-wide)
+Run and paste the list into the report:
 
-seq2seq.py — adapters for TF1 contrib seq2seq APIs used here:
+grep -RIn --line-number -E "tf\.placeholder|tf\.compat\.v1\.placeholder" .
+Files expected (at minimum):
 
-BasicDecoder, dynamic_decode, LuongAttention, AttentionWrapper,
+policies/meta_seq2seq_policy.py (e.g., decoder_targets, decoder_inputs, obs…),
 
-TrainingHelper, GreedyEmbeddingHelper, SampleEmbeddingHelper.
-Implement minimal Keras-based wrappers with the same call signatures where possible. Add # TODO(runtime) notes where exact parity must be verified later.
+Possibly meta_algos/*.py, samplers/*.py, or older helper files.
 
-rnn.py — adapters for LSTMCell/GRUCell/MultiRNNCell via tf.keras.layers.* (e.g., StackedRNNCells).
+Step 2 — Refactor Seq2SeqPolicy / MetaSeq2SeqPolicy
+Files: policies/meta_seq2seq_policy.py (and any file where placeholders are declared)
 
-ops.py — helpers replacing tf.control_dependencies with no-ops/comments suitable under eager/tf.function.
+2.1 Remove placeholder fields in __init__
 
-checkpoint.py — helpers to read/write existing joblib maps and name-map TF2 variables (stubs only; no execution).
+Delete lines like:
 
-Commit: chore(tf2): add local compat shims for seq2seq/rnn/ops/checkpoint
+self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
+Do not create tensors in __init__. Instead, accept them as inputs to methods.
 
-2) Mechanical API edits (project-wide, file-by-file)
-Replace and remove TF1 patterns:
+2.2 Make Keras-style call signatures
 
-tf.Session, sess.run, tf.get_default_session → remove; functions return tensors; add comment: # EAGER: was sess.run(...).
+If not already done, convert to Keras classes:
 
-tf.placeholder → function/class inputs or tf.keras.Input (inside models). Keep dtype/shape in comments.
+class Seq2SeqPolicy(tf.keras.Model) or keep as a component with Keras layers inside.
 
-tf.variable_scope / tf.get_variable → object-owned variables in tf.keras.layers.Layer / tf.keras.Model (build()/call()).
+Define methods with explicit tensor args:
 
-tf.get_collection(...) / GraphKeys.TRAINABLE_VARIABLES → model.trainable_variables or explicit owned lists.
+def forward(self, obs, decoder_inputs, training: bool, adj=None, mask=None): -> logits, value
 
-tf.contrib.seq2seq/rnn/layers/learn imports → your compat or native Keras:
+def compute_loss(self, obs, decoder_inputs, decoder_targets, old_logits=None, advantages=None, returns=None, mask=None, training=True): -> dict(losses...)
 
-e.g., from tensorflow.contrib import seq2seq → from mrlco_new.compat import seq2seq as contrib_seq2seq
+def greedy_decode(self, obs, max_len, adj=None, mask=None): -> sample_ids
 
-tf.contrib.layers.fully_connected → tf.keras.layers.Dense
+Teacher forcing path must consume decoder_targets (and/or decoder_inputs) passed as args, not placeholders.
 
-tf.control_dependencies → remove; note: # EAGER: ordering by call graph / GradientTape.
+2.3 Attention/Decoder helpers
 
-v1 summaries → TF2 summaries (or leave TODO stubs).
+If using local compat.seq2seq adapters, ensure they accept real tensors (not placeholders).
 
-Commit: chore(tf2): remove v1 sessions/placeholders/scopes/collections; replace contrib imports
+Replace any v1 helper code that assumes dtype/shape from placeholders with shapes derived from the passed tensors.
 
-3) Policies (encoder/attention/decoder) — keep I/O shapes identical
-policies/graph2seq_encoder.py
+2.4 Value head
 
-Refactor to class Graph2SeqEncoder(tf.keras.layers.Layer).
+Ensure the value head receives the same features as in TF1 code, via tensor args. No placeholders.
 
-build() creates variables; call(inputs, mask=None, training=None, adj=None, **kwargs) returns:
+Step 3 — Update meta_trainer.py (and evaluator)
+File: meta_trainer.py (line ~196 is where the policy is constructed)
 
-encoder sequence outputs [B, T=20, 256] (concat mode),
+After constructing MetaSeq2SeqPolicy, update training calls to pass real tensors:
 
-final state [B, 128] (projected).
+Where it previously relied on feed_dict/placeholders, now call:
 
-Keep adjacency/mask explicit parameters (no global collections).
+losses = meta_policy.compute_loss(
+    obs=batch_obs, 
+    decoder_inputs=batch_decoder_inputs,
+    decoder_targets=batch_decoder_targets,
+    old_logits=batch_old_logits, 
+    advantages=batch_advs, 
+    returns=batch_returns,
+    mask=batch_mask,
+    training=True
+)
+Remove any leftover sess.run(...) or feed_dict.
 
-policies/meta_seq2seq_policy.py
+Ensure samplers collate numpy arrays → convert to tensors at call sites (e.g., tf.convert_to_tensor with explicit dtypes).
 
-Convert to tf.keras.Model; logits [B, T, 2] and value output preserved.
+Step 4 — Update samplers/ and any data feeders
+Replace any logic that assumed placeholders with functions returning numpy/tensors already batched and shaped for:
 
-Replace attention/decoder with mrlco_new.compat.seq2seq adapters; keep helper semantics (teacher forcing/greedy) at API level with TODOs.
+obs: [B, T, 17]
 
-policies/model_helper.py
+decoder_inputs: [B, T] (if used)
 
-Replace tf.contrib.rnn.* with mrlco_new.compat.rnn or tf.keras.layers equivalents.
+decoder_targets: [B, T]
 
-Commit: feat(tf2): keras-ify encoder/decoder/attention with same interfaces and shapes
+masks where applicable [B, T]
 
-4) Algorithms — PPO & meta (preserve math; introduce TF2 skeletons only)
-distributions/categorical_pd.py
+Ensure dtypes align with losses (e.g., decoder_targets must be int32 for SparseCategoricalCrossentropy(from_logits=True)).
 
-Implement sample, log_prob, entropy, mode using TF2 ops (tf.nn.log_softmax, tf.random.categorical), preserving previous method names/args.
+Step 5 — Clean Up PPO/meta bindings
+Files: meta_algos/MRLCO.py, meta_algos/ppo_offloading.py, distributions/categorical_pd.py
 
-meta_algos/MRLCO.py, meta_algos/ppo_offloading.py
+Ensure these modules do not create placeholders internally.
 
-Remove placeholders/feeds; accept tensors.
+Computations (logprob/ratio, advantage, value loss) must take tensors passed as args.
 
-Replace implicit variable collections with self.model.trainable_variables.
+If any legacy collection-based variable grabbing remains, replace with model-owned attributes (e.g., self.model.trainable_variables).
 
-Add non-executed TF2 training step skeletons using tf.GradientTape that compute:
+### Step 6 — Commit & Report
+- Commit with message:  
+`feat(tf2): remove all tf.placeholder usages; refactor policies/trainer to tensor inputs`
+- Provide a short report including:
+- Files modified and placeholders removed (with line refs pre/post if available),
+- New/updated public method signatures (e.g., `compute_loss`, `forward`, `greedy_decode`),
+- Confirmation that the smoke test executed past the old error, or the next exact blocking error.
 
-logprob/ratio, PPO clipped policy loss, value loss (incl. clipping), entropy (if present), grad clipping (max-norm), with the same constants (clip eps, inner/outer steps, etc.).
+**Rules**
+- Maintain existing model behavior and shapes; do not change hyperparameters or algorithmic choices.
+- If ambiguity arises (e.g., where `decoder_inputs` vs `decoder_targets` are expected), pause and ask for clarification with the specific file/line.
 
-Keep current update ordering documented in comments.
-
-Commit: feat(tf2): eager/GradientTape skeletons for PPO and meta (no runtime)
-
-5) Samplers, env, I/O — static refactor
-samplers/*.py — remove session usage; keep return types and batching contracts; document masks/padding.
-
-env/* — ensure pure Python/NumPy; no TF1 graph constructs.
-
-baselines/vf_baseline.py — wrap value layers with tf.keras if needed (no execution).
-
-io/checkpointing.py — centralize joblib map stubs and TF2 checkpoint helpers; update callers to use this module.
-
-Commit: refactor(tf2): remove TF1 constructs in samplers/env/io; unify checkpoint stubs
-
-6) Entrypoints — trainer/evaluator (no execution)
-meta_trainer.py, meta_evaluator.py
-
-Remove tf.Session and all feed_dicts.
-
-Instantiate Keras models and call methods directly (no runs).
-
-Replace tf.contrib.learn.ModeKeys/flags with argparse/constants.
-
-Insert # TODO(runtime) where optimizers/@tf.function/summaries will be wired on server.
-
-Commit: refactor(tf2): trainer/evaluator to eager-style stubs; remove v1 flags
-
-7) Imports & sweep
-Ensure no tf.contrib.*, tf.Session, tf.placeholder, variable_scope/get_variable, get_collection, control_dependencies remain.
-
-Add # MIGRATION: comments explaining each non-obvious substitution.
-
-Commit: chore(tf2): purge remaining v1 symbols; document substitutions
-
-8) Parity anchors (static artifacts only)
-Add tests/golden/ with JSON fixtures for expected shapes and tensor names (placeholders if TF1 captures aren’t available).
-
-Add non-executed test stubs under tests/ describing assertions to run later on server.
-
-Commit: test(tf2): add golden fixtures and test stubs (no execution)
-
-9) Docs
-Update README.md with a “TF2.19 code-only migration” section: code is migrated, not executed; runtime verification will occur on server.
-
-Keep MIGRATION_NOTES.md current.
-
-Commit: docs(tf2): add migration notes and README section
-
-Final checklist (must be true before you stop)
- No TF1.15 symbols remain (contrib/session/placeholder/scopes/collections/control_deps).
-
- Encoder/attention/decoder are Keras-based with identical I/O shapes.
-
- PPO/meta code contains TF2 GradientTape skeletons with the same loss/ratio/clipping math (constants unchanged).
-
- Checkpoint paths go through io/checkpointing.py and support legacy joblib map (stubs only).
-
- All edits documented in MIGRATION_NOTES.md.
-
- No installs and no runs were performed.
-
-When finished: Push branch tf2.19.0 and report back with: list of files changed, per-file diff summaries, and any TODOs that must be verified on the server.
+**Begin now.** Report back with the grep results, the list of edits, and the outcome of the smoke test.
+::contentReference[oaicite:0]{index=0}
