@@ -393,11 +393,16 @@ class Seq2SeqPolicy():
         self.decoder_units = decoder_units
         self.vocab_size = vocab_size
         
-        hparams = tf.contrib.training.HParams(
+        # MIGRATION: Replace tf.contrib.training.HParams with simple class
+        class HParams:
+            def __init__(self, **kwargs):
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+        
+        hparams = HParams(
             unit_type="lstm",
             encoder_units=encoder_units,
             decoder_units=decoder_units,
-
             n_features=vocab_size,
             time_major=False,
             is_attention=True,
