@@ -50,7 +50,7 @@ class Seq2SeqNetwork(tf.keras.Model):
         self.embeddings = self.add_weight(
             name="embeddings",
             shape=[self.n_features, self.encoder_hidden_unit],
-            initializer=tf.random_uniform_initializer(-1.0, 1.0),
+            initializer=tf.keras.initializers.RandomUniform(-1.0, 1.0),
             dtype=tf.float32,
             trainable=True
         )

@@ -172,7 +172,7 @@ class CategoricalPd(Distribution):
         Returns:
            (obj): sample drawn from the corresponding instantiation
         """
-        u = tf.random_uniform(tf.shape(logits), dtype=logits.dtype)
+        u = tf.random.uniform(tf.shape(logits), dtype=logits.dtype)
 
         return tf.argmax(logits - tf.log(-tf.log(u)), axis=-1)
 
