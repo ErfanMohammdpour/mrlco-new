@@ -25,7 +25,7 @@ class GatedMeanAggregator(Layer):
         if concat:
             self.output_dim = 2 * output_dim
 
-        with tf.variable_scope(self.name + name + '_vars'):
+        with tf.compat.v1.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([neigh_input_dim, output_dim],
                                                 name='neigh_weights')
             self.vars['self_weights'] = glorot([input_dim, output_dim],
@@ -94,7 +94,7 @@ class MeanAggregator(Layer):
         if concat:
             self.output_dim = 2 * output_dim
 
-        with tf.variable_scope(self.name + name + '_vars'):
+        with tf.compat.v1.variable_scope(self.name + name + '_vars'):
             self.vars['neigh_weights'] = glorot([neigh_input_dim, output_dim],
                                                 name='neigh_weights')
             self.vars['self_weights'] = glorot([input_dim, output_dim],
@@ -163,7 +163,7 @@ class MaxPoolingAggregator(Layer):
         self.mlp_layers.append(Dense(input_dim=neigh_input_dim, output_dim=hidden_dim, act=tf.nn.relu,
                                      dropout=dropout, sparse_inputs=False, logging=self.logging))
 
-        with tf.variable_scope(self.name + name + '_vars'):
+        with tf.compat.v1.variable_scope(self.name + name + '_vars'):
 
             self.vars['neigh_weights'] = glorot([hidden_dim, output_dim], name='neigh_weights')
 
