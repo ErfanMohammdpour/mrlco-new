@@ -144,7 +144,7 @@ if __name__ == "__main__":
     logging.getLogger('tensorflow').setLevel(logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 10
+    META_BATCH_SIZE = 2
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
@@ -219,7 +219,7 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=1000,
+                        n_itr=3,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
                         inner_batch_size=1000)
