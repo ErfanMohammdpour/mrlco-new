@@ -21,6 +21,7 @@ import utils as U
 from utils.utils import zipsame
 from compat import seq2seq as contrib_seq2seq
 from compat import checkpoint as compat_checkpoint
+from compat import layers as compat_layers
 
 tf.get_logger().setLevel('WARNING')
 
@@ -90,7 +91,8 @@ class Seq2SeqNetwork():
         self.unit_type = hparams.unit_type
 
         # default setting
-        self.mode = tf.contrib.learn.ModeKeys.TRAIN
+        # MIGRATION: tf.contrib.learn removed in TF2, use compat.v1.estimator
+        self.mode = tf.compat.v1.estimator.ModeKeys.TRAIN
 
         self.num_layers = hparams.num_layers
         self.num_residual_layers = hparams.num_residual_layers
@@ -113,7 +115,7 @@ class Seq2SeqNetwork():
                 -1.0, 1.0), dtype=tf.float32)
 
             # using a fully connected layer as embeddings
-            self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
+            self.encoder_embeddings = compat_layers.fully_connected(self.encoder_inputs,
                                                                         self.encoder_hidden_unit,
                                                                         activation_fn = None,
                                                                         scope="encoder_embeddings",
