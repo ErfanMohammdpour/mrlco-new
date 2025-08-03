@@ -5,47 +5,82 @@ Provides Keras-based replacements for RNN cells
 import tensorflow as tf
 
 
-class BasicLSTMCell(tf.keras.layers.LSTMCell):
+class BasicLSTMCell:
     """Shim for tf.contrib.rnn.BasicLSTMCell"""
+    
     def __init__(self, num_units, forget_bias=1.0, state_is_tuple=True, 
                  activation=None, reuse=None, name=None, dtype=None, **kwargs):
-        # Map TF1 arguments to Keras LSTMCell
-        super().__init__(
+        self.num_units = num_units
+        self._forget_bias = forget_bias
+        self._state_is_tuple = state_is_tuple
+        self._activation = activation or 'tanh'
+        self._name = name
+        self._dtype = dtype
+        
+        # Create the underlying Keras LSTMCell
+        self._keras_cell = tf.keras.layers.LSTMCell(
             units=num_units,
-            activation=activation or 'tanh',
+            activation=self._activation,
             recurrent_activation='sigmoid',
             use_bias=True,
             kernel_initializer='glorot_uniform',
             recurrent_initializer='orthogonal',
             bias_initializer='zeros',
-            unit_forget_bias=True,  # Keras uses this instead of forget_bias
+            unit_forget_bias=True,
             dropout=0.0,
             recurrent_dropout=0.0,
             name=name,
             dtype=dtype,
             **kwargs
         )
-        self.num_units = num_units
-        self._forget_bias = forget_bias
-        # TODO(runtime): Verify forget_bias behavior matches TF1
         
     @property
     def state_size(self):
-        return [self.num_units, self.num_units]
-    
-    @property
+        if self._state_is_tuple:
+            return (self.num_units, self.num_units)  # (c, h)
+        else:
+            return self.num_units * 2
+            
+    @property 
     def output_size(self):
         return self.num_units
+        
+    def __call__(self, inputs, state, scope=None):
+        """Call the underlying Keras cell"""
+        if self._state_is_tuple:
+            # state is (c, h) tuple for LSTM
+            output, new_state = self._keras_cell(inputs, state)
+        else:
+            # Convert concatenated state to tuple
+            c, h = tf.split(state, 2, axis=-1)
+            output, (new_c, new_h) = self._keras_cell(inputs, (c, h))
+            new_state = tf.concat([new_c, new_h], axis=-1)
+        return output, new_state
+        
+    @property
+    def trainable_variables(self):
+        return self._keras_cell.trainable_variables
+        
+    @property
+    def variables(self):
+        return self._keras_cell.variables
 
 
-class GRUCell(tf.keras.layers.GRUCell):
+class GRUCell:
     """Shim for tf.contrib.rnn.GRUCell"""
+    
     def __init__(self, num_units, activation=None, reuse=None, 
                  kernel_initializer=None, bias_initializer=None, 
                  name=None, dtype=None, **kwargs):
-        super().__init__(
+        self.num_units = num_units
+        self._activation = activation or 'tanh'
+        self._name = name
+        self._dtype = dtype
+        
+        # Create the underlying Keras GRUCell
+        self._keras_cell = tf.keras.layers.GRUCell(
             units=num_units,
-            activation=activation or 'tanh',
+            activation=self._activation,
             recurrent_activation='sigmoid',
             use_bias=True,
             kernel_initializer=kernel_initializer or 'glorot_uniform',
@@ -58,9 +93,7 @@ class GRUCell(tf.keras.layers.GRUCell):
             dtype=dtype,
             **kwargs
         )
-        self.num_units = num_units
-        # TODO(runtime): Verify GRU gate computation matches TF1
-    
+        
     @property
     def state_size(self):
         return self.num_units
@@ -68,6 +101,18 @@ class GRUCell(tf.keras.layers.GRUCell):
     @property
     def output_size(self):
         return self.num_units
+        
+    def __call__(self, inputs, state, scope=None):
+        """Call the underlying Keras cell"""
+        return self._keras_cell(inputs, state)
+        
+    @property
+    def trainable_variables(self):
+        return self._keras_cell.trainable_variables
+        
+    @property
+    def variables(self):
+        return self._keras_cell.variables
 
 
 class LayerNormBasicLSTMCell(tf.keras.layers.LSTMCell):
