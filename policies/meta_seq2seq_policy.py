@@ -404,24 +404,17 @@ class Seq2SeqNetwork():
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
                  decoder_units, vocab_size, name="pi"):
-        # MIGRATION: Removed placeholders - tensors now passed as method arguments
-        self.obs_dim = obs_dim
-
         self.action_dim = vocab_size
         self.name = name
+        self.obs_dim = obs_dim
 
-        # Store parameters for method calls
-        self.encoder_units = encoder_units
-        self.decoder_units = decoder_units
-        self.vocab_size = vocab_size
-        
         # MIGRATION: Replace tf.contrib.training.HParams with simple class
         class HParams:
             def __init__(self, **kwargs):
                 for k, v in kwargs.items():
                     setattr(self, k, v)
         
-        hparams = HParams(
+        self.hparams = HParams(
             unit_type="lstm",
             encoder_units=encoder_units,
             decoder_units=decoder_units,
@@ -438,11 +431,8 @@ class Seq2SeqPolicy():
             is_bidencoder=False
         )
 
-        # MIGRATION: Store hparams for lazy network creation
-        self.hparams = hparams
-        self.network = None  # Created on first call to get_actions
-        self.obs_dim = obs_dim
-
+        # Network will be created lazily when first used
+        self.network = None
         self._dist = CategoricalPd(vocab_size)
 
     # MIGRATION: Removed complex network creation - network created once in __init__ like TF1.15
@@ -455,32 +445,88 @@ class Seq2SeqPolicy():
     
     def get_actions(self, observations):
         """Get actions from observations - matches TF1.15 interface"""
-        # Create network on first call (lazy initialization)
+        # Ensure observations is numpy array
+        if tf.is_tensor(observations):
+            observations = observations.numpy()
+        
+        # Create network on first call
         if self.network is None:
-            obs_tensor = tf.convert_to_tensor(observations, dtype=tf.float32)
-            batch_size = observations.shape[0]
-            seq_len = observations.shape[1]
-            
-            decoder_inputs = tf.zeros([batch_size, seq_len], dtype=tf.int32)
-            decoder_targets = tf.zeros([batch_size, seq_len], dtype=tf.int32)
-            decoder_full_length = tf.fill([batch_size], seq_len)
-            
-            self.network = Seq2SeqNetwork(
-                name=self.name,
-                hparams=self.hparams,
-                reuse=tf.compat.v1.AUTO_REUSE,
-                encoder_inputs=obs_tensor,
-                decoder_inputs=decoder_inputs,
-                decoder_full_length=decoder_full_length,
-                decoder_targets=decoder_targets
+            self._create_network(observations)
+        
+        # Run forward pass to get actions
+        return self._sample_actions(observations)
+    
+    def _create_network(self, observations):
+        """Create the network with concrete shapes from first observation"""
+        batch_size, seq_len = observations.shape[:2]
+        
+        # Create concrete tensor inputs
+        obs_tensor = tf.constant(observations, dtype=tf.float32)
+        decoder_inputs = tf.zeros([batch_size, seq_len], dtype=tf.int32)
+        decoder_targets = tf.zeros([batch_size, seq_len], dtype=tf.int32) 
+        decoder_full_length = tf.constant([seq_len] * batch_size, dtype=tf.int32)
+        
+        self.network = Seq2SeqNetwork(
+            name=self.name,
+            hparams=self.hparams,
+            reuse=tf.compat.v1.AUTO_REUSE,
+            encoder_inputs=obs_tensor,
+            decoder_inputs=decoder_inputs,
+            decoder_full_length=decoder_full_length,
+            decoder_targets=decoder_targets
+        )
+    
+    @tf.function
+    def _sample_actions(self, observations):
+        """Sample actions using the network - this will be called with different obs shapes"""
+        # Convert to tensor
+        obs_tensor = tf.convert_to_tensor(observations, dtype=tf.float32)
+        batch_size = tf.shape(obs_tensor)[0]
+        seq_len = tf.shape(obs_tensor)[1]
+        
+        # Create decoder length
+        decoder_full_length = tf.fill([batch_size], seq_len)
+        
+        # Run encoder
+        encoder_embeddings = self.network.encoder_embedding_layer(obs_tensor)
+        encoder_outputs, encoder_state = create_graph2seq_encoder(
+            encoder_inputs=encoder_embeddings,
+            encoder_units=self.hparams.encoder_units,
+            num_layers=self.hparams.num_layers,
+            is_bidirectional=self.hparams.is_bidencoder,
+            mode='train',
+            scope_name="encoder"
+        )
+        
+        # Create sample decoder
+        with tf.compat.v1.variable_scope("decoder", reuse=tf.compat.v1.AUTO_REUSE):
+            helper = FixedSequenceLearningSampleEmbedingHelper(
+                sequence_length=decoder_full_length,
+                embedding=self.network.embeddings,
+                start_tokens=tf.fill([batch_size], self.hparams.start_token),
+                end_token=self.hparams.end_token
             )
+            
+            decoder_cell = self.network._build_decoder_cell(
+                self.hparams, self.hparams.num_layers, self.hparams.num_residual_layers)
+            
+            decoder = contrib_seq2seq.BasicDecoder(
+                cell=decoder_cell,
+                helper=helper,
+                initial_state=encoder_state,
+                output_layer=self.network.output_layer
+            )
+            
+            outputs, _ = contrib_seq2seq.dynamic_decode(
+                decoder, maximum_iterations=seq_len)
         
-        # Use network outputs directly (eager execution)
-        actions = self.network.sample_decoder_prediction
-        logits = self.network.sample_decoder_logits  
-        v_value = self.network.sample_vf
+        # Compute logits and values
+        logits = outputs.rnn_output
+        pi = tf.nn.softmax(logits)
+        q = self.network.q_layer(logits)
+        vf = tf.reduce_sum(pi * q, axis=-1)
         
-        return actions, logits, v_value
+        return outputs.sample_id, logits, vf
     
     def compute_loss(self, obs, decoder_inputs, decoder_targets, old_logits=None, advantages=None, returns=None, mask=None, training=True):
         """Compute loss with tensor inputs - placeholder for compatibility"""
@@ -581,6 +627,14 @@ class MetaSeq2SeqPolicy():
         meta_v_values = []
         for i, obser_per_task in enumerate(observations):
             action, logits, v_value = self.meta_policies[i].get_actions(obser_per_task)
+
+            # Convert tensors to numpy for compatibility
+            if tf.is_tensor(action):
+                action = action.numpy()
+            if tf.is_tensor(logits):
+                logits = logits.numpy()
+            if tf.is_tensor(v_value):
+                v_value = v_value.numpy()
 
             meta_actions.append(np.array(action))
             meta_logits.append(np.array(logits))
