@@ -10,7 +10,9 @@
       "Bash(ls:*)",
       "Bash(timeout:*)",
       "Bash(pkill:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(nvidia-smi:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

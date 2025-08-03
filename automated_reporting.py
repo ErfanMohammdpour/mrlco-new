@@ -88,7 +88,11 @@ class AutomatedReporter:
                 row = {'iteration': i}
                 for metric_name, values in metrics_data.items():
                     if i < len(values):
-                        row[metric_name] = values[i]
+                        # Convert numpy types to Python native types
+                        value = values[i]
+                        if hasattr(value, 'item'):  # numpy scalar
+                            value = value.item()
+                        row[metric_name] = value
                 iteration_data.append(row)
         
         # Save as CSV
@@ -104,10 +108,38 @@ class AutomatedReporter:
         # Save as JSON
         json_path = os.path.join(report_dir, "data.json")
         with open(json_path, 'w') as f:
+            # Convert numpy types in iteration_data
+            converted_iteration_data = []
+            for row in iteration_data:
+                converted_row = {}
+                for k, v in row.items():
+                    if hasattr(v, 'item'):  # numpy scalar
+                        converted_row[k] = v.item()
+                    elif isinstance(v, np.ndarray):
+                        converted_row[k] = v.tolist()
+                    else:
+                        converted_row[k] = v
+                converted_iteration_data.append(converted_row)
+            
+            # Convert metrics_data with proper numpy handling
+            converted_metrics = {}
+            for k, v in metrics_data.items():
+                if hasattr(v, 'item'):  # numpy scalar
+                    converted_metrics[k] = v.item()
+                elif isinstance(v, np.ndarray):
+                    converted_metrics[k] = v.tolist()
+                elif isinstance(v, list):
+                    # Handle lists that might contain numpy types
+                    converted_metrics[k] = [
+                        val.item() if hasattr(val, 'item') else val 
+                        for val in v
+                    ]
+                else:
+                    converted_metrics[k] = v
+            
             json.dump({
-                'metrics_data': {k: v.tolist() if isinstance(v, np.ndarray) else v 
-                               for k, v in metrics_data.items()},
-                'iteration_data': iteration_data
+                'metrics_data': converted_metrics,
+                'iteration_data': converted_iteration_data
             }, f, indent=2)
         print(f"Saved data.json")
     

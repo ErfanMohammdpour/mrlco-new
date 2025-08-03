@@ -6,6 +6,7 @@ from utils.mpi_adam_optimizer import MpiAdamOptimizer
 from mpi4py import MPI
 from policies.meta_seq2seq_policy import Seq2SeqPolicy
 import itertools
+from utils.gpu import log_tensor_device
 
 class PPO():
     """
@@ -114,9 +115,9 @@ class PPO():
         pg_loss = 0.0
         
         for i in range(self.num_inner_grad_steps):
-            for old_logits, old_v, observations, actions, shift_actions, advs, r in zip(
+            for batch_idx, (old_logits, old_v, observations, actions, shift_actions, advs, r) in enumerate(zip(
                     old_logits_batchs, oldvpred, observations_batchs, actions_batchs,
-                    shift_action_batchs, advs_batchs, returns):
+                    shift_action_batchs, advs_batchs, returns)):
                 decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
 
                 # EAGER: Call TF2 training step
@@ -128,6 +129,19 @@ class PPO():
 
                 vf_loss += value_loss.numpy()
                 pg_loss += policy_loss.numpy()
+                
+                # Log device placement on first iteration
+                if i == 0 and batch_idx == 0:
+                    print(f"\n[DEBUG] PPO Loss calculation details:")
+                    print(f"  Policy loss: {policy_loss.numpy()}")
+                    print(f"  Value loss: {value_loss.numpy()}")
+                    
+                    # Log device placement for losses
+                    try:
+                        log_tensor_device(policy_loss, "Policy loss tensor", step=0)
+                        log_tensor_device(value_loss, "Value loss tensor", step=0)
+                    except Exception as e:
+                        print(f"[Step 0] Could not determine device placement: {e}")
 
             vf_loss = vf_loss / float(self.num_inner_grad_steps)
             pg_loss = pg_loss / float(self.num_inner_grad_steps)

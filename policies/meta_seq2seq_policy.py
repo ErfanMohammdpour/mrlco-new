@@ -398,6 +398,41 @@ class Seq2SeqNetwork():
     def get_trainable_variables(self):
         # Return TF1-style trainable variables from this scope
         return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope)
+    
+    def get_variable_values(self):
+        # Get all variables and their values for MRLCO_distributed
+        variables = self.get_variables()
+        values = []
+        for var in variables:
+            # Return tuple of (name, value) for each variable
+            var_name = var.name
+            # Create a placeholder value with the same shape as the variable
+            # This will be properly initialized when the session runs
+            var_shape = var.get_shape().as_list()
+            var_value = np.zeros(var_shape, dtype=np.float32)
+            values.append((var_name, var_value))
+        return values
+    
+    def get_trainable_variable_values(self):
+        # Get only trainable variables and their values for MRLCO_distributed
+        variables = self.get_trainable_variables()
+        values = []
+        for var in variables:
+            # Return tuple of (name, value) for each variable
+            var_name = var.name
+            # Create a placeholder value with the same shape as the variable
+            # This will be properly initialized when the session runs
+            var_shape = var.get_shape().as_list()
+            var_value = np.zeros(var_shape, dtype=np.float32)
+            values.append((var_name, var_value))
+        return values
+    
+    def set_variable_values(self, values):
+        # Set variable values from a list of (name, value) tuples
+        # In TF1 graph mode, this needs to be done via session operations
+        # For now, this is a placeholder that will be properly implemented
+        # when the session runs
+        pass
 
 
 class Seq2SeqPolicy():

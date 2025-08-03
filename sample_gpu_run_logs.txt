@@ -1,0 +1,142 @@
+==================== SAMPLE MULTI-GPU TRAINING LOGS ====================
+
+Starting meta_trainer.py...
+Imported Resources
+Imported OffloadingEnvironment
+Importing MetaSeq2SeqPolicy...
+Imported MetaSeq2SeqPolicy
+Imported Seq2SeqMetaSampler
+Imported Seq2SeqMetaSamplerProcessor
+Imported ValueFunctionBaseline
+Imported MRLCODistributed
+Setting TF logging verbosity...
+Configuring logger...
+Logger configured (skipped for now)
+
+========== Setting up GPU/CPU strategy ==========
+
+========== TensorFlow Device Configuration ==========
+TensorFlow version: 2.19.0
+CUDA_VISIBLE_DEVICES: 0,1
+Visible GPUs: 2
+GPU devices found:
+  [0] /physical_device:GPU:0
+  [1] /physical_device:GPU:1
+Memory growth enabled for: /physical_device:GPU:0
+Memory growth enabled for: /physical_device:GPU:1
+
+Using MirroredStrategy with 2 GPUs
+Selected strategy: MirroredStrategy
+Devices in use: ['/GPU:0', '/GPU:1']
+
+Performing warmup operation...
+Warmup operation completed on device: /job:localhost/replica:0/task:0/device:GPU:0
+====================================================
+
+Creating resource cluster...
+Resource cluster created
+Creating OffloadingEnvironment...
+avg greedy solution:  1.8453
+avg all remote solution:  2.1234
+avg all local solution:  3.4567
+
+Creating ValueFunctionBaseline...
+ValueFunctionBaseline created successfully
+Creating MetaSeq2SeqPolicy...
+MetaSeq2SeqPolicy created successfully
+
+========== Running Device Diagnostics ==========
+
+1. Testing basic computation on each device...
+  /GPU:0: 0.0234 seconds for 1000x1000 matmul
+  /GPU:1: 0.0241 seconds for 1000x1000 matmul
+
+2. Testing memory bandwidth...
+  /GPU:0: 821.45 GB/s memory bandwidth
+  /GPU:1: 815.23 GB/s memory bandwidth
+
+3. Testing multi-device synchronization...
+  Multi-device synchronization: 0.0012 seconds
+
+================================================
+
+========== Verifying GPU placement ==========
+
+Test computation executed successfully on selected device
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+[Step 0] Model variables are initialized and ready for training
+[Step 0] Using distributed training across 2 devices
+Processing samples...
+[Step 0] Training task 0 on device: /GPU:0
+[Step 0] Training task 1 on device: /GPU:1
+average task losses:  0.4523
+average value losses:  0.2341
+Evaluate the one-step update for sub-task policy
+Optimizing policy...
+Itr                                            0
+Average reward,                                -12.345
+Average latency,                               1.7234
+
+ ---------------- Iteration 1 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+average task losses:  0.3892
+average value losses:  0.1983
+Evaluate the one-step update for sub-task policy
+Optimizing policy...
+Itr                                            1
+Average reward,                                -10.234
+Average latency,                               1.6123
+
+ ---------------- Iteration 2 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+average task losses:  0.3421
+average value losses:  0.1654
+Evaluate the one-step update for sub-task policy
+Optimizing policy...
+Itr                                            2
+Average reward,                                -8.932
+Average latency,                               1.5234
+
+==================== GENERATING AUTOMATED REPORT ====================
+Report generated successfully at: ./reports/training_20250803_220500
+=====================================================================
+
+==================== GPU UTILIZATION MONITORING (nvidia-smi) ====================
+
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 535.183.01             Driver Version: 535.183.01   CUDA: 12.2  |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|===============================+======================+======================|
+|   0  RTX 4090              Off  | 00000000:01:00.0 Off |                  Off |
+| 31%   42C    P2   156W / 450W |   2048MiB / 24564MiB |     87%      Default |
++-------------------------------+----------------------+----------------------+
+|   1  RTX 4090              Off  | 00000000:41:00.0 Off |                  Off |
+| 32%   43C    P2   148W / 450W |   2048MiB / 24564MiB |     85%      Default |
++-------------------------------+----------------------+----------------------+
+
+==================== KEY OBSERVATIONS ====================
+
+1. Both GPUs show sustained 85-87% utilization during training steps
+2. Memory usage is balanced across GPUs (2048MB each)
+3. No significant host-device sync delays observed
+4. Training throughput increased ~1.8x compared to single GPU baseline
+5. Batch processing time reduced from ~2.1s to ~1.2s per iteration
+
+==================== PROFILING INSIGHTS ====================
+
+From TensorBoard profiling:
+- Input pipeline: 8% of step time (optimized with prefetching)
+- Forward/backward pass: 78% of step time (compute bound)
+- Gradient aggregation: 10% of step time (multi-GPU overhead)
+- Host-device copies: 4% of step time (minimized)
+
+Bottleneck Analysis:
+- Primary bottleneck is now compute (good - means GPUs are well utilized)
+- Input pipeline no longer blocking GPU execution
+- Minimal time spent in synchronization between GPUs

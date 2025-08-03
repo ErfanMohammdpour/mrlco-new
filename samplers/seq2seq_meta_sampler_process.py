@@ -66,6 +66,11 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         observations, actions, logits, rewards, returns, values, advantages, finish_time = self._append_path_data(paths)
 
         decoder_full_lengths = np.array(observations.shape[0] * [observations.shape[1]])
+        
+        # Create decoder inputs (shifted actions with start token)
+        decoder_inputs = np.zeros_like(actions)
+        decoder_inputs[:, 1:] = actions[:, :-1]  # Shift right
+        # decoder_inputs[:, 0] = 0  # Start token (already zeros)
         # 5) if desired normalize / shift advantages
         if self.normalize_adv:
             advantages = utils.normalize_advantages(advantages)
@@ -75,7 +80,8 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         # 6) create samples_data object
         samples_data = dict(
             observations=observations,
-            decoder_full_lengths=decoder_full_lengths,
+            decoder_inputs=decoder_inputs,
+            decoder_full_length=decoder_full_lengths,  # Note: singular to match MRLCO_distributed
             actions=actions,
             logits=logits,
             rewards=rewards,

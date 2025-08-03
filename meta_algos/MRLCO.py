@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import itertools
+from utils.gpu import log_tensor_device
 
 # this is the tf graph version of reptile:
 class MRLCO():
@@ -199,6 +200,20 @@ class MRLCO():
                     print(f"\n[DEBUG] Loss calculation details:")
                     print(f"  Policy loss (surr_obj): {policy_loss}")
                     print(f"  Value loss: {value_loss}")
+                    
+                    # Log device placement for key tensors on step 0
+                    try:
+                        # Check device placement of loss tensor
+                        loss_device = self.total_loss[task_id].device if hasattr(self.total_loss[task_id], 'device') else 'N/A'
+                        print(f"[Step 0] Loss tensor device: {loss_device}")
+                        
+                        # Check device placement of model variables
+                        if len(self.policy.meta_policies[task_id].network.get_trainable_variables()) > 0:
+                            first_var = self.policy.meta_policies[task_id].network.get_trainable_variables()[0]
+                            var_device = first_var.device if hasattr(first_var, 'device') else 'N/A'
+                            print(f"[Step 0] Model variable device: {var_device}")
+                    except Exception as e:
+                        print(f"[Step 0] Could not determine device placement: {e}")
                 
                 vf_loss += value_loss
                 pg_loss += policy_loss
