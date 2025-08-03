@@ -128,7 +128,7 @@ class Seq2SeqNetwork():
                                                          self.n_features,
                                                          dtype=tf.float32)
 
-            self.output_layer = tf.compat.v1.layers.Dense(self.n_features, use_bias=False, name="output_projection")
+            self.output_layer = tf.keras.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
             # Use Graph2Seq encoder instead of original encoder
             self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
@@ -145,8 +145,10 @@ class Seq2SeqNetwork():
                                                                            self.encoder_state, model="train")
             self.decoder_logits = self.decoder_outputs.rnn_output
             self.pi = tf.nn.softmax(self.decoder_logits)
-            self.q = tf.compat.v1.layers.dense(self.decoder_logits, self.n_features, activation=None,
-                                     reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
+            # Create q-value layer if not exists
+            if not hasattr(self, 'q_layer'):
+                self.q_layer = tf.keras.layers.Dense(self.n_features, activation=None, name="qvalue_layer")
+            self.q = self.q_layer(self.decoder_logits)
             self.vf = tf.reduce_sum(self.pi * self.q, axis=-1)
 
             self.decoder_prediction = self.decoder_outputs.sample_id
@@ -156,8 +158,8 @@ class Seq2SeqNetwork():
                                                                            self.encoder_state, model="sample")
             self.sample_decoder_logits = self.sample_decoder_outputs.rnn_output
             self.sample_pi = tf.nn.softmax(self.sample_decoder_logits)
-            self.sample_q = tf.compat.v1.layers.dense(self.sample_decoder_logits, self.n_features,
-                                            activation=None, reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
+            # Reuse the same q_layer for sample decoder
+            self.sample_q = self.q_layer(self.sample_decoder_logits)
 
             self.sample_vf = tf.reduce_sum(self.sample_pi*self.sample_q, axis=-1)
 
@@ -176,8 +178,8 @@ class Seq2SeqNetwork():
                                                                            self.encoder_state, model="greedy")
             self.greedy_decoder_logits = self.greedy_decoder_outputs.rnn_output
             self.greedy_pi = tf.nn.softmax(self.greedy_decoder_logits)
-            self.greedy_q = tf.compat.v1.layers.dense(self.greedy_decoder_logits, self.n_features, activation=None, reuse=tf.compat.v1.AUTO_REUSE,
-                                     name="qvalue_layer")
+            # Reuse the same q_layer for greedy decoder
+            self.greedy_q = self.q_layer(self.greedy_decoder_logits)
             self.greedy_vf = tf.reduce_sum(self.greedy_pi * self.greedy_q, axis=-1)
 
             self.greedy_decoder_prediction = self.greedy_decoder_outputs.sample_id
@@ -373,10 +375,30 @@ class Seq2SeqNetwork():
         return outputs, last_state
 
     def get_variables(self):
-        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, self.scope)
+        # In TF2, collect variables from layers created in this scope
+        variables = []
+        if hasattr(self, 'encoder_embedding_layer'):
+            variables.extend(self.encoder_embedding_layer.variables)
+        if hasattr(self, 'output_layer'):
+            variables.extend(self.output_layer.variables)
+        if hasattr(self, 'q_layer'):
+            variables.extend(self.q_layer.variables)
+        if hasattr(self, 'embeddings'):
+            variables.append(self.embeddings)
+        return variables
 
     def get_trainable_variables(self):
-        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, self.scope)
+        # In TF2, collect trainable variables from layers created in this scope
+        variables = []
+        if hasattr(self, 'encoder_embedding_layer'):
+            variables.extend(self.encoder_embedding_layer.trainable_variables)
+        if hasattr(self, 'output_layer'):
+            variables.extend(self.output_layer.trainable_variables)
+        if hasattr(self, 'q_layer'):
+            variables.extend(self.q_layer.trainable_variables)
+        if hasattr(self, 'embeddings'):
+            variables.append(self.embeddings)
+        return variables
 
 
 class Seq2SeqPolicy():
@@ -583,11 +605,14 @@ class MetaSeq2SeqPolicy():
             self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
                                                     vocab_size, name="task_"+str(i)+"_policy"))
 
-            self.assign_old_eq_new_tasks.append(
-                U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
-                                            for (oldv, newv) in
-                                            zipsame(self.meta_policies[i].get_variables(), self.core_policy.get_variables())])
-                )
+            # MIGRATION: In TF2 eager execution, use direct assignment
+            def assign_core_to_task(task_idx):
+                core_vars = self.core_policy.get_variables()
+                task_vars = self.meta_policies[task_idx].get_variables()
+                for oldv, newv in zipsame(task_vars, core_vars):
+                    oldv.assign(newv)
+            
+            self.assign_old_eq_new_tasks.append(lambda idx=i: assign_core_to_task(idx))
 
         self._dist = CategoricalPd(vocab_size)
 
