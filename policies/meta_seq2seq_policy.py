@@ -524,7 +524,7 @@ class Seq2SeqPolicy():
         decoder_targets = tf.zeros([batch_size, seq_len], dtype=tf.int32)
         decoder_full_length = tf.fill([batch_size], seq_len)
         
-        network = self._ensure_network(obs_tensor, decoder_inputs, decoder_targets, decoder_full_length)
+        network = self._create_network_for_tensors(obs_tensor, decoder_inputs, decoder_targets, decoder_full_length)
         
         actions = network.sample_decoder_prediction
         logits = network.sample_decoder_logits

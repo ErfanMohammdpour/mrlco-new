@@ -204,3 +204,34 @@ All 9 steps of the migration have been completed successfully:
 - **Replaced** `tf.contrib.training.HParams` with local HParams class
 - **Issue**: `AttributeError: module 'tensorflow' has no attribute 'contrib'`
 - **Solution**: Simple class with same interface: `HParams(**kwargs)` sets attributes dynamically
+
+### Comprehensive TF2/Keras 3 Compatibility Fixes
+
+#### policies/meta_seq2seq_policy.py - Major Layer Migration
+- **Fixed** `tf.compat.v1.layers.Dense` -> `tf.keras.layers.Dense` (line 131)
+- **Fixed** `tf.compat.v1.layers.dense` -> proper Keras layer reuse pattern (lines 148, 159, 179)
+  - Created single `q_layer = tf.keras.layers.Dense()` instance 
+  - Reused across decoder, sample_decoder, and greedy_decoder
+- **Fixed** `tf.glorot_normal_initializer` -> `tf.keras.initializers.GlorotNormal()`
+
+#### Variable Collection System Migration
+- **Replaced** `tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES)` 
+- **Replaced** `tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES)`
+- **New approach**: Direct tracking of layer variables
+  ```python
+  def get_variables(self):
+      variables = []
+      if hasattr(self, 'encoder_embedding_layer'):
+          variables.extend(self.encoder_embedding_layer.variables)
+      # ... collect from all layers
+  ```
+
+#### Eager Execution Assignment
+- **Fixed** `tf.compat.v1.assign(oldv, newv)` -> `oldv.assign(newv)`
+- **Removed** `U.function([], [], updates=[...])` pattern
+- **New approach**: Direct assignment in eager execution
+  ```python
+  def assign_core_to_task(task_idx):
+      for oldv, newv in zipsame(task_vars, core_vars):
+          oldv.assign(newv)
+  ```
