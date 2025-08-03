@@ -1,126 +1,84 @@
-Context & Error:
-Runtime error under TF 2.19.0:
+Open the baseline TF-1.15 project at:
 
-RuntimeError: tf.placeholder() is not compatible with eager execution.
-at policies/meta_seq2seq_policy.py:385  # decoder_targets placeholder
-This indicates remaining TF1 patterns (tf.placeholder/tf.compat.v1.placeholder) in the codebase. We must migrate these to TF2-style inputs.
+/workspace/mrlco_master/mrlco-new
 
-Goals
-Remove every usage of tf.placeholder / tf.compat.v1.placeholder across the repo.
 
-Refactor policy/encoder/decoder code to accept tensors as function/method arguments or tf.keras.Input in model definitions (no sessions/feed_dict).
+This repo is the ground truth. Read it end-to-end and build a precise Ground-Truth Spec. Then open the migrated TF-2.19 project (the new repo you created) and make it procedurally identical to the baseline. If anything diverges, fix it.
 
-Keep I/O shapes and semantics identical to the current code (teacher forcing, greedy, logits shape [B, T, 2], etc.).
+Phase A — Ground-Truth Spec (from TF-1.15)
+Read every file and process and capture the exact implemented behavior (no guessing):
 
-Update training/eval scripts to pass real tensors instead of feeding placeholders.
+Data & DAG pipeline (loading/generation, adjacency/masks, batching/padding/ordering/seeding).
 
-Run a smoke test to confirm the placeholder error is gone and report the next blocking issue if any.
+Encoder (graph handling inside encoder, layers, activations, dropout, pooling, inputs/outputs).
 
-Step 0 — Branch & Notes
-Stay on the current branch: tf2.19.0.
+Decoder & Attention (train/greedy helpers, attention mechanism, inputs/outputs, masks, logits/targets).
 
-Maintain MIGRATION_NOTES.md: list each file changed and which placeholders were removed.
+PPO & Meta (policy/value, logprob/ratio, advantage/value loss/clipping, entropy, gradient clipping, inner/outer updates, optimizer params).
 
-Step 1 — Locate All Placeholders (repo-wide)
-Run and paste the list into the report:
+Meta Trainer / Meta Evaluator (sampling, batching, evaluation metrics, logging, checkpoints).
 
-grep -RIn --line-number -E "tf\.placeholder|tf\.compat\.v1\.placeholder" .
-Files expected (at minimum):
+Checkpoints & I/O (formats, variable naming, load/save flow).
 
-policies/meta_seq2seq_policy.py (e.g., decoder_targets, decoder_inputs, obs…),
+Learning behavior (training flow, losses/metrics and their computation order).
 
-Possibly meta_algos/*.py, samplers/*.py, or older helper files.
+Deliverable: a Ground-Truth Spec with exact process details as implemented.
 
-Step 2 — Refactor Seq2SeqPolicy / MetaSeq2SeqPolicy
-Files: policies/meta_seq2seq_policy.py (and any file where placeholders are declared)
+Phase B — Migrated Spec (from TF-2.19)
+Read the entire TF-2.19 project end-to-end and capture the actual implemented behavior for the same items above.
 
-2.1 Remove placeholder fields in __init__
+Phase C — Diff & Fix (make TF-2.19 match TF-1.15)
+Compare Ground-Truth Spec vs Migrated Spec and update the TF-2.19 project to be procedurally identical to TF-1.15:
 
-Delete lines like:
+Align data/DAG/adjacency/masks/padding and all interfaces between modules.
 
-self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
-Do not create tensors in __init__. Instead, accept them as inputs to methods.
+Align encoder/decoder/attention/PPO/meta trainer/meta evaluator flows.
 
-2.2 Make Keras-style call signatures
+Align all shapes/dtypes/matrices at every boundary.
 
-If not already done, convert to Keras classes:
+Align training/evaluation logic, loss/metric computations, update ordering, gradient clipping.
 
-class Seq2SeqPolicy(tf.keras.Model) or keep as a component with Keras layers inside.
+Align evaluators, metrics/logging fields, and checkpoint semantics.
 
-Define methods with explicit tensor args:
+Eliminate all migration leftovers (tf.compat.v1, sessions, placeholders, variable scopes/collections, control deps, contrib).
 
-def forward(self, obs, decoder_inputs, training: bool, adj=None, mask=None): -> logits, value
+Do not add features or redesign; only fix mismatches so TF-2.19 is functionally and procedurally identical to TF-1.15.
 
-def compute_loss(self, obs, decoder_inputs, decoder_targets, old_logits=None, advantages=None, returns=None, mask=None, training=True): -> dict(losses...)
+Phase D — Verification (static & dynamic)
+Provide static proofs (shape/dtype traces, call graphs, interface maps) that the TF-2.19 code matches the baseline.
 
-def greedy_decode(self, obs, max_len, adj=None, mask=None): -> sample_ids
+List any items that require runtime confirmation.
 
-Teacher forcing path must consume decoder_targets (and/or decoder_inputs) passed as args, not placeholders.
+Phase E — Run Loop (keep running meta_trainer.py until clean)
+Continuously run meta_trainer.py in the TF-2.19 repo after each fix.
 
-2.3 Attention/Decoder helpers
+If it crashes or raises any exception, capture the full traceback (file/line/message), fix the cause, and re-run.
 
-If using local compat.seq2seq adapters, ensure they accept real tensors (not placeholders).
+Repeat until meta_trainer.py starts, executes, and exits without errors, logs the expected metrics, and writes checkpoints per the project’s normal behavior.
 
-Replace any v1 helper code that assumes dtype/shape from placeholders with shapes derived from the passed tensors.
+Keep logs of each run in a timestamped file under a runlogs/ folder and include them in the final report.
 
-2.4 Value head
+Do not change modeling choices or hyperparameters unless a TF-2.19 API requires a strictly mechanical adjustment; if such a case arises, document it and proceed.
 
-Ensure the value head receives the same features as in TF1 code, via tensor args. No placeholders.
+Deliverables
+Ground-Truth Spec (from TF-1.15).
 
-Step 3 — Update meta_trainer.py (and evaluator)
-File: meta_trainer.py (line ~196 is where the policy is constructed)
+Migrated Spec (from TF-2.19).
 
-After constructing MetaSeq2SeqPolicy, update training calls to pass real tensors:
+Parity Report: every difference found and how it was fixed.
 
-Where it previously relied on feed_dict/placeholders, now call:
+File Change Log: files/areas edited with brief summaries.
 
-losses = meta_policy.compute_loss(
-    obs=batch_obs, 
-    decoder_inputs=batch_decoder_inputs,
-    decoder_targets=batch_decoder_targets,
-    old_logits=batch_old_logits, 
-    advantages=batch_advs, 
-    returns=batch_returns,
-    mask=batch_mask,
-    training=True
-)
-Remove any leftover sess.run(...) or feed_dict.
+Run Loop Logs: timestamped outputs from repeated meta_trainer.py runs showing progress from first failure to clean execution.
 
-Ensure samplers collate numpy arrays → convert to tensors at call sites (e.g., tf.convert_to_tensor with explicit dtypes).
+Residual Issues (if any) requiring owner decision.
 
-Step 4 — Update samplers/ and any data feeders
-Replace any logic that assumed placeholders with functions returning numpy/tensors already batched and shaped for:
+Rules:
 
-obs: [B, T, 17]
+Check everything (data, encoder, graph handling inside encoder, decoder, attention, PPO, meta trainer/evaluator, shapes, matrices, learning flow, parameters).
 
-decoder_inputs: [B, T] (if used)
+Use the TF-1.15 repo as the single source of truth.
 
-decoder_targets: [B, T]
+If anything is ambiguous or risky, pause and ask before changing it.
 
-masks where applicable [B, T]
-
-Ensure dtypes align with losses (e.g., decoder_targets must be int32 for SparseCategoricalCrossentropy(from_logits=True)).
-
-Step 5 — Clean Up PPO/meta bindings
-Files: meta_algos/MRLCO.py, meta_algos/ppo_offloading.py, distributions/categorical_pd.py
-
-Ensure these modules do not create placeholders internally.
-
-Computations (logprob/ratio, advantage, value loss) must take tensors passed as args.
-
-If any legacy collection-based variable grabbing remains, replace with model-owned attributes (e.g., self.model.trainable_variables).
-
-### Step 6 — Commit & Report
-- Commit with message:  
-`feat(tf2): remove all tf.placeholder usages; refactor policies/trainer to tensor inputs`
-- Provide a short report including:
-- Files modified and placeholders removed (with line refs pre/post if available),
-- New/updated public method signatures (e.g., `compute_loss`, `forward`, `greedy_decode`),
-- Confirmation that the smoke test executed past the old error, or the next exact blocking error.
-
-**Rules**
-- Maintain existing model behavior and shapes; do not change hyperparameters or algorithmic choices.
-- If ambiguity arises (e.g., where `decoder_inputs` vs `decoder_targets` are expected), pause and ask for clarification with the specific file/line.
-
-**Begin now.** Report back with the grep results, the list of edits, and the outcome of the smoke test.
-::contentReference[oaicite:0]{index=0}
+Begin now.

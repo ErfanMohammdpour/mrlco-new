@@ -63,22 +63,37 @@ def _cell_list(unit_type, num_units, num_layers, num_residual_layers,
   return cell_list
 
 
+# Global cache for RNN cells to avoid creating duplicates
+_rnn_cell_cache = {}
+
 def create_rnn_cell(unit_type, num_units, num_layers, num_residual_layers,
                     forget_bias, dropout, mode, num_gpus, base_gpu=0,
                     single_cell_fn=None):
 
-  cell_list = _cell_list(unit_type=unit_type,
-                         num_units=num_units,
-                         num_layers=num_layers,
-                         num_residual_layers=num_residual_layers,
-                         forget_bias=forget_bias,
-                         dropout=dropout,
-                         mode=mode,
-                         num_gpus=num_gpus,
-                         base_gpu=base_gpu,
-                         single_cell_fn=single_cell_fn)
+  # Create cache key for RNN cell configuration
+  cache_key = (unit_type, num_units, num_layers, num_residual_layers, 
+               forget_bias, dropout, mode, num_gpus, base_gpu)
+  
+  # Check if cell already exists in cache
+  if cache_key not in _rnn_cell_cache:
+    cell_list = _cell_list(unit_type=unit_type,
+                           num_units=num_units,
+                           num_layers=num_layers,
+                           num_residual_layers=num_residual_layers,
+                           forget_bias=forget_bias,
+                           dropout=dropout,
+                           mode=mode,
+                           num_gpus=num_gpus,
+                           base_gpu=base_gpu,
+                           single_cell_fn=single_cell_fn)
 
-  if len(cell_list) == 1:  # Single layer.
-    return cell_list[0]
-  else:  # Multi layers
-    return contrib_rnn.MultiRNNCell(cell_list)
+    if len(cell_list) == 1:  # Single layer.
+      rnn_cell = cell_list[0]
+    else:  # Multi layers
+      rnn_cell = contrib_rnn.MultiRNNCell(cell_list)
+    
+    _rnn_cell_cache[cache_key] = rnn_cell
+  else:
+    rnn_cell = _rnn_cell_cache[cache_key]
+  
+  return rnn_cell

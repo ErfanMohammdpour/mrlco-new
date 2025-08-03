@@ -5,7 +5,12 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(grep:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(timeout:*)",
+      "Bash(pkill:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

@@ -47,10 +47,18 @@ class BasicLSTMCell(tf.keras.layers.Layer):
         if self._state_is_tuple:
             # states is (c, h) tuple for LSTM
             output, new_state = self._keras_cell(inputs, states, training=training)
+            # Ensure new_state is a tuple, not a list
+            if isinstance(new_state, list):
+                new_state = tuple(new_state)
         else:
             # Convert concatenated state to tuple
             c, h = tf.split(states, 2, axis=-1)
-            output, (new_c, new_h) = self._keras_cell(inputs, (c, h), training=training)
+            output, new_state_raw = self._keras_cell(inputs, (c, h), training=training)
+            # Handle both tuple and list returns from Keras
+            if isinstance(new_state_raw, list):
+                new_c, new_h = new_state_raw
+            else:
+                new_c, new_h = new_state_raw
             new_state = tf.concat([new_c, new_h], axis=-1)
         return output, new_state
     
@@ -275,7 +283,10 @@ class MultiRNNCell(tf.keras.layers.Layer):
         
         for i, cell in enumerate(self.cells):
             if self._state_is_tuple:
-                state = states[i]
+                if isinstance(states, (list, tuple)):
+                    state = states[i]
+                else:
+                    state = states
             else:
                 # Handle non-tuple state
                 state = states
@@ -284,9 +295,10 @@ class MultiRNNCell(tf.keras.layers.Layer):
             new_states.append(state)
         
         if self._state_is_tuple:
-            new_states = tuple(new_states)
-        
-        return inputs, new_states
+            # Always return tuple for state_is_tuple mode
+            return inputs, tuple(new_states)
+        else:
+            return inputs, new_states
     
     @property
     def state_size(self):
@@ -302,6 +314,7 @@ class MultiRNNCell(tf.keras.layers.Layer):
     
     def zero_state(self, batch_size, dtype):
         if self._state_is_tuple:
+            # Return tuple of states for each cell
             return tuple(cell.zero_state(batch_size, dtype) for cell in self.cells)
         else:
             # TODO(runtime): Handle concatenated state

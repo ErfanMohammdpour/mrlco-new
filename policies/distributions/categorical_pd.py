@@ -99,7 +99,7 @@ class CategoricalPd(Distribution):
                    self._dim,
                    dtype=tf.float32)
 
-        neg_log = tf.nn.softmax_cross_entropy_with_logits_v2(
+        neg_log = tf.nn.softmax_cross_entropy_with_logits(
             logits=logits,
             labels=target)
 

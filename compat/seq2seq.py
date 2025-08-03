@@ -211,7 +211,12 @@ def dynamic_decode(decoder, output_time_major=False, maximum_iterations=None,
         final_sequence_lengths = tf.reduce_sum(tf.cast(not_finished, tf.int32), axis=0)
     else:
         # final_sample_ids_tensor is [batch, time]
-        not_finished = tf.not_equal(final_sample_ids_tensor, decoder.helper.end_token)
+        # Handle different helper types - some don't have end_token
+        if hasattr(decoder.helper, 'end_token'):
+            not_finished = tf.not_equal(final_sample_ids_tensor, decoder.helper.end_token)
+        else:
+            # For TrainingHelper and others without end_token, assume no early termination
+            not_finished = tf.ones_like(final_sample_ids_tensor, dtype=tf.bool)
         final_sequence_lengths = tf.reduce_sum(tf.cast(not_finished, tf.int32), axis=1)
     
     # Ensure minimum length of 1

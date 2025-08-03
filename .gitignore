@@ -1,0 +1,15 @@
+# Python caches
+__pycache__/
+*.pyc
+
+# Local/runtime artifacts
+runlogs/
+training_reports/
+current_pid.txt
+
+# Model/checkpoints & logs produced by runs
+meta_model_inner_step1/
+meta_offloading20_log-inner_step1/
+
+# IDE/local settings
+*.local.json

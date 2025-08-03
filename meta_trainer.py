@@ -1,4 +1,6 @@
 import tensorflow as tf
+# MIGRATION: Disable eager execution for TF1 compatibility with placeholders and sessions
+tf.compat.v1.disable_eager_execution()
 import numpy as np
 import time
 from utils import logger
@@ -26,7 +28,7 @@ class Trainer(object):
         self.greedy_finish_time = greedy_finish_time
         self.save_interval = save_interval
 
-    def train(self):
+    def train(self, sess=None):
         """
         Implement the MRLCO training process for task offloading problem
         """
@@ -40,13 +42,32 @@ class Trainer(object):
         policy_losses_all = []
         value_losses_all = []
         greedy_latencies_all = []
+        
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
             logger.log("Sampling set of tasks/goals for this meta-batch...")
 
             task_ids = self.sampler.update_tasks()
-            paths = self.sampler.obtain_samples(log=False, log_prefix='')
+            
+            # Handle dynamic variable initialization on each iteration
+            if sess is not None:
+                try:
+                    paths = self.sampler.obtain_samples(log=False, log_prefix='')
+                except tf.errors.FailedPreconditionError as e:
+                    # Initialize any new variables that were created during model build
+                    logger.log("FailedPreconditionError caught - initializing new variables...")
+                    uninitialized_vars = sess.run(tf.compat.v1.report_uninitialized_variables())
+                    if len(uninitialized_vars) > 0:
+                        logger.log(f"Initializing {len(uninitialized_vars)} new variables...")
+                        new_vars = [v for v in tf.compat.v1.global_variables() 
+                                   if sess.run(tf.compat.v1.is_variable_initialized(v)) == False]
+                        if new_vars:
+                            sess.run(tf.compat.v1.variables_initializer(new_vars))
+                    # Try sampling again
+                    paths = self.sampler.obtain_samples(log=False, log_prefix='')
+            else:
+                paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
             #print("sampled path length is: ", len(paths[0]))
 
@@ -81,13 +102,13 @@ class Trainer(object):
             """ ------------------- Logging Stuff --------------------------"""
 
             ret = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
 
             avg_reward = np.mean(ret)
 
             latency = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 latency = np.concatenate((latency, new_samples_data[i]['finish_time']), axis=-1)
 
             avg_latency = np.mean(latency)
@@ -131,25 +152,39 @@ class Trainer(object):
 
 
 if __name__ == "__main__":
+    print("Starting meta_trainer.py...")
     from env.mec_offloaing_envs.offloading_env import Resources
+    print("Imported Resources")
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
+    print("Imported OffloadingEnvironment")
+    print("Importing MetaSeq2SeqPolicy...")
     from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy
+    print("Imported MetaSeq2SeqPolicy")
     from samplers.seq2seq_meta_sampler import Seq2SeqMetaSampler
+    print("Imported Seq2SeqMetaSampler")
     from samplers.seq2seq_meta_sampler_process import Seq2SeqMetaSamplerProcessor
+    print("Imported Seq2SeqMetaSamplerProcessor")
     from baselines.vf_baseline import ValueFunctionBaseline
+    print("Imported ValueFunctionBaseline")
     from meta_algos.MRLCO import MRLCO
+    print("Imported MRLCO")
 
-    # MIGRATION: TF2 uses Python logging
-    import logging
-    logging.getLogger('tensorflow').setLevel(logging.ERROR)
-    logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
+    print("Setting TF logging verbosity...")
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    print("Configuring logger...")
+    # TODO: MPI logger hangs - temporarily disabled
+    # logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
+    print("Logger configured (skipped for now)")
 
     META_BATCH_SIZE = 2
 
+    print("Creating resource cluster...")
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0)
+    print("Resource cluster created")
 
+    print("Creating OffloadingEnvironment...")
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
                                 graph_number=100,
@@ -157,22 +192,22 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
+                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
 
@@ -186,10 +221,14 @@ if __name__ == "__main__":
     print("avg all local solution: ", np.mean(finish_time))
     print()
 
+    print("Creating ValueFunctionBaseline...")
     baseline = ValueFunctionBaseline()
+    print("ValueFunctionBaseline created successfully")
 
+    print("Creating MetaSeq2SeqPolicy...")
     meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
                                     vocab_size=2)
+    print("MetaSeq2SeqPolicy created successfully")
 
     sampler = Seq2SeqMetaSampler(
         env=env,
@@ -227,6 +266,7 @@ if __name__ == "__main__":
     # Restore TF1-style session management for exact compatibility
     with tf.compat.v1.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
-        avg_ret, avg_loss, avg_latencies = trainer.train()
+        # Pass session to trainer for dynamic variable initialization
+        avg_ret, avg_loss, avg_latencies = trainer.train(sess=sess)
 
 

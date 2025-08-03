@@ -36,6 +36,7 @@ class Graph2SeqEncoder(tf.keras.layers.Layer):
         
         # State projection layer
         self.state_projection = None
+        self._built_aggregators = False
         
     def build(self, input_shape):
         """Build the layer - create aggregators and projection layer"""
@@ -82,6 +83,8 @@ class Graph2SeqEncoder(tf.keras.layers.Layer):
                 activation=None,
                 name="state_projection"
             )
+            # Build the projection layer immediately with known input shape
+            self.state_projection.build((None, state_size))
         
         super(Graph2SeqEncoder, self).build(input_shape)
     
@@ -174,8 +177,10 @@ class Graph2SeqEncoder(tf.keras.layers.Layer):
         for layer in range(self.sample_layer_size):
             if layer == 0:
                 dim_mul = 1
+                input_hidden_dim = self.input_dim
             else:
                 dim_mul = 2
+                input_hidden_dim = dim_mul * self.hidden_dim
                 
             # Get aggregator for this layer
             fw_aggregator = self.fw_aggregators[layer]
@@ -196,8 +201,8 @@ class Graph2SeqEncoder(tf.keras.layers.Layer):
                 fw_hidden = tf.nn.dropout(fw_hidden, rate=self.dropout)
                 neigh_vec_hidden = tf.nn.dropout(neigh_vec_hidden, rate=self.dropout)
             
-            # Aggregate
-            fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden, fw_sampled_neighbors_len))
+            # Aggregate - let Keras handle automatic building
+            fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden, fw_sampled_neighbors_len), training=training)
             
             if self.bidirectional:
                 bw_aggregator = self.bw_aggregators[layer]
@@ -212,7 +217,8 @@ class Graph2SeqEncoder(tf.keras.layers.Layer):
                     bw_hidden = tf.nn.dropout(bw_hidden, rate=self.dropout)
                     neigh_vec_hidden = tf.nn.dropout(neigh_vec_hidden, rate=self.dropout)
                 
-                bw_hidden = bw_aggregator((bw_hidden, neigh_vec_hidden, bw_sampled_neighbors_len))
+                # Aggregate - let Keras handle automatic building
+                bw_hidden = bw_aggregator((bw_hidden, neigh_vec_hidden, bw_sampled_neighbors_len), training=training)
         
         # Reshape hidden states back to sequence format
         fw_hidden = tf.reshape(fw_hidden, [batch_size, seq_len, 2 * self.hidden_dim])
@@ -238,19 +244,34 @@ class Graph2SeqEncoder(tf.keras.layers.Layer):
         return encoder_outputs, final_state
 
 
+# Global cache for encoder instances to avoid creating duplicates
+_encoder_cache = {}
+
 def create_graph2seq_encoder(encoder_inputs, encoder_units, num_layers, is_bidirectional, mode, scope_name="encoder"):
     """
     Factory function to create Graph2Seq encoder matching the original interface.
-    MIGRATION: Now creates a Keras layer instead of using variable_scope
+    MIGRATION: Now creates a Keras layer instead of using variable_scope with caching
     """
-    # Create the encoder layer
-    encoder = Graph2SeqEncoder(
-        hidden_dim=encoder_units,
-        num_layers=num_layers,
-        bidirectional=is_bidirectional,
-        dropout=0.1 if mode == 'train' else 0.0,
-        name=scope_name
-    )
+    # Get input dimensions for cache key
+    input_shape = encoder_inputs.shape
+    input_dim = input_shape[-1] if len(input_shape) >= 2 else None
+    
+    # Create a cache key based on encoder configuration and input dimensions
+    cache_key = (encoder_units, num_layers, is_bidirectional, scope_name, input_dim)
+    
+    # Check if encoder already exists in cache
+    if cache_key not in _encoder_cache:
+        # Create the encoder layer
+        encoder = Graph2SeqEncoder(
+            hidden_dim=encoder_units,
+            num_layers=num_layers,
+            bidirectional=is_bidirectional,
+            dropout=0.1 if mode == 'train' else 0.0,
+            name=scope_name
+        )
+        _encoder_cache[cache_key] = encoder
+    else:
+        encoder = _encoder_cache[cache_key]
     
     # Call the encoder
     training = (mode == 'train')

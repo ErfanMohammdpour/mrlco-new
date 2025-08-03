@@ -9,7 +9,7 @@ import numpy as np
 def uniform(shape, scale=0.05, name=None):
     """Uniform init."""
     initial = tf.random.uniform(shape, minval=-scale, maxval=scale, dtype=tf.float32)
-    return tf.Variable(initial, name=name)
+    return initial
 
 
 def glorot(shape, name=None):
@@ -18,15 +18,15 @@ def glorot(shape, name=None):
     initial = tf.random.uniform(shape, minval=-init_range, maxval=init_range, dtype=tf.float32)
     # Scale down initialization for better gradient flow with Graph2Seq
     initial = initial * 0.5
-    return tf.Variable(initial, name=name)
+    return initial
 
 
 def zeros(shape, name=None):
     """All zeros."""
     initial = tf.zeros(shape, dtype=tf.float32)
-    return tf.Variable(initial, name=name)
+    return initial
 
 def ones(shape, name=None):
     """All ones."""
     initial = tf.ones(shape, dtype=tf.float32)
-    return tf.Variable(initial, name=name)
+    return initial
