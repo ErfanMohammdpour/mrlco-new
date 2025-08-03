@@ -91,8 +91,8 @@ class Seq2SeqNetwork():
         self.unit_type = hparams.unit_type
 
         # default setting
-        # MIGRATION: tf.contrib.learn removed in TF2, use compat.v1.estimator
-        self.mode = tf.compat.v1.estimator.ModeKeys.TRAIN
+        # MIGRATION: tf.contrib.learn removed in TF2, use string mode
+        self.mode = 'train'  # Was tf.contrib.learn.ModeKeys.TRAIN
 
         self.num_layers = hparams.num_layers
         self.num_residual_layers = hparams.num_residual_layers
