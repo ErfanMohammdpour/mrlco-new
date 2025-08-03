@@ -5,17 +5,16 @@ Provides Keras-based replacements for RNN cells
 import tensorflow as tf
 
 
-class BasicLSTMCell:
+class BasicLSTMCell(tf.keras.layers.Layer):
     """Shim for tf.contrib.rnn.BasicLSTMCell"""
     
     def __init__(self, num_units, forget_bias=1.0, state_is_tuple=True, 
                  activation=None, reuse=None, name=None, dtype=None, **kwargs):
+        super().__init__(name=name, dtype=dtype)
         self.num_units = num_units
         self._forget_bias = forget_bias
         self._state_is_tuple = state_is_tuple
         self._activation = activation or 'tanh'
-        self._name = name
-        self._dtype = dtype
         
         # Create the underlying Keras LSTMCell
         self._keras_cell = tf.keras.layers.LSTMCell(
@@ -29,8 +28,6 @@ class BasicLSTMCell:
             unit_forget_bias=True,
             dropout=0.0,
             recurrent_dropout=0.0,
-            name=name,
-            dtype=dtype,
             **kwargs
         )
         
@@ -45,17 +42,21 @@ class BasicLSTMCell:
     def output_size(self):
         return self.num_units
         
-    def __call__(self, inputs, state, scope=None):
+    def call(self, inputs, states, training=None):
         """Call the underlying Keras cell"""
         if self._state_is_tuple:
-            # state is (c, h) tuple for LSTM
-            output, new_state = self._keras_cell(inputs, state)
+            # states is (c, h) tuple for LSTM
+            output, new_state = self._keras_cell(inputs, states, training=training)
         else:
             # Convert concatenated state to tuple
-            c, h = tf.split(state, 2, axis=-1)
-            output, (new_c, new_h) = self._keras_cell(inputs, (c, h))
+            c, h = tf.split(states, 2, axis=-1)
+            output, (new_c, new_h) = self._keras_cell(inputs, (c, h), training=training)
             new_state = tf.concat([new_c, new_h], axis=-1)
         return output, new_state
+    
+    def __call__(self, inputs, state, scope=None, training=None):
+        """Backward compatibility for function-style calls"""
+        return self.call(inputs, state, training=training)
     
     def zero_state(self, batch_size, dtype):
         """Create zero state for LSTM"""
@@ -76,16 +77,15 @@ class BasicLSTMCell:
         return self._keras_cell.variables
 
 
-class GRUCell:
+class GRUCell(tf.keras.layers.Layer):
     """Shim for tf.contrib.rnn.GRUCell"""
     
     def __init__(self, num_units, activation=None, reuse=None, 
                  kernel_initializer=None, bias_initializer=None, 
                  name=None, dtype=None, **kwargs):
+        super().__init__(name=name, dtype=dtype)
         self.num_units = num_units
         self._activation = activation or 'tanh'
-        self._name = name
-        self._dtype = dtype
         
         # Create the underlying Keras GRUCell
         self._keras_cell = tf.keras.layers.GRUCell(
@@ -99,8 +99,6 @@ class GRUCell:
             dropout=0.0,
             recurrent_dropout=0.0,
             reset_after=True,  # TF1 GRU behavior
-            name=name,
-            dtype=dtype,
             **kwargs
         )
         
@@ -112,9 +110,13 @@ class GRUCell:
     def output_size(self):
         return self.num_units
         
-    def __call__(self, inputs, state, scope=None):
+    def call(self, inputs, states, training=None):
         """Call the underlying Keras cell"""
-        return self._keras_cell(inputs, state)
+        return self._keras_cell(inputs, states, training=training)
+    
+    def __call__(self, inputs, state, scope=None, training=None):
+        """Backward compatibility for function-style calls"""
+        return self.call(inputs, state, training=training)
     
     def zero_state(self, batch_size, dtype):
         """Create zero state for GRU"""
