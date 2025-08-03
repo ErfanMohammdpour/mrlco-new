@@ -44,8 +44,8 @@ class GatedMeanAggregator(Layer):
     def _call(self, inputs):
         self_vecs, neigh_vecs = inputs
 
-        neigh_vecs = tf.nn.dropout(neigh_vecs, 1-self.dropout)
-        self_vecs = tf.nn.dropout(self_vecs, 1-self.dropout)
+        neigh_vecs = tf.nn.dropout(neigh_vecs, rate=self.dropout)
+        self_vecs = tf.nn.dropout(self_vecs, rate=self.dropout)
 
         neigh_means = tf.reduce_mean(neigh_vecs, axis=1)
 
@@ -109,8 +109,8 @@ class MeanAggregator(Layer):
         self_vecs, neigh_vecs, neigh_len = inputs
 
         if self.mode == "train":
-            neigh_vecs = tf.nn.dropout(neigh_vecs, 1-self.dropout)
-            self_vecs = tf.nn.dropout(self_vecs, 1-self.dropout)
+            neigh_vecs = tf.nn.dropout(neigh_vecs, rate=self.dropout)
+            self_vecs = tf.nn.dropout(self_vecs, rate=self.dropout)
 
         # reduce_mean performs better than mean_pool
         neigh_means = tf.reduce_mean(neigh_vecs, axis=1)
