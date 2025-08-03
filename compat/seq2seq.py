@@ -165,21 +165,15 @@ def dynamic_decode(decoder, output_time_major=False, maximum_iterations=None,
     return final_outputs, final_state, final_sequence_lengths
 
 
-class LuongAttention(tf.keras.layers.Layer):
-    """Shim for tf.contrib.seq2seq.LuongAttention"""
-    def __init__(self, num_units, memory, memory_sequence_length=None, scale=False, **kwargs):
-        super().__init__(**kwargs)
+class LuongAttention:
+    """Simple shim for tf.contrib.seq2seq.LuongAttention"""
+    def __init__(self, num_units, memory, memory_sequence_length=None, scale=False):
         self.num_units = num_units
         self.memory = memory
         self.memory_sequence_length = memory_sequence_length
         self.scale = scale
-        # TODO(runtime): Verify Luong attention score computation matches TF1
-        
-    def build(self, input_shape):
-        self.attention_layer = tf.keras.layers.Dense(self.num_units, use_bias=False)
-        super().build(input_shape)
     
-    def call(self, query, state=None):
+    def __call__(self, query, state=None):
         # Simplified Luong attention
         # query: [batch, num_units]
         # memory: [batch, time, num_units]
@@ -190,8 +184,9 @@ class LuongAttention(tf.keras.layers.Layer):
         
         # Apply masking if sequence length provided
         if self.memory_sequence_length is not None:
-            # TODO(runtime): Implement proper masking
-            pass
+            # Create mask for sequence lengths
+            mask = tf.sequence_mask(self.memory_sequence_length, tf.shape(self.memory)[1])
+            scores = tf.where(mask, scores, tf.fill(tf.shape(scores), -float('inf')))
         
         # Compute attention weights
         alignments = tf.nn.softmax(scores)
@@ -205,37 +200,32 @@ class LuongAttention(tf.keras.layers.Layer):
         return context, alignments
 
 
-class AttentionWrapper(tf.keras.layers.Layer):
-    """Shim for tf.contrib.seq2seq.AttentionWrapper"""
+class AttentionWrapper:
+    """Simple shim for tf.contrib.seq2seq.AttentionWrapper"""
     def __init__(self, cell, attention_mechanism, attention_layer_size=None, 
                  alignment_history=False, cell_input_fn=None, output_attention=False,
-                 initial_cell_state=None, **kwargs):
-        super().__init__(**kwargs)
+                 initial_cell_state=None):
         self.cell = cell
         self.attention_mechanism = attention_mechanism
         self.attention_layer_size = attention_layer_size
         self.alignment_history = alignment_history
         self.output_attention = output_attention
-        # TODO(runtime): Verify attention concatenation and projection matches TF1
         
-    def build(self, input_shape):
-        if self.attention_layer_size is not None:
-            self.attention_layer = tf.keras.layers.Dense(self.attention_layer_size)
-        super().build(input_shape)
+        # Create attention projection layer if needed
+        if attention_layer_size is not None:
+            self.attention_layer = tf.keras.layers.Dense(attention_layer_size)
+        else:
+            self.attention_layer = None
     
-    def call(self, inputs, state, training=None):
-        # This is a simplified version
-        # TODO(runtime): Implement full AttentionWrapper logic
+    def __call__(self, inputs, state, training=None):
+        # Run cell forward pass
+        cell_outputs, cell_state = self.cell(inputs, state)
         
-        # For now, pass through to wrapped cell
-        cell_outputs, cell_state = self.cell(inputs, state, training=training)
-        
-        # Placeholder for attention computation
-        # In full implementation, would compute attention over cell output
+        # Compute attention
         context, alignments = self.attention_mechanism(cell_outputs)
         
         # Combine cell output with attention context
-        if self.attention_layer_size is not None:
+        if self.attention_layer is not None:
             attention_output = self.attention_layer(tf.concat([cell_outputs, context], axis=-1))
         else:
             attention_output = tf.concat([cell_outputs, context], axis=-1)
@@ -244,5 +234,27 @@ class AttentionWrapper(tf.keras.layers.Layer):
     
     def zero_state(self, batch_size, dtype):
         """Create zero state for attention wrapper"""
-        # TODO(runtime): Implement proper wrapped state with attention state
-        return self.cell.zero_state(batch_size, dtype)
+        # Return a simple wrapper around the cell's zero state
+        class AttentionWrapperState:
+            def __init__(self, cell_state):
+                self.cell_state = cell_state
+            
+            def clone(self, cell_state=None):
+                """Clone method expected by tf.contrib patterns"""
+                if cell_state is not None:
+                    return AttentionWrapperState(cell_state)
+                return AttentionWrapperState(self.cell_state)
+        
+        # Get cell's zero state
+        if hasattr(self.cell, 'zero_state'):
+            cell_state = self.cell.zero_state(batch_size, dtype)
+        else:
+            # For Keras cells, create zero state manually
+            state_size = getattr(self.cell, 'state_size', self.cell.units)
+            if isinstance(state_size, (list, tuple)):
+                # LSTM has tuple state (c, h)
+                cell_state = tuple(tf.zeros([batch_size, size], dtype=dtype) for size in state_size)
+            else:
+                cell_state = tf.zeros([batch_size, state_size], dtype=dtype)
+        
+        return AttentionWrapperState(cell_state)

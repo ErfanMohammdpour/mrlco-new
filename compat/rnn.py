@@ -56,6 +56,16 @@ class BasicLSTMCell:
             output, (new_c, new_h) = self._keras_cell(inputs, (c, h))
             new_state = tf.concat([new_c, new_h], axis=-1)
         return output, new_state
+    
+    def zero_state(self, batch_size, dtype):
+        """Create zero state for LSTM"""
+        if self._state_is_tuple:
+            return (
+                tf.zeros([batch_size, self.num_units], dtype=dtype),  # c
+                tf.zeros([batch_size, self.num_units], dtype=dtype)   # h
+            )
+        else:
+            return tf.zeros([batch_size, self.num_units * 2], dtype=dtype)
         
     @property
     def trainable_variables(self):
@@ -105,6 +115,10 @@ class GRUCell:
     def __call__(self, inputs, state, scope=None):
         """Call the underlying Keras cell"""
         return self._keras_cell(inputs, state)
+    
+    def zero_state(self, batch_size, dtype):
+        """Create zero state for GRU"""
+        return tf.zeros([batch_size, self.num_units], dtype=dtype)
         
     @property
     def trainable_variables(self):

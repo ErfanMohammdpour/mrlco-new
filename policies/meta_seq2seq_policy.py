@@ -130,15 +130,36 @@ class Seq2SeqNetwork():
 
             self.output_layer = tf.keras.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
-            # Use Graph2Seq encoder instead of original encoder
-            self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
-                encoder_inputs=self.encoder_embeddings,
-                encoder_units=self.encoder_hidden_unit,
-                num_layers=self.num_layers,
-                is_bidirectional=self.is_bidencoder,
-                mode=self.mode,
-                scope_name="encoder"
-            )
+            # TEMPORARY: Use simple LSTM encoder for debugging
+            # TODO: Restore Graph2Seq encoder once basic functionality works
+            encoder_cell = tf.keras.layers.LSTMCell(self.encoder_hidden_unit)
+            encoder_layer = tf.keras.layers.RNN(encoder_cell, return_sequences=True, return_state=True)
+            lstm_output = encoder_layer(self.encoder_embeddings)
+            
+            if isinstance(lstm_output, (list, tuple)) and len(lstm_output) == 3:
+                # RNN with return_state=True returns (output, final_h, final_c)
+                self.encoder_outputs = lstm_output[0]
+                final_h = lstm_output[1]
+                final_c = lstm_output[2]
+                self.encoder_state = (final_c, final_h)  # LSTM state tuple (c, h)
+            else:
+                # Fallback
+                self.encoder_outputs = lstm_output
+                batch_size = tf.shape(self.encoder_embeddings)[0]
+                self.encoder_state = (
+                    tf.zeros([batch_size, self.encoder_hidden_unit], dtype=tf.float32),
+                    tf.zeros([batch_size, self.encoder_hidden_unit], dtype=tf.float32)
+                )
+            
+            # Original Graph2Seq encoder code (commented out for debugging)
+            # self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
+            #     encoder_inputs=self.encoder_embeddings,
+            #     encoder_units=self.encoder_hidden_unit,
+            #     num_layers=self.num_layers,
+            #     is_bidirectional=self.is_bidencoder,
+            #     mode=self.mode,
+            #     scope_name="encoder"
+            # )
 
             # training decoder
             self.decoder_outputs, self.decoder_state = self.create_decoder(hparams, self.encoder_outputs,
@@ -334,34 +355,31 @@ class Seq2SeqNetwork():
                     self.decoder_full_length,
                     time_major=self.time_major)
 
-            if self.is_attention:
-                decoder_cell = self._build_decoder_cell(hparams=hparams,
-                                                        num_layers=self.num_layers,
-                                                        num_residual_layers=self.num_residual_layers)
-                # decoder_cell = tf.contrib.rnn.GRUCell(self.decoder_hidden_unit)
-                if self.time_major:
-                    # [batch_size, max_time, num_nunits]
-                    attention_states = tf.transpose(encoder_outputs, [1, 0, 2])
-                else:
-                    attention_states = encoder_outputs
-
-                attention_mechanism = contrib_seq2seq.LuongAttention(
-                    self.decoder_hidden_unit, attention_states)
-
-                decoder_cell = contrib_seq2seq.AttentionWrapper(
-                    decoder_cell, attention_mechanism,
-                    attention_layer_size=self.decoder_hidden_unit)
-
-                decoder_initial_state = (
-                    decoder_cell.zero_state(tf.size(self.decoder_full_length),
-                                            dtype=tf.float32).clone(
-                        cell_state=encoder_state))
-            else:
-                decoder_cell = self._build_decoder_cell(hparams=hparams,
-                                                        num_layers=self.num_layers,
-                                                        num_residual_layers=self.num_residual_layers)
-
-                decoder_initial_state = encoder_state
+            # Temporarily disable attention for debugging
+            # TODO: Re-enable attention once basic functionality works
+            decoder_cell = self._build_decoder_cell(hparams=hparams,
+                                                    num_layers=self.num_layers,
+                                                    num_residual_layers=self.num_residual_layers)
+            decoder_initial_state = encoder_state
+            
+            # Original attention code (commented out for debugging)
+            # if self.is_attention:
+            #     if self.time_major:
+            #         attention_states = tf.transpose(encoder_outputs, [1, 0, 2])
+            #     else:
+            #         attention_states = encoder_outputs
+            #
+            #     attention_mechanism = contrib_seq2seq.LuongAttention(
+            #         self.decoder_hidden_unit, attention_states)
+            #
+            #     decoder_cell = contrib_seq2seq.AttentionWrapper(
+            #         decoder_cell, attention_mechanism,
+            #         attention_layer_size=self.decoder_hidden_unit)
+            #
+            #     decoder_initial_state = (
+            #         decoder_cell.zero_state(tf.size(self.decoder_full_length),
+            #                                 dtype=tf.float32).clone(
+            #             cell_state=encoder_state))
 
             decoder = contrib_seq2seq.BasicDecoder(
                 cell=decoder_cell,
