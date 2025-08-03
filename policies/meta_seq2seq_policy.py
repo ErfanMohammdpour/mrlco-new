@@ -612,7 +612,23 @@ class MetaSeq2SeqPolicy():
             self.assign_old_eq_new_tasks.append(lambda idx=i: assign_core_to_task(idx))
 
         self._dist = CategoricalPd(vocab_size)
+        
+        # Initialize all networks immediately for graph building
+        self._initialize_all_networks()
 
+    def _initialize_all_networks(self):
+        """Initialize all policy networks to ensure they're ready for graph building"""
+        # Create dummy observations to trigger network creation
+        dummy_obs = np.zeros((1, 20, self.obs_dim), dtype=np.float32)
+        
+        # Initialize core policy
+        if self.core_policy.network is None:
+            _ = self.core_policy.get_actions(dummy_obs)
+        
+        # Initialize all meta policies  
+        for i in range(self.meta_batch_size):
+            if self.meta_policies[i].network is None:
+                _ = self.meta_policies[i].get_actions(dummy_obs)
 
     def get_actions(self, observations):
         assert len(observations) == self.meta_batch_size
