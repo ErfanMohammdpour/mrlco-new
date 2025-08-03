@@ -48,9 +48,10 @@ class FixedSequenceLearningSampleEmbedingHelper(contrib_seq2seq.SampleEmbeddingH
         else:
             logits = outputs / self._softmax_temperature
 
-        sample_id_sampler = tf.random.categorical(logits=logits, num_samples=1)
-        # MIGRATION: tf.random.categorical returns [batch, num_samples]
-        sample_ids = tf.squeeze(sample_id_sampler, axis=-1)
+        # Restore TF1-style categorical sampling for exact compatibility
+        from tensorflow.python.ops.distributions import categorical
+        sample_id_sampler = categorical.Categorical(logits=logits)
+        sample_ids = sample_id_sampler.sample(seed=self._seed)
 
         return sample_ids
 
@@ -89,8 +90,7 @@ class Seq2SeqNetwork():
         self.unit_type = hparams.unit_type
 
         # default setting
-        # MIGRATION: Using string mode instead of ModeKeys enum
-        self.mode = 'train'
+        self.mode = tf.contrib.learn.ModeKeys.TRAIN
 
         self.num_layers = hparams.num_layers
         self.num_residual_layers = hparams.num_residual_layers
@@ -113,13 +113,11 @@ class Seq2SeqNetwork():
                 -1.0, 1.0), dtype=tf.float32)
 
             # using a fully connected layer as embeddings
-            # MIGRATION: tf.contrib.layers.fully_connected -> tf.keras.layers.Dense
-            self.encoder_embedding_layer = tf.keras.layers.Dense(
-                self.encoder_hidden_unit,
-                activation=None,
-                name="encoder_embeddings"
-            )
-            self.encoder_embeddings = self.encoder_embedding_layer(self.encoder_inputs)
+            self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
+                                                                        self.encoder_hidden_unit,
+                                                                        activation_fn = None,
+                                                                        scope="encoder_embeddings",
+                                                                        reuse=tf.compat.v1.AUTO_REUSE)
 
             self.decoder_embeddings = tf.nn.embedding_lookup(self.embeddings,
                                                              self.decoder_inputs)
@@ -128,48 +126,25 @@ class Seq2SeqNetwork():
                                                          self.n_features,
                                                          dtype=tf.float32)
 
-            self.output_layer = tf.keras.layers.Dense(self.n_features, use_bias=False, name="output_projection")
+            self.output_layer = tf.compat.v1.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
-            # TEMPORARY: Use simple LSTM encoder for debugging
-            # TODO: Restore Graph2Seq encoder once basic functionality works
-            encoder_cell = tf.keras.layers.LSTMCell(self.encoder_hidden_unit)
-            encoder_layer = tf.keras.layers.RNN(encoder_cell, return_sequences=True, return_state=True)
-            lstm_output = encoder_layer(self.encoder_embeddings)
-            
-            if isinstance(lstm_output, (list, tuple)) and len(lstm_output) == 3:
-                # RNN with return_state=True returns (output, final_h, final_c)
-                self.encoder_outputs = lstm_output[0]
-                final_h = lstm_output[1]
-                final_c = lstm_output[2]
-                self.encoder_state = (final_c, final_h)  # LSTM state tuple (c, h)
-            else:
-                # Fallback
-                self.encoder_outputs = lstm_output
-                batch_size = tf.shape(self.encoder_embeddings)[0]
-                self.encoder_state = (
-                    tf.zeros([batch_size, self.encoder_hidden_unit], dtype=tf.float32),
-                    tf.zeros([batch_size, self.encoder_hidden_unit], dtype=tf.float32)
-                )
-            
-            # Original Graph2Seq encoder code (commented out for debugging)
-            # self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
-            #     encoder_inputs=self.encoder_embeddings,
-            #     encoder_units=self.encoder_hidden_unit,
-            #     num_layers=self.num_layers,
-            #     is_bidirectional=self.is_bidencoder,
-            #     mode=self.mode,
-            #     scope_name="encoder"
-            # )
+            # Use Graph2Seq encoder instead of original encoder
+            self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
+                encoder_inputs=self.encoder_embeddings,
+                encoder_units=self.encoder_hidden_unit,
+                num_layers=self.num_layers,
+                is_bidirectional=self.is_bidencoder,
+                mode=self.mode,
+                scope_name="encoder"
+            )
 
             # training decoder
             self.decoder_outputs, self.decoder_state = self.create_decoder(hparams, self.encoder_outputs,
                                                                            self.encoder_state, model="train")
             self.decoder_logits = self.decoder_outputs.rnn_output
             self.pi = tf.nn.softmax(self.decoder_logits)
-            # Create q-value layer if not exists
-            if not hasattr(self, 'q_layer'):
-                self.q_layer = tf.keras.layers.Dense(self.n_features, activation=None, name="qvalue_layer")
-            self.q = self.q_layer(self.decoder_logits)
+            self.q = tf.compat.v1.layers.dense(self.decoder_logits, self.n_features, activation=None,
+                                     reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
             self.vf = tf.reduce_sum(self.pi * self.q, axis=-1)
 
             self.decoder_prediction = self.decoder_outputs.sample_id
@@ -179,8 +154,8 @@ class Seq2SeqNetwork():
                                                                            self.encoder_state, model="sample")
             self.sample_decoder_logits = self.sample_decoder_outputs.rnn_output
             self.sample_pi = tf.nn.softmax(self.sample_decoder_logits)
-            # Reuse the same q_layer for sample decoder
-            self.sample_q = self.q_layer(self.sample_decoder_logits)
+            self.sample_q = tf.compat.v1.layers.dense(self.sample_decoder_logits, self.n_features,
+                                            activation=None, reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
 
             self.sample_vf = tf.reduce_sum(self.sample_pi*self.sample_q, axis=-1)
 
@@ -199,8 +174,8 @@ class Seq2SeqNetwork():
                                                                            self.encoder_state, model="greedy")
             self.greedy_decoder_logits = self.greedy_decoder_outputs.rnn_output
             self.greedy_pi = tf.nn.softmax(self.greedy_decoder_logits)
-            # Reuse the same q_layer for greedy decoder
-            self.greedy_q = self.q_layer(self.greedy_decoder_logits)
+            self.greedy_q = tf.compat.v1.layers.dense(self.greedy_decoder_logits, self.n_features, activation=None, reuse=tf.compat.v1.AUTO_REUSE,
+                                     name="qvalue_layer")
             self.greedy_vf = tf.reduce_sum(self.greedy_pi * self.greedy_q, axis=-1)
 
             self.greedy_decoder_prediction = self.greedy_decoder_outputs.sample_id
@@ -595,9 +570,11 @@ class Seq2SeqPolicy():
         return self.network.get_trainable_variables()
 
     def save_variables(self, save_path, sess=None):
-        # EAGER: No session needed - use compat checkpoint helper
-        variables = self.get_variables()
-        compat_checkpoint.save_variables_joblib(variables, save_path)
+        # Restore TF1-style checkpoint saving for exact compatibility
+        if sess is None:
+            sess = tf.compat.v1.get_default_session()
+        variables = {v.name: sess.run(v) for v in self.get_variables()}
+        joblib.dump(variables, save_path)
 
     def load_variables(self, load_path, sess=None):
         # EAGER: No session needed - use compat checkpoint helper

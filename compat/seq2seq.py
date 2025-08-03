@@ -120,38 +120,80 @@ class BasicDecoderOutput:
 
 def dynamic_decode(decoder, output_time_major=False, maximum_iterations=None, 
                   parallel_iterations=32, swap_memory=False, scope=None):
-    """Simplified shim for tf.contrib.seq2seq.dynamic_decode
+    """Full implementation of tf.contrib.seq2seq.dynamic_decode for TF2
     
     Returns: (final_outputs, final_state, final_sequence_lengths)
     """
     # Initialize decoder
     finished, inputs, state = decoder.initialize()
     
-    # Get batch size
+    # Get batch size and dtype
     batch_size = tf.shape(inputs)[0]
     
-    # For simplicity, run a single step and return that
-    # This is sufficient for many use cases and avoids tf.while_loop complexity
-    
-    # Run one decoder step
-    cell_outputs, cell_state = decoder.cell(inputs, state)
-    
-    # Apply output layer if present
-    if decoder.output_layer is not None:
-        cell_outputs = decoder.output_layer(cell_outputs)
-    
-    # Sample from helper
-    sample_ids = decoder.helper.sample(0, cell_outputs, cell_state)
-    
-    # For single step, add time dimension
-    if not output_time_major:
-        # [batch, 1, features]
-        final_outputs_tensor = tf.expand_dims(cell_outputs, axis=1)
-        final_sample_ids_tensor = tf.expand_dims(sample_ids, axis=1)
+    # Use maximum_iterations if provided, otherwise use a default
+    if maximum_iterations is None:
+        maximum_iterations = tf.constant(100)  # Default max length
     else:
-        # [1, batch, features]  
-        final_outputs_tensor = tf.expand_dims(cell_outputs, axis=0)
-        final_sample_ids_tensor = tf.expand_dims(sample_ids, axis=0)
+        # Handle case where maximum_iterations is a tensor
+        if hasattr(maximum_iterations, 'shape') and len(maximum_iterations.shape) > 0:
+            # If it's a vector, take the first element
+            maximum_iterations = maximum_iterations[0]
+    
+    # Initialize loop variables
+    time = tf.constant(0)
+    outputs_ta = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
+    sample_ids_ta = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
+    
+    def condition(time, finished, inputs, state, outputs_ta, sample_ids_ta):
+        return tf.logical_and(
+            tf.logical_not(tf.reduce_all(finished)),
+            tf.less(time, maximum_iterations)
+        )
+    
+    def body(time, finished, inputs, state, outputs_ta, sample_ids_ta):
+        # Run decoder cell
+        if hasattr(decoder.cell, '__call__'):
+            cell_outputs, cell_state = decoder.cell(inputs, state)
+        else:
+            # Handle wrapped cells
+            cell_outputs, cell_state = decoder.cell(inputs, state)
+        
+        # Apply output layer if present
+        if decoder.output_layer is not None:
+            cell_outputs = decoder.output_layer(cell_outputs)
+        
+        # Sample from helper
+        sample_ids = decoder.helper.sample(time, cell_outputs, cell_state)
+        
+        # Get next inputs
+        finished, next_inputs, next_state = decoder.helper.next_inputs(
+            time, cell_outputs, cell_state, sample_ids
+        )
+        
+        # Write outputs
+        outputs_ta = outputs_ta.write(time, cell_outputs)
+        sample_ids_ta = sample_ids_ta.write(time, sample_ids)
+        
+        return time + 1, finished, next_inputs, next_state, outputs_ta, sample_ids_ta
+    
+    # Run the decoding loop
+    final_time, final_finished, _, final_state, final_outputs_ta, final_sample_ids_ta = tf.while_loop(
+        condition,
+        body,
+        loop_vars=[time, finished, inputs, state, outputs_ta, sample_ids_ta],
+        parallel_iterations=parallel_iterations,
+        swap_memory=swap_memory
+    )
+    
+    # Stack outputs
+    final_outputs_tensor = final_outputs_ta.stack()
+    final_sample_ids_tensor = final_sample_ids_ta.stack()
+    
+    # Transpose if needed
+    if not output_time_major:
+        # Convert from [time, batch, ...] to [batch, time, ...]
+        final_outputs_tensor = tf.transpose(final_outputs_tensor, [1, 0, 2])
+        final_sample_ids_tensor = tf.transpose(final_sample_ids_tensor, [1, 0])
     
     # Create final outputs
     final_outputs = BasicDecoderOutput(
@@ -159,8 +201,21 @@ def dynamic_decode(decoder, output_time_major=False, maximum_iterations=None,
         sample_id=final_sample_ids_tensor
     )
     
-    # Sequence lengths (all length 1 for single step)
-    final_sequence_lengths = tf.ones([batch_size], dtype=tf.int32)
+    # Compute sequence lengths
+    # Count the number of time steps before the first finished flag
+    if output_time_major:
+        # final_sample_ids_tensor is [time, batch]
+        # Create mask for end tokens
+        not_finished = tf.not_equal(final_sample_ids_tensor, decoder.helper.end_token)
+        # Sum along time axis
+        final_sequence_lengths = tf.reduce_sum(tf.cast(not_finished, tf.int32), axis=0)
+    else:
+        # final_sample_ids_tensor is [batch, time]
+        not_finished = tf.not_equal(final_sample_ids_tensor, decoder.helper.end_token)
+        final_sequence_lengths = tf.reduce_sum(tf.cast(not_finished, tf.int32), axis=1)
+    
+    # Ensure minimum length of 1
+    final_sequence_lengths = tf.maximum(final_sequence_lengths, 1)
     
     return final_outputs, final_state, final_sequence_lengths
 
