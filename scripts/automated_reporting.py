@@ -12,13 +12,33 @@ from datetime import datetime
 import traceback
 
 
+def convert_numpy_types(obj):
+    """
+    Recursively convert numpy types to Python native types for JSON serialization.
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif hasattr(obj, 'item'):  # numpy scalar
+        return obj.item()
+    else:
+        return obj
+
+
 class AutomatedReporter:
     """
     Automated reporting system for meta-training runs.
     Creates timestamped folders with data exports, statistics, and plots.
     """
     
-    def __init__(self, base_dir="training_reports"):
+    def __init__(self, base_dir="reports/training_reports"):
         """
         Initialize the reporter.
         
@@ -89,58 +109,32 @@ class AutomatedReporter:
                 for metric_name, values in metrics_data.items():
                     if i < len(values):
                         # Convert numpy types to Python native types
-                        value = values[i]
-                        if hasattr(value, 'item'):  # numpy scalar
-                            value = value.item()
+                        value = convert_numpy_types(values[i])
                         row[metric_name] = value
                 iteration_data.append(row)
         
         # Save as CSV
         csv_path = os.path.join(report_dir, "data.csv")
         if iteration_data:
-            keys = iteration_data[0].keys()
+            # Convert iteration_data to handle numpy types
+            converted_iteration_data = convert_numpy_types(iteration_data)
+            keys = converted_iteration_data[0].keys()
             with open(csv_path, 'w', newline='') as f:
                 writer = csv.DictWriter(f, fieldnames=keys)
                 writer.writeheader()
-                writer.writerows(iteration_data)
+                writer.writerows(converted_iteration_data)
             print(f"Saved data.csv with {len(iteration_data)} rows")
         
         # Save as JSON
         json_path = os.path.join(report_dir, "data.json")
         with open(json_path, 'w') as f:
-            # Convert numpy types in iteration_data
-            converted_iteration_data = []
-            for row in iteration_data:
-                converted_row = {}
-                for k, v in row.items():
-                    if hasattr(v, 'item'):  # numpy scalar
-                        converted_row[k] = v.item()
-                    elif isinstance(v, np.ndarray):
-                        converted_row[k] = v.tolist()
-                    else:
-                        converted_row[k] = v
-                converted_iteration_data.append(converted_row)
+            # Use robust numpy type conversion
+            data_to_save = {
+                'metrics_data': convert_numpy_types(metrics_data),
+                'iteration_data': convert_numpy_types(iteration_data)
+            }
             
-            # Convert metrics_data with proper numpy handling
-            converted_metrics = {}
-            for k, v in metrics_data.items():
-                if hasattr(v, 'item'):  # numpy scalar
-                    converted_metrics[k] = v.item()
-                elif isinstance(v, np.ndarray):
-                    converted_metrics[k] = v.tolist()
-                elif isinstance(v, list):
-                    # Handle lists that might contain numpy types
-                    converted_metrics[k] = [
-                        val.item() if hasattr(val, 'item') else val 
-                        for val in v
-                    ]
-                else:
-                    converted_metrics[k] = v
-            
-            json.dump({
-                'metrics_data': converted_metrics,
-                'iteration_data': converted_iteration_data
-            }, f, indent=2)
+            json.dump(data_to_save, f, indent=2)
         print(f"Saved data.json")
     
     def _save_summary_statistics(self, metrics_data, report_dir):
@@ -166,6 +160,10 @@ class AutomatedReporter:
     
     def _generate_plots(self, metrics_data, report_dir):
         """Generate plots for all metrics."""
+        # Ensure matplotlib uses a non-interactive backend
+        import matplotlib
+        matplotlib.use('Agg')
+        
         # Use a matplotlib style that's available in older versions
         try:
             plt.style.use('seaborn-darkgrid')
@@ -175,32 +173,52 @@ class AutomatedReporter:
         
         for metric_name, values in metrics_data.items():
             if len(values) > 0:
-                plt.figure(figsize=(10, 6))
-                iterations = range(len(values))
-                plt.plot(iterations, values, linewidth=2, marker='o', markersize=4, 
-                        markevery=max(1, len(values)//20))
-                
-                plt.title(f'{metric_name.replace("_", " ").title()} Over Iterations', 
-                         fontsize=16, fontweight='bold')
-                plt.xlabel('Iteration', fontsize=14)
-                plt.ylabel(metric_name.replace("_", " ").title(), fontsize=14)
-                plt.grid(True, alpha=0.3)
-                
-                # Add trend line
-                if len(values) > 1:
-                    z = np.polyfit(iterations, values, 1)
-                    p = np.poly1d(z)
-                    plt.plot(iterations, p(iterations), "r--", alpha=0.8, 
-                            label=f'Trend: {z[0]:.2e}x + {z[1]:.2f}')
-                    plt.legend()
-                
-                # Save plot
-                plot_path = os.path.join(report_dir, f"{metric_name}.png")
-                plt.tight_layout()
-                plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-                plt.close()
-                
-                print(f"Saved {metric_name}.png")
+                try:
+                    # Convert values to ensure they're numeric
+                    values = convert_numpy_types(values)
+                    values = [float(v) for v in values if v is not None]
+                    
+                    if not values:  # Skip if no valid values
+                        print(f"Warning: No valid numeric values for {metric_name}, skipping plot")
+                        continue
+                    
+                    plt.figure(figsize=(10, 6))
+                    iterations = range(len(values))
+                    plt.plot(iterations, values, linewidth=2, marker='o', markersize=4, 
+                            markevery=max(1, len(values)//20))
+                    
+                    plt.title(f'{metric_name.replace("_", " ").title()} Over Iterations', 
+                             fontsize=16, fontweight='bold')
+                    plt.xlabel('Iteration', fontsize=14)
+                    plt.ylabel(metric_name.replace("_", " ").title(), fontsize=14)
+                    plt.grid(True, alpha=0.3)
+                    
+                    # Add trend line
+                    if len(values) > 1:
+                        try:
+                            z = np.polyfit(iterations, values, 1)
+                            p = np.poly1d(z)
+                            plt.plot(iterations, p(iterations), "r--", alpha=0.8, 
+                                    label=f'Trend: {z[0]:.2e}x + {z[1]:.2f}')
+                            plt.legend()
+                        except Exception as trend_e:
+                            print(f"Warning: Could not add trend line for {metric_name}: {trend_e}")
+                    
+                    # Save plot
+                    plot_path = os.path.join(report_dir, f"{metric_name}.png")
+                    plt.tight_layout()
+                    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+                    plt.close()
+                    
+                    print(f"Saved {metric_name}.png")
+                    
+                except Exception as e:
+                    print(f"Warning: Failed to create plot for {metric_name}: {e}")
+                    # Ensure we don't leave a figure open
+                    try:
+                        plt.close()
+                    except:
+                        pass
     
     def _validate_report(self, report_dir):
         """Validate that all expected files were created."""
