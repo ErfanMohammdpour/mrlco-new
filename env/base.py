@@ -25,7 +25,7 @@ class MetaEnv(Env):
         Args:
             task: task of the meta-learning environment
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def get_task(self):
         """
@@ -34,7 +34,7 @@ class MetaEnv(Env):
         Returns:
             task: task of the meta-learning environment
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def log_diagnostics(self, paths, prefix):
         """

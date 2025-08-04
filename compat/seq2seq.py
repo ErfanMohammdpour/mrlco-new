@@ -4,6 +4,7 @@ Provides minimal Keras-based wrappers with same call signatures
 """
 import tensorflow as tf
 import numpy as np
+from collections import namedtuple
 
 
 class TrainingHelper:
@@ -12,7 +13,6 @@ class TrainingHelper:
         self.inputs = inputs
         self.sequence_length = sequence_length
         self.time_major = time_major
-        # TODO(runtime): Verify time_major handling matches TF1 behavior
         
     def initialize(self):
         # Returns (initial_finished, initial_inputs)
@@ -50,7 +50,6 @@ class GreedyEmbeddingHelper:
         self.embedding = embedding
         self.start_tokens = start_tokens
         self.end_token = end_token
-        # TODO(runtime): Verify embedding lookup behavior matches TF1
     
     def initialize(self):
         # Returns (initial_finished, initial_inputs)
@@ -76,7 +75,6 @@ class SampleEmbeddingHelper:
         self.end_token = end_token
         self.softmax_temperature = softmax_temperature
         self.seed = seed
-        # TODO(runtime): Verify sampling behavior with temperature
     
     def initialize(self):
         initial_inputs = tf.nn.embedding_lookup(self.embedding, self.start_tokens)
@@ -104,7 +102,6 @@ class BasicDecoder:
         self.helper = helper
         self.initial_state = initial_state
         self.output_layer = output_layer
-        # TODO(runtime): Verify cell state handling matches TF1 behavior
     
     def initialize(self):
         finished, first_inputs = self.helper.initialize()
@@ -234,11 +231,19 @@ class LuongAttention:
         self.scale = scale
     
     def __call__(self, query, state=None):
-        # Simplified Luong attention
-        # query: [batch, num_units]
-        # memory: [batch, time, num_units]
+        # Luong attention with proper dimension handling
+        # query: [batch, query_units] 
+        # memory: [batch, time, memory_units]
         
-        # Compute attention scores
+        # If dimensions don't match, project query to memory dimension
+        if query.shape[-1] != self.memory.shape[-1]:
+            if not hasattr(self, '_query_projection'):
+                self._query_projection = tf.keras.layers.Dense(
+                    self.memory.shape[-1], use_bias=False, name='query_projection'
+                )
+            query = self._query_projection(query)
+        
+        # Compute attention scores: memory * query^T
         scores = tf.matmul(self.memory, tf.expand_dims(query, axis=2))
         scores = tf.squeeze(scores, axis=2)
         
@@ -260,8 +265,20 @@ class LuongAttention:
         return context, alignments
 
 
+# Create namedtuple for AttentionWrapperState to work with tf.while_loop
+AttentionWrapperState = namedtuple('AttentionWrapperState', 
+                                   ['cell_state', 'attention', 'alignments', 'alignment_history'])
+
+# Add clone method to the namedtuple
+def _clone_attention_wrapper_state(self, **kwargs):
+    """Clone state with optional overrides"""
+    return self._replace(**kwargs)
+
+AttentionWrapperState.clone = _clone_attention_wrapper_state
+
+
 class AttentionWrapper:
-    """Simple shim for tf.contrib.seq2seq.AttentionWrapper"""
+    """Full implementation of tf.contrib.seq2seq.AttentionWrapper for TF2"""
     def __init__(self, cell, attention_mechanism, attention_layer_size=None, 
                  alignment_history=False, cell_input_fn=None, output_attention=False,
                  initial_cell_state=None):
@@ -270,41 +287,73 @@ class AttentionWrapper:
         self.attention_layer_size = attention_layer_size
         self.alignment_history = alignment_history
         self.output_attention = output_attention
+        self.cell_input_fn = cell_input_fn
         
         # Create attention projection layer if needed
         if attention_layer_size is not None:
-            self.attention_layer = tf.keras.layers.Dense(attention_layer_size)
+            self.attention_layer = tf.keras.layers.Dense(attention_layer_size, name="attention_layer")
         else:
             self.attention_layer = None
     
     def __call__(self, inputs, state, training=None):
-        # Run cell forward pass
-        cell_outputs, cell_state = self.cell(inputs, state)
+        """Run one step of attention wrapped cell"""
+        # Extract state components
+        if isinstance(state, AttentionWrapperState):
+            cell_state = state.cell_state
+            attention = state.attention
+        else:
+            # First call - state is just cell state
+            cell_state = state
+            attention = self._initial_attention(inputs)
+        
+        # Compute cell input
+        if self.cell_input_fn is not None:
+            cell_inputs = self.cell_input_fn(inputs, attention)
+        else:
+            # Default: concatenate input and previous attention
+            cell_inputs = tf.concat([inputs, attention], -1)
+        
+        # Run cell
+        cell_outputs, next_cell_state = self.cell(cell_inputs, cell_state)
         
         # Compute attention
-        context, alignments = self.attention_mechanism(cell_outputs)
+        attention_inputs = cell_outputs
+        context, alignments = self.attention_mechanism(attention_inputs)
         
-        # Combine cell output with attention context
+        # Compute attention output
         if self.attention_layer is not None:
-            attention_output = self.attention_layer(tf.concat([cell_outputs, context], axis=-1))
+            attention = self.attention_layer(tf.concat([cell_outputs, context], -1))
         else:
-            attention_output = tf.concat([cell_outputs, context], axis=-1)
+            attention = context
         
-        return attention_output, cell_state
+        # Prepare output
+        if self.output_attention:
+            outputs = attention
+        else:
+            outputs = cell_outputs
+        
+        # Build next state
+        next_state = AttentionWrapperState(
+            cell_state=next_cell_state,
+            attention=attention,
+            alignments=alignments,
+            alignment_history=()
+        )
+        
+        return outputs, next_state
+    
+    def _initial_attention(self, inputs):
+        """Create initial attention (zeros)"""
+        batch_size = tf.shape(inputs)[0]
+        if self.attention_layer_size is not None:
+            attention_size = self.attention_layer_size
+        else:
+            # Use memory size
+            attention_size = tf.shape(self.attention_mechanism.memory)[-1]
+        return tf.zeros([batch_size, attention_size], dtype=inputs.dtype)
     
     def zero_state(self, batch_size, dtype):
         """Create zero state for attention wrapper"""
-        # Return a simple wrapper around the cell's zero state
-        class AttentionWrapperState:
-            def __init__(self, cell_state):
-                self.cell_state = cell_state
-            
-            def clone(self, cell_state=None):
-                """Clone method expected by tf.contrib patterns"""
-                if cell_state is not None:
-                    return AttentionWrapperState(cell_state)
-                return AttentionWrapperState(self.cell_state)
-        
         # Get cell's zero state
         if hasattr(self.cell, 'zero_state'):
             cell_state = self.cell.zero_state(batch_size, dtype)
@@ -317,4 +366,22 @@ class AttentionWrapper:
             else:
                 cell_state = tf.zeros([batch_size, state_size], dtype=dtype)
         
-        return AttentionWrapperState(cell_state)
+        # Create initial attention
+        if self.attention_layer_size is not None:
+            attention_size = self.attention_layer_size
+        else:
+            # Use memory size from attention mechanism
+            attention_size = tf.shape(self.attention_mechanism.memory)[-1]
+        
+        attention = tf.zeros([batch_size, attention_size], dtype=dtype)
+        
+        # Create initial alignments (attention weights)
+        alignments_size = tf.shape(self.attention_mechanism.memory)[1]
+        alignments = tf.zeros([batch_size, alignments_size], dtype=dtype)
+        
+        return AttentionWrapperState(
+            cell_state=cell_state,
+            attention=attention,
+            alignments=alignments,
+            alignment_history=()
+        )

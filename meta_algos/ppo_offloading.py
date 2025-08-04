@@ -56,7 +56,6 @@ class PPO():
         """
         with tf.GradientTape() as tape:
             # Forward pass through policy
-            # TODO(runtime): Verify policy forward pass interface
             new_logits, vpred = self.policy.call_with_inputs(
                 observations, decoder_inputs, decoder_full_length
             )
@@ -121,7 +120,6 @@ class PPO():
                 decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
 
                 # EAGER: Call TF2 training step
-                # TODO(runtime): Verify train_step is called correctly
                 value_loss, policy_loss = self.train_step(
                     observations, actions, shift_actions, decoder_full_length,
                     old_logits, old_v, advs, r

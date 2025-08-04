@@ -1,8 +1,3 @@
-"""
-MIGRATION NOTE: This file contains TF1 constructs and should be replaced with
-meta_seq2seq_policy_keras.py for full TF2 compatibility. The Keras version
-maintains the same interface but uses proper TF2/Keras patterns.
-"""
 import os
 import joblib
 
@@ -11,16 +6,14 @@ import tensorflow as tf
 import policies.model_helper as model_helper
 from policies.graph2seq_encoder import create_graph2seq_encoder
 
-# MIGRATION: Removed internal TF ops imports - using public API
-# from tensorflow.python.ops import control_flow_ops
-# from tensorflow.python.ops import math_ops
-# from tensorflow.python.framework import ops
-# from tensorflow.python.ops.distributions import categorical
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.framework import ops
+from tensorflow.python.ops.distributions import categorical
 from policies.distributions.categorical_pd import CategoricalPd
 import utils as U
 from utils.utils import zipsame
 from compat import seq2seq as contrib_seq2seq
-from compat import checkpoint as compat_checkpoint
 from compat import layers as compat_layers
 
 tf.get_logger().setLevel('WARNING')
@@ -30,7 +23,7 @@ class FixedSequenceLearningSampleEmbedingHelper(contrib_seq2seq.SampleEmbeddingH
         super(FixedSequenceLearningSampleEmbedingHelper, self).__init__(
             embedding, start_tokens, end_token, softmax_temperature, seed
         )
-        self._sequence_length = tf.convert_to_tensor(
+        self._sequence_length = ops.convert_to_tensor(
             sequence_length, name="sequence_length")
         if self._sequence_length.get_shape().ndims != 1:
             raise ValueError(
@@ -49,8 +42,6 @@ class FixedSequenceLearningSampleEmbedingHelper(contrib_seq2seq.SampleEmbeddingH
         else:
             logits = outputs / self.softmax_temperature
 
-        # Restore TF1-style categorical sampling for exact compatibility
-        from tensorflow.python.ops.distributions import categorical
         sample_id_sampler = categorical.Categorical(logits=logits)
         sample_ids = sample_id_sampler.sample(seed=self.seed)
 
@@ -91,7 +82,6 @@ class Seq2SeqNetwork():
         self.unit_type = hparams.unit_type
 
         # default setting
-        # MIGRATION: tf.contrib.learn removed in TF2, use string mode
         self.mode = 'train'  # Was tf.contrib.learn.ModeKeys.TRAIN
 
         self.num_layers = hparams.num_layers
@@ -107,15 +97,12 @@ class Seq2SeqNetwork():
 
         self.decoder_full_length = decoder_full_length
 
-        # TF1-style variables will be created in the variable scope below
-
         with tf.compat.v1.variable_scope(name, reuse=self.reuse, initializer=tf.compat.v1.glorot_normal_initializer()):
             self.scope = tf.compat.v1.get_variable_scope().name
-            self.embeddings = tf.compat.v1.get_variable(
-                "embeddings",
-                shape=[self.n_features, self.encoder_hidden_unit],
-                initializer=tf.compat.v1.random_uniform_initializer(-1.0, 1.0),
-                dtype=tf.float32)
+            self.embeddings = tf.Variable(tf.random.uniform(
+                [self.n_features,
+                 self.encoder_hidden_unit],
+                -1.0, 1.0), dtype=tf.float32)
 
             # using a fully connected layer as embeddings
             self.encoder_embeddings = compat_layers.fully_connected(self.encoder_inputs,
@@ -131,43 +118,26 @@ class Seq2SeqNetwork():
                                                          self.n_features,
                                                          dtype=tf.float32)
 
-            # Create TF1-style output projection layer
-            self.output_projection_kernel = tf.compat.v1.get_variable(
-                "output_projection/kernel",
-                shape=[self.decoder_hidden_unit, self.n_features],
-                initializer=tf.compat.v1.glorot_normal_initializer(),
-                dtype=tf.float32)
-            
-            # Create qvalue layer variables - takes n_features input, outputs n_features
-            self.qvalue_kernel = tf.compat.v1.get_variable(
-                "qvalue_layer/kernel", 
-                shape=[self.n_features, self.n_features],
-                initializer=tf.compat.v1.glorot_normal_initializer(),
-                dtype=tf.float32)
-            self.qvalue_bias = tf.compat.v1.get_variable(
-                "qvalue_layer/bias",
-                shape=[self.n_features],
-                initializer=tf.compat.v1.zeros_initializer(),
-                dtype=tf.float32)
+            self.output_layer = tf.keras.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
             # Use Graph2Seq encoder instead of original encoder
+            # Use policy name in encoder scope to avoid variable sharing
             self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
                 encoder_inputs=self.encoder_embeddings,
                 encoder_units=self.encoder_hidden_unit,
                 num_layers=self.num_layers,
                 is_bidirectional=self.is_bidencoder,
                 mode=self.mode,
-                scope_name="encoder"
+                scope_name=f"{name}_encoder"  # Include policy name in scope (use _ instead of /)
             )
 
             # training decoder
             self.decoder_outputs, self.decoder_state = self.create_decoder(hparams, self.encoder_outputs,
                                                                            self.encoder_state, model="train")
-            # First apply output projection to get logits
-            self.decoder_logits = tf.matmul(self.decoder_outputs.rnn_output, self.output_projection_kernel)
+            self.decoder_logits = self.decoder_outputs.rnn_output
             self.pi = tf.nn.softmax(self.decoder_logits)
-            # Apply q-value layer to the logits
-            self.q = tf.nn.bias_add(tf.matmul(self.decoder_logits, self.qvalue_kernel), self.qvalue_bias)
+            with tf.compat.v1.variable_scope("qvalue_layer", reuse=tf.compat.v1.AUTO_REUSE):
+                self.q = tf.keras.layers.Dense(self.n_features, activation=None, name="qvalue")(self.decoder_logits)
             self.vf = tf.reduce_sum(self.pi * self.q, axis=-1)
 
             self.decoder_prediction = self.decoder_outputs.sample_id
@@ -175,10 +145,10 @@ class Seq2SeqNetwork():
             # sample decoder
             self.sample_decoder_outputs, self.sample_decoder_state = self.create_decoder(hparams, self.encoder_outputs,
                                                                            self.encoder_state, model="sample")
-            # First apply output projection to get logits
-            self.sample_decoder_logits = tf.matmul(self.sample_decoder_outputs.rnn_output, self.output_projection_kernel)
+            self.sample_decoder_logits = self.sample_decoder_outputs.rnn_output
             self.sample_pi = tf.nn.softmax(self.sample_decoder_logits)
-            self.sample_q = tf.nn.bias_add(tf.matmul(self.sample_decoder_logits, self.qvalue_kernel), self.qvalue_bias)
+            with tf.compat.v1.variable_scope("qvalue_layer", reuse=tf.compat.v1.AUTO_REUSE):
+                self.sample_q = tf.keras.layers.Dense(self.n_features, activation=None, name="qvalue")(self.sample_decoder_logits)
 
             self.sample_vf = tf.reduce_sum(self.sample_pi*self.sample_q, axis=-1)
 
@@ -195,10 +165,10 @@ class Seq2SeqNetwork():
             # greedy decoder
             self.greedy_decoder_outputs, self.greedy_decoder_state = self.create_decoder(hparams, self.encoder_outputs,
                                                                            self.encoder_state, model="greedy")
-            # First apply output projection to get logits
-            self.greedy_decoder_logits = tf.matmul(self.greedy_decoder_outputs.rnn_output, self.output_projection_kernel)
+            self.greedy_decoder_logits = self.greedy_decoder_outputs.rnn_output
             self.greedy_pi = tf.nn.softmax(self.greedy_decoder_logits)
-            self.greedy_q = tf.nn.bias_add(tf.matmul(self.greedy_decoder_logits, self.qvalue_kernel), self.qvalue_bias)
+            with tf.compat.v1.variable_scope("qvalue_layer", reuse=tf.compat.v1.AUTO_REUSE):
+                self.greedy_q = tf.keras.layers.Dense(self.n_features, activation=None, name="qvalue")(self.greedy_decoder_logits)
             self.greedy_vf = tf.reduce_sum(self.greedy_pi * self.greedy_q, axis=-1)
 
             self.greedy_decoder_prediction = self.greedy_decoder_outputs.sample_id
@@ -353,38 +323,40 @@ class Seq2SeqNetwork():
                     self.decoder_full_length,
                     time_major=self.time_major)
 
-            # Temporarily disable attention for debugging
-            # TODO: Re-enable attention once basic functionality works
-            decoder_cell = self._build_decoder_cell(hparams=hparams,
-                                                    num_layers=self.num_layers,
-                                                    num_residual_layers=self.num_residual_layers)
-            decoder_initial_state = encoder_state
-            
-            # Original attention code (commented out for debugging)
-            # if self.is_attention:
-            #     if self.time_major:
-            #         attention_states = tf.transpose(encoder_outputs, [1, 0, 2])
-            #     else:
-            #         attention_states = encoder_outputs
-            #
-            #     attention_mechanism = contrib_seq2seq.LuongAttention(
-            #         self.decoder_hidden_unit, attention_states)
-            #
-            #     decoder_cell = contrib_seq2seq.AttentionWrapper(
-            #         decoder_cell, attention_mechanism,
-            #         attention_layer_size=self.decoder_hidden_unit)
-            #
-            #     decoder_initial_state = (
-            #         decoder_cell.zero_state(tf.size(self.decoder_full_length),
-            #                                 dtype=tf.float32).clone(
-            #             cell_state=encoder_state))
+            if self.is_attention:
+                decoder_cell = self._build_decoder_cell(hparams=hparams,
+                                                        num_layers=self.num_layers,
+                                                        num_residual_layers=self.num_residual_layers)
+                # decoder_cell = tf.contrib.rnn.GRUCell(self.decoder_hidden_unit)
+                if self.time_major:
+                    # [batch_size, max_time, num_nunits]
+                    attention_states = tf.transpose(encoder_outputs, [1, 0, 2])
+                else:
+                    attention_states = encoder_outputs
 
-            # No output layer - we'll apply projection manually later
+                attention_mechanism = contrib_seq2seq.LuongAttention(
+                    self.decoder_hidden_unit, attention_states)
+
+                decoder_cell = contrib_seq2seq.AttentionWrapper(
+                    decoder_cell, attention_mechanism,
+                    attention_layer_size=self.decoder_hidden_unit)
+
+                decoder_initial_state = (
+                    decoder_cell.zero_state(tf.size(self.decoder_full_length),
+                                            dtype=tf.float32).clone(
+                        cell_state=encoder_state))
+            else:
+                decoder_cell = self._build_decoder_cell(hparams=hparams,
+                                                        num_layers=self.num_layers,
+                                                        num_residual_layers=self.num_residual_layers)
+
+                decoder_initial_state = encoder_state
+
             decoder = contrib_seq2seq.BasicDecoder(
                 cell=decoder_cell,
                 helper=helper,
                 initial_state=decoder_initial_state,
-                output_layer=None)
+                output_layer=self.output_layer)
 
             outputs, last_state, _ = contrib_seq2seq.dynamic_decode(decoder,
                                                                        output_time_major=self.time_major,
@@ -392,66 +364,34 @@ class Seq2SeqNetwork():
         return outputs, last_state
 
     def get_variables(self):
-        # Return TF1-style variables from this scope
-        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, scope=self.scope)
+        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, self.scope)
 
     def get_trainable_variables(self):
-        # Return TF1-style trainable variables from this scope
-        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope)
-    
-    def get_variable_values(self):
-        # Get all variables and their values for MRLCO_distributed
-        variables = self.get_variables()
-        values = []
-        for var in variables:
-            # Return tuple of (name, value) for each variable
-            var_name = var.name
-            # Create a placeholder value with the same shape as the variable
-            # This will be properly initialized when the session runs
-            var_shape = var.get_shape().as_list()
-            var_value = np.zeros(var_shape, dtype=np.float32)
-            values.append((var_name, var_value))
-        return values
-    
-    def get_trainable_variable_values(self):
-        # Get only trainable variables and their values for MRLCO_distributed
-        variables = self.get_trainable_variables()
-        values = []
-        for var in variables:
-            # Return tuple of (name, value) for each variable
-            var_name = var.name
-            # Create a placeholder value with the same shape as the variable
-            # This will be properly initialized when the session runs
-            var_shape = var.get_shape().as_list()
-            var_value = np.zeros(var_shape, dtype=np.float32)
-            values.append((var_name, var_value))
-        return values
-    
-    def set_variable_values(self, values):
-        # Set variable values from a list of (name, value) tuples
-        # In TF1 graph mode, this needs to be done via session operations
-        # For now, this is a placeholder that will be properly implemented
-        # when the session runs
-        pass
+        return tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, self.scope)
 
 
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
                  decoder_units, vocab_size, name="pi"):
+        self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
+        self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
+        self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
+        self.decoder_full_length = tf.compat.v1.placeholder(shape=[None], dtype=tf.int32, name="decoder_full_length"+name)
+
         self.action_dim = vocab_size
         self.name = name
-        self.obs_dim = obs_dim
 
-        # MIGRATION: Replace tf.contrib.training.HParams with simple class
+        # Create HParams manually since tf.contrib.training is removed
         class HParams:
             def __init__(self, **kwargs):
                 for k, v in kwargs.items():
                     setattr(self, k, v)
         
-        self.hparams = HParams(
+        hparams = HParams(
             unit_type="lstm",
             encoder_units=encoder_units,
             decoder_units=decoder_units,
+
             n_features=vocab_size,
             time_major=False,
             is_attention=True,
@@ -465,232 +405,67 @@ class Seq2SeqPolicy():
             is_bidencoder=False
         )
 
-        # Network will be created lazily when first used
-        self.network = None
+        self.network = Seq2SeqNetwork( hparams = hparams, reuse=tf.compat.v1.AUTO_REUSE,
+                 encoder_inputs=self.obs,
+                 decoder_inputs=self.decoder_inputs,
+                 decoder_full_length=self.decoder_full_length,
+                 decoder_targets=self.decoder_targets,name = name)
+
+        self.vf = self.network.vf
+
         self._dist = CategoricalPd(vocab_size)
 
-    # MIGRATION: Removed complex network creation - network created once in __init__ like TF1.15
-    
-    def forward(self, obs, decoder_inputs, training=True, adj=None, mask=None):
-        """Forward pass with tensor inputs - placeholder for compatibility"""
-        # This method is not used in the current implementation
-        # Kept for interface compatibility
-        raise NotImplementedError("Use get_actions() method instead")
-    
     def get_actions(self, observations):
-        """Get actions from observations - matches TF1.15 interface"""
-        # Ensure observations is numpy array
-        if tf.is_tensor(observations):
-            observations = observations.numpy()
-        
-        # Create network on first call
-        if self.network is None:
-            self._create_network(observations)
-        
-        # Run forward pass to get actions
-        return self._sample_actions(observations)
-    
-    def _create_network(self, observations):
-        """Create the network with concrete shapes from first observation"""
-        batch_size, seq_len = observations.shape[:2]
-        
-        # Create placeholder inputs for flexible batch sizes
-        self.obs_placeholder = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, seq_len, observations.shape[-1]], name=f'obs_{self.name}')
-        self.decoder_inputs_placeholder = tf.compat.v1.placeholder(dtype=tf.int32, shape=[None, seq_len], name=f'decoder_inputs_{self.name}')
-        self.decoder_targets_placeholder = tf.compat.v1.placeholder(dtype=tf.int32, shape=[None, seq_len], name=f'decoder_targets_{self.name}')
-        self.decoder_full_length_placeholder = tf.compat.v1.placeholder(dtype=tf.int32, shape=[None], name=f'decoder_full_length_{self.name}')
-        
-        # Use the actual observations for the initial network creation
-        obs_tensor = tf.constant(observations, dtype=tf.float32)
-        decoder_inputs = tf.zeros([batch_size, seq_len], dtype=tf.int32)
-        decoder_targets = tf.zeros([batch_size, seq_len], dtype=tf.int32) 
-        decoder_full_length = tf.constant([seq_len] * batch_size, dtype=tf.int32)
-        
-        self.network = Seq2SeqNetwork(
-            name=self.name,
-            hparams=self.hparams,
-            reuse=tf.compat.v1.AUTO_REUSE,
-            encoder_inputs=self.obs_placeholder,  # Use placeholder instead of constant
-            decoder_inputs=self.decoder_inputs_placeholder,  # Use placeholder
-            decoder_full_length=self.decoder_full_length_placeholder,  # Use placeholder
-            decoder_targets=self.decoder_targets_placeholder  # Use placeholder
-        )
-    
-    def _sample_actions(self, observations):
-        """Sample actions using the network - this will be called with different obs shapes"""
-        # Convert to tensor
-        obs_tensor = tf.convert_to_tensor(observations, dtype=tf.float32)
-        batch_size = tf.shape(obs_tensor)[0]
-        seq_len = tf.shape(obs_tensor)[1]
-        
-        # Create decoder length
-        decoder_full_length = tf.fill([batch_size], seq_len)
-        
-        # Convert to NumPy for feed_dict
-        batch_size_np = observations.shape[0]
-        seq_len_np = observations.shape[1]
-        decoder_full_length_np = np.full([batch_size_np], seq_len_np, dtype=np.int32)
-        
-        # Run encoder with Graph2Seq directly
-        encoder_outputs, encoder_state = create_graph2seq_encoder(
-            encoder_inputs=obs_tensor,
-            encoder_units=self.hparams.encoder_units,
-            num_layers=self.hparams.num_layers,
-            is_bidirectional=self.hparams.is_bidencoder,
-            mode='train',
-            scope_name="encoder"
-        )
-        
-        # Create sample decoder
-        with tf.compat.v1.variable_scope("decoder", reuse=tf.compat.v1.AUTO_REUSE):
-            helper = FixedSequenceLearningSampleEmbedingHelper(
-                sequence_length=decoder_full_length,
-                embedding=self.network.embeddings,
-                start_tokens=tf.fill([batch_size], self.hparams.start_token),
-                end_token=self.hparams.end_token
-            )
-            
-            decoder_cell = self.network._build_decoder_cell(
-                self.hparams, self.hparams.num_layers, self.hparams.num_residual_layers)
-            
-            # No output layer - we'll apply projection manually later
-            decoder = contrib_seq2seq.BasicDecoder(
-                cell=decoder_cell,
-                helper=helper,
-                initial_state=encoder_state,
-                output_layer=None
-            )
-            
-            outputs, _, _ = contrib_seq2seq.dynamic_decode(
-                decoder, maximum_iterations=seq_len)
-        
-        # Compute logits and values - first apply output projection
-        logits = tf.matmul(outputs.rnn_output, self.network.output_projection_kernel)
-        pi = tf.nn.softmax(logits)
-        q = tf.nn.bias_add(tf.matmul(logits, self.network.qvalue_kernel), self.network.qvalue_bias)
-        vf = tf.reduce_sum(pi * q, axis=-1)
-        
-        # In TF1 graph mode, evaluate tensors using the default session
         sess = tf.compat.v1.get_default_session()
-        if sess is not None:
-            # Create feed dict with current observations
-            feed_dict = {
-                self.obs_placeholder: observations,
-                self.decoder_full_length_placeholder: decoder_full_length_np
-            }
-            sample_id_val, logits_val, vf_val = sess.run([outputs.sample_id, logits, vf], feed_dict=feed_dict)
-            return sample_id_val, logits_val, vf_val
-        else:
-            return outputs.sample_id, logits, vf
-    
-    def compute_loss(self, obs, decoder_inputs, decoder_targets, old_logits=None, advantages=None, returns=None, mask=None, training=True):
-        """Compute loss with tensor inputs - placeholder for compatibility"""
-        # This method is not used in the current implementation
-        # The actual loss computation happens in the algorithm classes
-        raise NotImplementedError("Loss computation handled by algorithm classes")
+
+        decoder_full_length = np.array( [observations.shape[1]] * observations.shape[0] , dtype=np.int32)
+
+        actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
+                                             self.network.sample_decoder_logits,
+                                             self.network.sample_vf],
+                                            feed_dict={self.obs: observations, self.decoder_full_length: decoder_full_length})
+
+        return actions, logits, v_value
 
     @property
     def distribution(self):
         return self._dist
-    
-    @property 
-    def decoder_inputs(self):
-        """Access decoder inputs placeholder"""
-        if hasattr(self, 'decoder_inputs_placeholder'):
-            return self.decoder_inputs_placeholder
-        elif self.network is not None:
-            return self.network.decoder_inputs
-        else:
-            return None
-    
-    @property
-    def decoder_targets(self):
-        """Access decoder targets placeholder"""
-        if hasattr(self, 'decoder_targets_placeholder'):
-            return self.decoder_targets_placeholder
-        elif self.network is not None:
-            return self.network.decoder_targets
-        else:
-            return None
-    
-    @property
-    def obs(self):
-        """Access encoder inputs (observations) placeholder"""
-        if hasattr(self, 'obs_placeholder'):
-            return self.obs_placeholder
-        elif self.network is not None:
-            return self.network.encoder_inputs
-        else:
-            return None
-    
-    @property
-    def vf(self):
-        """Access value function from the network"""
-        if self.network is None:
-            return None
-        return self.network.vf
-    
-    @property
-    def decoder_full_length(self):
-        """Access decoder full length placeholder"""
-        if hasattr(self, 'decoder_full_length_placeholder'):
-            return self.decoder_full_length_placeholder
-        elif self.network is not None:
-            return self.network.decoder_full_length
-        else:
-            return None
 
     def get_variables(self):
-        if self.network is None:
-            # Create network with dummy data to get variables
-            dummy_obs = tf.zeros([1, 1, self.obs_dim], dtype=tf.float32)
-            dummy_inputs = tf.zeros([1, 1], dtype=tf.int32)
-            dummy_targets = tf.zeros([1, 1], dtype=tf.int32)
-            dummy_length = tf.ones([1], dtype=tf.int32)
-            
-            self.network = Seq2SeqNetwork(
-                name=self.name,
-                hparams=self.hparams,
-                reuse=tf.compat.v1.AUTO_REUSE,
-                encoder_inputs=dummy_obs,
-                decoder_inputs=dummy_inputs,
-                decoder_full_length=dummy_length,
-                decoder_targets=dummy_targets
-            )
         return self.network.get_variables()
 
     def get_trainable_variables(self):
-        if self.network is None:
-            # Create network with dummy data to get variables
-            dummy_obs = tf.zeros([1, 1, self.obs_dim], dtype=tf.float32)
-            dummy_inputs = tf.zeros([1, 1], dtype=tf.int32)
-            dummy_targets = tf.zeros([1, 1], dtype=tf.int32)
-            dummy_length = tf.ones([1], dtype=tf.int32)
-            
-            self.network = Seq2SeqNetwork(
-                name=self.name,
-                hparams=self.hparams,
-                reuse=tf.compat.v1.AUTO_REUSE,
-                encoder_inputs=dummy_obs,
-                decoder_inputs=dummy_inputs,
-                decoder_full_length=dummy_length,
-                decoder_targets=dummy_targets
-            )
         return self.network.get_trainable_variables()
 
     def save_variables(self, save_path, sess=None):
-        # Restore TF1-style checkpoint saving for exact compatibility
-        if sess is None:
-            sess = tf.compat.v1.get_default_session()
-        # Only save trainable variables to avoid optimizer state issues
-        variables = {v.name: sess.run(v) for v in self.get_trainable_variables()}
-        joblib.dump(variables, save_path)
+        sess = sess or tf.compat.v1.get_default_session()
+        variables = self.get_variables()
+
+        ps = sess.run(variables)
+        save_dict = {v.name: value for v, value in zip(variables, ps)}
+
+        dirname = os.path.dirname(save_path)
+        if any(dirname):
+            os.makedirs(dirname, exist_ok=True)
+
+        joblib.dump(save_dict, save_path)
 
     def load_variables(self, load_path, sess=None):
-        # EAGER: No session needed - use compat checkpoint helper
-        variables = self.get_trainable_variables()
-        compat_checkpoint.load_variables_joblib(variables, load_path)
-        # EAGER: Variable assignment happens immediately in load_variables_joblib
+        sess = sess or tf.compat.v1.get_default_session()
+        variables = self.get_variables()
+
+        loaded_params = joblib.load(os.path.expanduser(load_path))
+        restores = []
+
+        if isinstance(loaded_params, list):
+            assert len(loaded_params) == len(variables), 'number of variables loaded mismatches len(variables)'
+            for d, v in zip(loaded_params, variables):
+                restores.append(v.assign(d))
+        else:
+            for v in variables:
+                restores.append(v.assign(loaded_params[v.name]))
+
+        sess.run(restores)
 
 
 class MetaSeq2SeqPolicy():
@@ -712,38 +487,35 @@ class MetaSeq2SeqPolicy():
             self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
                                                     vocab_size, name="task_"+str(i)+"_policy"))
 
-            # MIGRATION: In TF2 eager execution, use direct assignment
-            def assign_core_to_task(task_idx):
+            # Handle variable assignment with flexible matching
+            try:
+                self.assign_old_eq_new_tasks.append(
+                    U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
+                                                for (oldv, newv) in
+                                                zipsame(self.meta_policies[i].get_variables(), self.core_policy.get_variables())])
+                    )
+            except AssertionError:
+                # Variable counts don't match - create a manual assignment
+                print(f"Warning: Variable count mismatch for task {i} policy. Using name-based matching.")
                 core_vars = self.core_policy.get_variables()
-                task_vars = self.meta_policies[task_idx].get_variables()
-                print(f"[DEBUG] Core policy variables: {len(core_vars)}")
-                print(f"[DEBUG] Task {task_idx} policy variables: {len(task_vars)}")
-                if len(core_vars) != len(task_vars):
-                    print("[DEBUG] Variable count mismatch! Skipping parameter sync.")
-                    return
-                for oldv, newv in zipsame(task_vars, core_vars):
-                    oldv.assign(newv)
-            
-            self.assign_old_eq_new_tasks.append(lambda idx=i: assign_core_to_task(idx))
+                task_vars = self.meta_policies[i].get_variables()
+                updates = []
+                
+                for core_var in core_vars:
+                    # Find matching variable by name pattern
+                    core_name_suffix = core_var.name.split('/', 1)[1] if '/' in core_var.name else core_var.name
+                    for task_var in task_vars:
+                        task_name_suffix = task_var.name.split('/', 1)[1] if '/' in task_var.name else task_var.name
+                        if core_name_suffix == task_name_suffix and core_var.shape == task_var.shape:
+                            updates.append(tf.compat.v1.assign(task_var, core_var))
+                            break
+                
+                self.assign_old_eq_new_tasks.append(
+                    U.function([], [], updates=updates)
+                )
 
         self._dist = CategoricalPd(vocab_size)
-        
-        # Initialize all networks immediately for graph building
-        self._initialize_all_networks()
 
-    def _initialize_all_networks(self):
-        """Initialize all policy networks to ensure they're ready for graph building"""
-        # Create dummy observations to trigger network creation
-        dummy_obs = np.zeros((1, 20, self.obs_dim), dtype=np.float32)
-        
-        # Initialize core policy
-        if self.core_policy.network is None:
-            _ = self.core_policy.get_actions(dummy_obs)
-        
-        # Initialize all meta policies  
-        for i in range(self.meta_batch_size):
-            if self.meta_policies[i].network is None:
-                _ = self.meta_policies[i].get_actions(dummy_obs)
 
     def get_actions(self, observations):
         assert len(observations) == self.meta_batch_size
@@ -754,10 +526,9 @@ class MetaSeq2SeqPolicy():
         for i, obser_per_task in enumerate(observations):
             action, logits, v_value = self.meta_policies[i].get_actions(obser_per_task)
 
-            # Tensors should already be evaluated by individual policy get_actions
-            meta_actions.append(action)
-            meta_logits.append(logits)
-            meta_v_values.append(v_value)
+            meta_actions.append(np.array(action))
+            meta_logits.append(np.array(logits))
+            meta_v_values.append(np.array(v_value))
 
         return meta_actions, meta_logits, meta_v_values
 

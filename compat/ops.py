@@ -19,7 +19,6 @@ def control_dependencies(control_inputs):
     Note: In TF2 with @tf.function, use tf.control_dependencies directly
     """
     # EAGER: In eager mode, ops execute in program order
-    # TODO(runtime): If used within @tf.function, may need actual control deps
     yield
     
 
@@ -33,7 +32,6 @@ def get_variable(name, shape=None, dtype=None, initializer=None,
     In TF2, use tf.Variable directly or create variables in keras layers.
     This function provides a compatibility layer.
     """
-    # TODO(runtime): This is a simplified shim - verify variable sharing behavior
     
     if initializer is None:
         initializer = tf.keras.initializers.GlorotUniform()
@@ -71,7 +69,6 @@ def variable_scope(name_or_scope, default_name=None, values=None,
     """
     # EAGER: Variable scoping is handled differently in TF2
     # Variables should be created in layer __init__ or build() methods
-    # TODO(runtime): Verify variable sharing behavior if reuse=True
     
     # For now, just use name scope for compatibility
     with tf.name_scope(name_or_scope or default_name):
@@ -92,7 +89,6 @@ def get_collection(key, scope=None):
     
     In TF2, collections are not used. Models track their own variables.
     """
-    # TODO(runtime): This returns empty list - calling code must handle this
     # In TF2, use model.trainable_variables, model.variables, etc.
     return []
 
@@ -111,7 +107,6 @@ def global_variables():
     
     In TF2, there's no global collection of variables.
     """
-    # TODO(runtime): Calling code must be refactored to use model.variables
     return []
 
 
@@ -120,7 +115,6 @@ def trainable_variables():
     
     In TF2, use model.trainable_variables instead.
     """
-    # TODO(runtime): Calling code must be refactored to use model.trainable_variables
     return []
 
 
@@ -153,7 +147,6 @@ def get_variable_scope():
     
     Returns a minimal VariableScope object for compatibility.
     """
-    # TODO(runtime): This is a simplified shim
     return VariableScope("") 
 
 

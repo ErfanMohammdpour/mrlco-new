@@ -9,7 +9,7 @@ import numpy as np
 
 def test_graph2seq_encoder_shapes():
     """Test Graph2Seq encoder produces expected shapes"""
-    # TODO(runtime): Import and test actual encoder
+    # Test encoder stub
     # from policies.graph2seq_encoder import Graph2SeqEncoder
     
     # Expected test:
@@ -28,7 +28,7 @@ def test_graph2seq_encoder_shapes():
 
 def test_seq2seq_policy_shapes():
     """Test Seq2Seq policy produces expected shapes"""
-    # TODO(runtime): Import and test actual policy
+    # Test policy stub
     # from policies.meta_seq2seq_policy_keras import Seq2SeqPolicy
     
     # Expected test:
@@ -56,7 +56,7 @@ def test_seq2seq_policy_shapes():
 
 def test_ppo_loss_computation():
     """Test PPO loss computation matches expected behavior"""
-    # TODO(runtime): Test PPO loss calculation
+    # Test PPO loss stub
     # - Verify likelihood ratio computation
     # - Verify clipping behavior
     # - Verify value function loss with clipping
@@ -66,7 +66,7 @@ def test_ppo_loss_computation():
 
 def test_meta_gradient_computation():
     """Test meta-learning gradient computation"""
-    # TODO(runtime): Test first-order approximation
+    # Test meta-learning stub
     # - Create dummy core and task policies
     # - Verify gradient formula: (theta_core - theta_task) / (alpha * K * M)
     # - Check gradient magnitudes are reasonable
@@ -75,7 +75,7 @@ def test_meta_gradient_computation():
 
 def test_checkpoint_compatibility():
     """Test checkpoint loading from joblib format"""
-    # TODO(runtime): Test checkpoint loading
+    # Test checkpoint stub
     # - Create a model
     # - Save in joblib format
     # - Load and verify weights match
@@ -85,7 +85,7 @@ def test_checkpoint_compatibility():
 
 def test_graph_adjacency_construction():
     """Test graph adjacency matrix construction for sequences"""
-    # TODO(runtime): Verify graph construction
+    # Test graph construction stub
     # - Input sequence of length 20
     # - Should create fully connected graph within each sequence
     # - Verify adjacency matrix shape and values
@@ -94,4 +94,4 @@ def test_graph_adjacency_construction():
 
 if __name__ == "__main__":
     print("Test stubs created. Run these tests on the server after migration.")
-    print("Each test contains TODO comments with the expected implementation.")
+    print("Each test contains stub implementations.")

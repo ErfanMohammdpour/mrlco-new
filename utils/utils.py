@@ -276,28 +276,36 @@ def adjust_shape(placeholder, data):
     return np.reshape(data, placeholder_shape)
 
 def make_session(config=None, num_cpu=None, make_default=False, graph=None):
-    """MIGRATION: Sessions not used in TF2 - configure via tf.config instead"""
+    """Create TF session - works in TF1 compatibility mode"""
     if num_cpu is None:
         num_cpu = int(os.getenv('RCALL_NUM_CPU', multiprocessing.cpu_count()))
     
-    # TODO(runtime): Configure TF2 settings
-    # tf.config.threading.set_inter_op_parallelism_threads(num_cpu)
-    # tf.config.threading.set_intra_op_parallelism_threads(num_cpu)
-    # 
-    # For GPU memory growth:
-    # gpus = tf.config.experimental.list_physical_devices('GPU')
-    # if gpus:
-    #     for gpu in gpus:
-    #         tf.config.experimental.set_memory_growth(gpu, True)
+    if config is None:
+        config = tf.compat.v1.ConfigProto(
+            allow_soft_placement=True,
+            inter_op_parallelism_threads=num_cpu,
+            intra_op_parallelism_threads=num_cpu
+        )
+        config.gpu_options.allow_growth = True
     
-    # EAGER: Return None as sessions are not used
-    return None
+    if graph is None:
+        graph = tf.compat.v1.get_default_graph()
+    
+    sess = tf.compat.v1.Session(graph=graph, config=config)
+    
+    if make_default:
+        sess.__enter__()
+    
+    return sess
 
 
 def get_session(config=None):
-    """MIGRATION: Sessions not used in TF2"""
-    # EAGER: No sessions in TF2
-    return None
+    """Get current TF session - works in TF1 compatibility mode"""
+    # In TF1 compatibility mode, we still use sessions
+    sess = tf.compat.v1.get_default_session()
+    if sess is None:
+        # Create a new session if none exists
+        sess = tf.compat.v1.Session(config=config)
     return sess
 
 class _Function(object):

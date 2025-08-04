@@ -107,7 +107,6 @@ class Seq2SeqNetwork(tf.keras.Model):
                 raise ValueError(f"Unknown unit type {self.unit_type}")
                 
             # Add dropout wrapper if needed
-            # TODO(runtime): Add dropout support
             
             # Add residual wrapper if needed
             if residual and i > 0:

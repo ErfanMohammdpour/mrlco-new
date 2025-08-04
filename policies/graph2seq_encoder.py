@@ -186,7 +186,6 @@ class Graph2SeqEncoder(tf.keras.layers.Layer):
             fw_aggregator = self.fw_aggregators[layer]
             
             # Set training mode for aggregator
-            # TODO(runtime): Verify aggregator training mode handling
             
             # Get neighbor embeddings
             if layer == 0:

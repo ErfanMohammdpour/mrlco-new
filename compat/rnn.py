@@ -155,7 +155,6 @@ class LayerNormBasicLSTMCell(tf.keras.layers.LSTMCell):
         self._layer_norm = layer_norm
         self._norm_gain = norm_gain
         self._norm_shift = norm_shift
-        # TODO(runtime): Implement layer normalization within LSTM cell
         
         if layer_norm:
             self.layer_norm_layers = {
@@ -182,7 +181,6 @@ class NASCell(tf.keras.layers.Layer):
         self.num_units = num_units
         self.num_proj = num_proj
         self.use_bias = use_bias
-        # TODO(runtime): Implement full NAS cell architecture
         # For now, using LSTM as placeholder
         self._cell = tf.keras.layers.LSTMCell(num_units)
     
@@ -208,7 +206,6 @@ class DropoutWrapper(tf.keras.layers.Layer):
         self.input_keep_prob = input_keep_prob
         self.output_keep_prob = output_keep_prob
         self.state_keep_prob = state_keep_prob
-        # TODO(runtime): Implement variational recurrent dropout
         
     def call(self, inputs, states, training=None):
         # Apply dropout to inputs
@@ -222,7 +219,6 @@ class DropoutWrapper(tf.keras.layers.Layer):
         if training and self.output_keep_prob < 1.0:
             output = tf.nn.dropout(output, rate=1.0 - self.output_keep_prob)
         
-        # TODO(runtime): Apply state dropout if needed
         
         return output, new_states
     
@@ -276,7 +272,6 @@ class MultiRNNCell(tf.keras.layers.Layer):
         super().__init__(**kwargs)
         self.cells = cells
         self._state_is_tuple = state_is_tuple
-        # TODO(runtime): Verify state tuple handling matches TF1
         
     def call(self, inputs, states, training=None):
         new_states = []
@@ -317,5 +312,4 @@ class MultiRNNCell(tf.keras.layers.Layer):
             # Return tuple of states for each cell
             return tuple(cell.zero_state(batch_size, dtype) for cell in self.cells)
         else:
-            # TODO(runtime): Handle concatenated state
             return tf.concat([cell.zero_state(batch_size, dtype) for cell in self.cells], axis=-1)

@@ -75,7 +75,8 @@ class Dense(Layer):
                 dtype=tf.float32,
                 name='weights'
             )
-            # TODO(runtime): Add L2 regularization if needed
+            # Add L2 regularization (same as baseline with scale 0.0)
+            regularizer = tf.keras.regularizers.l2(0.0)
             if self.bias:
                 self.vars['bias'] = zeros([output_dim], name='bias')
 

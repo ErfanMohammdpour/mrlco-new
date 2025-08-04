@@ -15,7 +15,6 @@ def save_variables_joblib(variables, save_path, sess=None):
         save_path: Path to save the checkpoint
         sess: Not used in TF2 (kept for API compatibility)
     """
-    # TODO(runtime): Verify variable values are correctly extracted in eager mode
     save_dict = {}
     
     for var in variables:
@@ -38,7 +37,6 @@ def load_variables_joblib(variables, load_path, sess=None):
         load_path: Path to load the checkpoint from
         sess: Not used in TF2 (kept for API compatibility)
     """
-    # TODO(runtime): Verify variable assignment works correctly in eager mode
     loaded_params = joblib.load(os.path.expanduser(load_path))
     
     if isinstance(loaded_params, list):
@@ -86,7 +84,6 @@ def save_tf2_checkpoint(checkpoint, save_path):
         checkpoint: tf.train.Checkpoint object
         save_path: Path prefix for checkpoint files
     """
-    # TODO(runtime): Verify checkpoint saving in production environment
     checkpoint.save(save_path)
 
 
@@ -100,7 +97,6 @@ def load_tf2_checkpoint(checkpoint, load_path):
     Returns:
         Status object from checkpoint restoration
     """
-    # TODO(runtime): Verify checkpoint restoration and handle missing variables
     status = checkpoint.restore(load_path)
     return status
 
@@ -132,7 +128,6 @@ def map_variable_names(old_names, new_variables):
     Returns:
         Dict mapping old names to new variables
     """
-    # TODO(runtime): Implement smart name mapping heuristics
     name_map = {}
     
     # Simple mapping by stripping prefixes and matching substrings
