@@ -1,0 +1,45 @@
+TRAINING SUMMARY STATISTICS
+==================================================
+
+AVERAGE_REWARD:
+  Mean:     -7.792997
+  Min:      -7.902504
+  Max:      -7.653790
+  Std Dev:  0.103686
+  Count:    3
+
+AVERAGE_LOSS:
+  Mean:     0.020200
+  Min:      0.000100
+  Max:      0.032206
+  Std Dev:  0.014302
+  Count:    3
+
+AVERAGE_LATENCY:
+  Mean:     1106.755837
+  Min:      1086.583887
+  Max:      1120.996345
+  Std Dev:  14.661533
+  Count:    3
+
+POLICY_LOSSES:
+  Mean:     0.020200
+  Min:      0.000100
+  Max:      0.032206
+  Std Dev:  0.014302
+  Count:    3
+
+VALUE_LOSSES:
+  Mean:     7.472767
+  Min:      7.221985
+  Max:      7.747437
+  Std Dev:  0.215179
+  Count:    3
+
+GREEDY_LATENCIES:
+  Mean:     809.506134
+  Min:      805.263342
+  Max:      817.991720
+  Std Dev:  6.000215
+  Count:    3
+

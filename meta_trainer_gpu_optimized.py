@@ -7,7 +7,7 @@ import time
 from utils import logger
 from utils.gpu import setup_gpu_and_strategy, log_tensor_device, ensure_tensor_conversion, run_device_diagnostics
 from utils.distributed_tf1 import DistributedTF1Trainer
-from automated_reporting import create_training_report
+from scripts.automated_reporting import create_training_report
 
 # Set memory growth before any GPU operations
 gpus = tf.config.experimental.list_physical_devices('GPU')

@@ -1,0 +1,58 @@
+Logging to ./meta_offloading20_log-inner_step1/
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Optimizing policy...
+--------------------------------------
+| Average greedy latency, | 818      |
+| Average latency,        | 1.11e+03 |
+| Average reward,         | -7.82    |
+| AverageDiscountedReturn | -7.22    |
+| AverageReturn           | -7.82    |
+| EnvExecTime             | 0.144    |
+| Itr                     | 0        |
+| MaxReturn               | -4.57    |
+| MinReturn               | -12.1    |
+| NumTrajs                | 2000     |
+| PolicyExecTime          | 0.292    |
+| StdReturn               | 1.11     |
+--------------------------------------
+
+ ---------------- Iteration 1 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Optimizing policy...
+--------------------------------------
+| Average greedy latency, | 805      |
+| Average latency,        | 1.09e+03 |
+| Average reward,         | -7.65    |
+| AverageDiscountedReturn | -7.06    |
+| AverageReturn           | -7.65    |
+| EnvExecTime             | 0.167    |
+| Itr                     | 1        |
+| MaxReturn               | -4.18    |
+| MinReturn               | -12.2    |
+| NumTrajs                | 2000     |
+| PolicyExecTime          | 0.302    |
+| StdReturn               | 1.21     |
+--------------------------------------
+
+ ---------------- Iteration 2 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Optimizing policy...
+--------------------------------------
+| Average greedy latency, | 805      |
+| Average latency,        | 1.12e+03 |
+| Average reward,         | -7.9     |
+| AverageDiscountedReturn | -7.3     |
+| AverageReturn           | -7.9     |
+| EnvExecTime             | 0.164    |
+| Itr                     | 2        |
+| MaxReturn               | -4.66    |
+| MinReturn               | -11.7    |
+| NumTrajs                | 2000     |
+| PolicyExecTime          | 0.277    |
+| StdReturn               | 1.22     |
+--------------------------------------

@@ -577,7 +577,7 @@ AttentionWrapperState = namedtuple('AttentionWrapperState',
 ├── compat/                # NEW: TF2 compatibility shims
 ├── tests/                 # Test files (enhanced)
 ├── docs/                  # NEW: Documentation
-├── training_reports/      # NEW: Automated training reports
+├── reports/               # NEW: Training reports and artifacts
 ├── runlogs/              # NEW: Execution logs
 ├── meta_trainer.py        # Main training script (TF2 compatibility)
 └── meta_evaluator.py      # Evaluation script (TF2 compatibility)
@@ -602,7 +602,7 @@ AttentionWrapperState = namedtuple('AttentionWrapperState',
 
 #### Enhanced Testing & Validation
 - `tests/test_tensor_shapes.py` - Shape validation tests
-- `training_reports/` - Automated training validation reports
+- `reports/training_reports/` - Automated training validation reports
 - `runlogs/` - Complete execution logs and debugging info
 
 ### Modified Core Files

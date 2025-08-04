@@ -12,7 +12,10 @@
       "Bash(pkill:*)",
       "WebFetch(domain:github.com)",
       "Bash(nvidia-smi:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(pip install:*)"
     ],
     "deny": []
   }

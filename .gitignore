@@ -4,12 +4,12 @@ __pycache__/
 
 # Local/runtime artifacts
 runlogs/
-training_reports/
-current_pid.txt
+reports/training_reports/
+reports/
 
-# Model/checkpoints & logs produced by runs
-meta_model_inner_step1/
-meta_offloading20_log-inner_step1/
+# Model/checkpoints & logs produced by runs (now in runlogs/)
+# meta_model_inner_step1/ - moved to runlogs/
+# meta_offloading20_log-inner_step1/ - moved to runlogs/
 
 # IDE/local settings
 *.local.json

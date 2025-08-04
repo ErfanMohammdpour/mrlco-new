@@ -3,7 +3,7 @@ Test script to demonstrate automated reporting functionality
 """
 
 import numpy as np
-from automated_reporting import AutomatedReporter, create_training_report
+from scripts.automated_reporting import AutomatedReporter, create_training_report
 
 
 def test_automated_reporting():

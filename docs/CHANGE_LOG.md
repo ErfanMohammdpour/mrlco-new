@@ -119,7 +119,7 @@ This document provides a detailed log of all changes made to migrate the MRLCO p
 - Training report generated successfully
 
 ### Files Generated
-- Training reports in `training_reports/` directory
+- Training reports in `reports/training_reports/` directory
 - Model checkpoints in `meta_model_inner_step1/`
 
 ## Migration Summary

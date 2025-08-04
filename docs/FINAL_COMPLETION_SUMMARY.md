@@ -93,7 +93,7 @@ Processing samples...
 - **Hyperparameters**: ✅ Match baseline exactly
 
 ### **Run Logs Available**
-- **Successful training**: `training_reports/20250804_001909/`
+- **Successful training**: `reports/training_reports/20250804_001909/`
 - **Attention validation**: `runlogs/attention_quick_test.log` 
 - **Full log history**: 47 log files documenting complete migration journey
 
