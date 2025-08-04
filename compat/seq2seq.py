@@ -238,8 +238,9 @@ class LuongAttention:
         # If dimensions don't match, project query to memory dimension
         if query.shape[-1] != self.memory.shape[-1]:
             if not hasattr(self, '_query_projection'):
+                memory_dim = int(self.memory.shape[-1]) if self.memory.shape[-1] is not None else self.memory.shape[-1].value
                 self._query_projection = tf.keras.layers.Dense(
-                    self.memory.shape[-1], use_bias=False, name='query_projection'
+                    memory_dim, use_bias=False, name='query_projection'
                 )
             query = self._query_projection(query)
         

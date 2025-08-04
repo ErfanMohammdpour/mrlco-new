@@ -416,16 +416,20 @@ class Seq2SeqPolicy():
         self._dist = CategoricalPd(vocab_size)
 
     def get_actions(self, observations):
-        sess = tf.compat.v1.get_default_session()
+        # Get the graph this policy was created in
+        graph = self.obs.graph
+        
+        with graph.as_default():
+            sess = tf.compat.v1.get_default_session()
 
-        decoder_full_length = np.array( [observations.shape[1]] * observations.shape[0] , dtype=np.int32)
+            decoder_full_length = np.array( [observations.shape[1]] * observations.shape[0] , dtype=np.int32)
 
-        actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
-                                             self.network.sample_decoder_logits,
-                                             self.network.sample_vf],
-                                            feed_dict={self.obs: observations, self.decoder_full_length: decoder_full_length})
+            actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
+                                                 self.network.sample_decoder_logits,
+                                                 self.network.sample_vf],
+                                                feed_dict={self.obs: observations, self.decoder_full_length: decoder_full_length})
 
-        return actions, logits, v_value
+            return actions, logits, v_value
 
     @property
     def distribution(self):
@@ -476,45 +480,49 @@ class MetaSeq2SeqPolicy():
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
 
-        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy')
+        # Store the current graph to ensure all policies use the same graph
+        self.graph = tf.compat.v1.get_default_graph()
+        
+        with self.graph.as_default():
+            self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy')
 
 
-        self.meta_policies = []
+            self.meta_policies = []
 
-        self.assign_old_eq_new_tasks = []
+            self.assign_old_eq_new_tasks = []
 
-        for i in range(meta_batch_size):
-            self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
-                                                    vocab_size, name="task_"+str(i)+"_policy"))
+            for i in range(meta_batch_size):
+                self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
+                                                        vocab_size, name="task_"+str(i)+"_policy"))
 
-            # Handle variable assignment with flexible matching
-            try:
-                self.assign_old_eq_new_tasks.append(
-                    U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
-                                                for (oldv, newv) in
-                                                zipsame(self.meta_policies[i].get_variables(), self.core_policy.get_variables())])
+                # Handle variable assignment with flexible matching
+                try:
+                    self.assign_old_eq_new_tasks.append(
+                        U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
+                                                    for (oldv, newv) in
+                                                    zipsame(self.meta_policies[i].get_variables(), self.core_policy.get_variables())])
+                        )
+                except AssertionError:
+                    # Variable counts don't match - create a manual assignment
+                    print(f"Warning: Variable count mismatch for task {i} policy. Using name-based matching.")
+                    core_vars = self.core_policy.get_variables()
+                    task_vars = self.meta_policies[i].get_variables()
+                    updates = []
+                    
+                    for core_var in core_vars:
+                        # Find matching variable by name pattern
+                        core_name_suffix = core_var.name.split('/', 1)[1] if '/' in core_var.name else core_var.name
+                        for task_var in task_vars:
+                            task_name_suffix = task_var.name.split('/', 1)[1] if '/' in task_var.name else task_var.name
+                            if core_name_suffix == task_name_suffix and core_var.shape == task_var.shape:
+                                updates.append(tf.compat.v1.assign(task_var, core_var))
+                                break
+                    
+                    self.assign_old_eq_new_tasks.append(
+                        U.function([], [], updates=updates)
                     )
-            except AssertionError:
-                # Variable counts don't match - create a manual assignment
-                print(f"Warning: Variable count mismatch for task {i} policy. Using name-based matching.")
-                core_vars = self.core_policy.get_variables()
-                task_vars = self.meta_policies[i].get_variables()
-                updates = []
-                
-                for core_var in core_vars:
-                    # Find matching variable by name pattern
-                    core_name_suffix = core_var.name.split('/', 1)[1] if '/' in core_var.name else core_var.name
-                    for task_var in task_vars:
-                        task_name_suffix = task_var.name.split('/', 1)[1] if '/' in task_var.name else task_var.name
-                        if core_name_suffix == task_name_suffix and core_var.shape == task_var.shape:
-                            updates.append(tf.compat.v1.assign(task_var, core_var))
-                            break
-                
-                self.assign_old_eq_new_tasks.append(
-                    U.function([], [], updates=updates)
-                )
 
-        self._dist = CategoricalPd(vocab_size)
+            self._dist = CategoricalPd(vocab_size)
 
 
     def get_actions(self, observations):
@@ -523,12 +531,14 @@ class MetaSeq2SeqPolicy():
         meta_actions = []
         meta_logits = []
         meta_v_values = []
-        for i, obser_per_task in enumerate(observations):
-            action, logits, v_value = self.meta_policies[i].get_actions(obser_per_task)
+        
+        with self.graph.as_default():
+            for i, obser_per_task in enumerate(observations):
+                action, logits, v_value = self.meta_policies[i].get_actions(obser_per_task)
 
-            meta_actions.append(np.array(action))
-            meta_logits.append(np.array(logits))
-            meta_v_values.append(np.array(v_value))
+                meta_actions.append(np.array(action))
+                meta_logits.append(np.array(logits))
+                meta_v_values.append(np.array(v_value))
 
         return meta_actions, meta_logits, meta_v_values
 

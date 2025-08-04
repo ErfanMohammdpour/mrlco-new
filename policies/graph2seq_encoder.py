@@ -253,7 +253,7 @@ def create_graph2seq_encoder(encoder_inputs, encoder_units, num_layers, is_bidir
     """
     # Get input dimensions for cache key
     input_shape = encoder_inputs.shape
-    input_dim = input_shape[-1] if len(input_shape) >= 2 else None
+    input_dim = int(input_shape[-1]) if len(input_shape) >= 2 and input_shape[-1] is not None else None
     
     # Create a cache key based on encoder configuration and input dimensions
     cache_key = (encoder_units, num_layers, is_bidirectional, scope_name, input_dim)

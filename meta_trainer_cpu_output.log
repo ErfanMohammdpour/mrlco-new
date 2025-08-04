@@ -1,0 +1,48 @@
+Starting imports...
+Imports complete
+
+=== Device Configuration ===
+TensorFlow version: 2.19.0
+CUDA_VISIBLE_DEVICES: Not set
+Note: Forcing CPU execution due to RTX 5090 compatibility issues with TF 2.19.0
+Will use CPU
+===========================
+
+Found 1 GPU(s): ['/device:GPU:0']
+Setting TF logging...
+Logging to ./meta_offloading20_log-inner_step1/
+Creating resource cluster...
+Creating environment...
+avg greedy solution:  798.6544183229719
+
+avg all remote solution:  1303.3703865344523
+
+avg all local solution:  1413.1136047267914
+
+Warning: Variable count mismatch for task 0 policy. Using name-based matching.
+Warning: Variable count mismatch for task 1 policy. Using name-based matching.
+Warning: Variable count mismatch for task 2 policy. Using name-based matching.
+Note: Running on CPU due to GPU compatibility issues
+Session created successfully
+Initializing variables...
+Variables initialized
+Starting training...
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+
+[DEBUG] Loss calculation details:
+  Policy loss (surr_obj): 0.002579792868345976
+  Value loss: 7.615596294403076
+  Likelihood ratio mean: 1.0000554323196411
+  Likelihood ratio std: 0.15955986082553864
+  Advantages mean: -1.19209286886246e-09
+  Advantages std: 1.0
+  Clipped objective mean: -0.0025797977577894926
+average task losses:  0.005391635776807864
+average value losses:  8.472866535186768
+Evaluate the one-step update for sub-task policy
+Warning: No valid output stream.
+Optimizing policy...

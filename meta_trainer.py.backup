@@ -1,55 +1,10 @@
-import os
 import tensorflow as tf
-# Set TF1 compatibility mode and configure GPU before any TF operations
-tf.compat.v1.disable_v2_behavior()
+# Disable eager execution for TF1 compatibility
+tf.compat.v1.disable_eager_execution()
 import numpy as np
 import time
 from utils import logger
 from scripts.automated_reporting import create_training_report
-
-def setup_gpu_memory_growth():
-    """Enable memory growth for all visible GPUs - TF1 compatible approach"""
-    # For TF1 compatibility, we'll handle GPU config in the session config
-    # This function now just detects GPUs
-    try:
-        from tensorflow.python.client import device_lib
-        devices = device_lib.list_local_devices()
-        gpus = [d for d in devices if d.device_type == 'GPU']
-        if gpus:
-            print(f"Found {len(gpus)} GPU(s): {[g.name for g in gpus]}")
-        return gpus
-    except Exception as e:
-        print(f"Error detecting GPUs: {e}")
-        return []
-
-def detect_and_configure_devices():
-    """Detect available devices and configure TensorFlow accordingly"""
-    print(f"\n=== Device Configuration ===")
-    print(f"TensorFlow version: {tf.__version__}")
-    print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not set')}")
-    
-    # Force CPU due to RTX 5090 compatibility issues with TF 2.19.0
-    print("Note: Forcing CPU execution due to RTX 5090 compatibility issues with TF 2.19.0")
-    device_name = '/CPU:0'
-    print("Will use CPU")
-    
-    print("===========================\n")
-    
-    return 0, device_name
-
-def warmup_device(device_name, sess):
-    """Run a simple matmul to verify device is working"""
-    print(f"Running device warmup on {device_name}...")
-    
-    with tf.device(device_name):
-        # Small matmul operation
-        a = tf.constant([[1.0, 2.0], [3.0, 4.0]])
-        b = tf.constant([[5.0, 6.0], [7.0, 8.0]])
-        c = tf.matmul(a, b)
-    
-    result = sess.run(c)
-    print(f"Warmup matmul result: \n{result}")
-    print(f"Device warmup complete on {device_name}.\n")
 
 class Trainer(object):
     def __init__(self,algo,
@@ -189,20 +144,11 @@ if __name__ == "__main__":
     from meta_algos.MRLCO import MRLCO
     print("Imports complete")
 
-    # Detect available devices
-    num_gpus, device_name = detect_and_configure_devices()
-    
-    # Setup GPU detection (actual config happens in session)
-    gpus = setup_gpu_memory_growth()
-    
     print("Setting TF logging...")
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 3
-    
-    # Create graph with device placement - don't force device placement
-    # Let TensorFlow handle device placement with soft placement
+    META_BATCH_SIZE = 10
     print("Creating resource cluster...")
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
@@ -216,21 +162,21 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_16/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_16/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
                                 ],
                                 time_major=False)
 
@@ -244,10 +190,6 @@ if __name__ == "__main__":
     print("avg all local solution: ", np.mean(finish_time))
     print()
 
-    # Clear any existing default graph before creating policies
-    tf.compat.v1.reset_default_graph()
-    
-    # Create policies within the default graph context
     baseline = ValueFunctionBaseline()
 
     meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
@@ -281,36 +223,13 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=3,
+                        n_itr=1000,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
                         inner_batch_size=1000)
 
-    # Create session with proper config for TF1
-    # Force CPU execution due to RTX 5090 compatibility issues with TF 2.19
-    config = tf.compat.v1.ConfigProto(
-        device_count={'GPU': 0}  # Disable GPU
-    )
-    config.allow_soft_placement = True
-    config.log_device_placement = False
-    
-    print("Note: Running on CPU due to GPU compatibility issues")
-    
-    with tf.compat.v1.Session(config=config) as sess:
-        print("Session created successfully")
-        
-        # Initialize variables first
-        print("Initializing variables...")
+    with tf.compat.v1.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
-        print("Variables initialized")
-        
-        # Run warmup after initialization
-        if num_gpus > 0 and device_name == '/GPU:0':
-            try:
-                warmup_device(device_name, sess)
-            except Exception as e:
-                print(f"Warning: Device warmup failed: {e}")
-                print("Continuing with training...")
-        
-        print("Starting training...")
         avg_ret, avg_loss, avg_latencies = trainer.train()
+
+

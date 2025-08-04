@@ -1,0 +1,31 @@
+Starting imports...
+Imports complete
+
+=== Device Configuration ===
+TensorFlow version: 2.19.0
+CUDA_VISIBLE_DEVICES: Not set
+Will attempt to use GPU
+===========================
+
+Found 1 GPU(s): ['/device:GPU:0']
+Setting TF logging...
+Logging to ./meta_offloading20_log-inner_step1/
+Creating resource cluster...
+Creating environment...
+avg greedy solution:  798.6544183229719
+
+avg all remote solution:  1303.3703865344523
+
+avg all local solution:  1413.1136047267914
+
+Warning: Variable count mismatch for task 0 policy. Using name-based matching.
+Warning: Variable count mismatch for task 1 policy. Using name-based matching.
+Warning: Variable count mismatch for task 2 policy. Using name-based matching.
+Session created successfully
+Initializing variables...
+Variables initialized
+Starting training...
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.

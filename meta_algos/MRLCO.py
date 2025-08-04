@@ -126,9 +126,22 @@ class MRLCO():
             update_feed_dict = {}
 
             # calcuate the gradient updates for the meta policy through first-order approximation.
-            for i, core_var, meta_var in zip(itertools.count(), core_params, params):
-                grads = (core_var - meta_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
-                update_feed_dict[self.grads_placeholders[i]] = grads
+            # Match core variables with task variables by shape
+            for idx, (placeholder, core_var) in enumerate(zip(self.grads_placeholders, core_params)):
+                # Find matching variable in task policy by shape
+                matching_var = None
+                for j, meta_var in enumerate(params):
+                    if meta_var.shape == core_var.shape:
+                        matching_var = meta_var
+                        break
+                
+                if matching_var is not None:
+                    grads = (core_var - matching_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
+                    update_feed_dict[placeholder] = grads
+                else:
+                    # If no matching variable found, use zeros
+                    print(f"Warning: No matching variable found for core variable {idx} with shape {core_var.shape}")
+                    update_feed_dict[placeholder] = np.zeros_like(core_var)
 
             # update the meta policy parameters.
             _ = sess.run(self._outer_train, feed_dict=update_feed_dict)
