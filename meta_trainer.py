@@ -7,49 +7,43 @@ import time
 from utils import logger
 from scripts.automated_reporting import create_training_report
 
-def setup_gpu_memory_growth():
-    """Enable memory growth for all visible GPUs - TF1 compatible approach"""
-    # For TF1 compatibility, we'll handle GPU config in the session config
-    # This function now just detects GPUs
-    try:
-        from tensorflow.python.client import device_lib
-        devices = device_lib.list_local_devices()
-        gpus = [d for d in devices if d.device_type == 'GPU']
-        if gpus:
-            print(f"Found {len(gpus)} GPU(s): {[g.name for g in gpus]}")
-        return gpus
-    except Exception as e:
-        print(f"Error detecting GPUs: {e}")
-        return []
 
 def detect_and_configure_devices():
-    """Detect available devices and configure TensorFlow accordingly"""
+    """Detect available devices - let TensorFlow handle device selection"""
     print(f"\n=== Device Configuration ===")
     print(f"TensorFlow version: {tf.__version__}")
     print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not set')}")
     
-    # Force CPU due to RTX 5090 compatibility issues with TF 2.19.0
-    print("Note: Forcing CPU execution due to RTX 5090 compatibility issues with TF 2.19.0")
-    device_name = '/CPU:0'
-    print("Will use CPU")
+    gpus = tf.config.list_physical_devices('GPU')
+    num_gpus = len(gpus)
+    
+    if num_gpus > 0:
+        print(f"Found {num_gpus} GPU(s)")
+        # Enable memory growth
+        for gpu in gpus:
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except RuntimeError:
+                pass
+    else:
+        print("No GPUs found. Using CPU")
     
     print("===========================\n")
     
-    return 0, device_name
+    return num_gpus
 
-def warmup_device(device_name, sess):
-    """Run a simple matmul to verify device is working"""
-    print(f"Running device warmup on {device_name}...")
+def warmup_device(sess):
+    """Run a simple matmul to verify TensorFlow is working"""
+    print(f"Running TensorFlow warmup...")
     
-    with tf.device(device_name):
-        # Small matmul operation
-        a = tf.constant([[1.0, 2.0], [3.0, 4.0]])
-        b = tf.constant([[5.0, 6.0], [7.0, 8.0]])
-        c = tf.matmul(a, b)
+    # Small matmul operation - let TF decide the device
+    a = tf.constant([[1.0, 2.0], [3.0, 4.0]])
+    b = tf.constant([[5.0, 6.0], [7.0, 8.0]])
+    c = tf.matmul(a, b)
     
     result = sess.run(c)
     print(f"Warmup matmul result: \n{result}")
-    print(f"Device warmup complete on {device_name}.\n")
+    print(f"TensorFlow warmup complete.\n")
 
 class Trainer(object):
     def __init__(self,algo,
@@ -190,10 +184,7 @@ if __name__ == "__main__":
     print("Imports complete")
 
     # Detect available devices
-    num_gpus, device_name = detect_and_configure_devices()
-    
-    # Setup GPU detection (actual config happens in session)
-    gpus = setup_gpu_memory_growth()
+    num_gpus = detect_and_configure_devices()
     
     print("Setting TF logging...")
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -287,14 +278,11 @@ if __name__ == "__main__":
                         inner_batch_size=1000)
 
     # Create session with proper config for TF1
-    # Force CPU execution due to RTX 5090 compatibility issues with TF 2.19
-    config = tf.compat.v1.ConfigProto(
-        device_count={'GPU': 0}  # Disable GPU
-    )
+    config = tf.compat.v1.ConfigProto()
     config.allow_soft_placement = True
     config.log_device_placement = False
-    
-    print("Note: Running on CPU due to GPU compatibility issues")
+    if num_gpus > 0:
+        config.gpu_options.allow_growth = True
     
     with tf.compat.v1.Session(config=config) as sess:
         print("Session created successfully")
@@ -305,12 +293,11 @@ if __name__ == "__main__":
         print("Variables initialized")
         
         # Run warmup after initialization
-        if num_gpus > 0 and device_name == '/GPU:0':
-            try:
-                warmup_device(device_name, sess)
-            except Exception as e:
-                print(f"Warning: Device warmup failed: {e}")
-                print("Continuing with training...")
+        try:
+            warmup_device(sess)
+        except Exception as e:
+            print(f"Warning: Device warmup failed: {e}")
+            print("Continuing with training...")
         
         print("Starting training...")
         avg_ret, avg_loss, avg_latencies = trainer.train()

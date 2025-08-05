@@ -84,7 +84,7 @@ if __name__ == "__main__":
     from samplers.seq2seq_sampler import Seq2SeqSampler
     from samplers.seq2seq_sampler_process import Seq2SeSamplerProcessor
     from baselines.vf_baseline import ValueFunctionBaseline
-    from meta_algos.ppo_offloading_distributed import PPODistributed
+    from meta_algos.ppo_offloading import PPO
     from utils import utils, logger
     
     # Set up GPU strategy before creating any models

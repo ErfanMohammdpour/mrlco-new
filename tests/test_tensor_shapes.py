@@ -29,7 +29,7 @@ def test_graph2seq_encoder_shapes():
 def test_seq2seq_policy_shapes():
     """Test Seq2Seq policy produces expected shapes"""
     # Test policy stub
-    # from policies.meta_seq2seq_policy_keras import Seq2SeqPolicy
+    # from policies.meta_seq2seq_policy import Seq2SeqPolicy
     
     # Expected test:
     # policy = Seq2SeqPolicy(obs_dim=17, encoder_units=128, decoder_units=128, vocab_size=2)
