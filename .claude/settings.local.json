@@ -19,7 +19,9 @@
       "Bash(cp:*)",
       "Bash(CUDA_VISIBLE_DEVICES=\"\" python meta_trainer.py)",
       "Bash(export:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(true)",
+      "Bash(git config:*)"
     ],
     "deny": []
   }

@@ -13,6 +13,8 @@ joblib>=1.3
 networkx>=3.0,<4
 graphviz>=0.20
 pydot>=1.4
+pydotplus
+pyprind
 
 # RL environment (Gym v0.26 works with NumPy<2)
 gym==0.26.2
@@ -21,3 +23,6 @@ cloudpickle>=2.2
 
 # TensorBoard (usually comes with TF, listed explicitly)
 tensorboard>=2.19,<3
+
+# MPI interface
+mpi4py
