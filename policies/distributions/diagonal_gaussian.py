@@ -41,7 +41,7 @@ class DiagonalGaussian(Distribution):
                     tf.square(old_std) - tf.square(new_std)
         denominator = 2 * tf.square(new_std) + 1e-8
         return tf.reduce_sum(
-            numerator / denominator + new_log_stds - old_log_stds, reduction_indices=-1)
+            numerator / denominator + new_log_stds - old_log_stds, axis=-1)
 
     def kl(self, old_dist_info, new_dist_info):
         """
@@ -80,9 +80,9 @@ class DiagonalGaussian(Distribution):
         Returns:
             (tf.Tensor): likelihood ratio
         """
-        with tf.compat.v1.variable_scope("log_li_new"):
+        with tf.name_scope("log_li_new"):
             logli_new = self.log_likelihood_sym(x_var, new_dist_info_vars)
-        with tf.compat.v1.variable_scope("log_li_old"):
+        with tf.name_scope("log_li_old"):
             logli_old = self.log_likelihood_sym(x_var, old_dist_info_vars)
         return tf.exp(logli_new - logli_old)
 
@@ -104,8 +104,8 @@ class DiagonalGaussian(Distribution):
         tf.assert_rank(x_var, 2), tf.assert_rank(means, 2), tf.assert_rank(log_stds, 2)
 
         zs = (x_var - means) / tf.exp(log_stds)
-        return - tf.reduce_sum(log_stds, reduction_indices=-1) - \
-               0.5 * tf.reduce_sum(tf.square(zs), reduction_indices=-1) - \
+        return - tf.reduce_sum(log_stds, axis=-1) - \
+               0.5 * tf.reduce_sum(tf.square(zs), axis=-1) - \
                0.5 * self.dim * np.log(2 * np.pi)
 
     def log_likelihood(self, xs, dist_info):
@@ -137,7 +137,7 @@ class DiagonalGaussian(Distribution):
             (tf.Tensor): entropy
         """
         log_stds = dist_info_vars["log_std"]
-        return tf.reduce_sum(log_stds + np.log(np.sqrt(2 * np.pi * np.e)), reduction_indices=-1)
+        return tf.reduce_sum(log_stds + np.log(np.sqrt(2 * np.pi * np.e)), axis=-1)
 
     def entropy(self, dist_info):
         """

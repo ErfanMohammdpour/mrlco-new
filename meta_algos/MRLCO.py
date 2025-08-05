@@ -26,8 +26,8 @@ class MRLCO():
 
         #self.optimizer = MpiAdamOptimizer(MPI.COMM_WORLD, learning_rate=self.lr, epsilon=1e-5)
         #self.inner_optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=self.inner_lr)
-        self.inner_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.inner_lr)
-        self.outer_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.outer_lr)
+        self.inner_optimizer = tf.keras.optimizers.Adam(learning_rate=self.inner_lr)
+        self.outer_optimizer = tf.keras.optimizers.Adam(learning_rate=self.outer_lr)
         self.clip_value = clip_value
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
@@ -50,101 +50,78 @@ class MRLCO():
         self.likelihood_ratio = []
         self.clipped_obj = []
         self.total_loss = []
-        self._train = []
 
         self.build_graph()
 
     def build_graph(self):
-        # build inner update for each tasks
-        for i in range(self.meta_batch_size):
-            self.new_logits.append(self.policy.meta_policies[i].network.decoder_logits)
-            self.decoder_inputs.append(self.policy.meta_policies[i].decoder_inputs)
-            self.old_logits.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None, self.policy.action_dim], name='old_logits_ph_task_'+str(i)))
-            self.actions.append(self.policy.meta_policies[i].decoder_targets)
-            self.obs.append(self.policy.meta_policies[i].obs)
-            self.vpred.append(self.policy.meta_policies[i].vf)
-            self.decoder_full_length.append(self.policy.meta_policies[i].decoder_full_length)
+        # TF2: No need to build graph - we'll use eager execution
+        pass
 
-            self.old_v.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='old_v_ph_task_'+str(i)))
-            self.advs.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='advs_ph_task'+str(i)))
-            self.r.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='r_ph_task_'+str(i)))
-
-            with tf.compat.v1.variable_scope("inner_update_parameters_task_"+str(i)) as scope:
-                likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(self.actions[i], self.old_logits[i], self.new_logits[i])
-                self.likelihood_ratio.append(likelihood_ratio)
-
-                clipped_obj = tf.minimum(likelihood_ratio * self.advs[i] ,
-                                         tf.clip_by_value(likelihood_ratio,
-                                                          1.0 - self.clip_value,
-                                                          1.0 + self.clip_value) * self.advs[i])
-                self.clipped_obj.append(clipped_obj)
-                self.surr_obj.append(-tf.reduce_mean(clipped_obj))
-
-                vpredclipped = self.vpred[i] + tf.clip_by_value(self.vpred[i] - self.old_v[i], -self.clip_value, self.clip_value)
-                vf_losses1 = tf.square(self.vpred[i] - self.r[i])
-                vf_losses2 = tf.square(vpredclipped - self.r[i])
-
-                self.vf_loss.append( .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2)) )
-
-                self.total_loss.append( self.surr_obj[i] + self.vf_coef * self.vf_loss[i])
-
-                params = self.policy.meta_policies[i].network.get_trainable_variables()
-
-                grads_and_var = self.inner_optimizer.compute_gradients(self.total_loss[i], params)
-                grads, var = zip(*grads_and_var)
-
-                if self.max_grad_norm is not None:
-                    # Clip the gradients (normalize)
-                    grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
-                grads_and_var = list(zip(grads, var))
-
-                self._train.append(self.inner_optimizer.apply_gradients(grads_and_var))
-
-        # Outer update for the parameters
-        # feed in the parameters of inner policy network and update outer parameters.
-        with tf.compat.v1.variable_scope("outer_update_parameters") as scope:
-            core_network_parameters = self.policy.core_policy.get_trainable_variables()
-            self.grads_placeholders = []
-
-            for i, var in enumerate(core_network_parameters):
-                self.grads_placeholders.append(tf.compat.v1.placeholder(shape=var.shape, dtype=var.dtype, name="grads_"+str(i)))
-
-            outer_grads_and_var = list(zip(self.grads_placeholders, core_network_parameters))
-
-            self._outer_train = self.outer_optimizer.apply_gradients(outer_grads_and_var)
+    @tf.function
+    def update_task_gradients(self, task_id, old_logits, old_v, observations, actions, decoder_inputs, decoder_full_length, advs, r):
+        """TF2 training step for a single task using GradientTape"""
+        with tf.GradientTape() as tape:
+            # Forward pass through the policy network
+            new_logits, vpred = self.policy.meta_policies[task_id].forward_train(
+                observations, decoder_inputs, actions, decoder_full_length
+            )
+            
+            # Calculate PPO loss components
+            likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(actions, old_logits, new_logits)
+            
+            clipped_obj = tf.minimum(
+                likelihood_ratio * advs,
+                tf.clip_by_value(likelihood_ratio, 1.0 - self.clip_value, 1.0 + self.clip_value) * advs
+            )
+            surr_obj = -tf.reduce_mean(clipped_obj)
+            
+            # Value function loss with clipping
+            vpredclipped = old_v + tf.clip_by_value(vpred - old_v, -self.clip_value, self.clip_value)
+            vf_losses1 = tf.square(vpred - r)
+            vf_losses2 = tf.square(vpredclipped - r)
+            vf_loss = 0.5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
+            
+            total_loss = surr_obj + self.vf_coef * vf_loss
+        
+        # Compute gradients
+        params = self.policy.meta_policies[task_id].network.get_trainable_variables()
+        grads = tape.gradient(total_loss, params)
+        
+        if self.max_grad_norm is not None:
+            grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+        
+        # Apply gradients
+        self.inner_optimizer.apply_gradients(zip(grads, params))
+        
+        return vf_loss, surr_obj, likelihood_ratio, advs, clipped_obj
 
     def UpdateMetaPolicy(self):
         # get the parameters value of the policy network
-        sess = tf.compat.v1.get_default_session()
-
-        for i in range(self.meta_batch_size):
-            params_symbol = self.policy.meta_policies[i].get_trainable_variables()
-            core_params_symble = self.policy.core_policy.get_trainable_variables()
-            params = sess.run(params_symbol)
-            core_params = sess.run(core_params_symble)
-
-            update_feed_dict = {}
-
-            # calcuate the gradient updates for the meta policy through first-order approximation.
-            # Match core variables with task variables by shape
-            for idx, (placeholder, core_var) in enumerate(zip(self.grads_placeholders, core_params)):
-                # Find matching variable in task policy by shape
-                matching_var = None
-                for j, meta_var in enumerate(params):
-                    if meta_var.shape == core_var.shape:
-                        matching_var = meta_var
-                        break
-                
-                if matching_var is not None:
-                    grads = (core_var - matching_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
-                    update_feed_dict[placeholder] = grads
-                else:
-                    # If no matching variable found, use zeros
-                    print(f"Warning: No matching variable found for core variable {idx} with shape {core_var.shape}")
-                    update_feed_dict[placeholder] = np.zeros_like(core_var)
-
-            # update the meta policy parameters.
-            _ = sess.run(self._outer_train, feed_dict=update_feed_dict)
+        core_params = [v.numpy() for v in self.policy.core_policy.get_trainable_variables()]
+        
+        # Calculate meta gradients by averaging differences across tasks
+        meta_grads = []
+        for i, core_param in enumerate(core_params):
+            task_grads = []
+            
+            for task_id in range(self.meta_batch_size):
+                task_params = [v.numpy() for v in self.policy.meta_policies[task_id].get_trainable_variables()]
+                if i < len(task_params) and task_params[i].shape == core_param.shape:
+                    # Calculate gradient as difference between core and task parameters
+                    grad = (core_param - task_params[i]) / (self.inner_lr * self.num_inner_grad_steps * self.meta_batch_size * self.update_numbers)
+                    task_grads.append(grad)
+            
+            if task_grads:
+                # Average gradients across tasks
+                avg_grad = np.mean(task_grads, axis=0)
+                meta_grads.append(avg_grad)
+            else:
+                meta_grads.append(np.zeros_like(core_param))
+        
+        # Apply meta gradients
+        core_vars = self.policy.core_policy.get_trainable_variables()
+        grads_and_vars = list(zip(meta_grads, core_vars))
+        self.outer_optimizer.apply_gradients(grads_and_vars)
 
         print("async core policy to meta-policy")
         self.policy.async_parameters()
@@ -165,9 +142,6 @@ class MRLCO():
 
         batch_number = int(task_samples['observations'].shape[0] / batch_size)
         self.update_numbers = batch_number
-        #:q!
-        # print("update number is: ", self.update_numbers)
-        #observations = task_samples['observations']
 
         shift_actions = np.column_stack(
                     (np.zeros(task_samples['actions'].shape[0], dtype=np.int32), task_samples['actions'][:, 0:-1]))
@@ -181,39 +155,43 @@ class MRLCO():
         oldvpred = np.split(np.array(task_samples['values'], dtype=np.float32), batch_number)
         returns = np.split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
 
-        sess = tf.compat.v1.get_default_session()
-
         vf_loss = 0.0
         pg_loss = 0.0
-        # copy_policy.set_weights(self.policy.get_weights())
+        
         for i in range(self.num_inner_grad_steps):
-            # action, old_logits, _ = copy_policy(observations)
             for old_logits, old_v, observations, actions, shift_actions, advs, r in zip(old_logits_batchs, oldvpred, observations_batchs, actions_batchs,
                                                                                         shift_action_batchs, advs_batchs, returns):
                 decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
 
-                feed_dict = {self.old_logits[task_id]: old_logits, self.old_v[task_id]: old_v, self.obs[task_id]: observations, self.actions[task_id]: actions,
-                            self.decoder_inputs[task_id]: shift_actions,
-                             self.decoder_full_length[task_id]: decoder_full_length, self.advs[task_id]: advs, self.r[task_id]: r}
+                # Convert numpy arrays to tensors
+                old_logits_tensor = tf.convert_to_tensor(old_logits, dtype=tf.float32)
+                old_v_tensor = tf.convert_to_tensor(old_v, dtype=tf.float32)  
+                observations_tensor = tf.convert_to_tensor(observations, dtype=tf.float32)
+                actions_tensor = tf.convert_to_tensor(actions, dtype=tf.int32)
+                shift_actions_tensor = tf.convert_to_tensor(shift_actions, dtype=tf.int32)
+                decoder_full_length_tensor = tf.convert_to_tensor(decoder_full_length, dtype=tf.int32)
+                advs_tensor = tf.convert_to_tensor(advs, dtype=tf.float32)
+                r_tensor = tf.convert_to_tensor(r, dtype=tf.float32)
 
-                _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
-                    [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id], 
-                     self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]], 
-                    feed_dict=feed_dict)
+                # Call TF2 training function
+                value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = self.update_task_gradients(
+                    task_id, old_logits_tensor, old_v_tensor, observations_tensor, actions_tensor, 
+                    shift_actions_tensor, decoder_full_length_tensor, advs_tensor, r_tensor
+                )
                 
                 # Debug logging
                 if i == 0 and task_id == 0:  # Log only for first iteration and task
                     print(f"\n[DEBUG] Loss calculation details:")
-                    print(f"  Policy loss (surr_obj): {policy_loss}")
-                    print(f"  Value loss: {value_loss}")
-                    print(f"  Likelihood ratio mean: {np.mean(likelihood_ratio_val)}")
-                    print(f"  Likelihood ratio std: {np.std(likelihood_ratio_val)}")
-                    print(f"  Advantages mean: {np.mean(advs_val)}")
-                    print(f"  Advantages std: {np.std(advs_val)}")
-                    print(f"  Clipped objective mean: {np.mean(clipped_obj_val)}")
+                    print(f"  Policy loss (surr_obj): {policy_loss.numpy()}")
+                    print(f"  Value loss: {value_loss.numpy()}")
+                    print(f"  Likelihood ratio mean: {np.mean(likelihood_ratio_val.numpy())}")
+                    print(f"  Likelihood ratio std: {np.std(likelihood_ratio_val.numpy())}")
+                    print(f"  Advantages mean: {np.mean(advs_val.numpy())}")
+                    print(f"  Advantages std: {np.std(advs_val.numpy())}")
+                    print(f"  Clipped objective mean: {np.mean(clipped_obj_val.numpy())}")
 
-                vf_loss += value_loss
-                pg_loss += policy_loss
+                vf_loss += value_loss.numpy()
+                pg_loss += policy_loss.numpy()
 
             vf_loss = vf_loss / float(self.num_inner_grad_steps)
             pg_loss = pg_loss / float(self.num_inner_grad_steps)

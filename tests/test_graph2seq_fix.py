@@ -1,109 +1,183 @@
-"""
-Test the Graph2Seq encoder fix for TensorFlow graph mode compatibility.
-"""
 import tensorflow as tf
 import numpy as np
-from policies.meta_seq2seq_policy import Seq2SeqPolicy, MetaSeq2SeqPolicy
+import unittest
+import sys
+import os
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from policies.meta_seq2seq_policy import tf2_dynamic_decode, TF2BasicDecoder
 
 
-def test_graph2seq_fix():
-    """Test that the Graph2Seq encoder works in TensorFlow graph mode."""
-    print("Testing Graph2Seq Encoder Fix")
-    print("="*60)
+class TestHelperTraining:
+    """Mock training helper for testing"""
+    def __init__(self, inputs, sequence_length):
+        self.inputs = inputs
+        self.sequence_length = sequence_length
+
+
+class TestCellWithTupleState(tf.keras.layers.Layer):
+    """Test RNN cell that returns states as lists (to simulate the issue)"""
+    def __init__(self, units):
+        super().__init__()
+        self.units = units
+        self.dense = tf.keras.layers.Dense(units)
     
-    # Reset graph
-    tf.reset_default_graph()
-    
-    # Test parameters
-    batch_size = 8
-    seq_len = 10
-    obs_dim = 17
-    encoder_units = 128
-    decoder_units = 128
-    vocab_size = 3
-    
-    try:
-        # Test 1: Create single policy
-        print("\n1. Testing single policy creation...")
-        policy = Seq2SeqPolicy(
-            obs_dim=obs_dim,
-            encoder_units=encoder_units,
-            decoder_units=decoder_units,
-            vocab_size=vocab_size,
-            name='test_policy'
-        )
-        print("   [OK] Single policy created successfully")
+    def __call__(self, inputs, states):
+        # Simulate multi-layer LSTM state structure
+        # States come in as nested tuples, but we return as lists to simulate the bug
+        (layer1_state, layer2_state), context = states
         
-        # Test 2: Run forward pass
-        print("\n2. Testing forward pass...")
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
-            
-            # Create test data
-            test_obs = np.random.randn(batch_size, seq_len, obs_dim).astype(np.float32)
-            test_dec_inputs = np.random.randint(0, vocab_size, (batch_size, seq_len))
-            test_dec_targets = test_dec_inputs.copy()
-            test_length = np.full(batch_size, seq_len, dtype=np.int32)
-            
-            feed_dict = {
-                policy.obs: test_obs,
-                policy.decoder_inputs: test_dec_inputs,
-                policy.decoder_targets: test_dec_targets,
-                policy.decoder_full_length: test_length
-            }
-            
-            # Run network
-            outputs = sess.run(policy.network.decoder_logits, feed_dict)
-            print(f"   [OK] Forward pass successful, output shape: {outputs.shape}")
-            
-            # Test 3: Get actions
-            print("\n3. Testing action generation...")
-            actions, logits, values = policy.get_actions(test_obs)
-            print(f"   [OK] Actions generated, shape: {actions.shape}")
-            print(f"   [OK] Logits shape: {logits.shape}")
-            print(f"   [OK] Values shape: {values.shape}")
-            
-        # Test 4: Create meta policy
-        print("\n4. Testing meta policy creation...")
-        meta_batch_size = 5
-        meta_policy = MetaSeq2SeqPolicy(
-            meta_batch_size=meta_batch_size,
-            obs_dim=obs_dim,
-            encoder_units=encoder_units,
-            decoder_units=decoder_units,
-            vocab_size=vocab_size
-        )
-        print(f"   [OK] Meta policy created with {meta_batch_size} tasks")
+        # Process input
+        output = self.dense(inputs)
         
-        # Test 5: Meta policy operations
-        print("\n5. Testing meta policy operations...")
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
-            
-            # Sync parameters
-            meta_policy.async_parameters()
-            print("   [OK] Parameters synchronized")
-            
-            # Generate actions for multiple tasks
-            meta_obs = [np.random.randn(batch_size, seq_len, obs_dim).astype(np.float32) 
-                       for _ in range(meta_batch_size)]
-            
-            meta_actions, meta_logits, meta_values = meta_policy.get_actions(meta_obs)
-            print(f"   [OK] Meta actions generated for {len(meta_actions)} tasks")
-            
-        print("\n" + "="*60)
-        print("[SUCCESS] All tests passed! Graph2Seq encoder is working correctly.")
-        print("="*60)
-        return True
+        # Simulate state updates that return lists instead of tuples
+        new_layer1_state = [layer1_state[0] + 0.1, layer1_state[1] + 0.1]  # Returns list
+        new_layer2_state = [layer2_state[0] + 0.1, layer2_state[1] + 0.1]  # Returns list
+        new_context = context + 0.1
         
-    except Exception as e:
-        print(f"\n[ERROR] Test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+        # Return output and new states (as lists to trigger the original bug)
+        return output, ([new_layer1_state, new_layer2_state], new_context)
 
 
-if __name__ == "__main__":
-    success = test_graph2seq_fix()
-    if not success:
-        print("\nPlease check the error above and fix any remaining issues.")
+class TestTF2DynamicDecode(unittest.TestCase):
+    
+    def test_state_structure_consistency(self):
+        """Test that state structure remains consistent across iterations"""
+        tf.random.set_seed(42)
+        
+        # Setup test parameters
+        batch_size = 2
+        sequence_length = 5
+        input_dim = 10
+        hidden_dim = 16
+        
+        # Create test inputs
+        inputs = tf.random.normal([batch_size, sequence_length, input_dim])
+        seq_lengths = tf.constant([sequence_length] * batch_size, dtype=tf.int32)
+        
+        # Create mock helper
+        helper = TestHelperTraining(inputs, seq_lengths)
+        
+        # Create test cell
+        cell = TestCellWithTupleState(hidden_dim)
+        
+        # Create initial state as nested tuples (matching the error structure)
+        initial_state = (
+            (
+                tf.zeros([batch_size, hidden_dim]),  # layer 1, state c
+                tf.zeros([batch_size, hidden_dim])   # layer 1, state h
+            ),
+            (
+                tf.zeros([batch_size, hidden_dim]),  # layer 2, state c
+                tf.zeros([batch_size, hidden_dim])   # layer 2, state h
+            )
+        ), tf.zeros([batch_size, hidden_dim * 2])  # attention context
+        
+        # Create decoder
+        decoder = TF2BasicDecoder(cell, helper, initial_state)
+        
+        # Run dynamic decode
+        outputs, final_state, _ = tf2_dynamic_decode(decoder)
+        
+        # Verify state structure is preserved
+        try:
+            tf.nest.assert_same_structure(initial_state, final_state)
+            structure_matches = True
+        except (ValueError, TypeError):
+            structure_matches = False
+        
+        self.assertTrue(structure_matches,
+                       "Final state structure doesn't match initial state structure")
+        
+        # Verify state is still tuples at all levels
+        self.assertIsInstance(final_state, tuple, "Final state should be a tuple")
+        self.assertIsInstance(final_state[0], tuple, "First element of state should be a tuple")
+        self.assertIsInstance(final_state[0][0], tuple, "Nested state should be a tuple")
+        self.assertIsInstance(final_state[0][1], tuple, "Nested state should be a tuple")
+        
+        # Verify shapes are preserved
+        def check_shapes(initial, final, path=""):
+            if isinstance(initial, tf.Tensor) and isinstance(final, tf.Tensor):
+                self.assertEqual(initial.shape, final.shape, 
+                               f"Shape mismatch at {path}: {initial.shape} vs {final.shape}")
+            elif isinstance(initial, tuple) and isinstance(final, tuple):
+                for i, (init_elem, final_elem) in enumerate(zip(initial, final)):
+                    check_shapes(init_elem, final_elem, f"{path}[{i}]")
+        
+        check_shapes(initial_state, final_state)
+        
+        print("✓ State structure consistency test passed")
+        print(f"  Initial state type structure: {self._get_type_structure(initial_state)}")
+        print(f"  Final state type structure: {self._get_type_structure(final_state)}")
+    
+    def _get_type_structure(self, obj):
+        """Helper to visualize type structure"""
+        if isinstance(obj, tf.Tensor):
+            return f"Tensor{obj.shape}"
+        elif isinstance(obj, tuple):
+            return f"tuple({', '.join(self._get_type_structure(x) for x in obj)})"
+        elif isinstance(obj, list):
+            return f"list[{', '.join(self._get_type_structure(x) for x in obj)}]"
+        else:
+            return str(type(obj))
+    
+    def test_single_iteration_state_preservation(self):
+        """Test that state structure is preserved after just one iteration"""
+        tf.random.set_seed(42)
+        
+        # Minimal test with just 1 timestep
+        batch_size = 1
+        sequence_length = 1
+        input_dim = 5
+        hidden_dim = 8
+        
+        # Create test inputs for single step
+        inputs = tf.random.normal([batch_size, sequence_length, input_dim])
+        seq_lengths = tf.constant([sequence_length] * batch_size, dtype=tf.int32)
+        
+        # Create mock helper
+        helper = TestHelperTraining(inputs, seq_lengths)
+        
+        # Create test cell
+        cell = TestCellWithTupleState(hidden_dim)
+        
+        # Create initial state
+        initial_state = (
+            (
+                tf.zeros([batch_size, hidden_dim]),
+                tf.zeros([batch_size, hidden_dim])
+            ),
+            (
+                tf.zeros([batch_size, hidden_dim]),
+                tf.zeros([batch_size, hidden_dim])
+            )
+        ), tf.zeros([batch_size, hidden_dim * 2])
+        
+        # Create decoder
+        decoder = TF2BasicDecoder(cell, helper, initial_state)
+        
+        # Run dynamic decode
+        outputs, final_state, _ = tf2_dynamic_decode(decoder)
+        
+        # Check structure preservation
+        try:
+            tf.nest.assert_same_structure(initial_state, final_state)
+            structure_matches = True
+        except (ValueError, TypeError):
+            structure_matches = False
+            
+        self.assertTrue(structure_matches,
+                       "State structure changed after single iteration")
+        
+        # Verify tuple types are preserved
+        self.assertEqual(type(initial_state), type(final_state))
+        self.assertEqual(type(initial_state[0]), type(final_state[0]))
+        self.assertEqual(type(initial_state[0][0]), type(final_state[0][0]))
+        
+        print("✓ Single iteration state preservation test passed")
+
+
+if __name__ == '__main__':
+    unittest.main()

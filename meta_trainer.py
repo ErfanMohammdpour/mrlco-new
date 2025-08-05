@@ -1,49 +1,8 @@
-import os
 import tensorflow as tf
-# Set TF1 compatibility mode and configure GPU before any TF operations
-tf.compat.v1.disable_v2_behavior()
 import numpy as np
 import time
 from utils import logger
-from scripts.automated_reporting import create_training_report
-
-
-def detect_and_configure_devices():
-    """Detect available devices - let TensorFlow handle device selection"""
-    print(f"\n=== Device Configuration ===")
-    print(f"TensorFlow version: {tf.__version__}")
-    print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not set')}")
-    
-    gpus = tf.config.list_physical_devices('GPU')
-    num_gpus = len(gpus)
-    
-    if num_gpus > 0:
-        print(f"Found {num_gpus} GPU(s)")
-        # Enable memory growth
-        for gpu in gpus:
-            try:
-                tf.config.experimental.set_memory_growth(gpu, True)
-            except RuntimeError:
-                pass
-    else:
-        print("No GPUs found. Using CPU")
-    
-    print("===========================\n")
-    
-    return num_gpus
-
-def warmup_device(sess):
-    """Run a simple matmul to verify TensorFlow is working"""
-    print(f"Running TensorFlow warmup...")
-    
-    # Small matmul operation - let TF decide the device
-    a = tf.constant([[1.0, 2.0], [3.0, 4.0]])
-    b = tf.constant([[5.0, 6.0], [7.0, 8.0]])
-    c = tf.matmul(a, b)
-    
-    result = sess.run(c)
-    print(f"Warmup matmul result: \n{result}")
-    print(f"TensorFlow warmup complete.\n")
+from automated_reporting import create_training_report
 
 class Trainer(object):
     def __init__(self,algo,
@@ -81,7 +40,6 @@ class Trainer(object):
         policy_losses_all = []
         value_losses_all = []
         greedy_latencies_all = []
-        
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -123,13 +81,13 @@ class Trainer(object):
             """ ------------------- Logging Stuff --------------------------"""
 
             ret = np.array([])
-            for i in range(len(new_samples_data)):
+            for i in range(5):
                 ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
 
             avg_reward = np.mean(ret)
 
             latency = np.array([])
-            for i in range(len(new_samples_data)):
+            for i in range(5):
                 latency = np.concatenate((latency, new_samples_data[i]['finish_time']), axis=-1)
 
             avg_latency = np.mean(latency)
@@ -173,55 +131,45 @@ class Trainer(object):
 
 
 if __name__ == "__main__":
-    print("Starting imports...")
-    from env.mec_offloaing_envs.offloading_env import Resources
-    from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
+    from env.mec_offloading_envs.offloading_env import Resources
+    from env.mec_offloading_envs.offloading_env import OffloadingEnvironment
     from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy
     from samplers.seq2seq_meta_sampler import Seq2SeqMetaSampler
     from samplers.seq2seq_meta_sampler_process import Seq2SeqMetaSamplerProcessor
     from baselines.vf_baseline import ValueFunctionBaseline
     from meta_algos.MRLCO import MRLCO
-    print("Imports complete")
 
-    # Detect available devices
-    num_gpus = detect_and_configure_devices()
-    
-    print("Setting TF logging...")
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 10
-    
-    # Create graph with device placement - don't force device placement
-    # Let TensorFlow handle device placement with soft placement
-    print("Creating resource cluster...")
+    META_BATCH_SIZE = 2
+
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0)
-    print("Creating environment...")
+
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
-                                batch_size=100,
-                                graph_number=100,
+                                batch_size=20,  # Reduced from 100 for faster testing
+                                graph_number=20,  # Reduced from 100 for faster testing
                                 graph_file_paths=[
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_16/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
+                                    "./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_1/random.20.",
+                                    "./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_2/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_3/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_5/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_6/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_7/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_9/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_10/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_11/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_13/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_14/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_15/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_17/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_18/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_19/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_21/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_22/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_23/random.20.",
+                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
 
@@ -235,10 +183,6 @@ if __name__ == "__main__":
     print("avg all local solution: ", np.mean(finish_time))
     print()
 
-    # Clear any existing default graph before creating policies
-    tf.compat.v1.reset_default_graph()
-    
-    # Create policies within the default graph context
     baseline = ValueFunctionBaseline()
 
     meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
@@ -261,8 +205,8 @@ if __name__ == "__main__":
     algo = MRLCO(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
-                         inner_lr=5e-4,
-                         outer_lr=5e-4,
+                         inner_lr=1e-3,  # Increased from 5e-4 to improve learning
+                         outer_lr=1e-3,  # Increased from 5e-4 to improve learning
                          meta_batch_size=META_BATCH_SIZE,
                          num_inner_grad_steps=1,
                          clip_value = 0.3)
@@ -272,32 +216,9 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=10,
+                        n_itr=3,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
-                        inner_batch_size=1000)
+                        inner_batch_size=100)  # Reduced from 1000 for faster testing
 
-    # Create session with proper config for TF1
-    config = tf.compat.v1.ConfigProto()
-    config.allow_soft_placement = True
-    config.log_device_placement = False
-    if num_gpus > 0:
-        config.gpu_options.allow_growth = True
-    
-    with tf.compat.v1.Session(config=config) as sess:
-        print("Session created successfully")
-        
-        # Initialize variables first
-        print("Initializing variables...")
-        sess.run(tf.compat.v1.global_variables_initializer())
-        print("Variables initialized")
-        
-        # Run warmup after initialization
-        try:
-            warmup_device(sess)
-        except Exception as e:
-            print(f"Warning: Device warmup failed: {e}")
-            print("Continuing with training...")
-        
-        print("Starting training...")
-        avg_ret, avg_loss, avg_latencies = trainer.train()
+    avg_ret, avg_loss, avg_latencies = trainer.train()

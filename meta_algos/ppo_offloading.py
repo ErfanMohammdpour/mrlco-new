@@ -1,16 +1,14 @@
-# the eager version.
+# TF2.19 version of PPO offloading
 
 import tensorflow as tf
 import numpy as np
 from utils.mpi_adam_optimizer import MpiAdamOptimizer
-# from mpi4py import MPI  # Not needed - MpiAdamOptimizer is commented out
 from policies.meta_seq2seq_policy import Seq2SeqPolicy
 import itertools
-from utils.gpu import log_tensor_device
 
 class PPO():
     """
-    Provides ppo based offloading training
+    Provides ppo based offloading training - TF2.19 compatible version
     """
     def __init__(self,
                  policy,
@@ -28,21 +26,16 @@ class PPO():
         self.meta_sampler_process = meta_sampler_process
 
         #self.optimizer = MpiAdamOptimizer(MPI.COMM_WORLD, learning_rate=self.lr, epsilon=1e-5)
-        # MIGRATION: Use Keras optimizer
+        # TF2.19: Use Keras optimizer
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr, epsilon=1e-5)
-        #self.optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=0.1)
         self.clip_value = clip_value
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
 
-        # MIGRATION: Build graph replaced with TF2 style
-        # self.build_graph()
-
-    # MIGRATION: TF2 style training step with GradientTape
     @tf.function
     def train_step(self, observations, actions, decoder_inputs, decoder_full_length, 
                     old_logits, old_v, advs, r):
-        """Single PPO training step using GradientTape
+        """TF2.19 training step using GradientTape
         
         Args:
             observations: [batch, time, obs_dim]
@@ -55,10 +48,15 @@ class PPO():
             r: [batch, time] returns
         """
         with tf.GradientTape() as tape:
+            # Update policy inputs
+            self.policy.obs.assign(observations)
+            self.policy.decoder_inputs.assign(decoder_inputs)
+            self.policy.decoder_targets.assign(actions)
+            self.policy.decoder_full_length.assign(decoder_full_length)
+            
             # Forward pass through policy
-            new_logits, vpred = self.policy.call_with_inputs(
-                observations, decoder_inputs, decoder_full_length
-            )
+            new_logits = self.policy.network.decoder_logits
+            vpred = self.policy.vf
             
             # Compute PPO loss
             likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(
@@ -90,9 +88,8 @@ class PPO():
         
         return vf_loss, surr_obj
 
-
     def UpdatePPOTarget(self, task_samples, batch_size=50):
-        # EAGER: Refactored to use TF2 training step
+        # TF2.19: Refactored to use TF2 training step
         policy_losses = []
         value_losses = []
 
@@ -119,10 +116,20 @@ class PPO():
                     shift_action_batchs, advs_batchs, returns)):
                 decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
 
-                # EAGER: Call TF2 training step
+                # Convert to tensors
+                observations_tensor = tf.convert_to_tensor(observations, dtype=tf.float32)
+                actions_tensor = tf.convert_to_tensor(actions, dtype=tf.int32)
+                shift_actions_tensor = tf.convert_to_tensor(shift_actions, dtype=tf.int32)
+                decoder_full_length_tensor = tf.convert_to_tensor(decoder_full_length, dtype=tf.int32)
+                old_logits_tensor = tf.convert_to_tensor(old_logits, dtype=tf.float32)
+                old_v_tensor = tf.convert_to_tensor(old_v, dtype=tf.float32)
+                advs_tensor = tf.convert_to_tensor(advs, dtype=tf.float32)
+                r_tensor = tf.convert_to_tensor(r, dtype=tf.float32)
+
+                # TF2.19: Call TF2 training step
                 value_loss, policy_loss = self.train_step(
-                    observations, actions, shift_actions, decoder_full_length,
-                    old_logits, old_v, advs, r
+                    observations_tensor, actions_tensor, shift_actions_tensor, decoder_full_length_tensor,
+                    old_logits_tensor, old_v_tensor, advs_tensor, r_tensor
                 )
 
                 vf_loss += value_loss.numpy()
@@ -133,13 +140,6 @@ class PPO():
                     print(f"\n[DEBUG] PPO Loss calculation details:")
                     print(f"  Policy loss: {policy_loss.numpy()}")
                     print(f"  Value loss: {value_loss.numpy()}")
-                    
-                    # Log device placement for losses
-                    try:
-                        log_tensor_device(policy_loss, "Policy loss tensor", step=0)
-                        log_tensor_device(value_loss, "Value loss tensor", step=0)
-                    except Exception as e:
-                        print(f"[Step 0] Could not determine device placement: {e}")
 
             vf_loss = vf_loss / float(self.num_inner_grad_steps)
             pg_loss = pg_loss / float(self.num_inner_grad_steps)
@@ -148,5 +148,3 @@ class PPO():
             policy_losses.append(pg_loss)
 
         return policy_losses, value_losses
-
-

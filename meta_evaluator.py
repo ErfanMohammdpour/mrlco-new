@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 import time
 from utils import logger
-from utils.gpu import setup_gpu_and_strategy, log_tensor_device, ensure_tensor_conversion
 
 class Trainer():
     _first_batch = True  # Class variable for tracking first batch
@@ -87,9 +86,24 @@ if __name__ == "__main__":
     from meta_algos.ppo_offloading import PPO
     from utils import utils, logger
     
-    # Set up GPU strategy before creating any models
-    print("\n========== Setting up GPU/CPU strategy ==========\n")
-    strategy, device_info = setup_gpu_and_strategy()
+    # TF2.19: Automatic device placement, no explicit strategy needed for single GPU
+    print("\n========== TF2.19 Automatic Device Detection ==========\n")
+    
+    # Check available devices
+    physical_devices = tf.config.list_physical_devices()
+    print(f"Available devices: {physical_devices}")
+    
+    # Configure GPU memory growth if GPU is available
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            print(f"GPU memory growth enabled for {len(gpus)} GPU(s)")
+        except RuntimeError as e:
+            print(f"GPU configuration error: {e}")
+    else:
+        print("No GPU found, using CPU")
 
     logger.configure(dir="./meta_evaluate_ppo_log/task_offloading", format_strs=['stdout', 'log', 'csv'])
 
@@ -128,72 +142,57 @@ if __name__ == "__main__":
     finish_time = env.get_all_locally_execute_time()
     print("avg all local solution: ", np.mean(finish_time))
 
-    # Build all models within the strategy scope
-    with strategy.scope():
-        policy = Seq2SeqPolicy(obs_dim=17,
-                               encoder_units=128,
-                               decoder_units=128,
-                               vocab_size=2,
-                               name="core_policy")
+    # TF2.19: Models built with automatic device placement
+    policy = Seq2SeqPolicy(obs_dim=17,
+                           encoder_units=128,
+                           decoder_units=128,
+                           vocab_size=2,
+                           name="core_policy")
 
-        sampler = Seq2SeqSampler(env,
-                                 policy,
-                                 rollouts_per_meta_task=1,
-                                 max_path_length=40000,
-                                 envs_per_task=None,
-                                 parallel=False)
+    sampler = Seq2SeqSampler(env,
+                             policy,
+                             rollouts_per_meta_task=1,
+                             max_path_length=40000,
+                             envs_per_task=None,
+                             parallel=False)
 
-        baseline = ValueFunctionBaseline()
+    baseline = ValueFunctionBaseline()
 
-        sample_processor = Seq2SeSamplerProcessor(baseline=baseline,
-                                                  discount=0.99,
-                                                  gae_lambda=0.95,
-                                                  normalize_adv=True,
-                                                  positive_adv=False)
-        algo = PPODistributed(policy=policy,
-                   meta_sampler=sampler,
-                   meta_sampler_process=sample_processor,
-                   lr=1e-4,
-                   num_inner_grad_steps=3,
-                   clip_value=0.2,
-                   max_grad_norm=None,
-                   strategy=strategy)
+    sample_processor = Seq2SeSamplerProcessor(baseline=baseline,
+                                              discount=0.99,
+                                              gae_lambda=0.95,
+                                              normalize_adv=True,
+                                              positive_adv=False)
+    algo = PPO(policy=policy,
+               meta_sampler=sampler,
+               meta_sampler_process=sample_processor,
+               lr=1e-4,
+               num_inner_grad_steps=3,
+               clip_value=0.2,
+               max_grad_norm=None)
 
-        # define the trainer of ppo to evaluate the performance of the trained meta policy for new tasks.
-        trainer = Trainer(algo=algo,
-                          env=env,
-                          sampler=sampler,
-                          sample_processor=sample_processor,
-                          policy=policy,
-                          n_itr=21,
-                          start_itr=0,
-                          batch_size=500,
-                          num_inner_grad_steps=3)
+    # define the trainer of ppo to evaluate the performance of the trained meta policy for new tasks.
+    trainer = Trainer(algo=algo,
+                      env=env,
+                      sampler=sampler,
+                      sample_processor=sample_processor,
+                      policy=policy,
+                      n_itr=21,
+                      start_itr=0,
+                      batch_size=500,
+                      num_inner_grad_steps=3)
 
-    # Since PPO uses eager execution, we don't need sessions
-    # Just verify GPU placement with a simple operation
-    print("\n========== Verifying GPU placement ==========\n")
-    # Create a test computation to verify GPU is being used
-    if strategy.num_replicas_in_sync > 1:
-        # Test distributed computation
-        @tf.function
-        def distributed_matmul():
-            a = tf.constant([[1.0, 2.0], [3.0, 4.0]])
-            b = tf.constant([[5.0, 6.0], [7.0, 8.0]])
-            return tf.matmul(a, b)
-        
-        result = strategy.run(distributed_matmul)
-        print(f"Test distributed computation executed successfully across {strategy.num_replicas_in_sync} devices")
-    else:
-        with tf.device(device_info['selected_devices'][0]):
-            test_computation = tf.constant([[1.0, 2.0], [3.0, 4.0]])
-            test_result = tf.matmul(test_computation, test_computation)
-            log_tensor_device(test_result, "Test computation result")
-            print(f"Test computation executed successfully on selected device")
+    # TF2.19: Verify device placement with a simple test
+    print("\n========== Verifying TF2.19 Device Placement ==========\n")
+    test_tensor = tf.constant([[1.0, 2.0], [3.0, 4.0]])
+    test_result = tf.matmul(test_tensor, test_tensor)
+    print(f"Test computation executed successfully")
+    print(f"Test tensor device: {test_tensor.device}")
+    print(f"Test result device: {test_result.device}")
     
     # Load checkpoint 
     from io.checkpointing import load_checkpoint
-    load_checkpoint(policy, "./meta_model_inner_step1/meta_model_final.ckpt")
+    load_checkpoint(policy, "./meta_model_inner_step1/meta_model_1500.ckpt")
     
     # Run training/evaluation
     avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
