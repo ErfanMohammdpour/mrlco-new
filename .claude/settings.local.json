@@ -21,7 +21,9 @@
       "Bash(export:*)",
       "Bash(echo:*)",
       "Bash(true)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(top:*)",
+      "Bash(killall:*)"
     ],
     "deny": []
   }

@@ -3,7 +3,7 @@
 import tensorflow as tf
 import numpy as np
 from utils.mpi_adam_optimizer import MpiAdamOptimizer
-from mpi4py import MPI
+# from mpi4py import MPI  # Not needed - MpiAdamOptimizer is commented out
 from policies.meta_seq2seq_policy import Seq2SeqPolicy
 import itertools
 from utils.gpu import log_tensor_device
