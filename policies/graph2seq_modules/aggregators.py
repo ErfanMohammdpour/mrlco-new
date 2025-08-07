@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 from .layers import Layer, Dense
 from .inits import glorot, zeros
 from .pooling import mean_pool
@@ -27,31 +26,16 @@ class GatedMeanAggregator(Layer):
             self.output_dim = 2 * output_dim
 
         with tf.name_scope(self.name + name + '_vars'):
-            self.vars['neigh_weights'] = tf.Variable(
-                tf.keras.initializers.GlorotUniform()(shape=(neigh_input_dim, output_dim)) * 0.5,
-                dtype=tf.float32,
-                name='neigh_weights'
-            )
-            self.vars['self_weights'] = tf.Variable(
-                tf.keras.initializers.GlorotUniform()(shape=(input_dim, output_dim)) * 0.5,
-                dtype=tf.float32,
-                name='self_weights'
-            )
+            self.vars['neigh_weights'] = glorot([neigh_input_dim, output_dim],
+                                                name='neigh_weights')
+            self.vars['self_weights'] = glorot([input_dim, output_dim],
+                                               name='self_weights')
             if self.bias:
-                self.vars['bias'] = tf.Variable(
-                    tf.zeros([self.output_dim], dtype=tf.float32), 
-                    name='bias'
-                )
+                self.vars['bias'] = zeros([self.output_dim], name='bias')
 
-            self.vars['gate_weights'] = tf.Variable(
-                tf.keras.initializers.GlorotUniform()(shape=(2*output_dim, 2*output_dim)) * 0.5,
-                dtype=tf.float32,
-                name='gate_weights'
-            )
-            self.vars['gate_bias'] = tf.Variable(
-                tf.zeros([2*output_dim], dtype=tf.float32), 
-                name='gate_bias'
-            )
+            self.vars['gate_weights'] = glorot([2*output_dim, 2*output_dim],
+                                                name='gate_weights')
+            self.vars['gate_bias'] = zeros([2*output_dim], name='bias')
 
 
         self.input_dim = input_dim
@@ -60,8 +44,8 @@ class GatedMeanAggregator(Layer):
     def _call(self, inputs):
         self_vecs, neigh_vecs = inputs
 
-        neigh_vecs = tf.nn.dropout(neigh_vecs, rate=self.dropout)
-        self_vecs = tf.nn.dropout(self_vecs, rate=self.dropout)
+        neigh_vecs = tf.nn.dropout(neigh_vecs, 1-self.dropout)
+        self_vecs = tf.nn.dropout(self_vecs, 1-self.dropout)
 
         neigh_means = tf.reduce_mean(neigh_vecs, axis=1)
 
@@ -85,13 +69,13 @@ class GatedMeanAggregator(Layer):
 
         return gate*self.act(output)
 
-class MeanAggregator(tf.keras.layers.Layer):
+class MeanAggregator(Layer):
     """Aggregates via mean followed by matmul and non-linearity."""
 
     def __init__(self, input_dim, output_dim, neigh_input_dim=None,
             dropout=0, bias=True, act=tf.nn.relu,
             name=None, concat=False, mode="train", **kwargs):
-        super(MeanAggregator, self).__init__(name=name, **kwargs)
+        super(MeanAggregator, self).__init__(**kwargs)
 
         self.dropout = dropout
         self.bias = bias
@@ -99,60 +83,33 @@ class MeanAggregator(tf.keras.layers.Layer):
         self.concat = concat
         self.mode = mode
 
+        if name is not None:
+            name = '/' + name
+        else:
+            name = ''
+
         if neigh_input_dim == None:
             neigh_input_dim = input_dim
 
         if concat:
             self.output_dim = 2 * output_dim
-        else:
-            self.output_dim = output_dim
+
+        with tf.name_scope(self.name + name + '_vars'):
+            self.vars['neigh_weights'] = glorot([neigh_input_dim, output_dim],
+                                                name='neigh_weights')
+            self.vars['self_weights'] = glorot([input_dim, output_dim],
+                                               name='self_weights')
+            if self.bias:
+                self.vars['bias'] = zeros([self.output_dim], name='bias')
 
         self.input_dim = input_dim
-        self.base_output_dim = output_dim
-        self.neigh_input_dim = neigh_input_dim
+        self.output_dim = output_dim
 
-    def build(self, input_shape):
-        """Build the layer - create weights using Keras add_weight"""
-        super(MeanAggregator, self).build(input_shape)
-        
-        # Handle different input_shape formats (tuple of shapes vs single shape)
-        if isinstance(input_shape, (list, tuple)) and len(input_shape) >= 2:
-            # input_shape is a tuple/list of shapes: (self_shape, neigh_shape, len_shape)
-            pass  # Use class-level dimensions
-        else:
-            # Single input shape - use it directly
-            pass
-        
-        # Use Keras add_weight to properly handle variable creation
-        self.neigh_weights = self.add_weight(
-            name='neigh_weights',
-            shape=(self.neigh_input_dim, self.base_output_dim),
-            initializer=tf.keras.initializers.GlorotUniform(),
-            trainable=True,
-            dtype=tf.float32
-        )
-        
-        self.self_weights = self.add_weight(
-            name='self_weights',
-            shape=(self.input_dim, self.base_output_dim),
-            initializer=tf.keras.initializers.GlorotUniform(),
-            trainable=True,
-            dtype=tf.float32
-        )
-        
-        if self.bias:
-            self.bias_weights = self.add_weight(
-                name='bias',
-                shape=(self.output_dim,),
-                initializer='zeros',
-                trainable=True,
-                dtype=tf.float32
-            )
-
-    def call(self, inputs, training=None):
+    def _call(self, inputs):
         self_vecs, neigh_vecs, neigh_len = inputs
 
-        if training and self.mode == "train":
+        if self.mode == "train" and self.dropout > 0:
+            # TF2: dropout takes rate (probability of dropping), not keep_prob
             neigh_vecs = tf.nn.dropout(neigh_vecs, rate=self.dropout)
             self_vecs = tf.nn.dropout(self_vecs, rate=self.dropout)
 
@@ -161,9 +118,9 @@ class MeanAggregator(tf.keras.layers.Layer):
         # neigh_means = mean_pool(neigh_vecs, neigh_len)
 
         # [nodes] x [out_dim]
-        from_neighs = tf.matmul(neigh_means, self.neigh_weights)
+        from_neighs = tf.matmul(neigh_means, self.vars['neigh_weights'])
 
-        from_self = tf.matmul(self_vecs, self.self_weights)
+        from_self = tf.matmul(self_vecs, self.vars["self_weights"])
 
         if not self.concat:
             output = tf.add_n([from_self, from_neighs])
@@ -172,7 +129,7 @@ class MeanAggregator(tf.keras.layers.Layer):
 
         # bias
         if self.bias:
-            output += self.bias_weights
+            output += self.vars['bias']
 
         return self.act(output)
 
@@ -208,23 +165,13 @@ class MaxPoolingAggregator(Layer):
                                      dropout=dropout, sparse_inputs=False, logging=self.logging))
 
         with tf.name_scope(self.name + name + '_vars'):
-            self.vars['neigh_weights'] = tf.Variable(
-                tf.keras.initializers.GlorotUniform()(shape=(hidden_dim, output_dim)) * 0.5,
-                dtype=tf.float32,
-                name='neigh_weights'
-            )
 
-            self.vars['self_weights'] = tf.Variable(
-                tf.keras.initializers.GlorotUniform()(shape=(input_dim, output_dim)) * 0.5,
-                dtype=tf.float32,
-                name='self_weights'
-            )
+            self.vars['neigh_weights'] = glorot([hidden_dim, output_dim], name='neigh_weights')
+
+            self.vars['self_weights'] = glorot([input_dim, output_dim], name='self_weights')
 
             if self.bias:
-                self.vars['bias'] = tf.Variable(
-                    tf.zeros([self.output_dim], dtype=tf.float32), 
-                    name='bias'
-                )
+                self.vars['bias'] = zeros([self.output_dim], name='bias')
 
         self.input_dim = input_dim
         self.output_dim = output_dim

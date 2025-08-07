@@ -68,15 +68,14 @@ class Dense(Layer):
         if sparse_inputs:
             self.num_features_nonzero = placeholders['num_features_nonzero']
 
-        # MIGRATION: tf.get_variable -> tf.Variable with initializers
+        # TF2: Use name_scope instead of variable_scope
         with tf.name_scope(self.name + '_vars'):
+            # TF2: Use Variable instead of get_variable, and Keras initializers
             self.vars['weights'] = tf.Variable(
                 tf.keras.initializers.GlorotUniform()(shape=(input_dim, output_dim)),
                 dtype=tf.float32,
                 name='weights'
             )
-            # Add L2 regularization (same as baseline with scale 0.0)
-            regularizer = tf.keras.regularizers.l2(0.0)
             if self.bias:
                 self.vars['bias'] = zeros([output_dim], name='bias')
 

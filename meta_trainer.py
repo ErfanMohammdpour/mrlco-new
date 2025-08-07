@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import time
 from utils import logger
-from automated_reporting import create_training_report
+# from automated_reporting import create_training_report  # Temporarily disabled for testing
 
 class Trainer(object):
     def __init__(self,algo,
@@ -81,13 +81,13 @@ class Trainer(object):
             """ ------------------- Logging Stuff --------------------------"""
 
             ret = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
 
             avg_reward = np.mean(ret)
 
             latency = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 latency = np.concatenate((latency, new_samples_data[i]['finish_time']), axis=-1)
 
             avg_latency = np.mean(latency)
@@ -115,13 +115,15 @@ class Trainer(object):
                 'greedy_latencies': greedy_latencies_all
             }
             
-            report_dir = create_training_report(
-                avg_ret=avg_ret,
-                avg_loss=avg_loss,
-                avg_latencies=avg_latencies,
-                additional_metrics=additional_metrics
-            )
-            print(f"Report generated successfully at: {report_dir}")
+            # Temporarily disabled for testing
+            # report_dir = create_training_report(
+            #     avg_ret=avg_ret,
+            #     avg_loss=avg_loss,
+            #     avg_latencies=avg_latencies,
+            #     additional_metrics=additional_metrics
+            # )
+            # print(f"Report generated successfully at: {report_dir}")
+            print("Training completed!")
             print("=====================================================================\n")
         except Exception as e:
             print(f"WARNING: Failed to generate automated report: {str(e)}")
@@ -131,6 +133,10 @@ class Trainer(object):
 
 
 if __name__ == "__main__":
+    import sys
+    print("Starting meta_trainer.py...")
+    sys.stdout.flush()
+    
     from env.mec_offloading_envs.offloading_env import Resources
     from env.mec_offloading_envs.offloading_env import OffloadingEnvironment
     from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy
@@ -139,37 +145,35 @@ if __name__ == "__main__":
     from baselines.vf_baseline import ValueFunctionBaseline
     from meta_algos.MRLCO import MRLCO
 
+    print("All imports successful")
+    sys.stdout.flush()
+
+    # Disable TensorFlow logging
+    tf.get_logger().setLevel('ERROR')
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
+    
+    print("Logger configured")
+    sys.stdout.flush()
 
-    META_BATCH_SIZE = 2
+    # TEMPORARY: Minimal settings for testing
+    META_BATCH_SIZE = 2  # Reduced from 10
+    N_ITERATIONS = 2  # Add explicit iteration limit for testing
 
+    print("Creating resource cluster...")
+    sys.stdout.flush()
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0)
 
+    print("Creating environment...")
+    sys.stdout.flush()
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
-                                batch_size=20,  # Reduced from 100 for faster testing
-                                graph_number=20,  # Reduced from 100 for faster testing
+                                batch_size=10,  # Reduced from 100
+                                graph_number=10,  # Reduced from 100
                                 graph_file_paths=[
+                                    # TEMPORARY: Reduced to 2 paths for testing
                                     "./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_1/random.20.",
                                     "./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_2/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_13/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_14/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_17/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_18/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_21/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_22/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_23/random.20.",
-                                    #"./env/mec_offloading_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
 
@@ -216,9 +220,10 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=3,
+                        n_itr=N_ITERATIONS,  # Use the test value
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
-                        inner_batch_size=100)  # Reduced from 1000 for faster testing
+                        inner_batch_size=1000)
 
+    # TF2: No session needed - just run the training
     avg_ret, avg_loss, avg_latencies = trainer.train()

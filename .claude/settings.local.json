@@ -23,7 +23,15 @@
       "Bash(true)",
       "Bash(git config:*)",
       "Bash(top:*)",
-      "Bash(killall:*)"
+      "Bash(killall:*)",
+      "Bash(CUDA_VISIBLE_DEVICES=\"\" timeout 60 python meta_trainer.py)",
+      "Bash(CUDA_VISIBLE_DEVICES=\"\" python test_quick.py)",
+      "Bash(CUDA_VISIBLE_DEVICES=\"\" timeout 30 python test_simple_import.py)",
+      "Bash(CUDA_VISIBLE_DEVICES=\"\" timeout 180 python meta_trainer.py)",
+      "Bash(CUDA_VISIBLE_DEVICES=\"\" timeout 30 python meta_trainer.py)",
+      "Bash(cat:*)",
+      "Bash(CUDA_VISIBLE_DEVICES=\"\" timeout 30 python test_minimal.py)",
+      "Bash(CUDA_VISIBLE_DEVICES=\"\" python test_minimal.py)"
     ],
     "deny": []
   }

@@ -2,3 +2,38 @@ Logging to ./meta_offloading20_log-inner_step1/
 
  ---------------- Iteration 0 ----------------
 Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Optimizing policy...
+--------------------------------------
+| Average greedy latency, | 815      |
+| Average latency,        | 1.4e+03  |
+| Average reward,         | -9.7     |
+| AverageDiscountedReturn | -8.88    |
+| AverageReturn           | -9.7     |
+| EnvExecTime             | 0.155    |
+| Itr                     | 0        |
+| MaxReturn               | -6.83    |
+| MinReturn               | -12.9    |
+| NumTrajs                | 2000     |
+| PolicyExecTime          | 15.9     |
+| StdReturn               | 1.45     |
+--------------------------------------
+
+ ---------------- Iteration 1 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Optimizing policy...
+--------------------------------------
+| Average greedy latency, | 815      |
+| Average latency,        | 1.4e+03  |
+| Average reward,         | -9.7     |
+| AverageDiscountedReturn | -8.88    |
+| AverageReturn           | -9.7     |
+| EnvExecTime             | 0.155    |
+| Itr                     | 1        |
+| MaxReturn               | -6.83    |
+| MinReturn               | -12.9    |
+| NumTrajs                | 2000     |
+| PolicyExecTime          | 15.9     |
+| StdReturn               | 1.45     |
+--------------------------------------
