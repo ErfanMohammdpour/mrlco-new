@@ -431,7 +431,20 @@ class FullMAML():
         policy_losses = []
         value_losses = []
         
-        batch_number = int(task_samples['observations'].shape[0] / batch_size)
+        # Handle batch size
+        n_samples = task_samples['observations'].shape[0]
+        
+        # Handle edge cases
+        if n_samples == 0:
+            return [], []
+        
+        if batch_size > n_samples:
+            batch_size = n_samples
+            
+        batch_number = int(n_samples / batch_size)
+        if batch_number == 0:
+            batch_number = 1
+            
         self.update_numbers = batch_number
         
         # Prepare batched data
@@ -439,13 +452,24 @@ class FullMAML():
             (np.zeros(task_samples['actions'].shape[0], dtype=np.int32), 
              task_samples['actions'][:, 0:-1]))
         
-        observations_batches = np.split(np.array(task_samples['observations']), batch_number)
-        actions_batches = np.split(np.array(task_samples['actions']), batch_number)
-        shift_action_batches = np.split(np.array(shift_actions), batch_number)
-        old_logits_batches = np.split(np.array(task_samples["logits"], dtype=np.float32), batch_number)
-        advs_batches = np.split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
-        oldvpred_batches = np.split(np.array(task_samples['values'], dtype=np.float32), batch_number)
-        returns_batches = np.split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
+        # Split into batches
+        if batch_number == 1:
+            # Don't split if only one batch
+            observations_batches = [np.array(task_samples['observations'])]
+            actions_batches = [np.array(task_samples['actions'])]
+            shift_action_batches = [np.array(shift_actions)]
+            old_logits_batches = [np.array(task_samples["logits"], dtype=np.float32)]
+            advs_batches = [np.array(task_samples['advantages'], dtype=np.float32)]
+            oldvpred_batches = [np.array(task_samples['values'], dtype=np.float32)]
+            returns_batches = [np.array(task_samples['returns'], dtype=np.float32)]
+        else:
+            observations_batches = np.split(np.array(task_samples['observations']), batch_number)
+            actions_batches = np.split(np.array(task_samples['actions']), batch_number)
+            shift_action_batches = np.split(np.array(shift_actions), batch_number)
+            old_logits_batches = np.split(np.array(task_samples["logits"], dtype=np.float32), batch_number)
+            advs_batches = np.split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
+            oldvpred_batches = np.split(np.array(task_samples['values'], dtype=np.float32), batch_number)
+            returns_batches = np.split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
         
         sess = tf.compat.v1.get_default_session()
         

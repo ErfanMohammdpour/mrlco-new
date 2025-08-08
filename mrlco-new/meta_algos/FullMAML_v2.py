@@ -627,7 +627,19 @@ class FullMAML_v2():
         sess = tf.compat.v1.get_default_session()
         
         # Prepare data
-        batch_number = int(task_samples['observations'].shape[0] / batch_size)
+        n_samples = task_samples['observations'].shape[0]
+        
+        # Handle case where batch_size is larger than number of samples
+        if n_samples == 0:
+            return [], []
+        
+        if batch_size > n_samples:
+            batch_size = n_samples
+            
+        batch_number = int(n_samples / batch_size)
+        if batch_number == 0:
+            batch_number = 1
+            
         self.update_numbers = batch_number
         
         # Prepare batched data
@@ -642,13 +654,23 @@ class FullMAML_v2():
         returns = task_samples['returns'].astype(np.float32)
         
         # Split into batches
-        obs_batches = np.split(observations, batch_number)
-        action_batches = np.split(actions, batch_number)
-        shift_action_batches = np.split(shift_actions, batch_number)
-        old_logit_batches = np.split(old_logits, batch_number)
-        adv_batches = np.split(advantages, batch_number)
-        old_value_batches = np.split(old_values, batch_number)
-        return_batches = np.split(returns, batch_number)
+        if batch_number == 1:
+            # Don't split if only one batch
+            obs_batches = [observations]
+            action_batches = [actions]
+            shift_action_batches = [shift_actions]
+            old_logit_batches = [old_logits]
+            adv_batches = [advantages]
+            old_value_batches = [old_values]
+            return_batches = [returns]
+        else:
+            obs_batches = np.split(observations, batch_number)
+            action_batches = np.split(actions, batch_number)
+            shift_action_batches = np.split(shift_actions, batch_number)
+            old_logit_batches = np.split(old_logits, batch_number)
+            adv_batches = np.split(advantages, batch_number)
+            old_value_batches = np.split(old_values, batch_number)
+            return_batches = np.split(returns, batch_number)
         
         policy_losses = []
         value_losses = []
