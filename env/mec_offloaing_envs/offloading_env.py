@@ -57,7 +57,10 @@ class Resources(object):
 class OffloadingEnvironment(MetaEnv):
     def __init__(self, resource_cluster, batch_size,
                  graph_number,
-                 graph_file_paths, time_major):
+                 graph_file_paths, time_major,
+                 use_difference_reward=True,
+                 reward_clip_range=(-2.0, 2.0),
+                 epsilon=1e-9):
         self.resource_cluster = resource_cluster
         self.task_graphs_batchs = []
         self.encoder_batchs = []
@@ -66,6 +69,23 @@ class OffloadingEnvironment(MetaEnv):
         self.max_running_time_batchs = []
         self.min_running_time_batchs = []
         self.graph_file_paths = graph_file_paths
+        
+        # Difference reward configuration
+        self.use_difference_reward = use_difference_reward
+        self.reward_clip_range = reward_clip_range
+        self.epsilon = epsilon
+        
+        # Diagnostic tracking
+        self.diagnostic_data = {
+            'delta_loc': [],
+            'delta_rem': [],
+            'delta_chosen': [],
+            'delta_best': [],
+            'delta_worst': [],
+            'r_main': [],
+            'r_norm': [],
+            'action_is_best': []
+        }
 
         # load all the task graphs into the evnironment
         for graph_file_path in graph_file_paths:
@@ -269,6 +289,64 @@ class OffloadingEnvironment(MetaEnv):
 
         return max_time, min_time
 
+    def dry_run_preview(self, task_id, action, task_graph, current_state):
+        """
+        Non-mutating preview of scheduling decision.
+        Returns delta_makespan for the given action without modifying any state.
+        
+        Args:
+            task_id: ID of the task to schedule
+            action: 0 for local, 1 for remote
+            task_graph: The task graph object
+            current_state: Dict containing current scheduling state
+                - 'makespan_now': current makespan
+                - 'local_avail': local CPU availability time
+                - 'mec_avail': MEC CPU availability time  
+                - 'ws_avail': uplink channel availability time
+                - 'FT_locally': finish times for local execution
+                - 'FT_wr': finish times for remote execution (after download)
+        
+        Returns:
+            delta_makespan: Incremental makespan for this action
+        """
+        task = task_graph.task_list[task_id]
+        
+        # Get predecessor finish times
+        pred_finish_times = []
+        for pred_id in task_graph.pre_task_sets[task_id]:
+            pred_ft = max(current_state['FT_locally'][pred_id], 
+                         current_state['FT_wr'][pred_id])
+            pred_finish_times.append(pred_ft)
+        
+        max_pred_ft = max(pred_finish_times) if pred_finish_times else 0.0
+        
+        if action == 0:  # Local execution
+            # Calculate local execution timing
+            start_time = max(current_state['local_avail'], max_pred_ft)
+            exec_time = self.resource_cluster.locally_execution_cost(task.processing_data_size)
+            finish_time = start_time + exec_time
+            
+        else:  # Remote execution (action == 1)
+            # Uplink phase
+            ul_start = max(current_state['ws_avail'], max_pred_ft)
+            ul_time = self.resource_cluster.up_transmission_cost(task.processing_data_size)
+            ul_finish = ul_start + ul_time
+            
+            # MEC processing phase
+            mec_start = max(current_state['mec_avail'], ul_finish)
+            mec_time = self.resource_cluster.mec_execution_cost(task.processing_data_size)
+            mec_finish = mec_start + mec_time
+            
+            # Downlink phase
+            dl_time = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+            finish_time = mec_finish + dl_time
+        
+        # Calculate incremental makespan
+        candidate_makespan = max(current_state['makespan_now'], finish_time)
+        delta_makespan = candidate_makespan - current_state['makespan_now']
+        
+        return delta_makespan
+    
     def get_scheduling_cost_step_by_step(self, plan, task_graph):
         cloud_avaliable_time = 0.0
         ws_avaliable_time =0.0
@@ -369,6 +447,146 @@ class OffloadingEnvironment(MetaEnv):
             return_latency.append(delta_make_span)
 
         return return_latency, current_FT
+    
+    def get_scheduling_cost_with_difference_reward(self, plan, task_graph):
+        """
+        Compute scheduling cost with difference reward scheme.
+        Returns both step-by-step rewards and final makespan.
+        """
+        cloud_avaliable_time = 0.0
+        ws_avaliable_time = 0.0
+        local_avaliable_time = 0.0
+        
+        # Finish time arrays
+        FT_cloud = [0] * task_graph.task_number
+        FT_ws = [0] * task_graph.task_number
+        FT_locally = [0] * task_graph.task_number
+        FT_wr = [0] * task_graph.task_number
+        
+        current_makespan = 0.0
+        return_rewards = []
+        
+        # Clear diagnostics for new episode
+        for key in self.diagnostic_data:
+            self.diagnostic_data[key] = []
+        
+        for item in plan:
+            task_id = item[0]
+            action = item[1]
+            
+            # Create current state for dry-run preview
+            current_state = {
+                'makespan_now': current_makespan,
+                'local_avail': local_avaliable_time,
+                'mec_avail': cloud_avaliable_time,
+                'ws_avail': ws_avaliable_time,
+                'FT_locally': FT_locally.copy(),
+                'FT_wr': FT_wr.copy()
+            }
+            
+            # Preview both options
+            delta_loc = self.dry_run_preview(task_id, 0, task_graph, current_state)
+            delta_rem = self.dry_run_preview(task_id, 1, task_graph, current_state)
+            
+            # Determine which action was chosen
+            delta_chosen = delta_loc if action == 0 else delta_rem
+            delta_best = min(delta_loc, delta_rem)
+            delta_worst = max(delta_loc, delta_rem)
+            
+            # Compute difference reward
+            r_main = delta_best - delta_chosen
+            
+            # Normalize per step
+            if abs(delta_worst - delta_best) > self.epsilon:
+                r_norm = r_main / (delta_worst - delta_best)
+            else:
+                r_norm = 0.0
+            
+            # Clip to [-1, 1] then to final range
+            r_norm = np.clip(r_norm, -1.0, 1.0)
+            r_norm = np.clip(r_norm, self.reward_clip_range[0], self.reward_clip_range[1])
+            
+            # Store diagnostics
+            self.diagnostic_data['delta_loc'].append(delta_loc)
+            self.diagnostic_data['delta_rem'].append(delta_rem)
+            self.diagnostic_data['delta_chosen'].append(delta_chosen)
+            self.diagnostic_data['delta_best'].append(delta_best)
+            self.diagnostic_data['delta_worst'].append(delta_worst)
+            self.diagnostic_data['r_main'].append(r_main)
+            self.diagnostic_data['r_norm'].append(r_norm)
+            
+            # Check if action matches best option
+            action_is_best = False
+            if abs(delta_loc - delta_rem) < self.epsilon:
+                action_is_best = True  # Both equally good
+            elif action == 0 and delta_loc < delta_rem:
+                action_is_best = True
+            elif action == 1 and delta_rem < delta_loc:
+                action_is_best = True
+            self.diagnostic_data['action_is_best'].append(action_is_best)
+            
+            # Now execute the actual action and update state
+            task = task_graph.task_list[task_id]
+            
+            if action == 0:  # Local execution
+                if len(task_graph.pre_task_sets[task_id]) != 0:
+                    start_time = max(local_avaliable_time,
+                                   max([max(FT_locally[j], FT_wr[j]) 
+                                        for j in task_graph.pre_task_sets[task_id]]))
+                else:
+                    start_time = local_avaliable_time
+                
+                T_l = self.resource_cluster.locally_execution_cost(task.processing_data_size)
+                FT_locally[task_id] = start_time + T_l
+                local_avaliable_time = FT_locally[task_id]
+                task_finish_time = FT_locally[task_id]
+                
+            else:  # Remote execution
+                if len(task_graph.pre_task_sets[task_id]) != 0:
+                    ws_start_time = max(ws_avaliable_time,
+                                      max([max(FT_locally[j], FT_ws[j]) 
+                                           for j in task_graph.pre_task_sets[task_id]]))
+                    
+                    T_ul = self.resource_cluster.up_transmission_cost(task.processing_data_size)
+                    ws_finish_time = ws_start_time + T_ul
+                    FT_ws[task_id] = ws_finish_time
+                    ws_avaliable_time = ws_finish_time
+                    
+                    cloud_start_time = max(cloud_avaliable_time,
+                                         max([max(FT_ws[task_id], FT_cloud[j]) 
+                                              for j in task_graph.pre_task_sets[task_id]]))
+                    cloud_finish_time = cloud_start_time + self.resource_cluster.mec_execution_cost(task.processing_data_size)
+                    FT_cloud[task_id] = cloud_finish_time
+                    cloud_avaliable_time = cloud_finish_time
+                    
+                    wr_start_time = FT_cloud[task_id]
+                    T_dl = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                    wr_finish_time = wr_start_time + T_dl
+                    FT_wr[task_id] = wr_finish_time
+                    
+                else:
+                    ws_start_time = ws_avaliable_time
+                    T_ul = self.resource_cluster.up_transmission_cost(task.processing_data_size)
+                    ws_finish_time = ws_start_time + T_ul
+                    FT_ws[task_id] = ws_finish_time
+                    
+                    cloud_start_time = max(cloud_avaliable_time, FT_ws[task_id])
+                    cloud_finish_time = cloud_start_time + self.resource_cluster.mec_execution_cost(task.processing_data_size)
+                    FT_cloud[task_id] = cloud_finish_time
+                    cloud_avaliable_time = cloud_finish_time
+                    
+                    wr_start_time = FT_cloud[task_id]
+                    T_dl = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                    wr_finish_time = wr_start_time + T_dl
+                    FT_wr[task_id] = wr_finish_time
+                
+                task_finish_time = wr_finish_time
+            
+            # Update makespan
+            current_makespan = max(task_finish_time, current_makespan)
+            return_rewards.append(r_norm)
+        
+        return return_rewards, current_makespan
 
     def score_func(self, cost, max_time, min_time):
         return -(cost - min_time) / (max_time - min_time)
@@ -377,19 +595,24 @@ class OffloadingEnvironment(MetaEnv):
                                       max_running_time_batch, min_running_time_batch):
         target_batch = []
         task_finish_time_batch = []
+        
         for i in range(len(action_sequence_batch)):
-            max_running_time = max_running_time_batch[i]
-            min_running_time = min_running_time_batch[i]
-
             task_graph = task_graph_batch[i]
             self.resource_cluster.reset()
             plan = action_sequence_batch[i]
-            cost, task_finish_time = self.get_scheduling_cost_step_by_step(plan, task_graph)
-
-            latency = self.score_func(cost, max_running_time, min_running_time)
-
-            score =  np.array(latency)
-            #print("score is", score)
+            
+            if self.use_difference_reward:
+                # Use new difference reward scheme
+                rewards, task_finish_time = self.get_scheduling_cost_with_difference_reward(plan, task_graph)
+                score = np.array(rewards)
+            else:
+                # Use original reward scheme
+                max_running_time = max_running_time_batch[i]
+                min_running_time = min_running_time_batch[i]
+                cost, task_finish_time = self.get_scheduling_cost_step_by_step(plan, task_graph)
+                latency = self.score_func(cost, max_running_time, min_running_time)
+                score = np.array(latency)
+            
             target_batch.append(score)
             task_finish_time_batch.append(task_finish_time)
 
@@ -578,6 +801,26 @@ class OffloadingEnvironment(MetaEnv):
         result_plan, finish_time_batchs = self.greedy_solution()
 
         return result_plan[self.task_id], finish_time_batchs[self.task_id]
+    
+    def get_diagnostic_summary(self):
+        """
+        Returns summary statistics of diagnostic data for logging.
+        """
+        if not self.diagnostic_data['r_norm']:
+            return {}
+        
+        summary = {
+            'avg_delta_loc': np.mean(self.diagnostic_data['delta_loc']),
+            'avg_delta_rem': np.mean(self.diagnostic_data['delta_rem']),
+            'avg_delta_chosen': np.mean(self.diagnostic_data['delta_chosen']),
+            'avg_delta_best': np.mean(self.diagnostic_data['delta_best']),
+            'avg_r_main': np.mean(self.diagnostic_data['r_main']),
+            'avg_r_norm': np.mean(self.diagnostic_data['r_norm']),
+            'fraction_best_action': np.mean(self.diagnostic_data['action_is_best']),
+            'fraction_positive_reward': np.mean([r > 0 for r in self.diagnostic_data['r_norm']])
+        }
+        
+        return summary
 
 
 

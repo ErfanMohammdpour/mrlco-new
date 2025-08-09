@@ -1,0 +1,156 @@
+============================================================================================
+DIFFERENCE REWARD IMPLEMENTATION - CHANGE REPORT
+============================================================================================
+Date: 2025-08-09
+Implementation: Difference-reward scheme with per-step normalization
+
+============================================================================================
+SUMMARY OF CHANGES
+============================================================================================
+
+This report documents the implementation of a difference-reward scheme to replace the original
+incremental latency-based rewards. The new system uses a non-mutating preview mechanism to
+evaluate both local and remote options before committing to an action, then provides normalized
+feedback based on the quality of the decision.
+
+============================================================================================
+FILE-BY-FILE CHANGES
+============================================================================================
+
+1. env/mec_offloaing_envs/offloading_env.py
+-------------------------------------------
+
+MODIFICATIONS:
+
+a) Class Constructor (__init__):
+   - Added new parameters:
+     * use_difference_reward=True: Toggle between old and new reward schemes
+     * reward_clip_range=(-2.0, 2.0): Final reward clipping bounds  
+     * epsilon=1e-9: Numerical tolerance for equality checks
+   - Added diagnostic_data dictionary to track:
+     * delta_loc, delta_rem: Incremental makespan for each option
+     * delta_chosen, delta_best, delta_worst: Decision metrics
+     * r_main, r_norm: Raw and normalized rewards
+     * action_is_best: Whether the chosen action was optimal
+
+b) New Method: dry_run_preview()
+   - Purpose: Non-mutating preview of scheduling decisions
+   - Inputs: task_id, action (0/1), task_graph, current_state
+   - Output: delta_makespan for the given action
+   - Implementation:
+     * Calculates timing for local or remote execution
+     * Does NOT modify any state variables
+     * Returns incremental makespan (candidate_makespan - current_makespan)
+
+c) New Method: get_scheduling_cost_with_difference_reward()
+   - Purpose: Main reward calculation with difference scheme
+   - Process for each task:
+     1. Preview both options (local and remote) using dry_run_preview
+     2. Calculate deltas: delta_loc, delta_rem
+     3. Compute r_main = delta_best - delta_chosen
+     4. Normalize: r_norm = r_main / (delta_worst - delta_best) if different
+     5. Clip to [-1, 1] then to reward_clip_range
+     6. Execute chosen action and update state
+   - Tracks all diagnostic data for analysis
+
+d) Modified Method: get_reward_batch_step_by_step()
+   - Added conditional logic based on use_difference_reward flag
+   - If True: Uses get_scheduling_cost_with_difference_reward()
+   - If False: Uses original get_scheduling_cost_step_by_step()
+
+e) New Method: get_diagnostic_summary()
+   - Computes summary statistics from diagnostic data
+   - Returns averages and fractions for logging
+   - Metrics include:
+     * Average deltas for each option
+     * Average rewards (raw and normalized)
+     * Fraction of best actions taken
+     * Fraction of positive rewards
+
+2. meta_trainer.py
+------------------
+
+MODIFICATIONS:
+
+a) Environment Initialization:
+   - Added random seed setting for reproducibility:
+     * np.random.seed(42)
+     * tf.compat.v1.set_random_seed(42)
+   - Added new parameters to OffloadingEnvironment:
+     * use_difference_reward=True
+     * reward_clip_range=(-2.0, 2.0)
+     * epsilon=1e-9
+
+b) Training Loop Diagnostics:
+   - Added advantage statistics logging:
+     * Computes mean and std of advantages across all tasks
+     * Logs via logger.logkv()
+   - Added diagnostic summary logging:
+     * Calls env.get_diagnostic_summary() if using difference reward
+     * Logs all diagnostic metrics for monitoring
+
+============================================================================================
+MATHEMATICAL FORMULATION
+============================================================================================
+
+1. Incremental Makespan Calculation:
+   - For Local: ”_loc = max(makespan_now, FT_local) - makespan_now
+   - For Remote: ”_rem = max(makespan_now, FT_remote) - makespan_now
+   
+2. Difference Reward:
+   - r_main = ”_best - ”_chosen
+   - where ”_best = min(”_loc, ”_rem)
+   
+3. Per-Step Normalization:
+   - If |”_worst - ”_best| > µ:
+       r_norm = r_main / (”_worst - ”_best)
+   - Else:
+       r_norm = 0
+   
+4. Clipping:
+   - First clip to [-1, 1]
+   - Then clip to reward_clip_range
+
+============================================================================================
+KEY DESIGN DECISIONS
+============================================================================================
+
+1. **Non-Mutating Preview**: The dry_run_preview function ensures deterministic evaluation
+   without side effects, maintaining consistency between preview and actual execution.
+
+2. **Difference Reward**: Directly rewards the quality of the decision relative to the
+   alternative, providing clearer credit assignment than absolute latency.
+
+3. **Per-Step Normalization**: Scales rewards based on the importance of each decision,
+   preventing decisions with large absolute differences from dominating gradients.
+
+4. **Diagnostic Tracking**: Comprehensive logging enables analysis of decision quality
+   and reward distribution during training.
+
+5. **Backward Compatibility**: The use_difference_reward flag allows easy switching
+   between old and new schemes for comparison.
+
+============================================================================================
+EXPECTED BEHAVIOR
+============================================================================================
+
+1. **Reward Range**: Normalized rewards in [-1, 1], clipped to [-2, 2]
+2. **Positive Rewards**: Given when the agent chooses the better option
+3. **Zero Rewards**: When both options are equally good or decision doesn't affect makespan
+4. **Negative Rewards**: When the agent chooses the worse option
+
+The fraction of positive rewards should stabilize in a healthy mid-range (30-70%),
+indicating the policy is learning but still exploring.
+
+============================================================================================
+VALIDATION CHECKS
+============================================================================================
+
+1. **Dry-Run Consistency**: The preview delta should match the actual delta when executed
+2. **Normalization**: All normalized rewards should be within clip range
+3. **Diagnostic Metrics**: Should show improving fraction of best actions over training
+4. **Advantage Statistics**: Should maintain reasonable mean and variance
+
+============================================================================================
+END OF CHANGE REPORT
+============================================================================================

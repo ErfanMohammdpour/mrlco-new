@@ -68,6 +68,13 @@ class Trainer(object):
 
             print("average value losses: ", np.mean(value_losses))
             value_losses_all.append(np.mean(value_losses))
+            
+            # Log advantage statistics
+            all_advantages = []
+            for task_data in samples_data:
+                all_advantages.extend(task_data['advantages'].flatten())
+            logger.logkv('Advantage mean', np.mean(all_advantages))
+            logger.logkv('Advantage std', np.std(all_advantages))
 
             """ ------------------ Resample from updated sub-task policy ------------"""
             print("Evaluate the one-step update for sub-task policy")
@@ -97,6 +104,12 @@ class Trainer(object):
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+            
+            # Log diagnostic data if using difference reward
+            if self.env.use_difference_reward:
+                diagnostic_summary = self.env.get_diagnostic_summary()
+                for key, value in diagnostic_summary.items():
+                    logger.logkv(f'Diagnostic/{key}', value)
 
             logger.dumpkvs()
             avg_ret.append(avg_reward)
@@ -148,9 +161,16 @@ if __name__ == "__main__":
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0)
 
+    # Set random seed for reproducibility
+    np.random.seed(42)
+    tf.compat.v1.set_random_seed(42)
+    
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
                                 graph_number=100,
+                                use_difference_reward=True,  # Enable new reward scheme
+                                reward_clip_range=(-2.0, 2.0),
+                                epsilon=1e-9,
                                 graph_file_paths=[
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
