@@ -116,16 +116,26 @@ class CategoricalPd(Distribution):
         Returns:
             (numpy array): log likelihood
         """
-        softmax_pd = np.exp(logits) / sum(np.exp(logits))
+        # softmax_pd = np.exp(logits) / sum(np.exp(logits))
+        #
+        # targets_shape = list(np.array(xs).shape)
+        # final_shape = targets_shape.append(self._dim)
+        #
+        # targets = np.array(xs).reshape(-1)
+        # one_hot_targets = np.eye(self._dim)[targets].reshape(final_shape)
+        #
+        # log_p = np.sum(np.log(one_hot_targets *softmax_pd), axis=-1)
+        #
+        # return log_p
+        logits = np.asarray(logits)
+        e = np.exp(logits - np.amax(logits, axis=-1, keepdims=True))
+        softmax_pd = e / np.sum(e, axis=-1, keepdims=True)
 
-        targets_shape = list(np.array(xs).shape)
-        final_shape = targets_shape.append(self._dim)
+        xs = np.asarray(xs)
+        targets = xs.reshape(-1)
+        one_hot = np.eye(self._dim)[targets].reshape(list(xs.shape) + [self._dim])
 
-        targets = np.array(xs).reshape(-1)
-        one_hot_targets = np.eye(self._dim)[targets].reshape(final_shape)
-
-        log_p = np.sum(np.log(one_hot_targets *softmax_pd), axis=-1)
-
+        log_p = np.sum(np.log(np.maximum(one_hot * softmax_pd, 1e-12)), axis=-1)
         return log_p
 
     def entropy_sym(self, logits):
@@ -156,11 +166,17 @@ class CategoricalPd(Distribution):
           (numpy array): entropy
         """
 
+        # a0 = logits - np.amax(logits, axis=-1, keepdims=True)
+        # ea0 = np.exp(a0)
+        # z0 = np.sum(ea0, axis=-1, keepdims=True)
+        # p0 = ea0 / z0
+        # return np.sum(p0 * (tf.log(z0) - a0), axis=-1)
+        logits = np.asarray(logits)
         a0 = logits - np.amax(logits, axis=-1, keepdims=True)
-        ea0 = np.exp(a0)
-        z0 = np.sum(ea0, axis=-1, keepdims=True)
-        p0 = ea0 / z0
-        return np.sum(p0 * (tf.log(z0) - a0), axis=-1)
+        e = np.exp(a0)
+        z = np.sum(e, axis=-1, keepdims=True)
+        p = e / z
+        return np.sum(p * (np.log(z) - a0), axis=-1)
 
     def sample(self, logits):
         """

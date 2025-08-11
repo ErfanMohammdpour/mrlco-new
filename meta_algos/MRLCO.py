@@ -70,23 +70,59 @@ class MRLCO():
             self.r.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='r_ph_task_'+str(i)))
 
             with tf.compat.v1.variable_scope("inner_update_parameters_task_"+str(i)) as scope:
-                likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(self.actions[i], self.old_logits[i], self.new_logits[i])
+                # likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(self.actions[i], self.old_logits[i], self.new_logits[i])
+                # self.likelihood_ratio.append(likelihood_ratio)
+                #
+                # clipped_obj = tf.minimum(likelihood_ratio * self.advs[i] ,
+                #                          tf.clip_by_value(likelihood_ratio,
+                #                                           1.0 - self.clip_value,
+                #                                           1.0 + self.clip_value) * self.advs[i])
+                # self.clipped_obj.append(clipped_obj)
+                # self.surr_obj.append(-tf.reduce_mean(clipped_obj))
+                #
+                # vpredclipped = self.vpred[i] + tf.clip_by_value(self.vpred[i] - self.old_v[i], -self.clip_value, self.clip_value)
+                # vf_losses1 = tf.square(self.vpred[i] - self.r[i])
+                # vf_losses2 = tf.square(vpredclipped - self.r[i])
+                #
+                # self.vf_loss.append( .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2)) )
+                #
+                # self.total_loss.append( self.surr_obj[i] + self.vf_coef * self.vf_loss[i])
+
+                likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(
+                    self.actions[i], self.old_logits[i], self.new_logits[i]
+                )
                 self.likelihood_ratio.append(likelihood_ratio)
 
-                clipped_obj = tf.minimum(likelihood_ratio * self.advs[i] ,
-                                         tf.clip_by_value(likelihood_ratio,
-                                                          1.0 - self.clip_value,
-                                                          1.0 + self.clip_value) * self.advs[i])
+                ratio = likelihood_ratio
+                ratio_clipped = tf.clip_by_value(ratio, 1.0 - self.clip_value, 1.0 + self.clip_value)
+                surr1 = ratio * self.advs[i]
+                surr2 = ratio_clipped * self.advs[i]
+                clipped_obj = tf.where(self.advs[i] >= 0.0, tf.minimum(surr1, surr2), tf.maximum(surr1, surr2))
                 self.clipped_obj.append(clipped_obj)
-                self.surr_obj.append(-tf.reduce_mean(clipped_obj))
 
-                vpredclipped = self.vpred[i] + tf.clip_by_value(self.vpred[i] - self.old_v[i], -self.clip_value, self.clip_value)
+                max_T = tf.shape(self.new_logits[i])[1]
+                mask = tf.sequence_mask(self.decoder_full_length[i], maxlen=max_T, dtype=tf.float32)  # [B,T]
+
+                self.surr_obj.append(- tf.reduce_sum(clipped_obj * mask) / (tf.reduce_sum(mask) + 1e-8))
+
+                vpredclipped = self.vpred[i] + tf.clip_by_value(self.vpred[i] - self.old_v[i], -self.clip_value,
+                                                                self.clip_value)
                 vf_losses1 = tf.square(self.vpred[i] - self.r[i])
                 vf_losses2 = tf.square(vpredclipped - self.r[i])
+                vf_err = tf.maximum(vf_losses1, vf_losses2) * mask
+                self.vf_loss.append(0.5 * tf.reduce_sum(vf_err) / (tf.reduce_sum(mask) + 1e-8))
 
-                self.vf_loss.append( .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2)) )
+                logits = self.new_logits[i]
+                a0 = logits - tf.reduce_max(logits, axis=-1, keepdims=True)
+                ea0 = tf.exp(a0);
+                z0 = tf.reduce_sum(ea0, axis=-1, keepdims=True)
+                p0 = ea0 / z0
+                ent_per_t = tf.reduce_sum(p0 * (tf.log(z0) - a0), axis=-1)  # [B,T]
+                entropy_coef = 1e-2
+                ent_mean = tf.reduce_sum(ent_per_t * mask) / (tf.reduce_sum(mask) + 1e-8)
 
-                self.total_loss.append( self.surr_obj[i] + self.vf_coef * self.vf_loss[i])
+                self.total_loss.append(self.surr_obj[i] + self.vf_coef * self.vf_loss[i] - entropy_coef * ent_mean)
+
 
                 params = self.policy.meta_policies[i].network.get_trainable_variables()
 
@@ -104,34 +140,51 @@ class MRLCO():
         # feed in the parameters of inner policy network and update outer parameters.
         with tf.compat.v1.variable_scope("outer_update_parameters") as scope:
             core_network_parameters = self.policy.core_policy.get_trainable_variables()
+
+            # Placeholders to feed precomputed meta-gradients (same shape/dtype as params)
             self.grads_placeholders = []
-
             for i, var in enumerate(core_network_parameters):
-                self.grads_placeholders.append(tf.compat.v1.placeholder(shape=var.shape, dtype=var.dtype, name="grads_"+str(i)))
+                self.grads_placeholders.append(
+                    tf.compat.v1.placeholder(shape=var.shape, dtype=var.dtype, name="grads_%d" % i)
+                )
 
+            # Apply the fed gradients to the core parameters
             outer_grads_and_var = list(zip(self.grads_placeholders, core_network_parameters))
-
             self._outer_train = self.outer_optimizer.apply_gradients(outer_grads_and_var)
 
     def UpdateMetaPolicy(self):
-        # get the parameters value of the policy network
+        """
+        TF1-style outer update:
+        - Pull numpy values for core & per-task params
+        - First-order meta-grad approximation: (core - task)/(inner_lr*K*M*update_numbers)
+        - Feed the grads via placeholders and run self._outer_train
+        """
         sess = tf.compat.v1.get_default_session()
 
-        for i in range(self.meta_batch_size):
-            params_symbol = self.policy.meta_policies[i].get_trainable_variables()
-            core_params_symble = self.policy.core_policy.get_trainable_variables()
-            params = sess.run(params_symbol)
-            core_params = sess.run(core_params_symble)
+        core_params_sym = self.policy.core_policy.get_trainable_variables()
+        grads_accum = None  # numpy accumulators
 
-            update_feed_dict = {}
+        for t in range(self.meta_batch_size):
+            task_params_sym = self.policy.meta_policies[t].get_trainable_variables()
 
-            # calcuate the gradient updates for the meta policy through first-order approximation.
-            for i, core_var, meta_var in zip(itertools.count(), core_params, params):
-                grads = (core_var - meta_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
-                update_feed_dict[self.grads_placeholders[i]] = grads
+            # Fetch actual numpy values
+            core_vals, task_vals = sess.run([core_params_sym, task_params_sym])
 
-            # update the meta policy parameters.
-            _ = sess.run(self._outer_train, feed_dict=update_feed_dict)
+            # First-order meta-gradient (Reptile-style)
+            scale = (self.inner_lr * self.num_inner_grad_steps *
+                     self.meta_batch_size * self.update_numbers)
+            if grads_accum is None:
+                grads_accum = []
+                for core_v, task_v in zip(core_vals, task_vals):
+                    g = (core_v - task_v) / scale
+                    grads_accum.append(g)
+            else:
+                for i, (core_v, task_v) in enumerate(zip(core_vals, task_vals)):
+                    grads_accum[i] += (core_v - task_v) / scale
+
+        # Actually apply meta gradients
+        feed = {ph: g for ph, g in zip(self.grads_placeholders, grads_accum)}
+        sess.run(self._outer_train, feed_dict=feed)
 
         print("async core policy to meta-policy")
         self.policy.async_parameters()
@@ -172,22 +225,24 @@ class MRLCO():
 
         vf_loss = 0.0
         pg_loss = 0.0
+        dec_full_lens_batchs = np.split(np.array(task_samples['decoder_full_lengths'], dtype=np.int32), batch_number)
+
         # copy_policy.set_weights(self.policy.get_weights())
         for i in range(self.num_inner_grad_steps):
             # action, old_logits, _ = copy_policy(observations)
-            for old_logits, old_v, observations, actions, shift_actions, advs, r in zip(old_logits_batchs, oldvpred, observations_batchs, actions_batchs,
-                                                                                        shift_action_batchs, advs_batchs, returns):
-                decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
+            for old_logits, old_v, observations, actions, shift_actions, advs, r, dec_lens  in zip(old_logits_batchs, oldvpred, observations_batchs, actions_batchs,
+                                                                                        shift_action_batchs, advs_batchs, returns, dec_full_lens_batchs):
+                # decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
 
                 feed_dict = {self.old_logits[task_id]: old_logits, self.old_v[task_id]: old_v, self.obs[task_id]: observations, self.actions[task_id]: actions,
                             self.decoder_inputs[task_id]: shift_actions,
-                             self.decoder_full_length[task_id]: decoder_full_length, self.advs[task_id]: advs, self.r[task_id]: r}
+                             self.decoder_full_length[task_id]: dec_lens, self.advs[task_id]: advs, self.r[task_id]: r}
 
                 _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
-                    [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id], 
-                     self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]], 
+                    [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id],
+                     self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]],
                     feed_dict=feed_dict)
-                
+
                 # Debug logging
                 if i == 0 and task_id == 0:  # Log only for first iteration and task
                     print(f"\n[DEBUG] Loss calculation details:")

@@ -52,7 +52,10 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         decoder_full_lengths = np.array(observations.shape[0] * [observations.shape[1]])
         # 5) if desired normalize / shift advantages
         if self.normalize_adv:
-            advantages = utils.normalize_advantages(advantages)
+            mean = np.mean(advantages)
+            std = np.std(advantages)
+            advantages = (advantages - mean) / max(std, 1e-3)
+
         if self.positive_adv:
             advantages = utils.shift_advantages_to_positive(advantages)
 

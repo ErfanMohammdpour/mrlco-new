@@ -145,7 +145,7 @@ class Seq2SeqMetaSampler(Sampler):
         return paths
 
 def _get_empty_running_paths_dict():
-    return dict(observations=[], actions=[], logits=[], rewards=[])
+    return dict(observations=[], actions=[], logits=[], rewards=[], values=[], finish_time=[])
 
 
 
