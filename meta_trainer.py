@@ -192,7 +192,7 @@ if __name__ == "__main__":
     sampler = Seq2SeqMetaSampler(
         env=env,
         policy=meta_policy,
-        rollouts_per_meta_task=1,  # This batch_size is confusing
+        rollouts_per_meta_task=20,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
         max_path_length=20000,
         parallel=False,
@@ -206,10 +206,10 @@ if __name__ == "__main__":
     algo = MRLCO(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
-                         inner_lr=1e-3,  # Increased from 5e-4 to improve learning
-                         outer_lr=1e-3,  # Increased from 5e-4 to improve learning
+                         inner_lr=5e-4,  # Increased from 5e-4 to improve learning
+                         outer_lr=5e-4,  # Increased from 5e-4 to improve learning
                          meta_batch_size=META_BATCH_SIZE,
-                         num_inner_grad_steps=1,
+                         num_inner_grad_steps=3,
                          clip_value = 0.3)
 
     trainer = Trainer(algo = algo,
