@@ -2,23 +2,9 @@ i have got some errors and i want you to analize them correct the code based on 
 Traceback (most recent call last):
   File "meta_trainer.py", line 321, in <module>
     avg_ret, avg_loss, avg_latencies = trainer.train()
-  File "meta_trainer.py", line 54, in train
-    paths = self.sampler.obtain_samples(log=False, log_prefix='')
-  File "/home/mrlco-new/samplers/seq2seq_meta_sampler.py", line 99, in obtain_samples
-    next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
-  File "/home/mrlco-new/samplers/vectorized_env_executor.py", line 38, in step
-    all_results = [env.step(a) for (a, env) in zip(actions, self.envs)]
-  File "/home/mrlco-new/samplers/vectorized_env_executor.py", line 38, in <listcomp>
-    all_results = [env.step(a) for (a, env) in zip(actions, self.envs)]
-  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 225, in step
-    min_running_time_batch)
-  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 750, in get_reward_batch_step_by_step
-    rewards, task_finish_time = self.get_scheduling_cost_with_difference_reward(plan, task_graph)
-  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 608, in get_scheduling_cost_with_difference_reward
-    cp_before = self.compute_remaining_critical_path(scheduled_tasks, task_graph)
-  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 409, in compute_remaining_critical_path
-    for succ_id in task_graph.suc_task_sets[task_id]:
-AttributeError: 'OffloadingTaskGraph' object has no attribute 'suc_task_sets'
+  File "meta_trainer.py", line 97, in train
+    ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
+IndexError: list index out of range
 
 make sure you have to stick to this plan and the new logs added
 Context:

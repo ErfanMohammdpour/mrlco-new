@@ -93,13 +93,13 @@ class Trainer(object):
             """ ------------------- Logging Stuff --------------------------"""
 
             ret = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
 
             avg_reward = np.mean(ret)
 
             latency = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 latency = np.concatenate((latency, new_samples_data[i]['finish_time']), axis=-1)
 
             avg_latency = np.mean(latency)
