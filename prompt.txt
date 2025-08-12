@@ -1,35 +1,95 @@
-Do not change PPO/GAE/meta/architecture. Only add metrics and printing.
-NEW metrics to compute at end of each iteration (ESSENTIAL)
-lat_MA20
-Mean of the rolling buffer of average_latency_iter (use whatever is available until it fills 20).
+i have got some errors and i want you to analize them correct the code based on what i wanted in the first place
+Traceback (most recent call last):
+  File "meta_trainer.py", line 321, in <module>
+    avg_ret, avg_loss, avg_latencies = trainer.train()
+  File "meta_trainer.py", line 54, in train
+    paths = self.sampler.obtain_samples(log=False, log_prefix='')
+  File "/home/mrlco-new/samplers/seq2seq_meta_sampler.py", line 99, in obtain_samples
+    next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
+  File "/home/mrlco-new/samplers/vectorized_env_executor.py", line 38, in step
+    all_results = [env.step(a) for (a, env) in zip(actions, self.envs)]
+  File "/home/mrlco-new/samplers/vectorized_env_executor.py", line 38, in <listcomp>
+    all_results = [env.step(a) for (a, env) in zip(actions, self.envs)]
+  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 225, in step
+    min_running_time_batch)
+  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 750, in get_reward_batch_step_by_step
+    rewards, task_finish_time = self.get_scheduling_cost_with_difference_reward(plan, task_graph)
+  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 608, in get_scheduling_cost_with_difference_reward
+    cp_before = self.compute_remaining_critical_path(scheduled_tasks, task_graph)
+  File "/home/mrlco-new/env/mec_offloaing_envs/offloading_env.py", line 409, in compute_remaining_critical_path
+    for succ_id in task_graph.suc_task_sets[task_id]:
+AttributeError: 'OffloadingTaskGraph' object has no attribute 'suc_task_sets'
 
-gap_MA20 (aka (lat-greedy)_MA20)
-Mean of the rolling buffer of (average_latency_iter − greedy_latency_iter).
+make sure you have to stick to this plan and the new logs added
+Context:
+We already use a per-step difference reward with per-step normalization as the base step score for each task decision (local vs remote). Extend this by adding a critical-path potential shaping term. Do not change PPO/GAE/meta code. Do not rename or relocate existing components. Avoid introducing breaking changes.
 
-CP_before_med
-Median of all valid cp_before values for steps in this iteration.
+Add these runtime parameters (configurable at run time):
 
-CP_after_med
-Median of all valid cp_after values for steps in this iteration. Expect CP_after_med ≤ CP_before_med + small_threshold.
+cp_shaping_enabled (bool): default true for this feature.
 
-CP_drop_med
-Median of (cp_before − cp_after) over steps that have both values.
+cp_discount (float in (0,1]): default 0.99.
 
-shape_base_ratio_med
-Median over steps of
-abs(shaping_contribution) / (abs(base_step_score) + small_threshold)
-(compute only where a base score exists).
+cp_coefficient (float > 0): default 1.0.
 
-clamp_hit_frac
-Fraction of steps where final_step_score is within small_threshold of either clamp bound.
+cp_normalize_mode (string): one of "none", "divide_by_p75"; default "none".
 
-cp_violation_count
-Count of steps where cp_after > cp_before + small_threshold.
+cp_scale (float > 0, optional): default None. Used only if cp_normalize_mode needs an external scale value.
 
-Rules:
+small_threshold (tiny positive float): default 1e-9 (for numeric comparisons).
 
-If a required array is empty this iteration, emit nan for its metric (or 0 for counts).
+Leave the existing reward_clip_range as-is (same clamp used for the base reward).
 
-Use the same time unit everywhere (e.g., ms).
+At every decision step, compute a non-mutating estimate of “remaining critical-path time”:
 
-Exclude non-finite values from medians.
+Consider only the unscheduled tasks and the edges among them (the current partial schedule defines which tasks are “remaining”).
+
+For each remaining task u, define a best single-node duration:
+node_duration(u) = min( local_exec_time(u), uplink_time(u) + edge_exec_time(u) + downlink_time(u) ).
+(Use the same timing model already used to preview local vs remote; ignore queues/waits here.)
+
+Compute the longest path sum on the remaining sub-DAG using node_duration as node weights: in topological order,
+accumulated[u] = node_duration(u) + max(accumulated[p] over remaining predecessors p), default 0 if none.
+The remaining critical-path time is the maximum accumulated value over remaining tasks.
+
+This computation must be pure (no mutation of live scheduling state) and fast (linear in remaining nodes/edges).
+
+Form the shaping term and combine with the base step score:
+
+Before applying the chosen action, compute cp_before on the remaining sub-DAG.
+
+After applying the chosen action (or via a non-mutating preview of the “after” state), compute cp_after on the new remaining sub-DAG.
+
+If cp_normalize_mode == "divide_by_p75" and cp_scale is provided (>0), divide both cp_before and cp_after by cp_scale before using them. Otherwise leave as is.
+
+Compute shaping contribution:
+shaping_contribution = cp_coefficient * ( cp_before - cp_discount * cp_after ).
+
+The final step score used for learning = base difference-reward step score (already normalized per-step) + shaping_contribution.
+Clamp the final step score with the existing reward_clip_range.
+
+Invariants / assertions (executed during training):
+
+cp_after <= cp_before + small_threshold (remaining CP must not increase).
+
+At the end of an episode (no remaining tasks), remaining CP is 0 within small_threshold.
+
+Diagnostics to log per step (aggregate per episode later):
+
+cp_before, cp_after, and (cp_before - cp_after).
+
+shaping_contribution.
+
+Ratio abs(shaping_contribution) / (abs(base_step_score) + small_threshold) so we can monitor dominance.
+
+Final step score after clamping.
+
+Keep all existing Step-1 diagnostics (Δ for both choices, chosen Δ, base normalized score, etc.).
+
+Do not:
+
+Do not alter the policy/value architectures, PPO/GAE settings, task ordering, or encoder.
+
+Do not depend on any external libraries beyond what the project already uses.
+
+Generate the code changes to implement the above behavior, fully wired into the existing reward path and diagnostics, guarded by the provided runtime parameters.

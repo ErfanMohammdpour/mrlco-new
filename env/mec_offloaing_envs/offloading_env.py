@@ -406,7 +406,7 @@ class OffloadingEnvironment(MetaEnv):
         # We need to process in topological order to compute accumulated paths
         in_degree = {task_id: 0 for task_id in remaining_tasks}
         for task_id in remaining_tasks:
-            for succ_id in task_graph.suc_task_sets[task_id]:
+            for succ_id in task_graph.succ_task_sets[task_id]:
                 if succ_id in remaining_tasks:
                     in_degree[succ_id] += 1
         
@@ -430,7 +430,7 @@ class OffloadingEnvironment(MetaEnv):
             accumulated[task_id] = node_durations[task_id] + max_pred_accumulated
             
             # Update successors
-            for succ_id in task_graph.suc_task_sets[task_id]:
+            for succ_id in task_graph.succ_task_sets[task_id]:
                 if succ_id in remaining_tasks:
                     in_degree[succ_id] -= 1
                     if in_degree[succ_id] == 0:
