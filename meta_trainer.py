@@ -40,6 +40,11 @@ class Trainer(object):
         policy_losses_all = []
         value_losses_all = []
         greedy_latencies_all = []
+        
+        # Rolling buffers for MA20 metrics
+        from collections import deque
+        latency_rolling_buffer = deque(maxlen=20)
+        gap_rolling_buffer = deque(maxlen=20)
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -99,11 +104,74 @@ class Trainer(object):
 
             avg_latency = np.mean(latency)
             avg_latencies.append(avg_latency)
-
-
+            
+            # Update rolling buffers
+            greedy_latency_iter = np.mean(greedy_run_time)
+            latency_rolling_buffer.append(avg_latency)
+            gap_rolling_buffer.append(avg_latency - greedy_latency_iter)
+            
+            # Compute MA20 metrics
+            lat_MA20 = np.mean(latency_rolling_buffer) if latency_rolling_buffer else np.nan
+            gap_MA20 = np.mean(gap_rolling_buffer) if gap_rolling_buffer else np.nan
+            
+            # Collect CP-related metrics from diagnostic data
+            cp_before_values = []
+            cp_after_values = []
+            cp_drop_values = []
+            shape_base_ratios = []
+            clamp_hits = 0
+            cp_violations = 0
+            
+            if self.env.cp_shaping_enabled and self.env.diagnostic_data['cp_before']:
+                # Extract valid (finite) values
+                cp_before_values = [v for v in self.env.diagnostic_data['cp_before'] if np.isfinite(v)]
+                cp_after_values = [v for v in self.env.diagnostic_data['cp_after'] if np.isfinite(v)]
+                
+                # Compute CP drops where both values exist and are finite
+                for cb, ca in zip(self.env.diagnostic_data['cp_before'], self.env.diagnostic_data['cp_after']):
+                    if np.isfinite(cb) and np.isfinite(ca):
+                        cp_drop_values.append(cb - ca)
+                        # Check for CP violations
+                        if ca > cb + self.env.small_threshold:
+                            cp_violations += 1
+                
+                # Compute shape/base ratios
+                for sc, r_norm in zip(self.env.diagnostic_data['shaping_contribution'], self.env.diagnostic_data['r_norm']):
+                    if np.isfinite(sc) and np.isfinite(r_norm):
+                        ratio = abs(sc) / (abs(r_norm) + self.env.small_threshold)
+                        shape_base_ratios.append(ratio)
+                
+                # Check clamp hits
+                for final_score in self.env.diagnostic_data['final_step_score']:
+                    if np.isfinite(final_score):
+                        if abs(final_score - self.env.reward_clip_range[0]) < self.env.small_threshold or \
+                           abs(final_score - self.env.reward_clip_range[1]) < self.env.small_threshold:
+                            clamp_hits += 1
+            
+            # Compute median metrics
+            CP_before_med = np.median(cp_before_values) if cp_before_values else np.nan
+            CP_after_med = np.median(cp_after_values) if cp_after_values else np.nan
+            CP_drop_med = np.median(cp_drop_values) if cp_drop_values else np.nan
+            shape_base_ratio_med = np.median(shape_base_ratios) if shape_base_ratios else np.nan
+            
+            # Compute clamp hit fraction
+            total_steps = len(self.env.diagnostic_data['final_step_score']) if self.env.diagnostic_data['final_step_score'] else 0
+            clamp_hit_frac = clamp_hits / total_steps if total_steps > 0 else np.nan
+            
+            # Log all metrics
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+            
+            # Log new metrics
+            logger.logkv('lat_MA20', lat_MA20)
+            logger.logkv('gap_MA20', gap_MA20)
+            logger.logkv('CP_before_med', CP_before_med)
+            logger.logkv('CP_after_med', CP_after_med)
+            logger.logkv('CP_drop_med', CP_drop_med)
+            logger.logkv('shape_base_ratio_med', shape_base_ratio_med)
+            logger.logkv('clamp_hit_frac', clamp_hit_frac)
+            logger.logkv('cp_violation_count', cp_violations)
             
             # Log diagnostic data if using difference reward
             if self.env.use_difference_reward:
@@ -171,6 +239,12 @@ if __name__ == "__main__":
                                 use_difference_reward=True,  # Enable new reward scheme
                                 reward_clip_range=(-2.0, 2.0),
                                 epsilon=1e-9,
+                                cp_shaping_enabled=True,  # Enable critical-path shaping
+                                cp_discount=0.99,
+                                cp_coefficient=1.0,
+                                cp_normalize_mode="none",
+                                cp_scale=None,
+                                small_threshold=1e-9,
                                 graph_file_paths=[
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",

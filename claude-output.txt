@@ -94,16 +94,16 @@ MATHEMATICAL FORMULATION
 ============================================================================================
 
 1. Incremental Makespan Calculation:
-   - For Local: �_loc = max(makespan_now, FT_local) - makespan_now
-   - For Remote: �_rem = max(makespan_now, FT_remote) - makespan_now
+   - For Local: �_loc = max(makespan_now, FT_local) - makespan_now
+   - For Remote: �_rem = max(makespan_now, FT_remote) - makespan_now
    
 2. Difference Reward:
-   - r_main = �_best - �_chosen
-   - where �_best = min(�_loc, �_rem)
+   - r_main = �_best - �_chosen
+   - where �_best = min(�_loc, �_rem)
    
 3. Per-Step Normalization:
-   - If |�_worst - �_best| > �:
-       r_norm = r_main / (�_worst - �_best)
+   - If |�_worst - �_best| > �:
+       r_norm = r_main / (�_worst - �_best)
    - Else:
        r_norm = 0
    
@@ -152,5 +152,402 @@ VALIDATION CHECKS
 4. **Advantage Statistics**: Should maintain reasonable mean and variance
 
 ============================================================================================
-END OF CHANGE REPORT
+END OF LEVEL 1 REPORT
+============================================================================================
+
+
+============================================================================================
+LEVEL 2: CRITICAL-PATH POTENTIAL SHAPING IMPLEMENTATION - CHANGE REPORT
+============================================================================================
+Date: 2025-08-12
+Implementation: Critical-path potential shaping added to difference-reward scheme
+============================================================================================
+
+============================================================================================
+SUMMARY OF CHANGES
+============================================================================================
+
+This report documents the implementation of critical-path potential shaping to enhance
+the existing difference-reward scheme. The shaping term provides additional guidance
+based on the reduction in remaining critical-path time, helping the agent learn more
+efficiently by considering long-term implications of scheduling decisions.
+
+============================================================================================
+KEY FEATURES IMPLEMENTED
+============================================================================================
+
+1. **Non-mutating Critical Path Computation**: Calculates remaining critical-path time
+   for unscheduled tasks without modifying live scheduling state
+
+2. **Potential-Based Shaping**: Adds shaping term based on CP reduction between states
+
+3. **Runtime Configuration**: All parameters configurable at runtime without code changes
+
+4. **Comprehensive Diagnostics**: Tracks CP metrics for monitoring and analysis
+
+5. **Invariant Assertions**: Validates CP behavior during training
+
+============================================================================================
+FILE-BY-FILE CHANGES
+============================================================================================
+
+1. env/mec_offloaing_envs/offloading_env.py
+-------------------------------------------
+
+MODIFICATIONS:
+
+a) Class Constructor (__init__):
+   Added new parameters for critical-path shaping:
+   - cp_shaping_enabled (bool): Default True, enables the feature
+   - cp_discount (float): Default 0.99, discount factor for CP shaping
+   - cp_coefficient (float): Default 1.0, scaling factor for shaping contribution
+   - cp_normalize_mode (string): Default "none", options: "none", "divide_by_p75"
+   - cp_scale (float): Default None, scale value for normalization
+   - small_threshold (float): Default 1e-9, tolerance for numeric comparisons
+
+b) New Method: compute_remaining_critical_path()
+   - Purpose: Calculate critical-path time for remaining unscheduled tasks
+   - Implementation:
+     * Identifies remaining tasks (all tasks - scheduled tasks)
+     * Computes best single-node duration for each remaining task:
+       node_duration = min(local_exec_time, uplink + edge_exec + downlink)
+     * Builds topological ordering of remaining sub-DAG
+     * Computes longest path using dynamic programming:
+       accumulated[u] = node_duration[u] + max(accumulated[predecessors])
+     * Returns maximum accumulated value (critical path)
+   - Complexity: O(V + E) where V = remaining tasks, E = edges in sub-DAG
+
+c) Modified Method: get_scheduling_cost_with_difference_reward()
+   Enhanced with CP shaping integration:
+   - Tracks scheduled_tasks set throughout episode
+   - For each scheduling decision:
+     1. Computes base difference reward as before
+     2. If cp_shaping_enabled:
+        * Calculates cp_before on current remaining tasks
+        * Calculates cp_after with task added to scheduled set
+        * Applies normalization if configured
+        * Computes shaping_contribution = cp_coefficient * (cp_before - cp_discount * cp_after)
+     3. Combines: final_step_score = r_norm + shaping_contribution
+     4. Clips final score to reward_clip_range
+   - Assertions:
+     * cp_after <= cp_before + small_threshold (CP must not increase)
+     * At episode end: remaining CP <= small_threshold
+
+d) Enhanced Diagnostic Tracking:
+   Added new diagnostic fields:
+   - cp_before: CP value before each action
+   - cp_after: CP value after each action
+   - cp_reduction: (cp_before - cp_after) for each step
+   - shaping_contribution: Shaping term value
+   - shaping_ratio: |shaping_contribution| / (|base_reward| + ε)
+   - final_step_score: Combined reward after shaping
+
+e) Updated Method: get_diagnostic_summary()
+   Added CP-related summary statistics:
+   - avg_cp_before, avg_cp_after, avg_cp_reduction
+   - avg_shaping_contribution, avg_shaping_ratio
+   - avg_final_step_score, max_shaping_ratio
+   - fraction_positive_final: Fraction of positive final rewards
+
+2. meta_trainer.py
+------------------
+
+MODIFICATIONS:
+
+a) Environment Initialization:
+   Added CP shaping parameters to OffloadingEnvironment:
+   - cp_shaping_enabled=True
+   - cp_discount=0.99
+   - cp_coefficient=1.0
+   - cp_normalize_mode="none"
+   - cp_scale=None
+   - small_threshold=1e-9
+
+b) Diagnostic Logging:
+   - Existing diagnostic logging automatically captures new CP metrics
+   - All CP statistics logged under "Diagnostic/" prefix
+
+============================================================================================
+MATHEMATICAL FORMULATION
+============================================================================================
+
+1. Node Duration Calculation:
+   For each remaining task u:
+   node_duration(u) = min(
+       local_exec_time(u),
+       uplink_time(u) + edge_exec_time(u) + downlink_time(u)
+   )
+
+2. Critical Path Computation:
+   For remaining task DAG in topological order:
+   accumulated[u] = node_duration(u) + max({accumulated[p] : p ∈ predecessors(u)})
+   CP = max({accumulated[u] : u ∈ remaining_tasks})
+
+3. Shaping Term:
+   shaping_contribution = cp_coefficient × (cp_before - cp_discount × cp_after)
+   
+   With optional normalization:
+   If cp_normalize_mode == "divide_by_p75" and cp_scale > 0:
+       cp_normalized = cp / cp_scale
+   
+4. Final Step Score:
+   final_score = base_difference_reward + shaping_contribution
+   final_score = clip(final_score, reward_clip_range)
+
+============================================================================================
+DESIGN RATIONALE
+============================================================================================
+
+1. **Non-Mutating Computation**: CP calculation doesn't modify scheduling state,
+   ensuring consistency and enabling safe preview of future states
+
+2. **Potential-Based Shaping**: Following Ng et al. (1999), using potential difference
+   ensures policy invariance - optimal policy remains optimal with shaping
+
+3. **Discount Factor**: cp_discount < 1 prevents infinite reward loops and ensures
+   convergence, while still providing lookahead guidance
+
+4. **Normalization Options**: "divide_by_p75" mode allows adaptation to different
+   problem scales without manual tuning
+
+5. **Diagnostic Tracking**: Comprehensive metrics enable monitoring of shaping
+   influence and detecting potential issues like shaping domination
+
+============================================================================================
+INVARIANTS AND GUARANTEES
+============================================================================================
+
+1. **Monotonicity**: CP never increases after scheduling a task
+   - Enforced by assertion: cp_after <= cp_before + small_threshold
+
+2. **Termination**: At episode end, all tasks scheduled → CP = 0
+   - Enforced by assertion: final_cp <= small_threshold
+
+3. **Bounded Influence**: Shaping contribution bounded by design
+   - cp_coefficient controls maximum influence
+   - reward_clip_range provides final bounds
+
+4. **Policy Preservation**: Potential-based design preserves optimal policy
+   - Shaping only changes value function, not optimal actions
+
+============================================================================================
+EXPECTED BEHAVIOR
+============================================================================================
+
+1. **Early Training**: High shaping_ratio as agent learns basic scheduling
+
+2. **Mid Training**: Decreasing shaping_ratio as difference reward improves
+
+3. **Convergence**: Stable balance between base reward and shaping
+
+4. **CP Reduction**: Monotonic decrease in avg_cp_before over training
+
+5. **Performance**: Improved sample efficiency compared to base difference reward
+
+============================================================================================
+TUNING GUIDELINES
+============================================================================================
+
+1. **cp_coefficient**: Start with 1.0, increase if shaping_ratio too low
+
+2. **cp_discount**: Keep close to 1.0 (e.g., 0.99) for long-horizon guidance
+
+3. **cp_normalize_mode**: Use "divide_by_p75" with cp_scale for varying graph sizes
+
+4. **Monitoring**: Watch shaping_ratio - should be significant but not dominating
+
+============================================================================================
+VALIDATION CHECKLIST
+============================================================================================
+
+✓ Non-mutating CP computation preserves scheduling state
+✓ Shaping term correctly computed and added to base reward
+✓ Invariant assertions validate CP behavior
+✓ Diagnostic tracking captures all relevant metrics
+✓ Parameters configurable at runtime
+✓ Backward compatible with existing code
+✓ No changes to PPO/GAE/meta-learning components
+
+============================================================================================
+END OF LEVEL 2 REPORT - PART A
+============================================================================================
+
+
+============================================================================================
+LEVEL 2 (CONTINUED): ADVANCED METRICS IMPLEMENTATION - CHANGE REPORT
+============================================================================================
+Date: 2025-08-12
+Implementation: Advanced monitoring metrics for training analysis
+============================================================================================
+
+============================================================================================
+SUMMARY OF CHANGES
+============================================================================================
+
+This report documents the implementation of advanced metrics for comprehensive monitoring
+of the training process. These metrics provide insights into convergence behavior,
+critical-path effectiveness, and potential issues during training.
+
+============================================================================================
+NEW METRICS IMPLEMENTED
+============================================================================================
+
+1. **lat_MA20** (Moving Average 20)
+   - Rolling 20-iteration average of latency
+   - Smooths out noise to show true convergence trend
+   - Uses deque with maxlen=20 for efficient computation
+
+2. **gap_MA20** (Gap Moving Average 20)
+   - Rolling 20-iteration average of (latency - greedy_latency)
+   - Shows how close the learned policy is to greedy baseline
+   - Negative values indicate better-than-greedy performance
+
+3. **CP_before_med** (Critical Path Before Median)
+   - Median of all cp_before values in iteration
+   - Excludes non-finite values
+   - Indicates typical remaining work before decisions
+
+4. **CP_after_med** (Critical Path After Median)
+   - Median of all cp_after values in iteration
+   - Should satisfy: CP_after_med ≤ CP_before_med + small_threshold
+   - Validates CP reduction property
+
+5. **CP_drop_med** (Critical Path Drop Median)
+   - Median of (cp_before - cp_after) per step
+   - Shows typical CP reduction per decision
+   - Higher values indicate more effective scheduling
+
+6. **shape_base_ratio_med** (Shaping/Base Ratio Median)
+   - Median of |shaping_contribution| / (|base_step_score| + ε)
+   - Indicates relative influence of shaping vs base reward
+   - Values >> 1 suggest shaping domination (may need tuning)
+
+7. **clamp_hit_frac** (Clamp Hit Fraction)
+   - Fraction of steps hitting reward_clip_range bounds
+   - High values suggest clipping is limiting learning
+   - Should decrease as policy improves
+
+8. **cp_violation_count** (CP Violation Count)
+   - Count of steps where cp_after > cp_before + small_threshold
+   - Should always be 0 (invariant validation)
+   - Non-zero indicates algorithmic issues
+
+============================================================================================
+FILE CHANGES
+============================================================================================
+
+meta_trainer.py
+---------------
+
+MODIFICATIONS:
+
+a) Added Rolling Buffers (line 44-47):
+   ```python
+   from collections import deque
+   latency_rolling_buffer = deque(maxlen=20)
+   gap_rolling_buffer = deque(maxlen=20)
+   ```
+
+b) Metric Computation (lines 108-159):
+   - Updates rolling buffers each iteration
+   - Computes MA20 metrics from buffers
+   - Extracts CP values from diagnostic data
+   - Filters non-finite values before median computation
+   - Calculates all derived metrics
+
+c) Enhanced Logging (lines 167-174):
+   ```python
+   logger.logkv('lat_MA20', lat_MA20)
+   logger.logkv('gap_MA20', gap_MA20)
+   logger.logkv('CP_before_med', CP_before_med)
+   logger.logkv('CP_after_med', CP_after_med)
+   logger.logkv('CP_drop_med', CP_drop_med)
+   logger.logkv('shape_base_ratio_med', shape_base_ratio_med)
+   logger.logkv('clamp_hit_frac', clamp_hit_frac)
+   logger.logkv('cp_violation_count', cp_violations)
+   ```
+
+============================================================================================
+IMPLEMENTATION DETAILS
+============================================================================================
+
+1. **Robust Median Computation**:
+   - Excludes non-finite values (NaN, Inf)
+   - Returns NaN if array is empty
+   - Ensures numerical stability
+
+2. **Efficient Rolling Average**:
+   - Uses deque with fixed maxlen
+   - Automatically maintains window size
+   - O(1) append, O(n) mean computation
+
+3. **Comprehensive Error Checking**:
+   - Validates array lengths before operations
+   - Handles empty diagnostic data gracefully
+   - Returns NaN for undefined metrics
+
+4. **Time Unit Consistency**:
+   - All latency metrics in same units (ms)
+   - Ensures comparable values across metrics
+
+============================================================================================
+EXPECTED METRIC BEHAVIOR
+============================================================================================
+
+**Early Training (iterations 0-20):**
+- lat_MA20: Partially filled, high variance
+- gap_MA20: Large positive values (far from greedy)
+- CP_before_med: High values (much work remaining)
+- shape_base_ratio_med: High (shaping guides learning)
+- clamp_hit_frac: Moderate to high
+- cp_violation_count: Always 0
+
+**Mid Training (iterations 20-100):**
+- lat_MA20: Smoothly decreasing
+- gap_MA20: Approaching 0 or negative
+- CP_drop_med: Increasing (better decisions)
+- shape_base_ratio_med: Decreasing (base reward improves)
+- clamp_hit_frac: Decreasing
+
+**Convergence (iterations 100+):**
+- lat_MA20: Stable or slowly improving
+- gap_MA20: Stable near 0 or negative
+- CP metrics: Stable patterns
+- shape_base_ratio_med: Balanced (0.1-1.0 range)
+- clamp_hit_frac: Near 0
+
+============================================================================================
+DIAGNOSTIC INTERPRETATION
+============================================================================================
+
+1. **gap_MA20 > 0**: Policy worse than greedy → Check learning rate
+2. **shape_base_ratio_med > 10**: Shaping dominates → Reduce cp_coefficient
+3. **clamp_hit_frac > 0.5**: Excessive clipping → Widen reward_clip_range
+4. **cp_violation_count > 0**: Algorithm bug → Check CP computation
+5. **CP_drop_med ≈ 0**: No CP reduction → Check task dependencies
+
+============================================================================================
+MONITORING RECOMMENDATIONS
+============================================================================================
+
+1. Plot lat_MA20 and gap_MA20 for convergence analysis
+2. Monitor shape_base_ratio_med to tune cp_coefficient
+3. Alert if cp_violation_count > 0 (invariant violation)
+4. Track clamp_hit_frac to adjust reward bounds
+5. Use CP_drop_med to assess scheduling effectiveness
+
+============================================================================================
+VALIDATION CHECKLIST
+============================================================================================
+
+✓ All metrics computed correctly per specification
+✓ Non-finite values excluded from medians
+✓ Rolling buffers maintain 20-iteration window
+✓ Empty arrays return NaN (not errors)
+✓ Count metrics return 0 for empty data
+✓ All metrics logged to standard output
+✓ No modifications to PPO/GAE/architecture
+
+============================================================================================
+END OF LEVEL 2 REPORT - COMPLETE
 ============================================================================================

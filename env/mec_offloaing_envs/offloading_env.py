@@ -60,7 +60,13 @@ class OffloadingEnvironment(MetaEnv):
                  graph_file_paths, time_major,
                  use_difference_reward=True,
                  reward_clip_range=(-2.0, 2.0),
-                 epsilon=1e-9):
+                 epsilon=1e-9,
+                 cp_shaping_enabled=True,
+                 cp_discount=0.99,
+                 cp_coefficient=1.0,
+                 cp_normalize_mode="none",
+                 cp_scale=None,
+                 small_threshold=1e-9):
         self.resource_cluster = resource_cluster
         self.task_graphs_batchs = []
         self.encoder_batchs = []
@@ -75,6 +81,14 @@ class OffloadingEnvironment(MetaEnv):
         self.reward_clip_range = reward_clip_range
         self.epsilon = epsilon
         
+        # Critical-path shaping configuration
+        self.cp_shaping_enabled = cp_shaping_enabled
+        self.cp_discount = cp_discount
+        self.cp_coefficient = cp_coefficient
+        self.cp_normalize_mode = cp_normalize_mode
+        self.cp_scale = cp_scale
+        self.small_threshold = small_threshold
+        
         # Diagnostic tracking
         self.diagnostic_data = {
             'delta_loc': [],
@@ -84,7 +98,13 @@ class OffloadingEnvironment(MetaEnv):
             'delta_worst': [],
             'r_main': [],
             'r_norm': [],
-            'action_is_best': []
+            'action_is_best': [],
+            'cp_before': [],
+            'cp_after': [],
+            'cp_reduction': [],
+            'shaping_contribution': [],
+            'shaping_ratio': [],
+            'final_step_score': []
         }
 
         # load all the task graphs into the evnironment
@@ -347,6 +367,78 @@ class OffloadingEnvironment(MetaEnv):
         
         return delta_makespan
     
+    def compute_remaining_critical_path(self, scheduled_tasks, task_graph):
+        """
+        Compute the critical-path time for remaining (unscheduled) tasks.
+        This is a non-mutating computation.
+        
+        Args:
+            scheduled_tasks: Set of task IDs already scheduled
+            task_graph: The task graph object
+            
+        Returns:
+            cp_time: Maximum critical path time over remaining tasks
+        """
+        # Identify remaining tasks
+        remaining_tasks = set(range(task_graph.task_number)) - scheduled_tasks
+        
+        if not remaining_tasks:
+            return 0.0
+        
+        # Compute node durations for remaining tasks
+        node_durations = {}
+        for task_id in remaining_tasks:
+            task = task_graph.task_list[task_id]
+            
+            # Local execution time
+            local_time = self.resource_cluster.locally_execution_cost(task.processing_data_size)
+            
+            # Remote execution time (uplink + edge + downlink)
+            uplink_time = self.resource_cluster.up_transmission_cost(task.processing_data_size)
+            edge_time = self.resource_cluster.mec_execution_cost(task.processing_data_size)
+            downlink_time = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+            remote_time = uplink_time + edge_time + downlink_time
+            
+            # Best single-node duration
+            node_durations[task_id] = min(local_time, remote_time)
+        
+        # Build topological order for remaining tasks
+        # We need to process in topological order to compute accumulated paths
+        in_degree = {task_id: 0 for task_id in remaining_tasks}
+        for task_id in remaining_tasks:
+            for succ_id in task_graph.suc_task_sets[task_id]:
+                if succ_id in remaining_tasks:
+                    in_degree[succ_id] += 1
+        
+        # Initialize accumulated path values
+        accumulated = {task_id: 0.0 for task_id in remaining_tasks}
+        
+        # Process in topological order
+        queue = [task_id for task_id in remaining_tasks if in_degree[task_id] == 0]
+        processed = set()
+        
+        while queue:
+            task_id = queue.pop(0)
+            processed.add(task_id)
+            
+            # Compute accumulated value for this task
+            max_pred_accumulated = 0.0
+            for pred_id in task_graph.pre_task_sets[task_id]:
+                if pred_id in remaining_tasks:
+                    max_pred_accumulated = max(max_pred_accumulated, accumulated[pred_id])
+            
+            accumulated[task_id] = node_durations[task_id] + max_pred_accumulated
+            
+            # Update successors
+            for succ_id in task_graph.suc_task_sets[task_id]:
+                if succ_id in remaining_tasks:
+                    in_degree[succ_id] -= 1
+                    if in_degree[succ_id] == 0:
+                        queue.append(succ_id)
+        
+        # Return maximum accumulated value (critical path)
+        return max(accumulated.values()) if accumulated else 0.0
+    
     def get_scheduling_cost_step_by_step(self, plan, task_graph):
         cloud_avaliable_time = 0.0
         ws_avaliable_time =0.0
@@ -465,12 +557,13 @@ class OffloadingEnvironment(MetaEnv):
         
         current_makespan = 0.0
         return_rewards = []
+        scheduled_tasks = set()
         
         # Clear diagnostics for new episode
         for key in self.diagnostic_data:
             self.diagnostic_data[key] = []
         
-        for item in plan:
+        for step_idx, item in enumerate(plan):
             task_id = item[0]
             action = item[1]
             
@@ -502,9 +595,42 @@ class OffloadingEnvironment(MetaEnv):
             else:
                 r_norm = 0.0
             
-            # Clip to [-1, 1] then to final range
+            # Clip base reward to [-1, 1]
             r_norm = np.clip(r_norm, -1.0, 1.0)
-            r_norm = np.clip(r_norm, self.reward_clip_range[0], self.reward_clip_range[1])
+            
+            # Compute critical-path shaping if enabled
+            shaping_contribution = 0.0
+            cp_before = 0.0
+            cp_after = 0.0
+            
+            if self.cp_shaping_enabled:
+                # Compute CP before action
+                cp_before = self.compute_remaining_critical_path(scheduled_tasks, task_graph)
+                
+                # Compute CP after action (with task_id added to scheduled)
+                scheduled_after = scheduled_tasks | {task_id}
+                cp_after = self.compute_remaining_critical_path(scheduled_after, task_graph)
+                
+                # Apply normalization if needed
+                if self.cp_normalize_mode == "divide_by_p75" and self.cp_scale is not None and self.cp_scale > 0:
+                    cp_before_normalized = cp_before / self.cp_scale
+                    cp_after_normalized = cp_after / self.cp_scale
+                else:
+                    cp_before_normalized = cp_before
+                    cp_after_normalized = cp_after
+                
+                # Compute shaping contribution
+                shaping_contribution = self.cp_coefficient * (cp_before_normalized - self.cp_discount * cp_after_normalized)
+                
+                # Assert invariants
+                assert cp_after <= cp_before + self.small_threshold, \
+                    f"CP increased: cp_before={cp_before}, cp_after={cp_after} at step {step_idx}"
+            
+            # Combine base reward with shaping
+            final_step_score = r_norm + shaping_contribution
+            
+            # Clip final score to reward_clip_range
+            final_step_score = np.clip(final_step_score, self.reward_clip_range[0], self.reward_clip_range[1])
             
             # Store diagnostics
             self.diagnostic_data['delta_loc'].append(delta_loc)
@@ -514,6 +640,13 @@ class OffloadingEnvironment(MetaEnv):
             self.diagnostic_data['delta_worst'].append(delta_worst)
             self.diagnostic_data['r_main'].append(r_main)
             self.diagnostic_data['r_norm'].append(r_norm)
+            self.diagnostic_data['cp_before'].append(cp_before)
+            self.diagnostic_data['cp_after'].append(cp_after)
+            self.diagnostic_data['cp_reduction'].append(cp_before - cp_after)
+            self.diagnostic_data['shaping_contribution'].append(shaping_contribution)
+            shaping_ratio = abs(shaping_contribution) / (abs(r_norm) + self.small_threshold)
+            self.diagnostic_data['shaping_ratio'].append(shaping_ratio)
+            self.diagnostic_data['final_step_score'].append(final_step_score)
             
             # Check if action matches best option
             action_is_best = False
@@ -584,7 +717,18 @@ class OffloadingEnvironment(MetaEnv):
             
             # Update makespan
             current_makespan = max(task_finish_time, current_makespan)
-            return_rewards.append(r_norm)
+            
+            # Mark task as scheduled
+            scheduled_tasks.add(task_id)
+            
+            # Return the final step score (includes shaping if enabled)
+            return_rewards.append(final_step_score)
+        
+        # Final assertion: at episode end, remaining CP should be 0
+        if self.cp_shaping_enabled:
+            final_cp = self.compute_remaining_critical_path(scheduled_tasks, task_graph)
+            assert final_cp <= self.small_threshold, \
+                f"Non-zero critical path at episode end: {final_cp}"
         
         return return_rewards, current_makespan
 
@@ -819,6 +963,19 @@ class OffloadingEnvironment(MetaEnv):
             'fraction_best_action': np.mean(self.diagnostic_data['action_is_best']),
             'fraction_positive_reward': np.mean([r > 0 for r in self.diagnostic_data['r_norm']])
         }
+        
+        # Add CP-related diagnostics if shaping is enabled
+        if self.cp_shaping_enabled and self.diagnostic_data['cp_before']:
+            summary.update({
+                'avg_cp_before': np.mean(self.diagnostic_data['cp_before']),
+                'avg_cp_after': np.mean(self.diagnostic_data['cp_after']),
+                'avg_cp_reduction': np.mean(self.diagnostic_data['cp_reduction']),
+                'avg_shaping_contribution': np.mean(self.diagnostic_data['shaping_contribution']),
+                'avg_shaping_ratio': np.mean(self.diagnostic_data['shaping_ratio']),
+                'avg_final_step_score': np.mean(self.diagnostic_data['final_step_score']),
+                'max_shaping_ratio': np.max(self.diagnostic_data['shaping_ratio']),
+                'fraction_positive_final': np.mean([r > 0 for r in self.diagnostic_data['final_step_score']])
+            })
         
         return summary
 

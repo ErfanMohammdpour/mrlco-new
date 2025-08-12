@@ -1,71 +1,35 @@
-goal: Replace the current reward with a difference-reward scheme using per-step normalization, driven by a non-mutating preview of local vs. remote choices.
-Keep everything else unchanged (policy, encoder, PPO/GAE, meta loop); only adjust reward logic and add diagnostics,
-I want you to prepare a report of what you have changed in each file in the claude-output.txt file
+Do not change PPO/GAE/meta/architecture. Only add metrics and printing.
+NEW metrics to compute at end of each iteration (ESSENTIAL)
+lat_MA20
+Mean of the rolling buffer of average_latency_iter (use whatever is available until it fills 20).
 
-Step 1 — Difference Reward + Per-Step Normalization
-1) Preparation (one-time)
-•	Keep everything else exactly as it is (same RL loop, GAE, PPO, meta-outer loop, graphs, encoder).
-•	Add runtime switches (e.g., a config) so you can enable/disable each reward term. For Step 1, only the base change is ON; all shaping terms are OFF.
-•	Set:
-o	reward clipping range = [−2.0, +2.0]
-o	discount/GAE λ unchanged
-o	random seed fixed (so you can compare curves)
-2) Define “incremental makespan” precisely
-At any decision step (choosing local vs remote for the current task):
-•	The current schedule state includes:
-o	makespan_now: max finish time of already placed tasks.
-o	Resource clocks: next-free times for UE CPU, MEC CPU, and Uplink channel.
-o	Finish times of all predecessors already scheduled.
-•	For Local candidate:
-1.	Earliest start = max(UE_CPU_free, max(finish_times_of_predecessors)).
-2.	Finish_local = start + local_exec_time(task).
-3.	Candidate_makespan_local = max(makespan_now, Finish_local).
-4.	Δ_loc = Candidate_makespan_local − makespan_now.
-•	For Remote candidate:
-1.	UL_start = max(UL_free, max(finish_times_of_predecessors)).
-2.	UL_finish = UL_start + uplink_time(task).
-3.	MEC_start = max(MEC_CPU_free, UL_finish).
-4.	MEC_finish = MEC_start + mec_exec_time(task).
-5.	DL_finish = MEC_finish + downlink_time(task) (this is the task’s finish time).
-6.	Candidate_makespan_remote = max(makespan_now, DL_finish).
-7.	Δ_rem = Candidate_makespan_remote − makespan_now.
-Important details:
-•	Use the same time units (e.g., milliseconds) throughout.
-•	Treat “no change” as Δ = 0 (happens when the task completes before the current makespan).
-•	Use a small epsilon (e.g., 1e-9) for equality checks to avoid float noise.
-3) Add a dry-run evaluator (no mutations)
-•	Before committing an action, compute Δ_loc and Δ_rem using a pure, non-mutating preview of the schedule (you simulate the timestamps but do not update any live resource clocks or finish times).
-•	The dry-run must be deterministic: same inputs → same outputs; it must not touch global state.
-•	Sanity check:
-o	If you preview an action and then actually take it, the incremental makespan you observe for real must match the previewed Δ for that action (up to epsilon).
-4) Compute the difference reward at each step
-For the action sampled by the policy:
-•	Δ_chosen = Δ_loc or Δ_rem corresponding to the sampled action.
-•	Δ_best = min(Δ_loc, Δ_rem)
-•	Δ_worst = max(Δ_loc, Δ_rem)
-•	Unnormalized base reward:
-r_main = Δ_best − Δ_chosen
-(This is positive if you picked the better of the two; negative if you picked the worse; zero if they’re equal.)
-5) Normalize per step (to fix scale)
-•	If Δ_worst > Δ_best (strictly, beyond epsilon):
-r_norm = r_main / (Δ_worst − Δ_best)
-else set r_norm = 0 (both choices equally good/bad).
-•	Clip r_norm to [−1, +1].
-•	This r_norm is your entire reward for Step 1 (no other terms yet).
-Edge cases to handle cleanly
-•	Both Δ = 0 → r_norm = 0 (choice doesn’t affect makespan).
-•	Numerical ties (|Δ_loc − Δ_rem| < epsilon) → treat as equal → r_norm = 0.
-•	Huge Δ_worst − Δ_best → clipping protects your advantages from exploding.
-6) What to record (diagnostics)
-Per step (summarize per episode):
-•	Δ_loc, Δ_rem, Δ_chosen, Δ_best, Δ_worst
-•	r_main (pre-norm), r_norm (post-norm)
-•	Whether the action matched the best option (true/false)
-Per training/eval iteration:
-•	Advantage mean and std
-•	Policy loss, value loss
-•	Average latency (train & eval), average reward
-•	Fraction of positive step rewards (should be in a healthy mid-range, not near 0% or 100%)
+gap_MA20 (aka (lat-greedy)_MA20)
+Mean of the rolling buffer of (average_latency_iter − greedy_latency_iter).
 
+CP_before_med
+Median of all valid cp_before values for steps in this iteration.
 
-do not change the name of any parameters used now if not necessary you can only add new one and use anything from the code without changing the name if not necessary
+CP_after_med
+Median of all valid cp_after values for steps in this iteration. Expect CP_after_med ≤ CP_before_med + small_threshold.
+
+CP_drop_med
+Median of (cp_before − cp_after) over steps that have both values.
+
+shape_base_ratio_med
+Median over steps of
+abs(shaping_contribution) / (abs(base_step_score) + small_threshold)
+(compute only where a base score exists).
+
+clamp_hit_frac
+Fraction of steps where final_step_score is within small_threshold of either clamp bound.
+
+cp_violation_count
+Count of steps where cp_after > cp_before + small_threshold.
+
+Rules:
+
+If a required array is empty this iteration, emit nan for its metric (or 0 for counts).
+
+Use the same time unit everywhere (e.g., ms).
+
+Exclude non-finite values from medians.
