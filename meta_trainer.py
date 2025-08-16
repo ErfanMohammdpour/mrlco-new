@@ -142,7 +142,7 @@ if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 3
+    META_BATCH_SIZE = 6
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
@@ -156,10 +156,10 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
                                     #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
                                     #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
                                     #"./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
