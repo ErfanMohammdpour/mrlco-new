@@ -4,7 +4,9 @@ import joblib
 import numpy as np
 import tensorflow as tf
 import policies.model_helper as model_helper
-from policies.graph2seq_encoder import create_graph2seq_encoder
+from policies.graph2seq_encoder import create_graph2seq_encoder, Graph2SeqEncoder
+from policies.rnn_encoder import RNNEncoder
+from policies.gat_encoder import GATEncoder
 
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
@@ -118,15 +120,41 @@ class Seq2SeqNetwork():
 
             self.output_layer = tf.compat.v1.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
-            # Use Graph2Seq encoder instead of original encoder
-            self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
-                encoder_inputs=self.encoder_embeddings,
-                encoder_units=self.encoder_hidden_unit,
-                num_layers=self.num_layers,
-                is_bidirectional=self.is_bidencoder,
-                mode=self.mode,
-                scope_name="encoder"
-            )
+            # Dynamic encoder selection based on encoder_type
+            encoder_type = getattr(hparams, 'encoder_type', 'graph2seq').lower()
+            
+            with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE):
+                if encoder_type in ('graph2seq', 'g2s'):
+                    encoder = Graph2SeqEncoder(
+                        input_dim=self.encoder_hidden_unit,
+                        hidden_dim=self.encoder_hidden_unit,
+                        num_layers=self.num_layers,
+                        bidirectional=self.is_bidencoder,
+                        mode=self.mode
+                    )
+                elif encoder_type in ('lstm', 'rnn'):
+                    encoder = RNNEncoder(
+                        unit_type=self.unit_type,
+                        hidden_dim=self.encoder_hidden_unit,
+                        num_layers=self.num_layers,
+                        bidirectional=self.is_bidencoder,
+                        dropout=getattr(hparams, 'dropout', 0.0),
+                        mode=self.mode
+                    )
+                elif encoder_type == 'gat':
+                    encoder = GATEncoder(
+                        input_dim=self.encoder_hidden_unit,
+                        hidden_dim=self.encoder_hidden_unit,
+                        num_heads=getattr(hparams, 'num_heads', 8),
+                        num_layers=self.num_layers,
+                        concat=getattr(hparams, 'concat', True),
+                        dropout=getattr(hparams, 'dropout', 0.1),
+                        mode=self.mode
+                    )
+                else:
+                    raise ValueError(f"Unknown encoder_type: {encoder_type}")
+                
+                self.encoder_outputs, self.encoder_state = encoder.encode(self.encoder_embeddings)
 
             # training decoder
             self.decoder_outputs, self.decoder_state = self.create_decoder(hparams, self.encoder_outputs,
@@ -369,7 +397,7 @@ class Seq2SeqNetwork():
 
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
-                 decoder_units, vocab_size, name="pi"):
+                 decoder_units, vocab_size, name="pi", encoder_type='graph2seq'):
         self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
         self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
         self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
@@ -382,6 +410,7 @@ class Seq2SeqPolicy():
             unit_type="lstm",
             encoder_units=encoder_units,
             decoder_units=decoder_units,
+            encoder_type=encoder_type,
 
             n_features=vocab_size,
             time_major=False,
@@ -461,13 +490,13 @@ class Seq2SeqPolicy():
 
 class MetaSeq2SeqPolicy():
     def __init__(self, meta_batch_size, obs_dim, encoder_units, decoder_units,
-                 vocab_size):
+                 vocab_size, encoder_type='graph2seq'):
 
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
 
-        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy')
+        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy', encoder_type=encoder_type)
 
 
         self.meta_policies = []
@@ -476,7 +505,7 @@ class MetaSeq2SeqPolicy():
 
         for i in range(meta_batch_size):
             self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
-                                                    vocab_size, name="task_"+str(i)+"_policy"))
+                                                    vocab_size, name="task_"+str(i)+"_policy", encoder_type=encoder_type))
 
             self.assign_old_eq_new_tasks.append(
                 U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)

@@ -3,6 +3,7 @@ This implementation is imported from IBM/Graph2Seq. Interfaces and tensor shapes
 """
 import tensorflow as tf
 import numpy as np
+from .base_encoder import BaseEncoder
 
 # Import Graph2Seq modules from local copies
 from .graph2seq_modules.neigh_samplers import UniformNeighborSampler
@@ -206,6 +207,26 @@ class Graph2SeqEncoderAdapter:
             ])
         
         return encoder_outputs, encoder_state
+
+
+class Graph2SeqEncoder(BaseEncoder):
+    """Graph2Seq encoder that implements BaseEncoder interface."""
+    
+    def __init__(self, input_dim, hidden_dim, num_layers=2, bidirectional=False, mode='train'):
+        self.adapter = Graph2SeqEncoderAdapter(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            bidirectional=bidirectional,
+            mode=mode
+        )
+        
+    def encode(self, encoder_inputs):
+        return self.adapter.encode(encoder_inputs)
+        
+    def get_output_dim(self):
+        base_dim = 2 * self.adapter.hidden_dim
+        return base_dim * (2 if self.adapter.bidirectional else 1)
 
 
 def create_graph2seq_encoder(encoder_inputs, encoder_units, num_layers, is_bidirectional, mode, scope_name="encoder"):

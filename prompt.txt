@@ -1,0 +1,57 @@
+The project is a meta-reinforcement learning system for task offloading (MRLCO) implemented in TensorFlow 1.x. The encoder subsystem has already been modularized with a BaseEncoder interface, and currently supports Graph2SeqEncoder and LSTMEncoder, selectable by the `encoder_type` parameter in Seq2SeqNetwork.
+
+**Objective:**
+Implement a new encoder class `GATEncoder` (Graph Attention Network) in TensorFlow 1.x that inherits from BaseEncoder, and integrate it into the existing encoder selection mechanism.
+
+**Detailed Requirements:**
+
+1. **Class Definition**
+   - Create `GATEncoder` in a new file (e.g., `gat_encoder.py`) or in the encoders module.
+   - Inherit from `BaseEncoder`.
+   - Required methods:
+     - `encode(encoder_inputs)` → returns `(encoder_outputs, encoder_state)`.
+     - `get_output_dim()` → returns output feature dimension (hidden_dim * num_heads if concatenated).
+
+2. **Architecture**
+   - Input: node features tensor `[batch, num_nodes, input_dim]` and adjacency info (sparse adjacency matrix or neighbor lists, consistent with existing code).
+   - For each GAT layer:
+     - Apply linear transformation `W h`.
+     - Compute attention coefficients:
+       ```
+       e_ij = LeakyReLU(a^T [W h_i || W h_j])
+       α_ij = softmax_j(e_ij)
+       ```
+     - Aggregate neighbor information:
+       ```
+       h'_i = σ( Σ_j α_ij * W h_j )
+       ```
+   - Support multiple attention heads.
+     - If `concat=True`: concatenate head outputs (final dim = hidden_dim * num_heads).
+     - If `concat=False`: average head outputs (final dim = hidden_dim).
+   - Stack `num_layers` GAT layers with activation functions (e.g. ELU or ReLU) and optional dropout.
+
+3. **Outputs**
+   - `encoder_outputs`: `[batch, num_nodes, output_dim]` (node embeddings).
+   - `encoder_state`: a pooled graph embedding (e.g., mean- or max-pooling over node embeddings).
+   - `get_output_dim()`: must return `output_dim` consistent with concatenation mode.
+
+4. **Integration with Seq2SeqNetwork**
+   - Update encoder selection logic:
+     ```python
+     elif encoder_type == "gat":
+         encoder = GATEncoder(hidden_dim=..., num_heads=..., num_layers=..., concat=True, dropout=0.1)
+     ```
+   - Ensure all GAT variables are built under the `"encoder"` variable scope.
+   - Shapes of `encoder_outputs` and `encoder_state` must be compatible with the decoder and attention mechanism.
+
+5. **Compatibility**
+   - If `encoder_type` is not specified, default remains `"graph2seq"`.
+   - Ensure PPO and MRLCO training scripts continue to work unchanged.
+   - The new GATEncoder should integrate seamlessly into `MetaSeq2SeqPolicy` and `Seq2SeqPolicy`.
+
+6. **Documentation**
+   - Add docstrings explaining the GATEncoder architecture, expected input shapes, and parameters (`hidden_dim`, `num_heads`, `num_layers`, `concat`, `dropout`).
+   - Update README/config documentation to show that `encoder_type="gat"` is now supported.
+
+**Deliverable:**
+A refactored codebase where setting `encoder_type="gat"` in the policy configuration transparently uses the new GATEncoder for encoding computational DAGs before decoding and training.
