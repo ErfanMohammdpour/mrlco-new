@@ -121,7 +121,7 @@ class Seq2SeqNetwork():
             self.output_layer = tf.compat.v1.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
             # Dynamic encoder selection based on encoder_type
-            encoder_type = getattr(hparams, 'encoder_type', 'graph2seq').lower()
+            encoder_type = getattr(hparams, 'encoder_type', 'gat').lower()
             
             with tf.compat.v1.variable_scope("encoder", reuse=tf.compat.v1.AUTO_REUSE):
                 if encoder_type in ('graph2seq', 'g2s'):
@@ -397,7 +397,7 @@ class Seq2SeqNetwork():
 
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
-                 decoder_units, vocab_size, name="pi", encoder_type='graph2seq'):
+                 decoder_units, vocab_size, name="pi", encoder_type='gat'):
         self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
         self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
         self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
@@ -490,7 +490,7 @@ class Seq2SeqPolicy():
 
 class MetaSeq2SeqPolicy():
     def __init__(self, meta_batch_size, obs_dim, encoder_units, decoder_units,
-                 vocab_size, encoder_type='graph2seq'):
+                 vocab_size, encoder_type='gat'):
 
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
