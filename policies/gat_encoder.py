@@ -39,7 +39,7 @@ class GATEncoder(BaseEncoder):
     """
     
     def __init__(self, input_dim, hidden_dim, num_heads=8, num_layers=2, 
-                 concat=True, dropout=0.1, mode='train'):
+                 concat=True, dropout=0.1, mode='train', decoder_num_layers=None):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
@@ -47,6 +47,8 @@ class GATEncoder(BaseEncoder):
         self.concat = concat
         self.dropout = dropout if mode == 'train' else 0.0
         self.mode = mode
+        # Use decoder_num_layers if provided, otherwise use encoder num_layers
+        self.decoder_num_layers = decoder_num_layers if decoder_num_layers is not None else num_layers
         
         # Derived parameters
         if self.concat:
@@ -110,10 +112,18 @@ class GATEncoder(BaseEncoder):
                 )
         
         # Create LSTM-compatible state tuple for decoder
-        encoder_state = tf.nn.rnn_cell.LSTMStateTuple(
-            c=graph_embedding, 
-            h=graph_embedding
-        )
+        # The decoder expects multi-layer state if decoder_num_layers > 1
+        if self.decoder_num_layers == 1:
+            encoder_state = tf.nn.rnn_cell.LSTMStateTuple(
+                c=graph_embedding, 
+                h=graph_embedding
+            )
+        else:
+            # Create tuple of identical states for each layer
+            encoder_state = tuple([
+                tf.nn.rnn_cell.LSTMStateTuple(c=graph_embedding, h=graph_embedding)
+                for _ in range(self.decoder_num_layers)
+            ])
         
         return encoder_outputs, encoder_state
         

@@ -149,7 +149,8 @@ class Seq2SeqNetwork():
                         num_layers=self.num_layers,
                         concat=getattr(hparams, 'concat', True),
                         dropout=getattr(hparams, 'dropout', 0.1),
-                        mode=self.mode
+                        mode=self.mode,
+                        decoder_num_layers=self.num_layers
                     )
                 else:
                     raise ValueError(f"Unknown encoder_type: {encoder_type}")
