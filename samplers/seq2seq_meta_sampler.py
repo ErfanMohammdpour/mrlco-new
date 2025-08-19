@@ -69,8 +69,10 @@ class Seq2SeqMetaSampler(Sampler):
 
         # initial setup / preparation
         paths = OrderedDict()
+        adjacency_matrices = OrderedDict()  # Store adjacency matrices per task
         for i in range(self.meta_batch_size):
             paths[i] = []
+            adjacency_matrices[i] = None
 
         n_samples = 0
         running_paths = [_get_empty_running_paths_dict() for _ in range(self.vec_env.num_envs)]
@@ -82,14 +84,27 @@ class Seq2SeqMetaSampler(Sampler):
 
         # initial reset of envs
         obses = self.vec_env.reset()
+        
+        # Get adjacency matrices for each task if available
+        for task_idx in range(self.meta_batch_size):
+            # Try to get adjacency matrix from the environment
+            if hasattr(self.vec_env.envs[task_idx], 'get_current_adjacency_matrix'):
+                adj_matrix = self.vec_env.envs[task_idx].get_current_adjacency_matrix()
+                if adj_matrix is not None:
+                    adjacency_matrices[task_idx] = adj_matrix
 
         while n_samples < self.total_samples:
             # execute policy
             t = time.time()
             # obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             obs_per_task = np.array(obses)
+            
+            # Prepare adjacency matrices for policy if available
+            adj_matrices_list = None
+            if any(adj is not None for adj in adjacency_matrices.values()):
+                adj_matrices_list = [adjacency_matrices[i] for i in range(self.meta_batch_size)]
 
-            actions, logits, values = policy.get_actions(obs_per_task)
+            actions, logits, values = policy.get_actions(obs_per_task, adjacency_matrices=adj_matrices_list)
             policy_time += time.time() - t
 
             # step environments
@@ -142,6 +157,14 @@ class Seq2SeqMetaSampler(Sampler):
         if log:
             logger.logkv(log_prefix + "PolicyExecTime", policy_time)
             logger.logkv(log_prefix + "EnvExecTime", env_time)
+        
+        # Attach adjacency matrices to paths for later processing
+        for task_idx in range(self.meta_batch_size):
+            if adjacency_matrices[task_idx] is not None:
+                # Add adjacency matrix as metadata for this task's paths
+                for path in paths[task_idx]:
+                    path['adjacency_matrix'] = adjacency_matrices[task_idx]
+        
         return paths
 
 def _get_empty_running_paths_dict():

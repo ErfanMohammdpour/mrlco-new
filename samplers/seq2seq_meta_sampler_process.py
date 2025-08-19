@@ -63,7 +63,7 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         # 3) compute advantages and adjusted rewards
         paths = self._compute_advantages(paths, all_path_baselines)
 
-        observations, actions, logits, rewards, returns, values, advantages, finish_time = self._append_path_data(paths)
+        observations, actions, logits, rewards, returns, values, advantages, finish_time, adjacency_matrix = self._append_path_data(paths)
 
         decoder_full_lengths = np.array(observations.shape[0] * [observations.shape[1]])
         # 5) if desired normalize / shift advantages
@@ -83,7 +83,7 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
             values=values,
             advantages=advantages,
             finish_time=finish_time,
-            adjacency_matrices=None  # Will be filled if available
+            adjacency_matrices=adjacency_matrix  # Real DAG adjacency from task graph
         )
 
         return samples_data, paths
@@ -98,5 +98,10 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         advantages = np.array([path["advantages"] for path in paths])
         finish_time = np.array([path["finish_time"] for path in paths])
         
-        return observations, actions,logits, rewards, returns, values, advantages, finish_time
+        # Extract adjacency matrix if available (should be same for all paths in this task)
+        adjacency_matrix = None
+        if paths and "adjacency_matrix" in paths[0]:
+            adjacency_matrix = paths[0]["adjacency_matrix"]
+        
+        return observations, actions, logits, rewards, returns, values, advantages, finish_time, adjacency_matrix
 
