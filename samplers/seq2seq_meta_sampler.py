@@ -85,22 +85,42 @@ class Seq2SeqMetaSampler(Sampler):
         # initial reset of envs
         obses = self.vec_env.reset()
         
-        # Get adjacency matrices for each task if available
+        # Get adjacency matrices for each task AFTER tasks have been set
+        # Note: update_tasks() should have been called before obtain_samples()
+        # Each task has multiple envs (envs_per_task), but they all share the same task
+        # So we only need to get adjacency from the first env of each task
         for task_idx in range(self.meta_batch_size):
-            # Try to get adjacency matrix from the environment
-            if hasattr(self.vec_env.envs[task_idx], 'get_current_adjacency_matrix'):
-                adj_matrix = self.vec_env.envs[task_idx].get_current_adjacency_matrix()
-                if adj_matrix is not None:
-                    adjacency_matrices[task_idx] = adj_matrix
-                    if log:
-                        print(f"[DEBUG] Task {task_idx}: Got adjacency matrix with shape {adj_matrix.shape}")
-                        print(f"        Sparsity: {np.mean(adj_matrix == 0):.2%}, Non-zero values: {np.count_nonzero(adj_matrix)}")
+            # Get the first environment for this task
+            env_idx = task_idx * self.envs_per_task
+            if env_idx < len(self.vec_env.envs):
+                env_for_task = self.vec_env.envs[env_idx]
+                
+                # Try to get adjacency matrix from the environment
+                if hasattr(env_for_task, 'get_current_adjacency_matrix'):
+                    try:
+                        adj_matrix = env_for_task.get_current_adjacency_matrix()
+                        if adj_matrix is not None:
+                            adjacency_matrices[task_idx] = adj_matrix
+                            if log:
+                                print(f"[DEBUG] Task {task_idx}: Got adjacency matrix with shape {adj_matrix.shape}")
+                                print(f"        Task ID in env: {getattr(env_for_task, 'task_id', 'unknown')}")
+                                print(f"        Sparsity: {np.mean(adj_matrix == 0):.2%}, Non-zero values: {np.count_nonzero(adj_matrix)}")
+                                # Show sample of edge weights
+                                non_zero = adj_matrix[adj_matrix > 0]
+                                if len(non_zero) > 0:
+                                    print(f"        Edge weights range: [{non_zero.min():.3f}, {non_zero.max():.3f}]")
+                        else:
+                            if log:
+                                print(f"[DEBUG] Task {task_idx}: adjacency matrix is None")
+                                print(f"        Task ID in env: {getattr(env_for_task, 'task_id', 'unknown')}")
+                                if hasattr(env_for_task, 'adjacency_matrices_batchs'):
+                                    print(f"        But adjacency_matrices_batchs exists with {len(env_for_task.adjacency_matrices_batchs)} batches")
+                    except Exception as e:
+                        if log:
+                            print(f"[DEBUG] Task {task_idx}: Error getting adjacency: {e}")
                 else:
                     if log:
-                        print(f"[DEBUG] Task {task_idx}: adjacency matrix is None")
-            else:
-                if log:
-                    print(f"[DEBUG] Task {task_idx}: Environment doesn't have get_current_adjacency_matrix method")
+                        print(f"[DEBUG] Task {task_idx}: Environment doesn't have get_current_adjacency_matrix method")
 
         while n_samples < self.total_samples:
             # execute policy
