@@ -276,7 +276,9 @@ class GATEncoder(BaseEncoder):
             
             # Scatter back to full attention matrix
             attention_shape = [batch_size, num_nodes, num_nodes]
-            sparse_logits = tf.scatter_nd(edge_indices, tf.squeeze(edge_attention), attention_shape)
+            # Ensure edge_attention is 1D for scatter_nd
+            edge_attention_flat = tf.reshape(edge_attention, [-1])
+            sparse_logits = tf.scatter_nd(edge_indices, edge_attention_flat, attention_shape)
             
             # Add large negative values for non-edges
             mask = tf.equal(adjacency_matrix, 0.0)
@@ -342,9 +344,15 @@ class GATEncoder(BaseEncoder):
         # Renormalize attention weights after applying edge weights
         # This ensures attention weights sum to 1 for each node
         attention_sum = tf.reduce_sum(attention_weights, axis=-1, keepdims=True)
+        # Broadcast attention_sum to match attention_weights shape
+        # attention_sum: [batch_size, num_nodes, 1]
+        # attention_weights: [batch_size, num_nodes, num_nodes]
+        attention_sum_broadcast = tf.tile(attention_sum, [1, 1, num_nodes])
+        # Create condition with correct shape
+        condition = tf.greater(attention_sum_broadcast, 0)
         attention_weights = tf.where(
-            tf.greater(attention_sum, 0),
-            attention_weights / (attention_sum + 1e-10),
+            condition,
+            attention_weights / (attention_sum + 1e-10),  # attention_sum will broadcast correctly here
             attention_weights
         )
         
