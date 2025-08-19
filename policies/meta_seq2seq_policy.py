@@ -69,7 +69,8 @@ class Seq2SeqNetwork():
                  encoder_inputs,
                  decoder_inputs,
                  decoder_full_length,
-                 decoder_targets):
+                 decoder_targets,
+                 adjacency_matrix=None):
         self.encoder_hidden_unit = hparams.encoder_units
         self.decoder_hidden_unit = hparams.decoder_units
         self.is_bidencoder = hparams.is_bidencoder
@@ -94,6 +95,7 @@ class Seq2SeqNetwork():
         self.encoder_inputs = encoder_inputs
         self.decoder_inputs = decoder_inputs
         self.decoder_targets = decoder_targets
+        self.adjacency_matrix = adjacency_matrix  # Add adjacency matrix for GAT encoder
 
         self.decoder_full_length = decoder_full_length
 
@@ -155,7 +157,14 @@ class Seq2SeqNetwork():
                 else:
                     raise ValueError(f"Unknown encoder_type: {encoder_type}")
                 
-                self.encoder_outputs, self.encoder_state = encoder.encode(self.encoder_embeddings)
+                # Pass adjacency matrix to encoder if it's GAT
+                if encoder_type == 'gat' and self.adjacency_matrix is not None:
+                    self.encoder_outputs, self.encoder_state = encoder.encode(
+                        self.encoder_embeddings, 
+                        adjacency_matrix=self.adjacency_matrix
+                    )
+                else:
+                    self.encoder_outputs, self.encoder_state = encoder.encode(self.encoder_embeddings)
 
             # training decoder
             self.decoder_outputs, self.decoder_state = self.create_decoder(hparams, self.encoder_outputs,
@@ -398,11 +407,23 @@ class Seq2SeqNetwork():
 
 class Seq2SeqPolicy():
     def __init__(self, obs_dim, encoder_units,
-                 decoder_units, vocab_size, name="pi", encoder_type='gat'):
+                 decoder_units, vocab_size, name="pi", encoder_type='gat', use_adjacency=True):
         self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
         self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
         self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
         self.decoder_full_length = tf.compat.v1.placeholder(shape=[None], dtype=tf.int32, name="decoder_full_length"+name)
+        
+        # Add adjacency matrix placeholder for GAT encoder
+        self.use_adjacency = use_adjacency
+        self.encoder_type = encoder_type
+        if encoder_type == 'gat' and use_adjacency:
+            self.adjacency_matrix = tf.compat.v1.placeholder(
+                dtype=tf.float32, 
+                shape=[None, None, None],  # [batch_size, num_nodes, num_nodes]
+                name="adjacency_matrix_ph_"+name
+            )
+        else:
+            self.adjacency_matrix = None
 
         self.action_dim = vocab_size
         self.name = name
@@ -430,21 +451,35 @@ class Seq2SeqPolicy():
                  encoder_inputs=self.obs,
                  decoder_inputs=self.decoder_inputs,
                  decoder_full_length=self.decoder_full_length,
-                 decoder_targets=self.decoder_targets,name = name)
+                 decoder_targets=self.decoder_targets,
+                 adjacency_matrix=self.adjacency_matrix,
+                 name = name)
 
         self.vf = self.network.vf
 
         self._dist = CategoricalPd(vocab_size)
 
-    def get_actions(self, observations):
+    def get_actions(self, observations, adjacency_matrix=None):
         sess = tf.compat.v1.get_default_session()
 
         decoder_full_length = np.array( [observations.shape[1]] * observations.shape[0] , dtype=np.int32)
+        
+        # Prepare feed dict with or without adjacency matrix
+        feed_dict = {
+            self.obs: observations, 
+            self.decoder_full_length: decoder_full_length
+        }
+        
+        # Add adjacency matrix to feed dict if provided and GAT is being used
+        if self.adjacency_matrix is not None and adjacency_matrix is not None:
+            if len(adjacency_matrix.shape) == 2:
+                adjacency_matrix = adjacency_matrix[np.newaxis, :]  # Add batch dimension if needed
+            feed_dict[self.adjacency_matrix] = adjacency_matrix
 
         actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
                                              self.network.sample_decoder_logits,
                                              self.network.sample_vf],
-                                            feed_dict={self.obs: observations, self.decoder_full_length: decoder_full_length})
+                                            feed_dict=feed_dict)
 
         return actions, logits, v_value
 
@@ -491,13 +526,16 @@ class Seq2SeqPolicy():
 
 class MetaSeq2SeqPolicy():
     def __init__(self, meta_batch_size, obs_dim, encoder_units, decoder_units,
-                 vocab_size, encoder_type='gat'):
+                 vocab_size, encoder_type='gat', use_adjacency=True):
 
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
+        self.use_adjacency = use_adjacency
+        self.encoder_type = encoder_type
 
-        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy', encoder_type=encoder_type)
+        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, 
+                                        name='core_policy', encoder_type=encoder_type, use_adjacency=use_adjacency)
 
 
         self.meta_policies = []
@@ -506,7 +544,8 @@ class MetaSeq2SeqPolicy():
 
         for i in range(meta_batch_size):
             self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
-                                                    vocab_size, name="task_"+str(i)+"_policy", encoder_type=encoder_type))
+                                                    vocab_size, name="task_"+str(i)+"_policy", 
+                                                    encoder_type=encoder_type, use_adjacency=use_adjacency))
 
             self.assign_old_eq_new_tasks.append(
                 U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
@@ -517,14 +556,20 @@ class MetaSeq2SeqPolicy():
         self._dist = CategoricalPd(vocab_size)
 
 
-    def get_actions(self, observations):
+    def get_actions(self, observations, adjacency_matrices=None):
         assert len(observations) == self.meta_batch_size
+        
+        # Handle adjacency matrices - either None or a list of matrices
+        if adjacency_matrices is not None:
+            assert len(adjacency_matrices) == self.meta_batch_size, "Number of adjacency matrices must match meta_batch_size"
 
         meta_actions = []
         meta_logits = []
         meta_v_values = []
         for i, obser_per_task in enumerate(observations):
-            action, logits, v_value = self.meta_policies[i].get_actions(obser_per_task)
+            # Get adjacency matrix for this task if provided
+            adj_matrix = adjacency_matrices[i] if adjacency_matrices is not None else None
+            action, logits, v_value = self.meta_policies[i].get_actions(obser_per_task, adjacency_matrix=adj_matrix)
 
             meta_actions.append(np.array(action))
             meta_logits.append(np.array(logits))
