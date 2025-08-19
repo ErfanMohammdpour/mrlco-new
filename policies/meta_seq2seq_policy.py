@@ -470,11 +470,19 @@ class Seq2SeqPolicy():
             self.decoder_full_length: decoder_full_length
         }
         
-        # Add adjacency matrix to feed dict if provided and GAT is being used
-        if self.adjacency_matrix is not None and adjacency_matrix is not None:
-            if len(adjacency_matrix.shape) == 2:
-                adjacency_matrix = adjacency_matrix[np.newaxis, :]  # Add batch dimension if needed
-            feed_dict[self.adjacency_matrix] = adjacency_matrix
+        # Add adjacency matrix to feed dict if GAT is being used
+        if self.adjacency_matrix is not None:
+            if adjacency_matrix is not None:
+                # Use provided adjacency matrix
+                if len(adjacency_matrix.shape) == 2:
+                    adjacency_matrix = adjacency_matrix[np.newaxis, :]  # Add batch dimension if needed
+                feed_dict[self.adjacency_matrix] = adjacency_matrix
+            else:
+                # Provide default fully connected adjacency if none given
+                batch_size = observations.shape[0]
+                num_nodes = observations.shape[1]
+                default_adjacency = np.ones((batch_size, num_nodes, num_nodes), dtype=np.float32)
+                feed_dict[self.adjacency_matrix] = default_adjacency
 
         actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
                                              self.network.sample_decoder_logits,
