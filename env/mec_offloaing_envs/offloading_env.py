@@ -65,6 +65,7 @@ class OffloadingEnvironment(MetaEnv):
         self.decoder_full_lengths = []
         self.max_running_time_batchs = []
         self.min_running_time_batchs = []
+        self.adjacency_matrices_batchs = []  # Store adjacency matrices from DAG
         self.graph_file_paths = graph_file_paths
 
         # load all the task graphs into the evnironment
@@ -78,6 +79,14 @@ class OffloadingEnvironment(MetaEnv):
             self.decoder_full_lengths += decoder_full_lengths
             self.max_running_time_batchs += max_running_time_batchs
             self.min_running_time_batchs += min_running_time_batchs
+            
+            # Extract and store adjacency matrices from task graphs
+            for task_graph_batch in task_graph_batchs:
+                adjacency_batch = []
+                for task_graph in task_graph_batch:
+                    # Get the real DAG adjacency matrix with edge weights
+                    adjacency_batch.append(task_graph.dependency)
+                self.adjacency_matrices_batchs.append(np.array(adjacency_batch))
 
         self.total_task = len(self.encoder_batchs)
         self.optimal_solution = -1
@@ -203,6 +212,17 @@ class OffloadingEnvironment(MetaEnv):
 
     def render(self, mode='human'):
         pass
+    
+    def get_current_adjacency_matrix(self):
+        """Get the adjacency matrix for current task.
+        
+        Returns:
+            np.array: Adjacency matrix of shape [batch_size, num_nodes, num_nodes]
+                     Contains real edge weights from task DAG
+        """
+        if self.task_id >= 0 and self.task_id < len(self.adjacency_matrices_batchs):
+            return self.adjacency_matrices_batchs[self.task_id]
+        return None
 
     def generate_point_batch_for_random_graphs(self, batch_size, graph_number, graph_file_path, time_major):
         encoder_list = []

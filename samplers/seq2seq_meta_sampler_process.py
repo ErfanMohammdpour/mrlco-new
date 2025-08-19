@@ -82,7 +82,8 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
             returns=returns,
             values=values,
             advantages=advantages,
-            finish_time=finish_time
+            finish_time=finish_time,
+            adjacency_matrices=None  # Will be filled if available
         )
 
         return samples_data, paths

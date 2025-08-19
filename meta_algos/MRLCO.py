@@ -246,11 +246,20 @@ class MRLCO():
                 
                 # Add adjacency matrix to feed_dict if placeholder exists
                 if self.adjacency_matrix[task_id] is not None:
-                    # Create default fully connected adjacency matrix
-                    batch_size_adj = observations.shape[0]
-                    num_nodes = observations.shape[1]
-                    default_adjacency = np.ones((batch_size_adj, num_nodes, num_nodes), dtype=np.float32)
-                    feed_dict[self.adjacency_matrix[task_id]] = default_adjacency
+                    # Try to use real adjacency from samples_data if available
+                    if 'adjacency_matrices' in task_samples and task_samples['adjacency_matrices'] is not None:
+                        # Use real DAG adjacency with edge weights
+                        adjacency = task_samples['adjacency_matrices']
+                        # Ensure correct shape
+                        if len(adjacency.shape) == 2:
+                            adjacency = adjacency[np.newaxis, :]
+                        feed_dict[self.adjacency_matrix[task_id]] = adjacency
+                    else:
+                        # Fallback to default fully connected adjacency matrix
+                        batch_size_adj = observations.shape[0]
+                        num_nodes = observations.shape[1]
+                        default_adjacency = np.ones((batch_size_adj, num_nodes, num_nodes), dtype=np.float32)
+                        feed_dict[self.adjacency_matrix[task_id]] = default_adjacency
 
                 _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
                     [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id],
