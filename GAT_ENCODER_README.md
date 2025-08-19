@@ -60,26 +60,32 @@ For sequence-to-sequence compatibility, the encoder treats input sequences as fu
 ### Basic Usage
 
 ```python
-# Use GAT encoder with default parameters
-policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, encoder_type='gat')
+# GAT encoder is now the DEFAULT - no need to specify encoder_type
+policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size)
 
-# For meta-learning
-meta_policy = MetaSeq2SeqPolicy(meta_batch_size, obs_dim, encoder_units, decoder_units, vocab_size, encoder_type='gat')
+# For meta-learning (GAT is default)
+meta_policy = MetaSeq2SeqPolicy(meta_batch_size, obs_dim, encoder_units, decoder_units, vocab_size)
+
+# Explicit GAT usage (optional since it's now default)
+policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, encoder_type='gat')
 ```
 
 ### Custom Configuration
 
 ```python
-# Create policy with custom hyperparameters
+# Create policy with custom hyperparameters (GAT is default)
 hparams = tf.contrib.training.HParams(
-    encoder_type='gat',
     num_heads=4,           # Number of attention heads
     concat=False,          # Average heads instead of concatenating
     dropout=0.2,           # Dropout rate
     # ... other parameters
 )
 
-policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, encoder_type='gat')
+policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size)
+
+# Or use other encoders explicitly
+policy_g2s = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, encoder_type='graph2seq')
+policy_lstm = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, encoder_type='lstm')
 ```
 
 ### Configuration Parameters
@@ -149,9 +155,10 @@ encoder/
 ## Compatibility
 
 ### Backward Compatibility
-- Default encoder remains `graph2seq`
-- Existing training scripts work unchanged
-- All existing encoder types (`graph2seq`, `lstm`) continue to work
+- **NEW**: Default encoder is now `gat` (changed from `graph2seq`)
+- Existing training scripts work unchanged (they will now use GAT by default)
+- All existing encoder types (`graph2seq`, `lstm`) continue to work when specified explicitly
+- To use previous default behavior, specify `encoder_type='graph2seq'` explicitly
 
 ### Framework Compatibility
 - Compatible with PPO training (`ppo_offloading.py`)
