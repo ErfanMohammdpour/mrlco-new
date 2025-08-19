@@ -254,12 +254,22 @@ class MRLCO():
                         if len(adjacency.shape) == 2:
                             adjacency = adjacency[np.newaxis, :]
                         feed_dict[self.adjacency_matrix[task_id]] = adjacency
+                        # Debug log for first iteration
+                        if i == 0 and task_id == 0:
+                            print(f"[DEBUG] Using REAL adjacency matrix from task graph")
+                            print(f"        Shape: {adjacency.shape}, Sparsity: {np.mean(adjacency == 0):.2%}")
+                            print(f"        Edge weight range: [{np.min(adjacency[adjacency > 0]):.3f}, {np.max(adjacency[adjacency > 0]):.3f}]")
                     else:
                         # Fallback to default fully connected adjacency matrix
                         batch_size_adj = observations.shape[0]
                         num_nodes = observations.shape[1]
                         default_adjacency = np.ones((batch_size_adj, num_nodes, num_nodes), dtype=np.float32)
                         feed_dict[self.adjacency_matrix[task_id]] = default_adjacency
+                        # Debug log for first iteration
+                        if i == 0 and task_id == 0:
+                            print(f"[DEBUG] Using DEFAULT fully-connected adjacency (fallback)")
+                            print(f"        Reason: {'adjacency_matrices' not in task_samples if 'adjacency_matrices' not in task_samples else 'adjacency_matrices is None'}")
+                            print(f"        Shape: {default_adjacency.shape}")
 
                 _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
                     [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id],

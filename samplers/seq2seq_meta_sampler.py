@@ -92,6 +92,15 @@ class Seq2SeqMetaSampler(Sampler):
                 adj_matrix = self.vec_env.envs[task_idx].get_current_adjacency_matrix()
                 if adj_matrix is not None:
                     adjacency_matrices[task_idx] = adj_matrix
+                    if log:
+                        print(f"[DEBUG] Task {task_idx}: Got adjacency matrix with shape {adj_matrix.shape}")
+                        print(f"        Sparsity: {np.mean(adj_matrix == 0):.2%}, Non-zero values: {np.count_nonzero(adj_matrix)}")
+                else:
+                    if log:
+                        print(f"[DEBUG] Task {task_idx}: adjacency matrix is None")
+            else:
+                if log:
+                    print(f"[DEBUG] Task {task_idx}: Environment doesn't have get_current_adjacency_matrix method")
 
         while n_samples < self.total_samples:
             # execute policy
@@ -103,6 +112,8 @@ class Seq2SeqMetaSampler(Sampler):
             adj_matrices_list = None
             if any(adj is not None for adj in adjacency_matrices.values()):
                 adj_matrices_list = [adjacency_matrices[i] for i in range(self.meta_batch_size)]
+                if log and n_samples == 0:  # Only log once
+                    print(f"[DEBUG] Passing {len([a for a in adj_matrices_list if a is not None])} adjacency matrices to policy")
 
             actions, logits, values = policy.get_actions(obs_per_task, adjacency_matrices=adj_matrices_list)
             policy_time += time.time() - t
