@@ -40,6 +40,7 @@ class MRLCO():
         self.obs = []
         self.vpred = []
         self.decoder_full_length = []
+        self.adjacency_matrix = []  # Add adjacency matrix placeholders
 
         self.old_v =[]
         self.advs = []
@@ -64,6 +65,11 @@ class MRLCO():
             self.obs.append(self.policy.meta_policies[i].obs)
             self.vpred.append(self.policy.meta_policies[i].vf)
             self.decoder_full_length.append(self.policy.meta_policies[i].decoder_full_length)
+            # Add adjacency matrix placeholder if it exists
+            if hasattr(self.policy.meta_policies[i], 'adjacency_matrix') and self.policy.meta_policies[i].adjacency_matrix is not None:
+                self.adjacency_matrix.append(self.policy.meta_policies[i].adjacency_matrix)
+            else:
+                self.adjacency_matrix.append(None)
 
             self.old_v.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='old_v_ph_task_'+str(i)))
             self.advs.append(tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None], name='advs_ph_task'+str(i)))
@@ -237,6 +243,14 @@ class MRLCO():
                 feed_dict = {self.old_logits[task_id]: old_logits, self.old_v[task_id]: old_v, self.obs[task_id]: observations, self.actions[task_id]: actions,
                             self.decoder_inputs[task_id]: shift_actions,
                              self.decoder_full_length[task_id]: dec_lens, self.advs[task_id]: advs, self.r[task_id]: r}
+                
+                # Add adjacency matrix to feed_dict if placeholder exists
+                if self.adjacency_matrix[task_id] is not None:
+                    # Create default fully connected adjacency matrix
+                    batch_size_adj = observations.shape[0]
+                    num_nodes = observations.shape[1]
+                    default_adjacency = np.ones((batch_size_adj, num_nodes, num_nodes), dtype=np.float32)
+                    feed_dict[self.adjacency_matrix[task_id]] = default_adjacency
 
                 _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
                     [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id],
