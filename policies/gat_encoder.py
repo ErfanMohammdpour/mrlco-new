@@ -285,11 +285,24 @@ class GATEncoder(BaseEncoder):
         def dense_attention():
             """Standard dense attention computation."""
             # Broadcast and combine scores
+            # source_scores: [batch_size, num_nodes, 1]
+            # target_scores: [batch_size, num_nodes, 1]
+            
+            # Expand dims for broadcasting
+            # [batch_size, num_nodes, 1] -> [batch_size, num_nodes, 1, 1]
             source_broadcast = tf.expand_dims(source_scores, axis=2)
-            target_broadcast = tf.expand_dims(tf.transpose(target_scores, [0, 2, 1]), axis=1)
+            # [batch_size, num_nodes, 1] -> [batch_size, 1, num_nodes, 1]  
+            target_broadcast = tf.expand_dims(target_scores, axis=1)
+            
+            # Tile to create all pairs
+            # [batch_size, num_nodes, 1, 1] -> [batch_size, num_nodes, num_nodes, 1]
+            source_tiled = tf.tile(source_broadcast, [1, 1, num_nodes, 1])
+            # [batch_size, 1, num_nodes, 1] -> [batch_size, num_nodes, num_nodes, 1]
+            target_tiled = tf.tile(target_broadcast, [1, num_nodes, 1, 1])
             
             # Compute all pairwise attentions
-            attention_logits = source_broadcast + target_broadcast
+            attention_logits = source_tiled + target_tiled
+            # [batch_size, num_nodes, num_nodes, 1] -> [batch_size, num_nodes, num_nodes]
             attention_logits = tf.squeeze(attention_logits, axis=-1)
             attention_logits = tf.nn.leaky_relu(attention_logits, alpha=0.2)
             
