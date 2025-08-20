@@ -23,7 +23,7 @@ class ComprehensiveEncoderVerification:
         self.test_results = []
         self.batch_size = 16
         self.seq_len = 20
-        self.obs_dim = 17
+        self.obs_dim = 5
         self.encoder_units = 128
         self.decoder_units = 128
         self.vocab_size = 3

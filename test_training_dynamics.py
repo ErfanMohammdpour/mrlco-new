@@ -35,7 +35,7 @@ def test_training_dynamics():
     tf.reset_default_graph()
     
     # Parameters
-    obs_dim = 17
+    obs_dim = 5
     encoder_units = 64  # Smaller for faster testing
     decoder_units = 64
     vocab_size = 3

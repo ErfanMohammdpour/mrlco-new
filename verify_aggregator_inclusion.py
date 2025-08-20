@@ -15,7 +15,7 @@ def verify_aggregator_parameter_inclusion():
     tf.reset_default_graph()
     
     # Create policy
-    obs_dim = 17
+    obs_dim = 5
     encoder_units = 128
     decoder_units = 128
     vocab_size = 3

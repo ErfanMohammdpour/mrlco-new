@@ -226,30 +226,12 @@ class OffloadingTaskGraph(object):
             mec_process_cost = task.processing_data_size / resource_cluster.mec_process_capble
             down_link_cost = resource_cluster.dl_transmission_cost(task.transmission_data_size)
 
+            # Only keep the first 5 features (removing dependency features)
             task_embeding_vector = [i, local_process_cost, up_link_cost,
                                     mec_process_cost, down_link_cost]
 
-            pre_task_index_set = []
-            succs_task_index_set = []
-
-            for pre_task_index in range(0, i):
-                if self.dependency[pre_task_index][i] > 0.1:
-                    pre_task_index_set.append(pre_task_index)
-
-            while (len(pre_task_index_set) < 6):
-                pre_task_index_set.append(-1.0)
-
-            for succs_task_index in range(i + 1, self.task_number):
-                if self.dependency[i][succs_task_index] > 0.1:
-                    succs_task_index_set.append(succs_task_index)
-
-            while (len(succs_task_index_set) < 6):
-                succs_task_index_set.append(-1.0)
-
-            succs_task_index_set = succs_task_index_set[0:6]
-            pre_task_index_set = pre_task_index_set[0:6]
-
-            point_vector = task_embeding_vector + pre_task_index_set + succs_task_index_set
+            # Remove dependency computation - only use the 5 core features
+            point_vector = task_embeding_vector
             point_sequence.append(point_vector)
 
         return point_sequence
