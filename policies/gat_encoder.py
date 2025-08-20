@@ -77,8 +77,10 @@ class GATEncoder(BaseEncoder):
                 encoder_outputs: [batch_size, num_nodes, output_dim] 
                 encoder_state: Pooled state for decoder initialization
         """
-        batch_size = tf.shape(encoder_inputs)[0]
-        num_nodes = tf.shape(encoder_inputs)[1]
+        # Get dynamic shapes with consistent dtypes
+        shape = tf.shape(encoder_inputs)
+        batch_size = shape[0]
+        num_nodes = shape[1]
         
         # Handle adjacency input
         if adjacency_matrix is None and edge_list is None:
@@ -220,7 +222,7 @@ class GATEncoder(BaseEncoder):
         Returns:
             Tensor: [batch_size, num_nodes, output_dim]
         """
-        # Get dynamic shapes
+        # Get dynamic shapes with consistent dtypes
         batch_size = tf.shape(node_features)[0]
         num_nodes = tf.shape(node_features)[1]
         
@@ -228,8 +230,11 @@ class GATEncoder(BaseEncoder):
         adj_batch_size = tf.shape(adjacency_matrix)[0]
         
         # Handle batch size mismatch by taking the minimum
-        # This can happen when different batches have different sizes
-        actual_batch_size = tf.minimum(batch_size, adj_batch_size)
+        # Cast to same dtype to avoid type mismatch
+        actual_batch_size = tf.minimum(
+            tf.cast(batch_size, tf.int32), 
+            tf.cast(adj_batch_size, tf.int32)
+        )
         
         # Slice to ensure consistent batch sizes
         node_features = node_features[:actual_batch_size]
@@ -282,12 +287,16 @@ class GATEncoder(BaseEncoder):
             src_idx = edge_indices[:, 1]
             tgt_idx = edge_indices[:, 2]
             
-            # Gather scores for edges (ensure indices are valid)
-            valid_batch_mask = tf.less(batch_idx, batch_size)
+            # Gather scores for edges (ensure indices are valid and same dtype)
+            # Cast batch_size to int64 to match edge_indices dtype
+            batch_size_int64 = tf.cast(batch_size, tf.int64)
+            valid_batch_mask = tf.less(batch_idx, batch_size_int64)
             valid_indices = tf.boolean_mask(edge_indices, valid_batch_mask)
-            valid_batch_idx = valid_indices[:, 0]
-            valid_src_idx = valid_indices[:, 1]
-            valid_tgt_idx = valid_indices[:, 2]
+            
+            # Extract valid indices
+            valid_batch_idx = tf.cast(valid_indices[:, 0], tf.int32)
+            valid_src_idx = tf.cast(valid_indices[:, 1], tf.int32)
+            valid_tgt_idx = tf.cast(valid_indices[:, 2], tf.int32)
             
             src_scores = tf.gather_nd(source_scores, tf.stack([valid_batch_idx, valid_src_idx], axis=1))
             tgt_scores = tf.gather_nd(target_scores, tf.stack([valid_batch_idx, valid_tgt_idx], axis=1))
@@ -295,10 +304,12 @@ class GATEncoder(BaseEncoder):
             # Compute attention for edges only
             edge_attention = tf.nn.leaky_relu(src_scores + tgt_scores, alpha=0.2)
             
-            # Scatter back to full attention matrix with consistent batch size
+            # Scatter back to full attention matrix with consistent batch size and dtypes
             attention_shape = tf.stack([batch_size, num_nodes, num_nodes])
             edge_attention_flat = tf.reshape(edge_attention, [-1])
-            sparse_logits = tf.scatter_nd(valid_indices, edge_attention_flat, attention_shape)
+            # Cast valid_indices back to int32 for scatter_nd
+            valid_indices_int32 = tf.cast(valid_indices, tf.int32)
+            sparse_logits = tf.scatter_nd(valid_indices_int32, edge_attention_flat, attention_shape)
             
             # Apply mask for non-edges with consistent shapes
             mask = tf.equal(adjacency_matrix, 0.0)
@@ -411,10 +422,10 @@ class GATEncoder(BaseEncoder):
         Returns:
             adjacency_matrix: [batch_size, num_nodes, num_nodes] weighted tensor
         """
-        # Get batch indices
+        # Get batch indices with consistent dtypes
         num_edges = tf.shape(edge_list)[1]
         batch_indices = tf.reshape(
-            tf.tile(tf.expand_dims(tf.range(batch_size), 1), [1, num_edges]),
+            tf.tile(tf.expand_dims(tf.range(batch_size, dtype=tf.int32), 1), [1, num_edges]),
             [-1]
         )
         
