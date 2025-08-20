@@ -220,8 +220,23 @@ class GATEncoder(BaseEncoder):
         Returns:
             Tensor: [batch_size, num_nodes, output_dim]
         """
+        # Get dynamic shapes
         batch_size = tf.shape(node_features)[0]
         num_nodes = tf.shape(node_features)[1]
+        
+        # Ensure adjacency matrix has the correct batch size
+        adj_batch_size = tf.shape(adjacency_matrix)[0]
+        
+        # Handle batch size mismatch by taking the minimum
+        # This can happen when different batches have different sizes
+        actual_batch_size = tf.minimum(batch_size, adj_batch_size)
+        
+        # Slice to ensure consistent batch sizes
+        node_features = node_features[:actual_batch_size]
+        adjacency_matrix = adjacency_matrix[:actual_batch_size]
+        
+        # Update batch size to the actual consistent size
+        batch_size = actual_batch_size
         
         # Linear transformation: W * h
         W = tf.get_variable(
@@ -267,65 +282,67 @@ class GATEncoder(BaseEncoder):
             src_idx = edge_indices[:, 1]
             tgt_idx = edge_indices[:, 2]
             
-            # Gather scores for edges
-            src_scores = tf.gather_nd(source_scores, tf.stack([batch_idx, src_idx], axis=1))
-            tgt_scores = tf.gather_nd(target_scores, tf.stack([batch_idx, tgt_idx], axis=1))
+            # Gather scores for edges (ensure indices are valid)
+            valid_batch_mask = tf.less(batch_idx, batch_size)
+            valid_indices = tf.boolean_mask(edge_indices, valid_batch_mask)
+            valid_batch_idx = valid_indices[:, 0]
+            valid_src_idx = valid_indices[:, 1]
+            valid_tgt_idx = valid_indices[:, 2]
+            
+            src_scores = tf.gather_nd(source_scores, tf.stack([valid_batch_idx, valid_src_idx], axis=1))
+            tgt_scores = tf.gather_nd(target_scores, tf.stack([valid_batch_idx, valid_tgt_idx], axis=1))
             
             # Compute attention for edges only
             edge_attention = tf.nn.leaky_relu(src_scores + tgt_scores, alpha=0.2)
             
-            # Scatter back to full attention matrix
-            attention_shape = [batch_size, num_nodes, num_nodes]
-            # Ensure edge_attention is 1D for scatter_nd
+            # Scatter back to full attention matrix with consistent batch size
+            attention_shape = tf.stack([batch_size, num_nodes, num_nodes])
             edge_attention_flat = tf.reshape(edge_attention, [-1])
-            sparse_logits = tf.scatter_nd(edge_indices, edge_attention_flat, attention_shape)
+            sparse_logits = tf.scatter_nd(valid_indices, edge_attention_flat, attention_shape)
             
-            # Add large negative values for non-edges
+            # Apply mask for non-edges with consistent shapes
             mask = tf.equal(adjacency_matrix, 0.0)
-            return tf.where(mask, tf.fill(attention_shape, -1e9), sparse_logits)
+            masked_logits = tf.where(
+                mask, 
+                tf.ones_like(sparse_logits) * (-1e9),
+                sparse_logits
+            )
+            return masked_logits
         
         def dense_attention():
             """Standard dense attention computation."""
-            # Broadcast and combine scores
+            # Use broadcasting to compute all pairwise attention scores efficiently
             # source_scores: [batch_size, num_nodes, 1]
             # target_scores: [batch_size, num_nodes, 1]
             
-            # Expand dims for broadcasting
-            # [batch_size, num_nodes, 1] -> [batch_size, num_nodes, 1, 1]
-            source_broadcast = tf.expand_dims(source_scores, axis=2)
-            # [batch_size, num_nodes, 1] -> [batch_size, 1, num_nodes, 1]  
-            target_broadcast = tf.expand_dims(target_scores, axis=1)
+            # Expand for broadcasting: [batch_size, num_nodes, 1, 1]
+            source_expanded = tf.expand_dims(source_scores, axis=2)  
+            # Expand for broadcasting: [batch_size, 1, num_nodes, 1]
+            target_expanded = tf.expand_dims(target_scores, axis=1)
             
-            # Tile to create all pairs
-            # [batch_size, num_nodes, 1, 1] -> [batch_size, num_nodes, num_nodes, 1]
-            source_tiled = tf.tile(source_broadcast, [1, 1, num_nodes, 1])
-            # [batch_size, 1, num_nodes, 1] -> [batch_size, num_nodes, num_nodes, 1]
-            target_tiled = tf.tile(target_broadcast, [1, num_nodes, 1, 1])
-            
-            # Compute all pairwise attentions
-            attention_logits = source_tiled + target_tiled
-            # [batch_size, num_nodes, num_nodes, 1] -> [batch_size, num_nodes, num_nodes]
+            # Broadcast to [batch_size, num_nodes, num_nodes, 1]
+            attention_logits = source_expanded + target_expanded
+            # Remove last dimension: [batch_size, num_nodes, num_nodes]
             attention_logits = tf.squeeze(attention_logits, axis=-1)
             attention_logits = tf.nn.leaky_relu(attention_logits, alpha=0.2)
             
-            # Mask non-edges
+            # Apply adjacency mask - ensure consistent shapes
+            # adjacency_matrix: [batch_size, num_nodes, num_nodes]
             mask = tf.equal(adjacency_matrix, 0.0)
-            return tf.where(mask, tf.fill(tf.shape(attention_logits), -1e9), attention_logits)
+            # Create masked attention with same shape as attention_logits
+            masked_logits = tf.where(
+                mask, 
+                tf.ones_like(attention_logits) * (-1e9),
+                attention_logits
+            )
+            return masked_logits
         
         # Choose computation path based on sparsity (if < 30% edges, use sparse)
-        attention_logits = tf.cond(
+        # Both functions already apply adjacency masking internally
+        masked_attention_logits = tf.cond(
             sparsity < 0.3,
             sparse_attention,
             dense_attention
-        )
-        
-        # Mask attention logits using adjacency matrix
-        # Set attention to very negative value for non-connected nodes
-        mask = tf.equal(adjacency_matrix, 0.0)
-        masked_attention_logits = tf.where(
-            mask,
-            tf.fill(tf.shape(attention_logits), -1e9),
-            attention_logits
         )
         
         # Apply softmax to get attention weights: [batch_size, num_nodes, num_nodes]
@@ -334,8 +351,9 @@ class GATEncoder(BaseEncoder):
         # Incorporate edge weights from adjacency matrix after softmax
         # This scales attention by the edge weight (e.g., latency, cost)
         # Only apply weights where edges exist (non-zero adjacency)
+        edge_mask = tf.equal(adjacency_matrix, 0.0)
         edge_weight_mask = tf.where(
-            mask,
+            edge_mask,
             tf.zeros_like(adjacency_matrix),
             adjacency_matrix
         )

@@ -246,35 +246,66 @@ class MRLCO():
                 
                 # Add adjacency matrix to feed_dict if placeholder exists
                 if self.adjacency_matrix[task_id] is not None:
+                    # Get the correct batch size from observations
+                    current_batch_size = observations.shape[0]
+                    num_nodes = observations.shape[1]
+                    
                     # Try to use real adjacency from samples_data if available
                     if 'adjacency_matrices' in task_samples and task_samples['adjacency_matrices'] is not None:
                         # Use real DAG adjacency with edge weights
                         adjacency = task_samples['adjacency_matrices']
-                        # Ensure correct shape
+                        
+                        # Handle shape mismatches between adjacency and current batch
                         if len(adjacency.shape) == 2:
-                            adjacency = adjacency[np.newaxis, :]
+                            # 2D adjacency: [num_nodes, num_nodes] -> [batch_size, num_nodes, num_nodes]
+                            adjacency = np.tile(adjacency[np.newaxis, :, :], (current_batch_size, 1, 1))
+                        elif adjacency.shape[0] != current_batch_size:
+                            # Batch size mismatch: resize to match current observations
+                            if adjacency.shape[0] > current_batch_size:
+                                # Take first current_batch_size samples
+                                adjacency = adjacency[:current_batch_size]
+                            else:
+                                # Repeat to match current_batch_size 
+                                repeat_factor = int(np.ceil(current_batch_size / adjacency.shape[0]))
+                                adjacency = np.tile(adjacency, (repeat_factor, 1, 1))[:current_batch_size]
+                        
                         feed_dict[self.adjacency_matrix[task_id]] = adjacency
+                        
                         # Debug log for first iteration
                         if i == 0 and task_id == 0:
                             print(f"[DEBUG] Using REAL adjacency matrix from task graph")
-                            print(f"        Shape: {adjacency.shape}, Sparsity: {np.mean(adjacency == 0):.2%}")
-                            print(f"        Edge weight range: [{np.min(adjacency[adjacency > 0]):.3f}, {np.max(adjacency[adjacency > 0]):.3f}]")
+                            print(f"        Observations shape: {observations.shape}")
+                            print(f"        Adjacency shape: {adjacency.shape}")
+                            print(f"        Sparsity: {np.mean(adjacency == 0):.2%}")
+                            if np.any(adjacency > 0):
+                                print(f"        Edge weight range: [{np.min(adjacency[adjacency > 0]):.3f}, {np.max(adjacency[adjacency > 0]):.3f}]")
                     else:
                         # Fallback to default fully connected adjacency matrix
-                        batch_size_adj = observations.shape[0]
-                        num_nodes = observations.shape[1]
-                        default_adjacency = np.ones((batch_size_adj, num_nodes, num_nodes), dtype=np.float32)
+                        default_adjacency = np.ones((current_batch_size, num_nodes, num_nodes), dtype=np.float32)
                         feed_dict[self.adjacency_matrix[task_id]] = default_adjacency
+                        
                         # Debug log for first iteration
                         if i == 0 and task_id == 0:
                             print(f"[DEBUG] Using DEFAULT fully-connected adjacency (fallback)")
                             print(f"        Reason: {'adjacency_matrices' not in task_samples if 'adjacency_matrices' not in task_samples else 'adjacency_matrices is None'}")
-                            print(f"        Shape: {default_adjacency.shape}")
+                            print(f"        Observations shape: {observations.shape}")
+                            print(f"        Default adjacency shape: {default_adjacency.shape}")
+                else:
+                    if i == 0 and task_id == 0:
+                        print(f"[DEBUG] No adjacency matrix placeholder for task {task_id}")
 
-                _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
-                    [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id],
-                     self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]],
-                    feed_dict=feed_dict)
+                try:
+                    _, value_loss, policy_loss, likelihood_ratio_val, advs_val, clipped_obj_val = sess.run(
+                        [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id],
+                         self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]],
+                        feed_dict=feed_dict)
+                except Exception as e:
+                    # Debug info on error
+                    print(f"[ERROR] Training step failed for task {task_id}, iteration {i}:")
+                    for key, value in feed_dict.items():
+                        if hasattr(value, 'shape'):
+                            print(f"  {key.name}: {value.shape}")
+                    raise e
 
                 # Debug logging
                 if i == 0 and task_id == 0:  # Log only for first iteration and task
