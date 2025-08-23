@@ -12,12 +12,12 @@ class ExhaustiveSearchOracle:
         
     def calculate_task_latency(self, task_graph, allocation):
         """
-        محاسبه latency برای یک allocation مشخص
+        محاسبه latency برای یک allocation مشخص - دقیقاً مثل get_scheduling_cost_step_by_step
         allocation: لیست 0 و 1 که 0 یعنی local و 1 یعنی MEC server
         """
-        cloud_available_time = 0.0
-        ws_available_time = 0.0
-        local_available_time = 0.0
+        cloud_avaliable_time = 0.0
+        ws_avaliable_time = 0.0
+        local_avaliable_time = 0.0
         
         # finish time on cloud for each task
         FT_cloud = [0] * task_graph.task_number
@@ -25,72 +25,74 @@ class ExhaustiveSearchOracle:
         FT_ws = [0] * task_graph.task_number
         # finish time locally for each task
         FT_locally = [0] * task_graph.task_number
-        # finish time receiving channel for each task
+        # finish time recieving channel for each task
         FT_wr = [0] * task_graph.task_number
+        current_FT = 0.0
         
         # Process tasks in prioritized order
-        for i in task_graph.prioritize_sequence:
+        for idx, i in enumerate(task_graph.prioritize_sequence):
             task = task_graph.task_list[i]
-            action = allocation[i]
+            x = allocation[idx]  # Use idx for allocation, not i
             
-            # Local execution (action = 0)
-            if action == 0:
+            # locally scheduling
+            if x == 0:
                 if len(task_graph.pre_task_sets[i]) != 0:
-                    start_time = max(local_available_time,
-                                   max([max(FT_locally[j], FT_wr[j]) for j in task_graph.pre_task_sets[i]]))
+                    start_time = max(local_avaliable_time,
+                                     max([max(FT_locally[j], FT_wr[j]) for j in task_graph.pre_task_sets[i]]))
                 else:
-                    start_time = local_available_time
+                    start_time = local_avaliable_time
                 
                 T_l = self.resource_cluster.locally_execution_cost(task.processing_data_size)
                 FT_locally[i] = start_time + T_l
-                local_available_time = FT_locally[i]
+                local_avaliable_time = FT_locally[i]
                 
-            # MEC execution (action = 1)
+                task_finish_time = FT_locally[i]
+                
+            # mcc scheduling
             else:
                 if len(task_graph.pre_task_sets[i]) != 0:
-                    # Upload start time
-                    ws_start_time = max(ws_available_time,
-                                      max([max(FT_locally[j], FT_ws[j]) for j in task_graph.pre_task_sets[i]]))
+                    ws_start_time = max(ws_avaliable_time,
+                                        max([max(FT_locally[j], FT_ws[j]) for j in task_graph.pre_task_sets[i]]))
                     
                     T_ul = self.resource_cluster.up_transmission_cost(task.processing_data_size)
                     ws_finish_time = ws_start_time + T_ul
                     FT_ws[i] = ws_finish_time
-                    ws_available_time = ws_finish_time
+                    ws_avaliable_time = ws_finish_time
                     
-                    # Cloud execution
-                    cloud_start_time = max(cloud_available_time,
+                    cloud_start_time = max(cloud_avaliable_time,
                                           max([max(FT_ws[i], FT_cloud[j]) for j in task_graph.pre_task_sets[i]]))
                     cloud_finish_time = cloud_start_time + self.resource_cluster.mec_execution_cost(task.processing_data_size)
                     FT_cloud[i] = cloud_finish_time
-                    cloud_available_time = cloud_finish_time
+                    cloud_avaliable_time = cloud_finish_time
                     
-                    # Download
                     wr_start_time = FT_cloud[i]
                     T_dl = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
                     wr_finish_time = wr_start_time + T_dl
                     FT_wr[i] = wr_finish_time
                     
                 else:
-                    # No predecessors
-                    ws_start_time = ws_available_time
+                    ws_start_time = ws_avaliable_time
                     T_ul = self.resource_cluster.up_transmission_cost(task.processing_data_size)
                     ws_finish_time = ws_start_time + T_ul
                     FT_ws[i] = ws_finish_time
-                    ws_available_time = ws_finish_time
+                    ws_avaliable_time = ws_finish_time
                     
-                    cloud_start_time = max(cloud_available_time, FT_ws[i])
+                    cloud_start_time = max(cloud_avaliable_time, FT_ws[i])
                     cloud_finish_time = cloud_start_time + self.resource_cluster.mec_execution_cost(task.processing_data_size)
                     FT_cloud[i] = cloud_finish_time
-                    cloud_available_time = cloud_finish_time
+                    cloud_avaliable_time = cloud_finish_time
                     
                     wr_start_time = FT_cloud[i]
                     T_dl = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
                     wr_finish_time = wr_start_time + T_dl
                     FT_wr[i] = wr_finish_time
+                
+                task_finish_time = wr_finish_time
+            
+            # Update current_FT exactly like in get_scheduling_cost_step_by_step
+            current_FT = max(task_finish_time, current_FT)
         
-        # Total latency is the maximum finish time
-        total_latency = max(max(FT_locally), max(FT_wr))
-        return total_latency
+        return current_FT
     
     def find_optimal_allocation(self, task_graph):
         """
