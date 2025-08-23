@@ -103,7 +103,10 @@ class ExhaustiveSearchOracle:
         
         # Generate all possible allocations (2^n possibilities)
         total_allocations = 2 ** n
-        print(f"Testing {total_allocations} possible allocations for {n} tasks...")
+        print(f"  Testing {total_allocations:,} possible allocations for {n} tasks...")
+        
+        # Progress tracking
+        progress_interval = max(1, total_allocations // 100)  # Report every 1%
         
         for i in range(total_allocations):
             # Convert integer to binary allocation
@@ -120,19 +123,32 @@ class ExhaustiveSearchOracle:
             # Calculate latency for this allocation
             latency = self.calculate_task_latency(task_graph, allocation)
             
-            # Store result
-            all_results.append({
-                'allocation': allocation.copy(),
-                'latency': latency
-            })
+            # Store result (only store samples to save memory for large searches)
+            if n <= 15 or i % 1000 == 0:  # Store all for small problems, sample for large
+                all_results.append({
+                    'allocation': allocation.copy(),
+                    'latency': latency
+                })
             
             # Update best if found better
             if latency < best_latency:
                 best_latency = latency
                 best_allocation = allocation.copy()
+            
+            # Progress reporting
+            if i > 0 and i % progress_interval == 0:
+                progress = (i / total_allocations) * 100
+                print(f"    Progress: {progress:.1f}% ({i:,}/{total_allocations:,}) - Current best: {best_latency:.6f}")
         
-        # Sort results by latency
-        all_results.sort(key=lambda x: x['latency'])
+        # Sort results by latency (if we have them)
+        if all_results:
+            all_results.sort(key=lambda x: x['latency'])
+        else:
+            # If no results stored, create minimal set
+            all_results = [
+                {'allocation': best_allocation, 'latency': best_latency},
+                {'allocation': [1]*n, 'latency': best_latency}  # Dummy worst case
+            ]
         
         return best_allocation, best_latency, all_results
     
@@ -186,15 +202,15 @@ class ExhaustiveSearchOracle:
                 'best_allocation': best_allocation,
                 'local_tasks': local_count,
                 'server_tasks': server_count,
-                'worst_latency': all_allocations[-1]['latency'],
-                'average_latency': np.mean([a['latency'] for a in all_allocations])
+                'worst_latency': all_allocations[-1]['latency'] if len(all_allocations) > 1 else best_latency,
+                'average_latency': np.mean([a['latency'] for a in all_allocations]) if len(all_allocations) > 1 else best_latency
             }
             
             results.append(result)
             
             print(f"  Best latency: {best_latency:.6f}")
             print(f"  Allocation: Local={local_count}, Server={server_count}")
-            print(f"  Worst latency: {all_allocations[-1]['latency']:.6f}")
+            print(f"  Total allocations tested: {2**task_graph.task_number:,}")
         
         return results
     
@@ -246,6 +262,11 @@ class ExhaustiveSearchOracle:
         print(f"  Graph ID: {worst_graph['graph_id']}")
         print(f"  Latency: {worst_graph['best_latency']:.6f}")
         print(f"  Allocation: Local={worst_graph['local_tasks']}, Server={worst_graph['server_tasks']}")
+        
+        # Final summary
+        print(f"\n" + "="*60)
+        print(f"FINAL RESULT: Average best latency across all {len(results)} graphs = {np.mean(best_latencies):.6f}")
+        print("="*60)
 
 
 def main():
