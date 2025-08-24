@@ -97,6 +97,9 @@ class ExhaustiveSearchOracle:
     def find_optimal_allocation(self, task_graph):
         """
         پیدا کردن بهترین allocation با جستجوی exhaustive
+        
+        NOTE: Resources are reset once per graph (before this function is called)
+        but NOT between different allocations, matching meta_evaluator behavior
         """
         n = task_graph.task_number
         best_allocation = None
@@ -119,8 +122,8 @@ class ExhaustiveSearchOracle:
                 temp >>= 1
             allocation = allocation[::-1]  # Reverse to get correct order
             
-            # Reset resources for each evaluation
-            self.resource_cluster.reset()
+            # DO NOT RESET - to match the original model's behavior
+            # self.resource_cluster.reset()
             
             # Calculate latency for this allocation
             latency = self.calculate_task_latency(task_graph, allocation)
@@ -189,6 +192,9 @@ class ExhaustiveSearchOracle:
             
             # Prioritize tasks (required for execution order)
             task_graph.prioritize_tasks(self.resource_cluster)
+            
+            # Reset resources for each graph (like meta_evaluator does)
+            self.resource_cluster.reset()
             
             # Find optimal allocation
             best_allocation, best_latency, all_allocations = self.find_optimal_allocation(task_graph)
