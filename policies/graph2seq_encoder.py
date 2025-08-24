@@ -193,6 +193,7 @@ class Graph2SeqEncoderAdapter:
             for h in range(num_heads):
                 logits = tf.layers.dense(encoder_outputs, 1, activation=None, name="h{}_logits".format(h))  # [B,N,1]
 
+                # (اختیاری) اگر node_mask داری:
                 # logits += (1.0 - node_mask[..., None]) * (-1e9)
 
                 alpha = tf.nn.softmax(logits / tau, axis=1)  # [B,N,1]
@@ -207,6 +208,7 @@ class Graph2SeqEncoderAdapter:
             max_pool = tf.reduce_max(encoder_outputs, axis=1)  # [B, D_out]
             fused = tf.concat([mean_pool, max_pool, attn_pool], axis=-1)
 
+            # --- LayerNorm سازگار با TF1 ---
             def layer_norm_tf1(x, name):
                 try:
                     # TF1.contrib
@@ -220,7 +222,7 @@ class Graph2SeqEncoderAdapter:
                         # fallback: بدون LN
                         return x
 
-            fused = layer_norm_tf1(fused, name="readout_ln")
+            fused = layer_norm_tf1(fused, name="readout_ln")  # اگر دردسترس نباشد، فقط fused را برمی‌گرداند
 
             final_state = tf.layers.dense(
                 fused, units=state_units, activation=tf.tanh, name="readout_proj_plus"
