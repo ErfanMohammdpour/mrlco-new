@@ -178,36 +178,54 @@ class Graph2SeqEncoderAdapter:
         # Create encoder state compatible with LSTM decoder
         # Use max pooling over sequence to get final state
         #final_state = tf.reduce_max(encoder_outputs, axis=1)
+        # encoder_outputs: [B, N, D_out]
         num_heads = 4
-        attn_dim = encoder_outputs.get_shape().as_list()[-1]  # یا مثلاً 128
-        attn_do = 0.1  # 0 در eval
+        attn_do = 0.10 if (self.mode == 'train') else 0.0
+        D_out = encoder_outputs.get_shape().as_list()[-1]
         state_units = (4 * self.hidden_dim) if self.bidirectional else (2 * self.hidden_dim)
 
         with tf.variable_scope("attentive_readout_plus", reuse=tf.AUTO_REUSE):
-
-            log_tau = tf.get_variable("log_tau", shape=[], initializer=tf.constant_initializer(0.0))  # tau=exp(0)=1
+            # learnable temperature
+            log_tau = tf.get_variable("log_tau", shape=[], initializer=tf.constant_initializer(0.0))
             tau = tf.exp(log_tau)
 
             heads = []
             for h in range(num_heads):
                 logits = tf.layers.dense(encoder_outputs, 1, activation=None, name="h{}_logits".format(h))  # [B,N,1]
-                if 'node_mask' in locals() and node_mask is not None:
-                    logits += (1.0 - node_mask[..., None]) * (-1e9)
+
+                # logits += (1.0 - node_mask[..., None]) * (-1e9)
 
                 alpha = tf.nn.softmax(logits / tau, axis=1)  # [B,N,1]
-                alpha = tf.nn.dropout(alpha, keep_prob=1.0 - attn_do)
+                if attn_do > 0.0:
+                    alpha = tf.nn.dropout(alpha, keep_prob=1.0 - attn_do)
+
                 head = tf.reduce_sum(encoder_outputs * alpha, axis=1)  # [B,D_out]
                 heads.append(head)
 
-            attn_pool = tf.concat(heads, axis=-1)  # [B, num_heads*D_out]
-            mean_pool = tf.reduce_mean(encoder_outputs, axis=1)
-            max_pool = tf.reduce_max(encoder_outputs, axis=1)
-
+            attn_pool = tf.concat(heads, axis=-1)  # [B, H*D_out]
+            mean_pool = tf.reduce_mean(encoder_outputs, axis=1)  # [B, D_out]
+            max_pool = tf.reduce_max(encoder_outputs, axis=1)  # [B, D_out]
             fused = tf.concat([mean_pool, max_pool, attn_pool], axis=-1)
 
-            fused = tf.layers.layer_normalization(fused, name="readout_ln")
+            def layer_norm_tf1(x, name):
+                try:
+                    # TF1.contrib
+                    from tensorflow.contrib.layers import layer_norm as _ln
+                    return _ln(x, center=True, scale=True, scope=name)
+                except Exception:
+                    try:
+                        # Keras در TF1
+                        return tf.keras.layers.LayerNormalization(name=name)(x)
+                    except Exception:
+                        # fallback: بدون LN
+                        return x
 
-            final_state = tf.layers.dense(fused, units=state_units, activation=tf.tanh, name="readout_proj_plus")
+            fused = layer_norm_tf1(fused, name="readout_ln")
+
+            final_state = tf.layers.dense(
+                fused, units=state_units, activation=tf.tanh, name="readout_proj_plus"
+            )
+
         # Create LSTM-compatible state tuple
         if self.bidirectional:
             state_size = 4 * self.hidden_dim
