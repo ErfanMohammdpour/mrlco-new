@@ -220,8 +220,8 @@ if __name__ == "__main__":
     algo = MRLCO(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
-                         inner_lr=1e-3,  # Increased from 5e-4 to improve learning
-                         outer_lr=1e-3,  # Increased from 5e-4 to improve learning
+                         inner_lr=5e-4,  # Increased from 5e-4 to improve learning
+                         outer_lr=5e-4,  # Increased from 5e-4 to improve learning
                          meta_batch_size=META_BATCH_SIZE,
                          num_inner_grad_steps=1,
                          clip_value = 0.3)
@@ -231,7 +231,7 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=1000,
+                        n_itr=2000,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
                         inner_batch_size=1000)
