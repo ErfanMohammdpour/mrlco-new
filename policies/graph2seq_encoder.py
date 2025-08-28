@@ -177,8 +177,18 @@ class Graph2SeqEncoderAdapter:
         
         # Create encoder state compatible with LSTM decoder
         # Use max pooling over sequence to get final state
-        final_state = tf.reduce_max(encoder_outputs, axis=1)
-        
+        #final_state = tf.reduce_max(encoder_outputs, axis=1)
+        attn_logits = tf.layers.dense(encoder_outputs, 1, activation=None, name="readout_attn_logits")  # [B,N,1]
+        attn_weights = tf.nn.softmax(attn_logits, axis=1)  # [B,N,1]
+        attn_pool = tf.reduce_sum(encoder_outputs * attn_weights, axis=1)  # [B,D_out]
+        mean_pool = tf.reduce_mean(encoder_outputs, axis=1)
+        max_pool = tf.reduce_max(encoder_outputs, axis=1)
+        final_state = tf.layers.dense(
+            tf.concat([mean_pool, max_pool, attn_pool], axis=-1),  # [B,3*D_out]
+            units=(4 * self.hidden_dim) if self.bidirectional else (2 * self.hidden_dim),
+            activation=tf.tanh,
+            name="readout_proj"
+        )
         # Create LSTM-compatible state tuple
         if self.bidirectional:
             state_size = 4 * self.hidden_dim
