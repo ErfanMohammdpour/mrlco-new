@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     with tf.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
-        policy.load_variables(load_path="./meta_model_4400.ckpt")
+        policy.load_variables(load_path="./meta_model_3800.ckpt")
         avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
 
 

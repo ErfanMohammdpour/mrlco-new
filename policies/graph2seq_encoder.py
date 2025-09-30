@@ -6,7 +6,7 @@ import numpy as np
 
 # Import Graph2Seq modules from local copies
 from .graph2seq_modules.neigh_samplers import UniformNeighborSampler
-from .graph2seq_modules.aggregators import MeanAggregator, MaxPoolingAggregator, GatedMeanAggregator
+from .graph2seq_modules.aggregators import MeanAggregator, MaxPoolingAggregator, GatedMeanAggregator, AttentiveStatisticsAggregator
 from .graph2seq_modules.inits import glorot, zeros
 from .graph2seq_modules.layers import Layer
 
@@ -128,11 +128,17 @@ class Graph2SeqEncoderAdapter:
                 dim_mul = 2
                 
             # Create aggregator
-            fw_aggregator = MeanAggregator(
-                dim_mul * self.hidden_dim, 
-                self.hidden_dim, 
-                concat=self.concat, 
-                mode=self.mode
+            fw_aggregator = AttentiveStatisticsAggregator(
+                input_dim=dim_mul * self.hidden_dim,  # same as before
+                output_dim=self.hidden_dim,  # same as before
+                neigh_input_dim=None,  # or set explicitly if different from input_dim
+                dropout=0.20,  # tune: 0.1–0.3 is common
+                attn_dropout=0.10,  # optional attention dropout
+                bias=True,
+                act=tf.nn.relu,
+                concat=self.concat,
+                mode=self.mode,
+                name="fw_attn_stats"
             )
             self.fw_aggregators.append(fw_aggregator)
             
@@ -143,10 +149,13 @@ class Graph2SeqEncoderAdapter:
                 # Pad hidden states for lookup
                 padded_hidden = tf.concat([fw_hidden, tf.zeros([1, dim_mul * self.hidden_dim])], 0)
                 neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, fw_sampled_neighbors)
-            
+
+            max_k_fw = tf.shape(neigh_vec_hidden)[1]
+            fw_neigh_mask = tf.sequence_mask(fw_sampled_neighbors_len, maxlen=max_k_fw, dtype=tf.float32)  # [B,K]
+
             # Aggregate
-            fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden, fw_sampled_neighbors_len))
-            
+            fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden, fw_neigh_mask))  # [B, out] or [B, 2*out]
+
             if self.bidirectional:
                 bw_aggregator = MeanAggregator(
                     dim_mul * self.hidden_dim, 
