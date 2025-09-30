@@ -174,7 +174,6 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/dags-v4-/offloading_random_23/offloading_random_23.20.",
                                     "./env/mec_offloaing_envs/data/dags-v4-/offloading_random_24/offloading_random_24.20.",
                                     "./env/mec_offloaing_envs/data/dags-v4-/offloading_random_25/offloading_random_25.20.",
-
                                 ],
                                 time_major=False)
 
