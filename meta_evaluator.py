@@ -93,7 +93,7 @@ if __name__ == "__main__":
                                 batch_size=100,
                                 graph_number=100,
                                 graph_file_paths=[
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20."
+                                    "./env/mec_offloaing_envs/data/offloading_random_1/offloading_random_1.30."
                                     ],
                                 time_major=False)
 
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     with tf.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
-        policy.load_variables(load_path="./meta_model_inner_step1/meta_model_final.ckpt")
+        policy.load_variables(load_path="./meta_model_4400.ckpt")
         avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
 
 
