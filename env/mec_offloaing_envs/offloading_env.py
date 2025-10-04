@@ -413,12 +413,12 @@ class OffloadingEnvironment(MetaEnv):
                                             FT_cloud, FT_ws, FT_locally, FT_wr, current_FT)
 
                 # Branch 1: commit REAL action for this task, then greedy-complete remaining
-                snap_sel = self._snapshot_state(**snap) if isinstance(snap, dict) else snap
+                snap_sel = snap
                 self._apply_one_task(snap_sel, task_graph, i, action=x)
                 T_sel = self._greedy_finish_remaining(snap_sel, task_graph)
 
                 # Branch 2: commit ALT action (1-x) for this task, then greedy-complete remaining
-                snap_alt = self._snapshot_state(**snap) if isinstance(snap, dict) else snap
+                snap_alt = snap.copy()
                 self._apply_one_task(snap_alt, task_graph, i, action=1 - x)
                 T_alt = self._greedy_finish_remaining(snap_alt, task_graph)
 
