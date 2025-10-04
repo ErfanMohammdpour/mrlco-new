@@ -126,7 +126,7 @@ if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 6
+    META_BATCH_SIZE = 10
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
@@ -142,14 +142,14 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_2/offloading_random_2.20.",
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_5/offloading_random_5.20.",
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_6/offloading_random_6.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_8/offloading_random_8.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_9/offloading_random_9.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_10/offloading_random_10.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_11/offloading_random_11.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_12/offloading_random_12.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_14/offloading_random_14.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_13/offloading_random_13.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_16/offloading_random_16.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_8/offloading_random_8.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_9/offloading_random_9.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_10/offloading_random_10.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_11/offloading_random_11.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_12/offloading_random_12.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_14/offloading_random_14.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_13/offloading_random_13.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_16/offloading_random_16.20.",
                                 ],
                                 time_major=False,
                                 use_cf_lookahead=args.use_cf_lookahead,
