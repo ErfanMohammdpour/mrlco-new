@@ -6,7 +6,7 @@ import numpy as np
 
 # Import Graph2Seq modules from local copies
 from .graph2seq_modules.neigh_samplers import UniformNeighborSampler
-from .graph2seq_modules.aggregators import MeanAggregator, MaxPoolingAggregator, GatedMeanAggregator
+from .graph2seq_modules.aggregators import MeanAggregator, MaxPoolingAggregator, GatedMeanAggregator, AttentiveStatisticsAggregator
 from .graph2seq_modules.inits import glorot, zeros
 from .graph2seq_modules.layers import Layer
 
@@ -163,7 +163,7 @@ class Graph2SeqEncoderAdapter:
 
             # Aggregate
             #fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden, fw_sampled_neighbors_len))
-            fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden_fw, fw_neigh_mask))
+            fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden, fw_neigh_mask))
             
             if self.bidirectional:
                 bw_aggregator = MeanAggregator(

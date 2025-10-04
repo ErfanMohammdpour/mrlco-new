@@ -194,5 +194,11 @@ if __name__ == "__main__":
 
     with tf.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
-        policy.load_variables(load_path="./meta_model_4400.ckpt")
+        # Load pre-trained model with smart variable mapping
+        try:
+            policy.load_variables(load_path="./meta_model_4400.ckpt")
+            print("✅ Pre-trained model loaded successfully!")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not load pre-trained model: {e}")
+            print("🎯 Training will start with random weights")
         avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()

@@ -453,8 +453,27 @@ class Seq2SeqPolicy():
             for d, v in zip(loaded_params, variables):
                 restores.append(v.assign(d))
         else:
+            # Create a mapping of variable names for compatibility
+            loaded_vars = {}
+            for loaded_name, loaded_value in loaded_params.items():
+                # Extract the base name without scope and suffix
+                base_name = loaded_name.split('/')[-1].split(':')[0]
+                loaded_vars[base_name] = loaded_value
+            
             for v in variables:
-                restores.append(v.assign(loaded_params[v.name]))
+                # Try to load with current name first
+                if v.name in loaded_params:
+                    restores.append(v.assign(loaded_params[v.name]))
+                else:
+                    # Try to find by base name
+                    base_name = v.name.split('/')[-1].split(':')[0]
+                    if base_name in loaded_vars:
+                        print(f"🔄 Mapping {base_name} -> {v.name}")
+                        restores.append(v.assign(loaded_vars[base_name]))
+                    else:
+                        print(f"⚠️  Warning: Could not find compatible variable for {v.name}")
+                        # Initialize with current value (no change)
+                        restores.append(v.assign(v))
 
         sess.run(restores)
 

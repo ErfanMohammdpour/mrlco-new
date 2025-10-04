@@ -97,15 +97,9 @@ class AttentiveStatisticsAggregator(Layer):
 
         # Weights with temperature
         attn_weights = tf.nn.softmax(attn_logits / self.attn_temp, axis=1)  # [B,K,1]
+        
         if self.mode == "train" and self.attn_dropout > 0.0:
             attn_weights = tf.nn.dropout(attn_weights, keep_prob=1.0 - self.attn_dropout)
-            # Stable renormalization after dropout
-            sums = tf.reduce_sum(attn_weights, axis=1, keepdims=True)
-            attn_weights = tf.where(
-                tf.greater(sums, 0.0),
-                attn_weights / (sums + 1e-9),
-                tf.nn.softmax(attn_logits / self.attn_temp, axis=1)
-            )
 
         # Weighted mean and std
         mu = tf.reduce_sum(attn_weights * neigh_vecs, axis=1)  # [B, D_neigh]
@@ -117,7 +111,7 @@ class AttentiveStatisticsAggregator(Layer):
             w = tf.squeeze(attn_weights, -1)  # [B,K]
             w2_sum = tf.reduce_sum(tf.square(w), axis=1, keepdims=True)  # [B,1]
             var_corr = var_num / (1.0 - w2_sum + 1e-6)
-            var = tf.where(self.use_small_sample_correction, var_corr, var_num)
+            var = var_corr
         else:
             var = var_num
             
