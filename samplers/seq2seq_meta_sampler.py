@@ -88,8 +88,18 @@ class Seq2SeqMetaSampler(Sampler):
             t = time.time()
             # Group observations per task so policy sees a list of length meta_batch_size
             obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
+            
+            # Reshape each task's observations to (batch_size, sequence_length, obs_dim)
+            # obs_per_task[i] has shape (envs_per_task, 100, 20, 17)
+            # We need to reshape it to (envs_per_task, 100*20, 17) then to (envs_per_task, 100, 17)
+            reshaped_obs_per_task = []
+            for task_obs in obs_per_task:
+                # task_obs shape: (envs_per_task, 100, 20, 17)
+                # Reshape to (envs_per_task, 100*20, 17) then take first 100 steps
+                reshaped = task_obs.reshape(task_obs.shape[0], -1, task_obs.shape[-1])[:, :100, :]
+                reshaped_obs_per_task.append(reshaped)
 
-            actions, logits, values = policy.get_actions(obs_per_task)
+            actions, logits, values = policy.get_actions(reshaped_obs_per_task)
 
             # Flatten per-task outputs to per-env lists expected by vectorized env executor
             flat_actions = [a for task_actions in actions for a in task_actions]
