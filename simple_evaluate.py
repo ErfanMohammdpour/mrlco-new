@@ -63,16 +63,7 @@ def main():
         batch_size=1,
         graph_number=100,
         graph_file_paths=[
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
+                "./env/mec_offloaing_envs/data/dags/offloading_random_15/offloading_random_15.20.",
         ],
         time_major=False
     )

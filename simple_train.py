@@ -1,6 +1,6 @@
 """
 Simple Deep RL Training Script
-Trains model and saves weights every 100 steps
+Trains model for 4500 episodes and saves weights every 200 episodes
 """
 
 import tensorflow as tf
@@ -10,7 +10,6 @@ import time
 from utils import logger
 from deep_rl_offloading import DeepRLOffloadingAgent
 from env.mec_offloaing_envs.offloading_env import Resources, OffloadingEnvironment
-from deep_rl_config import DeepRLConfig
 
 
 def main():
@@ -25,8 +24,8 @@ def main():
     print("="*60)
     
     # Configuration
-    n_episodes = 1000
-    save_interval = 100
+    n_episodes = 4500
+    save_interval = 200
     max_episode_length = 50
     
     # Create environment
@@ -43,16 +42,20 @@ def main():
         batch_size=1,
         graph_number=100,
         graph_file_paths=[
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-            "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_1/offloading_random_1.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_3/offloading_random_3.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_4/offloading_random_4.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_2/offloading_random_2.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_5/offloading_random_5.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_6/offloading_random_6.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_8/offloading_random_8.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_9/offloading_random_9.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_10/offloading_random_10.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_11/offloading_random_11.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_12/offloading_random_12.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_14/offloading_random_14.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_13/offloading_random_13.20.",
+                    "./env/mec_offloaing_envs/data/dags/offloading_random_16/offloading_random_16.20.",
         ],
         time_major=False
     )
@@ -152,7 +155,7 @@ def main():
             epsilon_history.append(agent.epsilon)
             
             # Print progress
-            if episode % 10 == 0:
+            if episode % 50 == 0:
                 recent_rewards = episode_rewards[-100:] if len(episode_rewards) >= 100 else episode_rewards
                 recent_latencies = episode_latencies[-100:] if len(episode_latencies) >= 100 else episode_latencies
                 
@@ -160,11 +163,12 @@ def main():
                 avg_latency = np.mean(recent_latencies)
                 avg_length = np.mean(episode_lengths[-100:]) if len(episode_lengths) >= 100 else np.mean(episode_lengths)
                 
-                print(f"Episode {episode:4d}: Reward={avg_reward:8.4f}, Latency={avg_latency:8.4f}, "
+                progress = (episode / n_episodes) * 100
+                print(f"Episode {episode:4d}/{n_episodes} ({progress:5.1f}%): Reward={avg_reward:8.4f}, Latency={avg_latency:8.4f}, "
                       f"Length={avg_length:6.2f}, Epsilon={agent.epsilon:.4f}, "
                       f"Buffer={len(agent.replay_buffer):5d}")
             
-            # Save model every 100 episodes
+            # Save model every 200 episodes
             if episode % save_interval == 0 and episode > 0:
                 save_path = f"./simple_model/checkpoint_episode_{episode}.ckpt"
                 agent.save_model(save_path)
