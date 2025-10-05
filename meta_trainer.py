@@ -1,14 +1,19 @@
 import tensorflow as tf
 import numpy as np
 import time
-import argparse
 from utils import logger
-from automated_reporting import create_training_report
-
 
 class Trainer(object):
-    def __init__(self, algo, env, sampler, sample_processor, policy,
-                 n_itr, greedy_finish_time, start_itr=0, inner_batch_size=500, save_interval=100):
+    def __init__(self,algo,
+                env,
+                sampler,
+                sample_processor,
+                policy,
+                n_itr,
+                greedy_finish_time,
+                start_itr=0,
+                inner_batch_size = 500,
+                save_interval = 100):
         self.algo = algo
         self.env = env
         self.sampler = sampler
@@ -21,55 +26,69 @@ class Trainer(object):
         self.save_interval = save_interval
 
     def train(self):
-        start_time = time.time()
-        avg_ret, avg_loss, avg_latencies = [], [], []
-        policy_losses_all, value_losses_all, greedy_latencies_all = [], [], []
+        """
+        Implement the MRLCO training process for task offloading problem
+        """
 
+        start_time = time.time()
+        avg_ret = []
+        avg_loss = []
+        avg_latencies = []
         for itr in range(self.start_itr, self.n_itr):
+            itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
             logger.log("Sampling set of tasks/goals for this meta-batch...")
 
             task_ids = self.sampler.update_tasks()
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
+            #print("sampled path length is: ", len(paths[0]))
+
             greedy_run_time = [self.greedy_finish_time[x] for x in task_ids]
             logger.logkv('Average greedy latency,', np.mean(greedy_run_time))
-            greedy_latencies_all.append(np.mean(greedy_run_time))
 
+            """ ----------------- Processing Samples ---------------------"""
             logger.log("Processing samples...")
             samples_data = self.sampler_processor.process_samples(paths, log=False, log_prefix='')
 
-            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, batch_size=self.inner_batch_size)
-            print("average policy losses: ", np.mean(policy_losses))
+            """ ------------------- Inner Policy Update --------------------"""
+            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, batch_size=self.inner_batch_size )
+
+            #print("task losses: ", losses)
+            print("average task losses: ", np.mean(policy_losses))
             avg_loss.append(np.mean(policy_losses))
-            policy_losses_all.append(np.mean(policy_losses))
 
             print("average value losses: ", np.mean(value_losses))
-            value_losses_all.append(np.mean(value_losses))
 
-            # Evaluate one-step updated policy
+            """ ------------------ Resample from updated sub-task policy ------------"""
             print("Evaluate the one-step update for sub-task policy")
             new_paths = self.sampler.obtain_samples(log=True, log_prefix='')
             new_samples_data = self.sampler_processor.process_samples(new_paths, log="all", log_prefix='')
 
+            """ ------------------ Outer Policy Update ---------------------"""
             logger.log("Optimizing policy...")
             self.algo.UpdateMetaPolicy()
 
-            # --- Logging ---
+            """ ------------------- Logging Stuff --------------------------"""
+
             ret = np.array([])
             for i in range(5):
                 ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
+
             avg_reward = np.mean(ret)
 
             latency = np.array([])
             for i in range(5):
                 latency = np.concatenate((latency, new_samples_data[i]['finish_time']), axis=-1)
+
             avg_latency = np.mean(latency)
             avg_latencies.append(avg_latency)
+
 
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+
             logger.dumpkvs()
             avg_ret.append(avg_reward)
 
@@ -78,45 +97,12 @@ class Trainer(object):
 
         self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_final.ckpt")
 
-        # Automated report
-        try:
-            print("\n==================== GENERATING AUTOMATED REPORT ====================")
-            additional_metrics = {
-                'policy_losses': policy_losses_all,
-                'value_losses': value_losses_all,
-                'greedy_latencies': greedy_latencies_all
-            }
-            report_dir = create_training_report(
-                avg_ret=avg_ret,
-                avg_loss=avg_loss,
-                avg_latencies=avg_latencies,
-                additional_metrics=additional_metrics
-            )
-            print(f"Report generated successfully at: {report_dir}")
-            print("=====================================================================\n")
-        except Exception as e:
-            print(f"WARNING: Failed to generate automated report: {str(e)}")
-            print("Training completed successfully but report generation failed.")
-
         return avg_ret, avg_loss, avg_latencies
 
 
 if __name__ == "__main__":
-    # --- NEW: flags for lookahead counterfactual reward ---
-    parser = argparse.ArgumentParser(description='Meta-RL for Combinatorial Optimization (lookahead counterfactual rewards)')
-    parser.add_argument('--use_cf_lookahead', type=bool, default=True,
-                        help='Use per-step counterfactual with greedy lookahead (default: True)')
-    parser.add_argument('--cf_norm_eps', type=float, default=1e-6,
-                        help='Small epsilon for per-step normalization')
-    parser.add_argument('--lookahead_every_k', type=int, default=1,
-                        help='Run lookahead every k steps (1 = every step)')
-    parser.add_argument('--use_terminal_bonus', type=bool, default=False,
-                        help='Use tiny terminal bonus vs simple baseline (default: False)')
-    parser.add_argument('--terminal_bonus_weight', type=float, default=0.1,
-                        help='Weight for terminal bonus if enabled')
-    args = parser.parse_args()
-
-    from env.mec_offloaing_envs.offloading_env import Resources, OffloadingEnvironment
+    from env.mec_offloaing_envs.offloading_env import Resources
+    from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
     from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy
     from samplers.seq2seq_meta_sampler import Seq2SeqMetaSampler
     from samplers.seq2seq_meta_sampler_process import Seq2SeqMetaSamplerProcessor
@@ -151,53 +137,58 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_13/offloading_random_13.20.",
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_16/offloading_random_16.20.",
                                 ],
-                                time_major=False,
-                                use_cf_lookahead=args.use_cf_lookahead,
-                                cf_norm_eps=args.cf_norm_eps,
-                                lookahead_every_k=args.lookahead_every_k,
-                                use_terminal_bonus=args.use_terminal_bonus,
-                                terminal_bonus_weight=args.terminal_bonus_weight)
+                                time_major=False)
 
     action, greedy_finish_time = env.greedy_solution()
-    print("avg greedy solution: ", np.mean(greedy_finish_time)); print()
+    print("avg greedy solution: ", np.mean(greedy_finish_time))
+    print()
     finish_time = env.get_all_mec_execute_time()
-    print("avg all remote solution: ", np.mean(finish_time)); print()
+    print("avg all remote solution: ", np.mean(finish_time))
+    print()
     finish_time = env.get_all_locally_execute_time()
-    print("avg all local solution: ", np.mean(finish_time)); print()
+    print("avg all local solution: ", np.mean(finish_time))
+    print()
 
     baseline = ValueFunctionBaseline()
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
+
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=256, decoder_units=256,
                                     vocab_size=2)
 
     sampler = Seq2SeqMetaSampler(
-        env=env, policy=meta_policy,
-        rollouts_per_meta_task=1,
+        env=env,
+        policy=meta_policy,
+        rollouts_per_meta_task=20,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
         max_path_length=20000,
         parallel=False,
     )
 
-    sample_processor = Seq2SeqMetaSamplerProcessor(
-        baseline=baseline,
-        discount=0.99,
-        gae_lambda=0.95,
-        normalize_adv=True,
-        positive_adv=False
-    )
-
+    sample_processor = Seq2SeqMetaSamplerProcessor(baseline=baseline,
+                                                   discount=0.99,
+                                                   gae_lambda=0.95,
+                                                   normalize_adv=True,
+                                                   positive_adv=False)
     algo = MRLCO(policy=meta_policy,
-                 meta_sampler=sampler,
-                 meta_sampler_process=sample_processor,
-                 inner_lr=5e-4,
-                 outer_lr=5e-4,
-                 meta_batch_size=META_BATCH_SIZE,
-                 num_inner_grad_steps=1,
-                 clip_value=0.3)
+                         meta_sampler=sampler,
+                         meta_sampler_process=sample_processor,
+                         inner_lr=5e-4,
+                         outer_lr=5e-4,
+                         meta_batch_size=META_BATCH_SIZE,
+                         num_inner_grad_steps=3,
+                         clip_value = 0.2)
 
-    trainer = Trainer(algo=algo, env=env, sampler=sampler, sample_processor=sample_processor,
-                      policy=meta_policy, n_itr=4500, greedy_finish_time=greedy_finish_time,
-                      start_itr=0, inner_batch_size=1000)
+    trainer = Trainer(algo = algo,
+                        env=env,
+                        sampler=sampler,
+                        sample_processor=sample_processor,
+                        policy=meta_policy,
+                        n_itr=3000,
+                        greedy_finish_time= greedy_finish_time,
+                        start_itr=0,
+                        inner_batch_size=1000)
 
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
         avg_ret, avg_loss, avg_latencies = trainer.train()
+
+
