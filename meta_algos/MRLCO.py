@@ -164,13 +164,22 @@ class MRLCO():
         
         shift_actions = np.column_stack(
                     (np.zeros(actions_array.shape[0], dtype=np.int32), actions_array[:, 0:-1]))
+        
+        # Handle logits shape - ensure it's 3D (batch_size, seq_len, vocab_size)
+        logits_array = np.array(task_samples['logits'])
+        if logits_array.ndim == 2:
+            # If 2D, add sequence dimension to make it 3D
+            logits_array = logits_array.reshape(logits_array.shape[0], 1, logits_array.shape[1])
+        elif logits_array.ndim == 1:
+            # If 1D, reshape to 3D
+            logits_array = logits_array.reshape(-1, 1, 2)  # Assuming vocab_size=2
 
         # Use array_split instead of split to handle unequal divisions
         observations_batchs = np.array_split(np.array(task_samples['observations']), batch_number)
         actions_batchs = np.array_split(np.array(task_samples['actions']), batch_number)
         shift_action_batchs = np.array_split(np.array(shift_actions), batch_number)
 
-        old_logits_batchs = np.array_split(np.array(task_samples["logits"], dtype=np.float32 ), batch_number)
+        old_logits_batchs = np.array_split(logits_array.astype(np.float32), batch_number)
         advs_batchs = np.array_split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
         oldvpred = np.array_split(np.array(task_samples['values'], dtype=np.float32), batch_number)
         returns = np.array_split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
