@@ -194,7 +194,7 @@ if __name__ == "__main__":
         policy=meta_policy,
         rollouts_per_meta_task=1,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
-        max_path_length=20000,
+        max_path_length=2000,
         parallel=False,
     )
 
