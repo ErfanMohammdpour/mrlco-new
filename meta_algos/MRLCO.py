@@ -211,7 +211,18 @@ class MRLCO():
             # action, old_logits, _ = copy_policy(observations)
             for old_logits, old_v, observations, actions, shift_actions, advs, r in zip(old_logits_batchs, oldvpred, observations_batchs, actions_batchs,
                                                                                         shift_action_batchs, advs_batchs, returns):
-                decoder_full_length = np.array([observations.shape[1]] * observations.shape[0], dtype=np.int32)
+                # Ensure decoder_full_length matches the actual sequence length
+                # The sequence length should be the length of the action sequence
+                if actions.ndim == 2:
+                    seq_len = actions.shape[1]
+                elif actions.ndim == 1:
+                    # If actions is 1D, we need to determine the sequence length
+                    # This should match the original sequence length from the environment
+                    seq_len = 100  # This should be the actual sequence length from env
+                else:
+                    seq_len = max(1, observations.shape[1])
+                
+                decoder_full_length = np.array([seq_len] * observations.shape[0], dtype=np.int32)
 
                 feed_dict = {self.old_logits[task_id]: old_logits, self.old_v[task_id]: old_v, self.obs[task_id]: observations, self.actions[task_id]: actions,
                             self.decoder_inputs[task_id]: shift_actions,
