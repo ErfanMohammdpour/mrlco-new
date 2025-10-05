@@ -109,7 +109,9 @@ class Seq2SeqMetaSampler(Sampler):
 
             # step environments
             t = time.time()
-            next_obses, rewards, dones, env_infos = self.vec_env.step(flat_actions)
+            # Each action needs to be wrapped in a list for env.step
+            wrapped_actions = [[action] for action in flat_actions]
+            next_obses, rewards, dones, env_infos = self.vec_env.step(wrapped_actions)
 
             # print("rewards shape is: ", np.array(rewards).shape)
             # print("finish time shape is: ", np.array(env_infos).shape)
