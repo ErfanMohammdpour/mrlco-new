@@ -86,34 +86,39 @@ class Seq2SeqMetaSampler(Sampler):
         while n_samples < self.total_samples:
             # execute policy
             t = time.time()
-            # obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
-            obs_per_task = np.array(obses)
+            # Group observations per task so policy sees a list of length meta_batch_size
+            obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
 
             actions, logits, values = policy.get_actions(obs_per_task)
+
+            # Flatten per-task outputs to per-env lists expected by vectorized env executor
+            flat_actions = [a for task_actions in actions for a in task_actions]
+            flat_logits = [l for task_logits in logits for l in task_logits]
+            flat_values = [v for task_values in values for v in task_values]
             policy_time += time.time() - t
 
             # step environments
             t = time.time()
-            # actions = np.concatenate(actions)
-
-            next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
+            next_obses, rewards, dones, env_infos = self.vec_env.step(flat_actions)
 
             # print("rewards shape is: ", np.array(rewards).shape)
             # print("finish time shape is: ", np.array(env_infos).shape)
-
 
             env_time += time.time() - t
 
             #  stack agent_infos and if no infos were provided (--> None) create empty dicts
             new_samples = 0
-            for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses, actions, logits,
-                                                                                    rewards, values, dones, env_infos):
+            for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses,
+                                                                                               flat_actions,
+                                                                                               flat_logits,
+                                                                                               rewards, flat_values,
+                                                                                               dones, env_infos):
                 # append new samples to running paths
 
                 # handling
                 for single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time \
                         in zip(observation, action, logit, reward, value, task_finish_times):
-                    running_paths[idx]["observations"]= single_ob
+                    running_paths[idx]["observations"] = single_ob
                     running_paths[idx]["actions"] = single_ac
                     running_paths[idx]["logits"] = single_logit
                     running_paths[idx]["rewards"] = single_reward
@@ -123,13 +128,13 @@ class Seq2SeqMetaSampler(Sampler):
                     paths[idx // self.envs_per_task].append(dict(
                         observations=np.squeeze(np.asarray(running_paths[idx]["observations"])),
                         actions=np.squeeze(np.asarray(running_paths[idx]["actions"])),
-                        logits = np.squeeze(np.asarray(running_paths[idx]["logits"])),
+                        logits=np.squeeze(np.asarray(running_paths[idx]["logits"])),
                         rewards=np.squeeze(np.asarray(running_paths[idx]["rewards"])),
-                        finish_time = np.squeeze(np.asarray(running_paths[idx]["finish_time"])),
-                        values  = np.squeeze(np.asarray(running_paths[idx]["values"]))
+                        finish_time=np.squeeze(np.asarray(running_paths[idx]["finish_time"])),
+                        values=np.squeeze(np.asarray(running_paths[idx]["values"]))
                     ))
 
-                # if running path is done, add it to paths and empty the running path
+                    # if running path is done, add it to paths and empty the running path
                     new_samples += len(running_paths[idx]["rewards"])
                     running_paths[idx] = _get_empty_running_paths_dict()
 
