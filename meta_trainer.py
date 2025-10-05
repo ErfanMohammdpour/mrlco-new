@@ -159,7 +159,7 @@ if __name__ == "__main__":
         policy=meta_policy,
         rollouts_per_meta_task=20,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
-        max_path_length=20000,
+        max_path_length=50,
         parallel=False,
     )
 
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                         n_itr=3000,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
-                        inner_batch_size=1000)
+                        inner_batch_size=256)
 
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
