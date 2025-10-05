@@ -220,7 +220,7 @@ if __name__ == "__main__":
                         n_itr=2500,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
-                        inner_batch_size=256)
+                        inner_batch_size=1000)
 
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
