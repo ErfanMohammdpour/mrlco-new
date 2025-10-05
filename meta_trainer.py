@@ -151,13 +151,13 @@ if __name__ == "__main__":
 
     baseline = ValueFunctionBaseline()
 
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=256, decoder_units=256,
                                     vocab_size=2)
 
     sampler = Seq2SeqMetaSampler(
         env=env,
         policy=meta_policy,
-        rollouts_per_meta_task=1,  # This batch_size is confusing
+        rollouts_per_meta_task=20,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
         max_path_length=20000,
         parallel=False,
@@ -174,8 +174,8 @@ if __name__ == "__main__":
                          inner_lr=5e-4,
                          outer_lr=5e-4,
                          meta_batch_size=META_BATCH_SIZE,
-                         num_inner_grad_steps=1,
-                         clip_value = 0.3)
+                         num_inner_grad_steps=3,
+                         clip_value = 0.2)
 
     trainer = Trainer(algo = algo,
                         env=env,
