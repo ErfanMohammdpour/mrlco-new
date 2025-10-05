@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
     baseline = ValueFunctionBaseline()
 
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=256,
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=256, decoder_units=256,
                                     vocab_size=2)
 
     sampler = Seq2SeqMetaSampler(
@@ -194,7 +194,7 @@ if __name__ == "__main__":
         policy=meta_policy,
         rollouts_per_meta_task=1,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
-        max_path_length=20000,
+        max_path_length=2000,
         parallel=False,
     )
 
