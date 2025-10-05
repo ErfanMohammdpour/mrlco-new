@@ -194,7 +194,7 @@ class MRLCO():
 
         # Use array_split instead of split to handle unequal divisions
         observations_batchs = np.array_split(np.array(task_samples['observations']), batch_number)
-        actions_batchs = np.array_split(np.array(task_samples['actions']), batch_number)
+        actions_batchs = np.array_split(actions_array, batch_number)  # Use corrected actions_array
         shift_action_batchs = np.array_split(np.array(shift_actions), batch_number)
 
         old_logits_batchs = np.array_split(logits_array.astype(np.float32), batch_number)
