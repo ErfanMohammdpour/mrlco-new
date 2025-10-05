@@ -165,14 +165,15 @@ class MRLCO():
         shift_actions = np.column_stack(
                     (np.zeros(actions_array.shape[0], dtype=np.int32), actions_array[:, 0:-1]))
 
-        observations_batchs = np.split(np.array(task_samples['observations']), batch_number)
-        actions_batchs = np.split(np.array(task_samples['actions']), batch_number)
-        shift_action_batchs = np.split(np.array(shift_actions), batch_number)
+        # Use array_split instead of split to handle unequal divisions
+        observations_batchs = np.array_split(np.array(task_samples['observations']), batch_number)
+        actions_batchs = np.array_split(np.array(task_samples['actions']), batch_number)
+        shift_action_batchs = np.array_split(np.array(shift_actions), batch_number)
 
-        old_logits_batchs = np.split(np.array(task_samples["logits"], dtype=np.float32 ), batch_number)
-        advs_batchs = np.split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
-        oldvpred = np.split(np.array(task_samples['values'], dtype=np.float32), batch_number)
-        returns = np.split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
+        old_logits_batchs = np.array_split(np.array(task_samples["logits"], dtype=np.float32 ), batch_number)
+        advs_batchs = np.array_split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
+        oldvpred = np.array_split(np.array(task_samples['values'], dtype=np.float32), batch_number)
+        returns = np.array_split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
 
         sess = tf.compat.v1.get_default_session()
 
