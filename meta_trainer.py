@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
     baseline = ValueFunctionBaseline()
 
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=256,
                                     vocab_size=2)
 
     sampler = Seq2SeqMetaSampler(
@@ -194,7 +194,7 @@ if __name__ == "__main__":
         policy=meta_policy,
         rollouts_per_meta_task=1,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
-        max_path_length=20000,
+        max_path_length=2000,
         parallel=False,
     )
 
@@ -206,21 +206,21 @@ if __name__ == "__main__":
     algo = MRLCO(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
-                         inner_lr=1e-3,  # Increased from 5e-4 to improve learning
-                         outer_lr=1e-3,  # Increased from 5e-4 to improve learning
+                         inner_lr=5e-4,  # Increased from 5e-4 to improve learning
+                         outer_lr=5e-4,  # Increased from 5e-4 to improve learning
                          meta_batch_size=META_BATCH_SIZE,
-                         num_inner_grad_steps=1,
-                         clip_value = 0.3)
+                         num_inner_grad_steps=3,
+                         clip_value = 0.2)
 
     trainer = Trainer(algo = algo,
                         env=env,
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=1000,
+                        n_itr=2500,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
-                        inner_batch_size=1000)
+                        inner_batch_size=256)
 
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
