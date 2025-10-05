@@ -127,7 +127,7 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_4/offloading_random_4.20.",
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_2/offloading_random_2.20.",
                                     "./env/mec_offloaing_envs/data/dags/offloading_random_5/offloading_random_5.20.",
-                                    # "./env/mec_offloaing_envs/data/dags/offloading_random_6/offloading_random_6.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_6/offloading_random_6.20.",
                                     # "./env/mec_offloaing_envs/data/dags/offloading_random_8/offloading_random_8.20.",
                                     # "./env/mec_offloaing_envs/data/dags/offloading_random_9/offloading_random_9.20.",
                                     # "./env/mec_offloaing_envs/data/dags/offloading_random_10/offloading_random_10.20.",

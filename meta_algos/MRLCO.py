@@ -173,6 +173,24 @@ class MRLCO():
         elif logits_array.ndim == 1:
             # If 1D, reshape to 3D
             logits_array = logits_array.reshape(-1, 1, 2)  # Assuming vocab_size=2
+        
+        # Handle values shape - ensure it's 2D (batch_size, seq_len)
+        values_array = np.array(task_samples['values'])
+        if values_array.ndim == 1:
+            # If 1D, reshape to 2D
+            values_array = values_array.reshape(-1, 1)
+        
+        # Handle advantages shape - ensure it's 2D (batch_size, seq_len)
+        advantages_array = np.array(task_samples['advantages'])
+        if advantages_array.ndim == 1:
+            # If 1D, reshape to 2D
+            advantages_array = advantages_array.reshape(-1, 1)
+        
+        # Handle returns shape - ensure it's 2D (batch_size, seq_len)
+        returns_array = np.array(task_samples['returns'])
+        if returns_array.ndim == 1:
+            # If 1D, reshape to 2D
+            returns_array = returns_array.reshape(-1, 1)
 
         # Use array_split instead of split to handle unequal divisions
         observations_batchs = np.array_split(np.array(task_samples['observations']), batch_number)
@@ -180,9 +198,9 @@ class MRLCO():
         shift_action_batchs = np.array_split(np.array(shift_actions), batch_number)
 
         old_logits_batchs = np.array_split(logits_array.astype(np.float32), batch_number)
-        advs_batchs = np.array_split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
-        oldvpred = np.array_split(np.array(task_samples['values'], dtype=np.float32), batch_number)
-        returns = np.array_split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
+        advs_batchs = np.array_split(advantages_array.astype(np.float32), batch_number)
+        oldvpred = np.array_split(values_array.astype(np.float32), batch_number)
+        returns = np.array_split(returns_array.astype(np.float32), batch_number)
 
         sess = tf.compat.v1.get_default_session()
 
