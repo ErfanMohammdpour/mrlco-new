@@ -156,8 +156,14 @@ class MRLCO():
         # print("update number is: ", self.update_numbers)
         #observations = task_samples['observations']
 
+        # Handle both 1D and 2D actions arrays
+        actions_array = np.array(task_samples['actions'])
+        if actions_array.ndim == 1:
+            # If 1D, reshape to 2D with sequence length 1
+            actions_array = actions_array.reshape(-1, 1)
+        
         shift_actions = np.column_stack(
-                    (np.zeros(task_samples['actions'].shape[0], dtype=np.int32), task_samples['actions'][:, 0:-1]))
+                    (np.zeros(actions_array.shape[0], dtype=np.int32), actions_array[:, 0:-1]))
 
         observations_batchs = np.split(np.array(task_samples['observations']), batch_number)
         actions_batchs = np.split(np.array(task_samples['actions']), batch_number)
