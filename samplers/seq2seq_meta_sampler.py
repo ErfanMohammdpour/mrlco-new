@@ -86,16 +86,19 @@ class Seq2SeqMetaSampler(Sampler):
         while n_samples < self.total_samples:
             # execute policy
             t = time.time()
-            # obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
-            obs_per_task = np.array(obses)
+            # Group observations per task: list length = meta_batch_size,
+            # each element shape = [envs_per_task, time, obs_dim]
+            obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
 
             actions, logits, values = policy.get_actions(obs_per_task)
             policy_time += time.time() - t
 
             # step environments
             t = time.time()
-            # actions = np.concatenate(actions)
-
+            # Flatten per-task outputs to per-env lists expected by the vectorized env
+            actions = np.concatenate(actions)
+            logits = np.concatenate(logits)
+            values = np.concatenate(values)
 
             next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
 
@@ -110,17 +113,15 @@ class Seq2SeqMetaSampler(Sampler):
             for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses, actions, logits,
                                                                                     rewards, values, dones, env_infos):
                 # append new samples to running paths
+                running_paths[idx]["observations"] = observation
+                running_paths[idx]["actions"] = action
+                running_paths[idx]["logits"] = logit
+                running_paths[idx]["rewards"] = reward
+                running_paths[idx]["finish_time"] = task_finish_times
+                running_paths[idx]["values"] = value
 
-                # handling
-                for single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time \
-                        in zip(observation, action, logit, reward, value, task_finish_times):
-                    running_paths[idx]["observations"]= single_ob
-                    running_paths[idx]["actions"] = single_ac
-                    running_paths[idx]["logits"] = single_logit
-                    running_paths[idx]["rewards"] = single_reward
-                    running_paths[idx]["finish_time"] = single_task_finish_time
-                    running_paths[idx]["values"] = single_value
-
+                # if running path is done, add it to paths and empty the running path
+                if done:
                     paths[idx // self.envs_per_task].append(dict(
                         observations=np.squeeze(np.asarray(running_paths[idx]["observations"])),
                         actions=np.squeeze(np.asarray(running_paths[idx]["actions"])),
@@ -130,7 +131,6 @@ class Seq2SeqMetaSampler(Sampler):
                         values  = np.squeeze(np.asarray(running_paths[idx]["values"]))
                     ))
 
-                # if running path is done, add it to paths and empty the running path
                     new_samples += len(running_paths[idx]["rewards"])
                     running_paths[idx] = _get_empty_running_paths_dict()
 
