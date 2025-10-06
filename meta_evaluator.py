@@ -93,7 +93,7 @@ if __name__ == "__main__":
                                 batch_size=100,
                                 graph_number=100,
                                 graph_file_paths=[
-                                    "./env/mec_offloaing_envs/data/dags/offloading_random_15/offloading_random_15.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_8/offloading_random_8.20.",
                                     ],
                                 time_major=False)
 
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     algo = PPO(policy=policy,
                meta_sampler=sampler,
                meta_sampler_process=sample_processor,
-               lr=5e-3,
+               lr=1e-4,
                num_inner_grad_steps=3,
                clip_value=0.2,
                max_grad_norm=None)
