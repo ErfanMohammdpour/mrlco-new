@@ -87,71 +87,27 @@ class Seq2SeqMetaSampler(Sampler):
             # execute policy
             t = time.time()
             # Group observations per task: list length = meta_batch_size,
-            # each element shape = [envs_per_task, graph_number, node_number, features]
+            # each element shape = [envs_per_task * graph_number, node_number, features]
             obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             
-            # Process each task separately, handling multiple rollouts per task
-            # Each task has shape (20, 100, 20, 17) -> 20 rollouts, 100 graphs, 20 nodes, 17 features
-            meta_actions = []
-            meta_logits = []
-            meta_values = []
-            
+            # Reshape each task's observations to (envs_per_task * graph_number, node_number, features)
+            # This converts (20, 100, 20, 17) to (2000, 20, 17) for each task
+            reshaped_obs_per_task = []
             for task_obs in obs_per_task:
                 # task_obs shape: (20, 100, 20, 17)
-                # Process each rollout separately
-                task_actions = []
-                task_logits = []
-                task_values = []
-                
-                for rollout_idx in range(task_obs.shape[0]):
-                    # Each rollout has shape (100, 20, 17)
-                    # We need to process each graph in the rollout
-                    rollout_actions = []
-                    rollout_logits = []
-                    rollout_values = []
-                    
-                    for graph_idx in range(task_obs.shape[1]):
-                        # Each graph has shape (20, 17) - this is what the policy expects
-                        graph_obs = task_obs[rollout_idx, graph_idx, :, :]  # (20, 17)
-                        graph_obs = graph_obs[np.newaxis, :, :]  # (1, 20, 17)
-                        
-                        # Get actions for this single graph
-                        graph_actions, graph_logits, graph_values = policy.get_actions([graph_obs])
-                        
-                        rollout_actions.append(graph_actions[0])
-                        rollout_logits.append(graph_logits[0])
-                        rollout_values.append(graph_values[0])
-                    
-                    task_actions.append(rollout_actions)
-                    task_logits.append(rollout_logits)
-                    task_values.append(rollout_values)
-                
-                meta_actions.append(task_actions)
-                meta_logits.append(task_logits)
-                meta_values.append(task_values)
-            
-            actions = meta_actions
-            logits = meta_logits
-            values = meta_values
+                # Reshape to: (2000, 20, 17) - flatten first two dimensions
+                reshaped_task_obs = task_obs.reshape(-1, task_obs.shape[2], task_obs.shape[3])
+                reshaped_obs_per_task.append(reshaped_task_obs)
+
+            actions, logits, values = policy.get_actions(reshaped_obs_per_task)
             policy_time += time.time() - t
 
             # step environments
             t = time.time()
-            # Flatten the nested structure: meta_actions[task][rollout][graph] -> flat list
-            flattened_actions = []
-            flattened_logits = []
-            flattened_values = []
-            
-            for task_actions, task_logits, task_values in zip(actions, logits, values):
-                for rollout_actions, rollout_logits, rollout_values in zip(task_actions, task_logits, task_values):
-                    for graph_actions, graph_logits, graph_values in zip(rollout_actions, rollout_logits, rollout_values):
-                        flattened_actions.append(graph_actions)
-                        flattened_logits.append(graph_logits)
-                        flattened_values.append(graph_values)
-            
-            actions = flattened_actions
-            logits = flattened_logits
-            values = flattened_values
+            # Flatten per-task outputs to per-env lists expected by the vectorized env
+            actions = np.concatenate(actions)
+            logits = np.concatenate(logits)
+            values = np.concatenate(values)
 
             next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
 
@@ -166,15 +122,17 @@ class Seq2SeqMetaSampler(Sampler):
             for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses, actions, logits,
                                                                                     rewards, values, dones, env_infos):
                 # append new samples to running paths
-                running_paths[idx]["observations"] = observation
-                running_paths[idx]["actions"] = action
-                running_paths[idx]["logits"] = logit
-                running_paths[idx]["rewards"] = reward
-                running_paths[idx]["finish_time"] = task_finish_times
-                running_paths[idx]["values"] = value
 
-                # if running path is done, add it to paths and empty the running path
-                if done:
+                # handling
+                for single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time \
+                        in zip(observation, action, logit, reward, value, task_finish_times):
+                    running_paths[idx]["observations"]= single_ob
+                    running_paths[idx]["actions"] = single_ac
+                    running_paths[idx]["logits"] = single_logit
+                    running_paths[idx]["rewards"] = single_reward
+                    running_paths[idx]["finish_time"] = single_task_finish_time
+                    running_paths[idx]["values"] = single_value
+
                     paths[idx // self.envs_per_task].append(dict(
                         observations=np.squeeze(np.asarray(running_paths[idx]["observations"])),
                         actions=np.squeeze(np.asarray(running_paths[idx]["actions"])),
@@ -184,6 +142,7 @@ class Seq2SeqMetaSampler(Sampler):
                         values  = np.squeeze(np.asarray(running_paths[idx]["values"]))
                     ))
 
+                # if running path is done, add it to paths and empty the running path
                     new_samples += len(running_paths[idx]["rewards"])
                     running_paths[idx] = _get_empty_running_paths_dict()
 
@@ -200,7 +159,3 @@ class Seq2SeqMetaSampler(Sampler):
 
 def _get_empty_running_paths_dict():
     return dict(observations=[], actions=[], logits=[], rewards=[])
-
-
-
-
