@@ -192,7 +192,7 @@ if __name__ == "__main__":
     sampler = Seq2SeqMetaSampler(
         env=env,
         policy=meta_policy,
-        rollouts_per_meta_task=20,  # This batch_size is confusing
+        rollouts_per_meta_task=1,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
         max_path_length=10000,
         parallel=False,

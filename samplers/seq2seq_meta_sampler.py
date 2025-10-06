@@ -86,19 +86,16 @@ class Seq2SeqMetaSampler(Sampler):
         while n_samples < self.total_samples:
             # execute policy
             t = time.time()
-            # Group observations per task: list length = meta_batch_size,
-            # each element shape = [envs_per_task, time, obs_dim]
-            obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
+            # obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
+            obs_per_task = np.array(obses)
 
             actions, logits, values = policy.get_actions(obs_per_task)
             policy_time += time.time() - t
 
             # step environments
             t = time.time()
-            # Flatten per-task outputs to per-env lists expected by the vectorized env
-            actions = np.concatenate(actions)
-            logits = np.concatenate(logits)
-            values = np.concatenate(values)
+            # actions = np.concatenate(actions)
+
 
             next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
 
