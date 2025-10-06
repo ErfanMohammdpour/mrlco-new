@@ -105,9 +105,21 @@ class Seq2SeqMetaSampler(Sampler):
             # step environments
             t = time.time()
             # Flatten per-task outputs to per-env lists expected by the vectorized env
-            actions = np.concatenate(actions)
-            logits = np.concatenate(logits)
-            values = np.concatenate(values)
+            # actions is a list of arrays, we need to flatten it properly
+            flattened_actions = []
+            flattened_logits = []
+            flattened_values = []
+            
+            for task_actions, task_logits, task_values in zip(actions, logits, values):
+                # Each task has (envs_per_task, sequence_length) shape
+                for rollout_actions, rollout_logits, rollout_values in zip(task_actions, task_logits, task_values):
+                    flattened_actions.append(rollout_actions)
+                    flattened_logits.append(rollout_logits)
+                    flattened_values.append(rollout_values)
+            
+            actions = flattened_actions
+            logits = flattened_logits
+            values = flattened_values
 
             next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
 
