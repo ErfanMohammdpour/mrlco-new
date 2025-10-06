@@ -87,17 +87,17 @@ class Seq2SeqMetaSampler(Sampler):
             # execute policy
             t = time.time()
             # Group observations per task: list length = meta_batch_size,
-            # each element shape = [envs_per_task * graph_number, node_number, features]
+            # each element shape = [envs_per_task, graph_number, node_number, features]
             obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             
-            # Reshape each task's observations to (envs_per_task * graph_number, node_number, features)
-            # This converts (20, 100, 20, 17) to (2000, 20, 17) for each task
+            # For each task, take the first graph only (since we have limited environments)
+            # This gives us (envs_per_task, node_number, features) for each task
             reshaped_obs_per_task = []
             for task_obs in obs_per_task:
                 # task_obs shape: (20, 100, 20, 17)
-                # Reshape to: (2000, 20, 17) - flatten first two dimensions
-                reshaped_task_obs = task_obs.reshape(-1, task_obs.shape[2], task_obs.shape[3])
-                reshaped_obs_per_task.append(reshaped_task_obs)
+                # Take only the first graph: (20, 20, 17)
+                first_graph_obs = task_obs[:, 0, :, :]  # (20, 20, 17)
+                reshaped_obs_per_task.append(first_graph_obs)
 
             actions, logits, values = policy.get_actions(reshaped_obs_per_task)
             policy_time += time.time() - t
