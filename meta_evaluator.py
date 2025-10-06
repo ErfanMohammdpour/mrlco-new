@@ -93,7 +93,7 @@ if __name__ == "__main__":
                                 batch_size=100,
                                 graph_number=100,
                                 graph_file_paths=[
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20."
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_15/offloading_random_15.20.",
                                     ],
                                 time_major=False)
 
