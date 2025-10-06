@@ -142,7 +142,7 @@ if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 5
+    META_BATCH_SIZE = 10
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
@@ -152,25 +152,20 @@ if __name__ == "__main__":
                                 batch_size=100,
                                 graph_number=100,
                                 graph_file_paths=[
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
-                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_1/offloading_random_1.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_3/offloading_random_3.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_4/offloading_random_4.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_2/offloading_random_2.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_5/offloading_random_5.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_6/offloading_random_6.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_8/offloading_random_8.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_9/offloading_random_9.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_10/offloading_random_10.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_11/offloading_random_11.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_12/offloading_random_12.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_14/offloading_random_14.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_13/offloading_random_13.20.",
+                                    "./env/mec_offloaing_envs/data/dags/offloading_random_16/offloading_random_16.20.",
                                 ],
                                 time_major=False)
 
@@ -192,7 +187,7 @@ if __name__ == "__main__":
     sampler = Seq2SeqMetaSampler(
         env=env,
         policy=meta_policy,
-        rollouts_per_meta_task=20,  # This batch_size is confusing
+        rollouts_per_meta_task=1,  # This batch_size is confusing
         meta_batch_size=META_BATCH_SIZE,
         max_path_length=20000,
         parallel=False,

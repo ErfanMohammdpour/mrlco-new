@@ -86,40 +86,15 @@ class Seq2SeqMetaSampler(Sampler):
         while n_samples < self.total_samples:
             # execute policy
             t = time.time()
-            # Group observations per task: list length = meta_batch_size,
-            # each element shape = [envs_per_task, graph_number, node_number, features]
-            obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
-            
-            # For each task, take the first graph only (since we have limited environments)
-            # This gives us (envs_per_task, node_number, features) for each task
-            reshaped_obs_per_task = []
-            for task_obs in obs_per_task:
-                # task_obs shape: (20, 100, 20, 17)
-                # Take only the first graph: (20, 20, 17)
-                first_graph_obs = task_obs[:, 0, :, :]  # (20, 20, 17)
-                reshaped_obs_per_task.append(first_graph_obs)
+            # obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
+            obs_per_task = np.array(obses)
 
-            actions, logits, values = policy.get_actions(reshaped_obs_per_task)
+            actions, logits, values = policy.get_actions(obs_per_task)
             policy_time += time.time() - t
 
             # step environments
             t = time.time()
-            # Flatten per-task outputs to per-env lists expected by the vectorized env
-            # actions is a list of arrays, we need to flatten it properly
-            flattened_actions = []
-            flattened_logits = []
-            flattened_values = []
-            
-            for task_actions, task_logits, task_values in zip(actions, logits, values):
-                # Each task has (envs_per_task, sequence_length) shape
-                for rollout_actions, rollout_logits, rollout_values in zip(task_actions, task_logits, task_values):
-                    flattened_actions.append(rollout_actions)
-                    flattened_logits.append(rollout_logits)
-                    flattened_values.append(rollout_values)
-            
-            actions = flattened_actions
-            logits = flattened_logits
-            values = flattened_values
+            # actions = np.concatenate(actions)
 
             next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
 
