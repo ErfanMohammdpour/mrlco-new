@@ -143,7 +143,7 @@ if __name__ == "__main__":
     algo = PPO(policy=policy,
                meta_sampler=sampler,
                meta_sampler_process=sample_processor,
-               lr=1e-4,
+               lr=5e-3,
                num_inner_grad_steps=3,
                clip_value=0.2,
                max_grad_norm=None)
