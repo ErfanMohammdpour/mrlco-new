@@ -150,16 +150,17 @@ class DeepRLOffloadingAgent:
         # Reshape to [batch_size * seq_len, action_dim] for multinomial
         logits_reshaped = tf.reshape(logits, [-1, action_dim])
         
-        # Sample actions
+        # Sample actions - multinomial returns [batch_size * seq_len, 1]
         sampled_actions = tf.multinomial(logits_reshaped, 1)
         
-        # Reshape back to [batch_size, seq_len]
-        sampled_actions = tf.reshape(sampled_actions, [batch_size, seq_len])
+        # Reshape back to [batch_size, seq_len] and squeeze the last dimension
+        sampled_actions = tf.reshape(sampled_actions, [batch_size, seq_len, 1])
+        sampled_actions = tf.squeeze(sampled_actions, axis=2)  # Remove the last dimension
         
         return {
             'logits': logits,
             'probs': action_probs,
-            'sample': sampled_actions[:, :, 0]
+            'sample': sampled_actions
         }
     
     def _build_critic_network(self, obs, sequence_length):
@@ -204,17 +205,23 @@ class DeepRLOffloadingAgent:
             selected_log_probs = tf.reduce_sum(actions_one_hot * log_probs, axis=-1)
             
             # Compute advantages (TD error)
-            advantages = self.rewards_ph - tf.stop_gradient(self.critic_value)
+            # Expand critic_value to match rewards_ph shape [batch_size, seq_len]
+            critic_values_expanded = tf.tile(self.critic_value, [1, tf.shape(self.rewards_ph)[1]])
+            advantages = self.rewards_ph - tf.stop_gradient(critic_values_expanded)
             
             # Actor loss (negative log probability weighted by advantages)
             self.actor_loss = -tf.reduce_mean(selected_log_probs * advantages)
         
         # Critic loss (Mean Squared Error)
         with tf.variable_scope('critic_loss'):
+            # Expand target_critic_value to match rewards_ph shape [batch_size, seq_len]
+            target_values_expanded = tf.tile(self.target_critic_value, [1, tf.shape(self.rewards_ph)[1]])
             target_values = self.rewards_ph + self.gamma * tf.stop_gradient(
-                self.target_critic_value * (1.0 - tf.cast(self.dones_ph, tf.float32))
+                target_values_expanded * (1.0 - tf.cast(self.dones_ph, tf.float32))
             )
-            self.critic_loss = tf.reduce_mean(tf.square(self.critic_value - target_values))
+            # Expand critic_value to match target_values shape
+            critic_values_expanded = tf.tile(self.critic_value, [1, tf.shape(self.rewards_ph)[1]])
+            self.critic_loss = tf.reduce_mean(tf.square(critic_values_expanded - target_values))
         
         # Combined loss
         self.total_loss = self.actor_loss + self.critic_loss
