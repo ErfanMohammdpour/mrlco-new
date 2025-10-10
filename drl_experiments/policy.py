@@ -368,8 +368,18 @@ class DRLPolicy:
             log_prob = tf.reduce_sum(action_one_hot * log_prob, axis=1)  # [B]
             
             # Value head (use decoder output)
+            # decoder_outputs.rnn_output is [B, T, action_dim], but value_head expects [B, encoder_units]
+            # We need to get the actual decoder cell output, not the projected output
             decoder_features = decoder_outputs.rnn_output[:, actual_timestep, :]  # [B, action_dim]
-            value = self.value_head(decoder_features)[:, 0]  # [B]
+            
+            # Create a projection layer to map from action_dim to encoder_units for value head
+            value_projection = tf.layers.Dense(
+                self.encoder_units,
+                activation=tf.nn.relu,
+                name="value_projection"
+            )
+            projected_features = value_projection(decoder_features)  # [B, encoder_units]
+            value = self.value_head(projected_features)[:, 0]  # [B]
             
             return action, log_prob, value
     
@@ -449,7 +459,15 @@ class DRLPolicy:
             
             # Value head (use decoder output)
             decoder_features_flat = tf.reshape(decoder_outputs.rnn_output, [-1, self.action_dim])  # [B*T, action_dim]
-            values_flat = self.value_head(decoder_features_flat)[:, 0]  # [B*T]
+            
+            # Create a projection layer to map from action_dim to encoder_units for value head
+            value_projection = tf.layers.Dense(
+                self.encoder_units,
+                activation=tf.nn.relu,
+                name="value_projection"
+            )
+            projected_features_flat = value_projection(decoder_features_flat)  # [B*T, encoder_units]
+            values_flat = self.value_head(projected_features_flat)[:, 0]  # [B*T]
             values = tf.reshape(values_flat, [tf.shape(logits)[0], tf.shape(logits)[1]])  # [B, T]
             
             return log_probs, entropy, values
