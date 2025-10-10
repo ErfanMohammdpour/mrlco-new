@@ -185,7 +185,7 @@ class DRLPolicy:
             dummy_embeddings = tf.placeholder(tf.float32, [None, self.decoder_units], name="dummy_embeddings")
             _ = self.output_layer(dummy_embeddings)
     
-    def _build_decoder_cell(self, num_layers=2):
+    def _build_decoder_cell(self, num_layers=1):
         """Build decoder cell like original project."""
         cells = []
         for i in range(num_layers):
@@ -205,7 +205,7 @@ class DRLPolicy:
         """Create decoder exactly like original project."""
         with tf.variable_scope(self.scope_name + "/decoder", reuse=tf.AUTO_REUSE):
             # Build decoder cell
-            decoder_cell = self._build_decoder_cell(num_layers=2)
+            decoder_cell = self._build_decoder_cell(num_layers=1)
             
             # Attention mechanism (like original project)
             attention_mechanism = tf.contrib.seq2seq.LuongAttention(
