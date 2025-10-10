@@ -24,7 +24,7 @@ def main():
     print("="*60)
     
     # Configuration
-    n_episodes = 4500
+    n_episodes = 2500
     save_interval = 200
     max_episode_length = 50
     
