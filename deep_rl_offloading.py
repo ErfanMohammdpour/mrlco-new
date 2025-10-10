@@ -142,10 +142,24 @@ class DeepRLOffloadingAgent:
             logits = outputs.rnn_output
             action_probs = tf.nn.softmax(logits)
             
+        # Reshape logits for multinomial sampling
+        batch_size = tf.shape(logits)[0]
+        seq_len = tf.shape(logits)[1]
+        action_dim = tf.shape(logits)[2]
+        
+        # Reshape to [batch_size * seq_len, action_dim] for multinomial
+        logits_reshaped = tf.reshape(logits, [-1, action_dim])
+        
+        # Sample actions
+        sampled_actions = tf.multinomial(logits_reshaped, 1)
+        
+        # Reshape back to [batch_size, seq_len]
+        sampled_actions = tf.reshape(sampled_actions, [batch_size, seq_len])
+        
         return {
             'logits': logits,
             'probs': action_probs,
-            'sample': tf.multinomial(logits, 1)[:, :, 0]
+            'sample': sampled_actions[:, :, 0]
         }
     
     def _build_critic_network(self, obs, sequence_length):
