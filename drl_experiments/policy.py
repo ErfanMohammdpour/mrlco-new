@@ -166,95 +166,21 @@ class DRLPolicy:
         return adj_normalized
     
     def _build_decoder(self):
-        """Build decoder exactly like the original project."""
+        """Build simple autoregressive decoder."""
         with tf.variable_scope(self.scope_name + "/decoder"):
-            # Embeddings for actions (like original project)
-            self.embeddings = tf.get_variable(
-                "embeddings",
-                [self.action_dim, self.decoder_units],
-                initializer=tf.random_uniform_initializer(-0.1, 0.1)
-            )
+            # LSTM cell for autoregressive generation
+            self.lstm_cell = tf.nn.rnn_cell.LSTMCell(self.decoder_units)
             
-            # Output layer (like original project)
-            self.output_layer = tf.layers.Dense(
+            # Output projection for actions
+            self.output_projection = tf.layers.Dense(
                 self.action_dim,
-                name="output_layer"
+                name="output_projection"
             )
             
             # Initialize with dummy inputs
-            dummy_embeddings = tf.placeholder(tf.float32, [None, self.decoder_units], name="dummy_embeddings")
-            _ = self.output_layer(dummy_embeddings)
+            dummy_output = tf.placeholder(tf.float32, [None, self.decoder_units], name="dummy_output")
+            _ = self.output_projection(dummy_output)
     
-    def _build_decoder_cell(self, num_layers=1):
-        """Build decoder cell like original project."""
-        cells = []
-        for i in range(num_layers):
-            cell = tf.nn.rnn_cell.LSTMCell(
-                self.decoder_units,
-                forget_bias=1.0,
-                name=f"decoder_lstm_{i}"
-            )
-            cells.append(cell)
-        
-        if len(cells) == 1:
-            return cells[0]
-        else:
-            return tf.nn.rnn_cell.MultiRNNCell(cells)
-    
-    def _create_decoder(self, encoder_outputs, encoder_state, mode="sample"):
-        """Create decoder exactly like original project."""
-        with tf.variable_scope(self.scope_name + "/decoder", reuse=tf.AUTO_REUSE):
-            # Build decoder cell
-            decoder_cell = self._build_decoder_cell(num_layers=1)
-            
-            # Attention mechanism (like original project)
-            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                self.decoder_units, 
-                encoder_outputs
-            )
-            
-            # Attention wrapper
-            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-                decoder_cell, 
-                attention_mechanism,
-                attention_layer_size=self.decoder_units
-            )
-            
-            # Decoder initial state
-            decoder_initial_state = decoder_cell.zero_state(
-                tf.shape(encoder_outputs)[0], 
-                dtype=tf.float32
-            ).clone(cell_state=encoder_state)
-            
-            if mode == "sample":
-                # Sample helper (like original project)
-                helper = tf.contrib.seq2seq.SampleEmbeddingHelper(
-                    self.embeddings,
-                    start_tokens=tf.zeros([tf.shape(encoder_outputs)[0]], dtype=tf.int32),
-                    end_token=self.action_dim - 1
-                )
-            else:
-                # Training helper
-                helper = tf.contrib.seq2seq.TrainingHelper(
-                    tf.nn.embedding_lookup(self.embeddings, tf.zeros([tf.shape(encoder_outputs)[0], 1], dtype=tf.int32)),
-                    tf.ones([tf.shape(encoder_outputs)[0]], dtype=tf.int32)
-                )
-            
-            # Basic decoder
-            decoder = tf.contrib.seq2seq.BasicDecoder(
-                cell=decoder_cell,
-                helper=helper,
-                initial_state=decoder_initial_state,
-                output_layer=self.output_layer
-            )
-            
-            # Dynamic decode
-            outputs, last_state, _ = tf.contrib.seq2seq.dynamic_decode(
-                decoder,
-                maximum_iterations=encoder_outputs.shape[1] if hasattr(encoder_outputs, 'shape') else tf.shape(encoder_outputs)[1]
-            )
-            
-            return outputs, last_state
     
     def _build_heads(self):
         """Build policy and value heads."""
@@ -344,23 +270,25 @@ class DRLPolicy:
             else:
                 actual_timestep = tf.minimum(timestep, seq_len - 1)
             
-            # Use decoder exactly like original project
-            decoder_outputs, decoder_state = self._create_decoder(
-                encoder_outputs, encoder_state, mode="sample"
+            # Simple autoregressive decoder
+            # Use encoder output at current timestep as decoder input
+            decoder_input = encoder_outputs[:, actual_timestep, :]  # [B, encoder_units]
+            
+            # Run LSTM decoder for one step
+            decoder_output, decoder_state = self.lstm_cell(
+                decoder_input, 
+                self.lstm_cell.zero_state(batch_size, tf.float32)
             )
             
-            # Get logits from decoder
-            logits = decoder_outputs.rnn_output  # [B, T, action_dim]
-            
-            # Get action for current timestep
-            action_logits = logits[:, actual_timestep, :]  # [B, action_dim]
+            # Project to action space
+            logits = self.output_projection(decoder_output)  # [B, action_dim]
             
             # Apply ready mask
-            action_logits = self._apply_ready_mask(action_logits, timestep)
+            logits = self._apply_ready_mask(logits, timestep)
             
             # Sample action
-            action_probs = tf.nn.softmax(action_logits)
-            action = tf.multinomial(action_logits, 1)[:, 0]  # [B]
+            action_probs = tf.nn.softmax(logits)
+            action = tf.multinomial(logits, 1)[:, 0]  # [B]
             
             # Compute log probability
             log_prob = tf.log(action_probs + 1e-8)
@@ -368,18 +296,7 @@ class DRLPolicy:
             log_prob = tf.reduce_sum(action_one_hot * log_prob, axis=1)  # [B]
             
             # Value head (use decoder output)
-            # decoder_outputs.rnn_output is [B, T, action_dim], but value_head expects [B, encoder_units]
-            # We need to get the actual decoder cell output, not the projected output
-            decoder_features = decoder_outputs.rnn_output[:, actual_timestep, :]  # [B, action_dim]
-            
-            # Create a projection layer to map from action_dim to encoder_units for value head
-            value_projection = tf.layers.Dense(
-                self.encoder_units,
-                activation=tf.nn.relu,
-                name="value_projection"
-            )
-            projected_features = value_projection(decoder_features)  # [B, encoder_units]
-            value = self.value_head(projected_features)[:, 0]  # [B]
+            value = self.value_head(decoder_output)[:, 0]  # [B]
             
             return action, log_prob, value
     
@@ -438,13 +355,36 @@ class DRLPolicy:
                 dtype=tf.float32
             )
             
-            # Use decoder exactly like original project
-            decoder_outputs, decoder_state = self._create_decoder(
-                encoder_outputs, encoder_state, mode="train"
-            )
+            # Simple autoregressive decoder
+            # Process all timesteps
+            decoder_outputs = []
+            decoder_state = self.lstm_cell.zero_state(batch_size, tf.float32)
             
-            # Get logits from decoder
-            logits = decoder_outputs.rnn_output  # [B, T, action_dim]
+            for t in range(seq_len):
+                # Decoder input for timestep t
+                decoder_input = encoder_outputs[:, t, :]  # [B, encoder_units]
+                
+                # Run decoder for one step
+                decoder_output, decoder_state = self.lstm_cell(
+                    decoder_input, decoder_state
+                )
+                decoder_outputs.append(decoder_output)
+            
+            # Stack decoder outputs: [B, T, decoder_units]
+            decoder_outputs = tf.stack(decoder_outputs, axis=1)
+            
+            # Process all timesteps
+            # Reshape decoder_outputs for processing
+            feat_dim = tf.shape(decoder_outputs)[2]
+            
+            # Reshape to [B*T, F] for processing
+            decoder_outputs_flat = tf.reshape(decoder_outputs, [-1, feat_dim])
+            
+            # Apply output projection
+            logits_flat = self.output_projection(decoder_outputs_flat)  # [B*T, action_dim]
+            
+            # Reshape back to [B, T, action_dim]
+            logits = tf.reshape(logits_flat, [tf.shape(decoder_outputs)[0], tf.shape(decoder_outputs)[1], self.action_dim])
             
             # Compute probabilities
             action_probs = tf.nn.softmax(logits)
@@ -457,18 +397,9 @@ class DRLPolicy:
             # Compute entropy
             entropy = -tf.reduce_sum(action_probs * tf.log(action_probs + 1e-8), axis=2)  # [B, T]
             
-            # Value head (use decoder output)
-            decoder_features_flat = tf.reshape(decoder_outputs.rnn_output, [-1, self.action_dim])  # [B*T, action_dim]
-            
-            # Create a projection layer to map from action_dim to encoder_units for value head
-            value_projection = tf.layers.Dense(
-                self.encoder_units,
-                activation=tf.nn.relu,
-                name="value_projection"
-            )
-            projected_features_flat = value_projection(decoder_features_flat)  # [B*T, encoder_units]
-            values_flat = self.value_head(projected_features_flat)[:, 0]  # [B*T]
-            values = tf.reshape(values_flat, [tf.shape(logits)[0], tf.shape(logits)[1]])  # [B, T]
+            # Value head
+            values_flat = self.value_head(decoder_outputs_flat)[:, 0]  # [B*T]
+            values = tf.reshape(values_flat, [tf.shape(decoder_outputs)[0], tf.shape(decoder_outputs)[1]])  # [B, T]
             
             return log_probs, entropy, values
     
