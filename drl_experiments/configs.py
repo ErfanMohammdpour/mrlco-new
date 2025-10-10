@@ -5,9 +5,9 @@ Contains hyperparameters and data splits for training and evaluation.
 
 import os
 
-# Data splits - using same 22 train maps as MRLCO for fair comparison
-TRAIN_TASK_IDS = list(range(22))  # Maps 0-21 for training
-EVAL_TASK_IDS = [21, 2, 25]      # Default eval split (customizable)
+# Data splits - train on all maps except 21, 2, 25 (for evaluation)
+TRAIN_TASK_IDS = [i for i in range(26) if i not in [21, 2, 25]]  # All maps except eval maps
+EVAL_TASK_IDS = [21, 2, 25]      # Evaluation maps
 
 # Training hyperparameters (adjusted for DRL PPO)
 tasks_per_epoch = 10             # Number of tasks to sample per epoch
@@ -41,10 +41,10 @@ use_attentive_agg = False        # Use AttentiveStatisticsAggregator instead of 
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 data_dir = os.path.join(base_dir, "env", "mec_offloaing_envs", "data", "meta_offloading_20")
 
-# Graph file paths for training (22 maps)
+# Graph file paths for training (all maps except eval maps)
 TRAIN_GRAPH_PATHS = [
     os.path.join(data_dir, f"offload_random20_{i+1}", "random.20.") 
-    for i in range(22)
+    for i in TRAIN_TASK_IDS
 ]
 
 # Graph file paths for evaluation (3 maps)
