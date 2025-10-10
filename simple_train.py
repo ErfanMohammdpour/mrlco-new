@@ -37,28 +37,34 @@ def main():
         bandwidth_dl=7.0
     )
     
-    env = OffloadingEnvironment(
-        resource_cluster=resource_cluster,
-        batch_size=1,
-        graph_number=100,
-        graph_file_paths=[
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_1/offloading_random_1.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_3/offloading_random_3.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_4/offloading_random_4.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_2/offloading_random_2.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_5/offloading_random_5.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_6/offloading_random_6.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_8/offloading_random_8.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_9/offloading_random_9.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_10/offloading_random_10.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_11/offloading_random_11.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_12/offloading_random_12.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_14/offloading_random_14.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_13/offloading_random_13.20.",
-                    "./env/mec_offloaing_envs/data/dags/offloading_random_16/offloading_random_16.20.",
-        ],
-        time_major=False
-    )
+    env = OffloadingEnvironment(resource_cluster=resource_cluster,
+                                batch_size=100,
+                                graph_number=100,
+                                graph_file_paths=[
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_4/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_16/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_20/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_24/random.20.",
+                                ],
+                                time_major=False)
     
     # Create agent
     print("Creating Deep RL agent...")
