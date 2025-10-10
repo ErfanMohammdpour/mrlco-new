@@ -1,9 +1,67 @@
 """
-DRL Policy implementation with autoregressive decoder for task offloading.
+DRL Policy implementation with advanced graph-aware encoder for task offloading.
 """
 
 import numpy as np
 import tensorflow as tf
+
+
+class GraphConvolutionLayer:
+    """Graph Convolution Layer similar to Graph2Seq aggregators."""
+    
+    def __init__(self, input_dim, output_dim, activation=tf.nn.relu, name="gcn"):
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.activation = activation
+        self.name = name
+        
+        with tf.variable_scope(name):
+            # Self weights
+            self.self_weights = tf.get_variable(
+                "self_weights", 
+                [input_dim, output_dim],
+                initializer=tf.glorot_uniform_initializer()
+            )
+            
+            # Neighbor weights  
+            self.neigh_weights = tf.get_variable(
+                "neigh_weights",
+                [input_dim, output_dim], 
+                initializer=tf.glorot_uniform_initializer()
+            )
+            
+            # Bias
+            self.bias = tf.get_variable(
+                "bias",
+                [output_dim],
+                initializer=tf.zeros_initializer()
+            )
+    
+    def __call__(self, node_features, adjacency_matrix):
+        """
+        Apply graph convolution.
+        
+        Args:
+            node_features: [num_nodes, input_dim]
+            adjacency_matrix: [num_nodes, num_nodes]
+            
+        Returns:
+            output: [num_nodes, output_dim]
+        """
+        # Self connection
+        self_output = tf.matmul(node_features, self.self_weights)
+        
+        # Neighbor aggregation
+        neigh_features = tf.matmul(adjacency_matrix, node_features)  # [num_nodes, input_dim]
+        neigh_output = tf.matmul(neigh_features, self.neigh_weights)
+        
+        # Combine and add bias
+        output = self_output + neigh_output + self.bias
+        
+        if self.activation:
+            output = self.activation(output)
+            
+        return output
 
 
 class DRLPolicy:
@@ -31,7 +89,7 @@ class DRLPolicy:
         )
     
     def _build_encoder(self):
-        """Build encoder for processing observations."""
+        """Build advanced graph-aware encoder."""
         with tf.variable_scope(self.scope_name + "/encoder"):
             # Input projection layer
             self.input_projection = tf.layers.Dense(
@@ -40,13 +98,72 @@ class DRLPolicy:
                 name="input_projection"
             )
             
-            # LSTM encoder
+            # Graph Convolution layers (like Graph2Seq)
+            self.gcn_layers = []
+            for i in range(2):  # 2 GCN layers
+                layer = GraphConvolutionLayer(
+                    input_dim=self.encoder_units,
+                    output_dim=self.encoder_units,
+                    activation=tf.nn.relu,
+                    name=f"gcn_layer_{i}"
+                )
+                self.gcn_layers.append(layer)
+            
+            # Attention mechanism for graph nodes
+            self.node_attention = tf.layers.Dense(1, name="node_attention")
+            
+            # LSTM encoder for temporal modeling
             self.lstm_encoder = tf.nn.rnn_cell.LSTMCell(self.encoder_units)
             
             # Initialize with dummy input to create variables
             dummy_input = tf.placeholder(tf.float32, [None, None, self.obs_dim], name="dummy_obs")
             projected = self.input_projection(dummy_input)
+            
+            # Initialize GCN layers
+            batch_size = tf.shape(projected)[0]
+            seq_len = tf.shape(projected)[1]
+            dummy_graph_features = tf.reshape(projected, [-1, self.encoder_units])
+            dummy_adj = self._create_dummy_adjacency(seq_len)
+            
+            for layer in self.gcn_layers:
+                dummy_graph_features = layer(dummy_graph_features, dummy_adj)
+            
+            # Initialize attention
+            _ = self.node_attention(dummy_graph_features)
+            
+            # Initialize LSTM
             _, _ = tf.nn.dynamic_rnn(self.lstm_encoder, projected, dtype=tf.float32)
+    
+    def _create_dummy_adjacency(self, seq_len):
+        """Create dummy adjacency matrix for initialization."""
+        # Create a simple adjacency matrix (fully connected)
+        adj = tf.ones([seq_len, seq_len], dtype=tf.float32)
+        # Normalize by degree
+        degree = tf.reduce_sum(adj, axis=1, keepdims=True)
+        adj_normalized = adj / (degree + 1e-8)
+        return adj_normalized
+    
+    def _create_task_adjacency(self, seq_len):
+        """Create task-specific adjacency matrix based on DAG structure."""
+        # For task offloading, create adjacency based on task dependencies
+        # This simulates the DAG structure where tasks have dependencies
+        
+        # Create lower triangular matrix (tasks depend on previous tasks)
+        indices = tf.range(seq_len)
+        i_indices, j_indices = tf.meshgrid(indices, indices, indexing='ij')
+        
+        # Task i can depend on task j if j < i (topological order)
+        mask = tf.cast(j_indices <= i_indices, tf.float32)
+        
+        # Add some randomness to make it more realistic
+        random_mask = tf.random.uniform([seq_len, seq_len]) > 0.3
+        mask = mask * tf.cast(random_mask, tf.float32)
+        
+        # Normalize by degree
+        degree = tf.reduce_sum(mask, axis=1, keepdims=True)
+        adj_normalized = mask / (degree + 1e-8)
+        
+        return adj_normalized
     
     def _build_decoder(self):
         """Build autoregressive decoder for action generation."""
@@ -100,15 +217,37 @@ class DRLPolicy:
             # Input projection to match encoder units
             projected_obs = self.input_projection(obs)
             
-            # Get encoder outputs using LSTM
+            # Get sequence length
+            seq_len = obs.shape[1] if hasattr(obs, 'shape') else tf.shape(obs)[1]
+            batch_size = tf.shape(obs)[0]
+            
+            # Create task-specific adjacency matrix
+            adj_matrix = self._create_task_adjacency(seq_len)
+            
+            # Apply Graph Convolution layers
+            # Reshape to [batch_size * seq_len, encoder_units] for GCN
+            graph_features = tf.reshape(projected_obs, [-1, self.encoder_units])
+            
+            # Apply GCN layers
+            for layer in self.gcn_layers:
+                graph_features = layer(graph_features, adj_matrix)
+            
+            # Apply node attention
+            attention_scores = self.node_attention(graph_features)  # [batch_size * seq_len, 1]
+            attention_weights = tf.nn.softmax(tf.reshape(attention_scores, [batch_size, seq_len]))
+            
+            # Reshape back to [batch_size, seq_len, encoder_units]
+            graph_outputs = tf.reshape(graph_features, [batch_size, seq_len, self.encoder_units])
+            
+            # Apply attention
+            attended_outputs = graph_outputs * tf.expand_dims(attention_weights, -1)
+            
+            # Apply LSTM for temporal modeling
             encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
                 self.lstm_encoder, 
-                projected_obs, 
+                attended_outputs, 
                 dtype=tf.float32
             )
-            
-            # Simple approach: use encoder output at the desired timestep
-            seq_len = obs.shape[1] if hasattr(obs, 'shape') else tf.shape(obs)[1]
             
             # Ensure timestep is within bounds
             if isinstance(timestep, int):
@@ -166,14 +305,39 @@ class DRLPolicy:
             # Input projection to match encoder units
             projected_obs = self.input_projection(obs)
             
-            # Get encoder outputs using LSTM
+            # Get sequence length
+            seq_len = obs.shape[1] if hasattr(obs, 'shape') else tf.shape(obs)[1]
+            batch_size = tf.shape(obs)[0]
+            
+            # Create task-specific adjacency matrix
+            adj_matrix = self._create_task_adjacency(seq_len)
+            
+            # Apply Graph Convolution layers
+            # Reshape to [batch_size * seq_len, encoder_units] for GCN
+            graph_features = tf.reshape(projected_obs, [-1, self.encoder_units])
+            
+            # Apply GCN layers
+            for layer in self.gcn_layers:
+                graph_features = layer(graph_features, adj_matrix)
+            
+            # Apply node attention
+            attention_scores = self.node_attention(graph_features)  # [batch_size * seq_len, 1]
+            attention_weights = tf.nn.softmax(tf.reshape(attention_scores, [batch_size, seq_len]))
+            
+            # Reshape back to [batch_size, seq_len, encoder_units]
+            graph_outputs = tf.reshape(graph_features, [batch_size, seq_len, self.encoder_units])
+            
+            # Apply attention
+            attended_outputs = graph_outputs * tf.expand_dims(attention_weights, -1)
+            
+            # Apply LSTM for temporal modeling
             encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
                 self.lstm_encoder, 
-                projected_obs, 
+                attended_outputs, 
                 dtype=tf.float32
             )
             
-            # Simple approach: use encoder outputs directly
+            # Use encoder outputs directly
             decoder_outputs = encoder_outputs  # [B, T, F]
             
             # Process all timesteps
