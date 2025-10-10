@@ -37,9 +37,17 @@ class DRLPolicy:
             # Placeholder for observations
             self.obs_ph = tf.placeholder(tf.float32, [None, None, self.obs_dim], name='observations')
             
+            # Input projection to match encoder units
+            projected_obs = tf.layers.dense(
+                self.obs_ph, 
+                self.encoder_units, 
+                activation=tf.nn.relu,
+                name="input_projection"
+            )
+            
             # Use existing Graph2Seq encoder
             self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
-                encoder_inputs=self.obs_ph,
+                encoder_inputs=projected_obs,
                 encoder_units=self.encoder_units,
                 num_layers=self.num_layers,
                 is_bidirectional=True,
@@ -105,9 +113,17 @@ class DRLPolicy:
             if isinstance(obs, np.ndarray):
                 obs = tf.constant(obs, dtype=tf.float32)
             
+            # Input projection to match encoder units
+            projected_obs = tf.layers.dense(
+                obs, 
+                self.encoder_units, 
+                activation=tf.nn.relu,
+                name="input_projection"
+            )
+            
             # Get encoder outputs
             encoder_outputs, encoder_state = create_graph2seq_encoder(
-                encoder_inputs=obs,
+                encoder_inputs=projected_obs,
                 encoder_units=self.encoder_units,
                 num_layers=self.num_layers,
                 is_bidirectional=True,
@@ -181,9 +197,17 @@ class DRLPolicy:
             batch_size = tf.shape(obs)[0]
             seq_len = tf.shape(obs)[1]
             
+            # Input projection to match encoder units
+            projected_obs = tf.layers.dense(
+                obs, 
+                self.encoder_units, 
+                activation=tf.nn.relu,
+                name="input_projection"
+            )
+            
             # Get encoder outputs
             encoder_outputs, encoder_state = create_graph2seq_encoder(
-                encoder_inputs=obs,
+                encoder_inputs=projected_obs,
                 encoder_units=self.encoder_units,
                 num_layers=self.num_layers,
                 is_bidirectional=True,
