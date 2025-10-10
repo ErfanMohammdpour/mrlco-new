@@ -166,11 +166,8 @@ class DRLPolicy:
         return adj_normalized
     
     def _build_decoder(self):
-        """Build simple autoregressive decoder."""
+        """Build simple decoder - just use encoder outputs directly."""
         with tf.variable_scope(self.scope_name + "/decoder"):
-            # LSTM cell for autoregressive generation
-            self.lstm_cell = tf.nn.rnn_cell.LSTMCell(self.decoder_units)
-            
             # Output projection for actions
             self.output_projection = tf.layers.Dense(
                 self.action_dim,
@@ -178,7 +175,7 @@ class DRLPolicy:
             )
             
             # Initialize with dummy inputs
-            dummy_output = tf.placeholder(tf.float32, [None, self.decoder_units], name="dummy_output")
+            dummy_output = tf.placeholder(tf.float32, [None, self.encoder_units], name="dummy_output")
             _ = self.output_projection(dummy_output)
     
     
@@ -270,15 +267,9 @@ class DRLPolicy:
             else:
                 actual_timestep = tf.minimum(timestep, seq_len - 1)
             
-            # Simple autoregressive decoder
-            # Use encoder output at current timestep as decoder input
-            decoder_input = encoder_outputs[:, actual_timestep, :]  # [B, encoder_units]
-            
-            # Run LSTM decoder for one step
-            decoder_output, decoder_state = self.lstm_cell(
-                decoder_input, 
-                self.lstm_cell.zero_state(batch_size, tf.float32)
-            )
+            # Simple decoder - use encoder output directly
+            # Use encoder output at current timestep
+            decoder_output = encoder_outputs[:, actual_timestep, :]  # [B, encoder_units]
             
             # Project to action space
             logits = self.output_projection(decoder_output)  # [B, action_dim]
@@ -295,7 +286,7 @@ class DRLPolicy:
             action_one_hot = tf.one_hot(action, self.action_dim)
             log_prob = tf.reduce_sum(action_one_hot * log_prob, axis=1)  # [B]
             
-            # Value head (use decoder output)
+            # Value head (use encoder output)
             value = self.value_head(decoder_output)[:, 0]  # [B]
             
             return action, log_prob, value
@@ -355,23 +346,9 @@ class DRLPolicy:
                 dtype=tf.float32
             )
             
-            # Simple autoregressive decoder
-            # Process all timesteps
-            decoder_outputs = []
-            decoder_state = self.lstm_cell.zero_state(batch_size, tf.float32)
-            
-            for t in range(seq_len):
-                # Decoder input for timestep t
-                decoder_input = encoder_outputs[:, t, :]  # [B, encoder_units]
-                
-                # Run decoder for one step
-                decoder_output, decoder_state = self.lstm_cell(
-                    decoder_input, decoder_state
-                )
-                decoder_outputs.append(decoder_output)
-            
-            # Stack decoder outputs: [B, T, decoder_units]
-            decoder_outputs = tf.stack(decoder_outputs, axis=1)
+            # Simple decoder - use encoder outputs directly
+            # Use encoder outputs as decoder outputs
+            decoder_outputs = encoder_outputs  # [B, T, encoder_units]
             
             # Process all timesteps
             # Reshape decoder_outputs for processing
