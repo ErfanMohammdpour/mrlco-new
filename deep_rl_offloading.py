@@ -278,17 +278,21 @@ class DeepRLOffloadingAgent:
         
         return actions
     
-    def store_experience(self, obs, actions, rewards, next_obs, dones, sequence_length):
-        """Store experience in replay buffer"""
-        self.replay_buffer.add(obs, actions, rewards, next_obs, dones, sequence_length)
+    def store_experience(self, obs, actions, rewards, next_obs, dones, sequence_length, map_id=None):
+        """Store experience in replay buffer with map_id"""
+        self.replay_buffer.add(obs, actions, rewards, next_obs, dones, sequence_length, map_id)
     
-    def update(self):
-        """Update networks using experience replay"""
+    def update(self, map_id=None):
+        """Update networks using experience replay from specific map or random"""
         if len(self.replay_buffer) < self.batch_size:
             return
         
         # Sample batch from replay buffer
-        batch = self.replay_buffer.sample()
+        batch = self.replay_buffer.sample(map_id=map_id)
+        
+        # Check if sampling was successful
+        if batch is None:
+            return
         
         # Update networks
         sess = tf.get_default_session()
@@ -319,6 +323,14 @@ class DeepRLOffloadingAgent:
             self.epsilon *= self.epsilon_decay
         
         return actor_loss, critic_loss
+    
+    def get_available_maps(self):
+        """Get list of available maps for training"""
+        return self.replay_buffer.get_available_maps()
+    
+    def sample_from_map(self, map_id):
+        """Sample batch from specific map"""
+        return self.replay_buffer.sample_from_map(map_id)
     
     def initialize_target_networks(self):
         """Initialize target networks with main network weights"""
@@ -361,30 +373,80 @@ class DeepRLOffloadingAgent:
 
 
 class ReplayBuffer:
-    """Experience Replay Buffer for Deep RL"""
+    """Experience Replay Buffer for Deep RL with Map-based batching"""
     
     def __init__(self, capacity, batch_size):
         self.capacity = capacity
         self.batch_size = batch_size
         self.buffer = deque(maxlen=capacity)
+        # Store experiences by map_id for separate batching
+        self.experiences_by_map = {}
     
-    def add(self, obs, actions, rewards, next_obs, dones, sequence_length):
-        """Add experience to buffer"""
+    def add(self, obs, actions, rewards, next_obs, dones, sequence_length, map_id=None):
+        """Add experience to buffer with map_id"""
         experience = {
             'obs': obs,
             'actions': actions,
             'rewards': rewards,
             'next_obs': next_obs,
             'dones': dones,
-            'sequence_length': sequence_length
+            'sequence_length': sequence_length,
+            'map_id': map_id
         }
         self.buffer.append(experience)
-    
-    def sample(self):
-        """Sample batch from buffer"""
-        batch = random.sample(self.buffer, self.batch_size)
         
-        # Stack experiences
+        # Store by map_id for separate batching
+        if map_id is not None:
+            if map_id not in self.experiences_by_map:
+                self.experiences_by_map[map_id] = deque(maxlen=self.capacity)
+            self.experiences_by_map[map_id].append(experience)
+    
+    def sample(self, map_id=None):
+        """Sample batch from specific map or random map"""
+        if len(self.buffer) < self.batch_size:
+            return None
+        
+        if map_id is not None and map_id in self.experiences_by_map:
+            # Sample from specific map
+            map_experiences = list(self.experiences_by_map[map_id])
+            if len(map_experiences) >= self.batch_size:
+                batch = random.sample(map_experiences, self.batch_size)
+                return self._prepare_batch(batch)
+        
+        # Fallback: sample from any available map with enough experiences
+        available_maps = [mid for mid, exp_list in self.experiences_by_map.items() 
+                        if len(exp_list) >= self.batch_size]
+        
+        if available_maps:
+            chosen_map = random.choice(available_maps)
+            map_experiences = list(self.experiences_by_map[chosen_map])
+            batch = random.sample(map_experiences, self.batch_size)
+            return self._prepare_batch(batch)
+        
+        # Final fallback: random sampling from all experiences
+        batch = random.sample(self.buffer, self.batch_size)
+        return self._prepare_batch(batch)
+    
+    def sample_from_map(self, map_id):
+        """Sample batch specifically from a given map"""
+        if map_id not in self.experiences_by_map:
+            return None
+        
+        map_experiences = list(self.experiences_by_map[map_id])
+        if len(map_experiences) < self.batch_size:
+            return None
+        
+        batch = random.sample(map_experiences, self.batch_size)
+        return self._prepare_batch(batch)
+    
+    def get_available_maps(self):
+        """Get list of map_ids that have enough experiences for batching"""
+        return [mid for mid, exp_list in self.experiences_by_map.items() 
+                if len(exp_list) >= self.batch_size]
+    
+    def _prepare_batch(self, batch):
+        """Prepare batch for training"""
+        # All experiences in batch should have same shape since they're from same map
         return {
             'obs': np.stack([e['obs'] for e in batch]),
             'actions': np.stack([e['actions'] for e in batch]),

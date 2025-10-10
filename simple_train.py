@@ -99,6 +99,7 @@ def main():
     
     print(f"Starting training for {n_episodes} episodes...")
     print(f"Saving model every {save_interval} episodes...")
+    print(f"Available maps: {len(env.graph_file_paths)}")
     
     start_time = time.time()
     
@@ -112,9 +113,10 @@ def main():
         for episode in range(n_episodes):
             episode_start_time = time.time()
             
-            # Sample a random task
+            # Sample a random task (this will be our map_id)
             task_id = env.sample_tasks(1)[0]
             env.set_task(task_id)
+            map_id = task_id  # Use task_id as map_id
             
             # Run episode
             obs = env.reset()
@@ -135,10 +137,10 @@ def main():
                 # Take step in environment
                 next_obs, rewards, done, info = env.step(actions)
                 
-                # Store experience
+                # Store experience with map_id
                 dones = np.full((obs.shape[0], obs.shape[1]), done, dtype=bool)
                 agent.store_experience(
-                    prev_obs, actions, rewards, next_obs, dones, sequence_length
+                    prev_obs, actions, rewards, next_obs, dones, sequence_length, map_id
                 )
                 
                 # Update metrics
@@ -154,9 +156,11 @@ def main():
             
             # Update agent if buffer has enough samples
             if len(agent.replay_buffer) >= agent.batch_size:
-                actor_loss, critic_loss = agent.update()
-                actor_losses.append(actor_loss)
-                critic_losses.append(critic_loss)
+                # Update using experiences from the current map
+                actor_loss, critic_loss = agent.update(map_id=map_id)
+                if actor_loss is not None and critic_loss is not None:
+                    actor_losses.append(actor_loss)
+                    critic_losses.append(critic_loss)
             
             # Store episode metrics
             episode_rewards.append(episode_reward)
@@ -174,9 +178,10 @@ def main():
                 avg_length = np.mean(episode_lengths[-100:]) if len(episode_lengths) >= 100 else np.mean(episode_lengths)
                 
                 progress = (episode / n_episodes) * 100
+                available_maps = agent.get_available_maps()
                 print(f"Episode {episode:4d}/{n_episodes} ({progress:5.1f}%): Reward={avg_reward:8.4f}, Latency={avg_latency:8.4f}, "
                       f"Length={avg_length:6.2f}, Epsilon={agent.epsilon:.4f}, "
-                      f"Buffer={len(agent.replay_buffer):5d}")
+                      f"Buffer={len(agent.replay_buffer):5d}, Maps={len(available_maps):2d}, Current_Map={map_id:2d}")
             
             # Save model every 200 episodes
             if episode % save_interval == 0 and episode > 0:
