@@ -66,7 +66,11 @@ def collect_rollout(env, policy, task_id, max_steps=50):
     if isinstance(rewards, list):
         rewards = rewards[0]  # Take first (and only) reward sequence
     
-    rewards = np.array(rewards)  # [T]
+    rewards = np.array(rewards)  # Could be [T] or [1, T]
+    
+    # Ensure rewards is 1D
+    if len(rewards.shape) > 1:
+        rewards = rewards.flatten()  # [T]
     
     # Ensure all arrays have same length
     min_len = min(len(actions), len(rewards), len(values))
