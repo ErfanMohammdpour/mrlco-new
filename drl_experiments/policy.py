@@ -166,10 +166,45 @@ class DRLPolicy:
         return adj_normalized
     
     def _build_decoder(self):
-        """Build autoregressive decoder for action generation."""
+        """Build advanced autoregressive decoder with attention."""
         with tf.variable_scope(self.scope_name + "/decoder"):
             # LSTM cell for autoregressive generation
             self.lstm_cell = tf.nn.rnn_cell.LSTMCell(self.decoder_units)
+            
+            # Attention mechanism for decoder
+            self.attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(
+                num_units=self.decoder_units,
+                memory=None,  # Will be set during forward pass
+                name="decoder_attention"
+            )
+            
+            # Attention wrapper
+            self.attention_cell = tf.contrib.seq2seq.AttentionWrapper(
+                cell=self.lstm_cell,
+                attention_mechanism=self.attention_mechanism,
+                attention_layer_size=self.decoder_units,
+                name="attention_wrapper"
+            )
+            
+            # Output projection for actions
+            self.output_projection = tf.layers.Dense(
+                self.action_dim,
+                name="output_projection"
+            )
+            
+            # Initialize with dummy inputs
+            dummy_memory = tf.placeholder(tf.float32, [None, None, self.encoder_units], name="dummy_memory")
+            dummy_batch_size = tf.placeholder(tf.int32, [], name="dummy_batch_size")
+            
+            # Initialize attention mechanism
+            self.attention_mechanism.setup_memory(dummy_memory)
+            
+            # Initialize attention wrapper
+            initial_state = self.attention_cell.zero_state(dummy_batch_size, tf.float32)
+            
+            # Initialize output projection
+            dummy_output = tf.placeholder(tf.float32, [None, self.decoder_units], name="dummy_output")
+            _ = self.output_projection(dummy_output)
     
     def _build_heads(self):
         """Build policy and value heads."""
@@ -259,11 +294,28 @@ class DRLPolicy:
             else:
                 actual_timestep = tf.minimum(timestep, seq_len - 1)
             
-            # Use encoder output directly
-            final_output = encoder_outputs[:, actual_timestep, :]
+            # Setup attention mechanism with encoder outputs
+            self.attention_mechanism.setup_memory(encoder_outputs)
             
-            # Policy head
-            logits = self.policy_head(final_output)  # [B, action_dim]
+            # Initialize decoder state
+            batch_size = tf.shape(obs)[0]
+            decoder_initial_state = self.attention_cell.zero_state(batch_size, tf.float32)
+            
+            # Autoregressive decoding for current timestep
+            if actual_timestep == 0:
+                # First timestep: use encoder output
+                decoder_input = encoder_outputs[:, 0, :]  # [B, encoder_units]
+            else:
+                # Subsequent timesteps: use previous encoder output + context
+                decoder_input = encoder_outputs[:, actual_timestep, :]  # [B, encoder_units]
+            
+            # Run decoder for one step
+            decoder_output, decoder_state = self.attention_cell(
+                decoder_input, decoder_initial_state
+            )
+            
+            # Project to action space
+            logits = self.output_projection(decoder_output)  # [B, action_dim]
             
             # Apply ready mask
             logits = self._apply_ready_mask(logits, timestep)
@@ -277,8 +329,8 @@ class DRLPolicy:
             action_one_hot = tf.one_hot(action, self.action_dim)
             log_prob = tf.reduce_sum(action_one_hot * log_prob, axis=1)  # [B]
             
-            # Value head
-            value = self.value_head(final_output)[:, 0]  # [B]
+            # Value head (use decoder output)
+            value = self.value_head(decoder_output)[:, 0]  # [B]
             
             return action, log_prob, value
     
@@ -337,8 +389,29 @@ class DRLPolicy:
                 dtype=tf.float32
             )
             
-            # Use encoder outputs directly
-            decoder_outputs = encoder_outputs  # [B, T, F]
+            # Setup attention mechanism with encoder outputs
+            self.attention_mechanism.setup_memory(encoder_outputs)
+            
+            # Initialize decoder state
+            batch_size = tf.shape(obs)[0]
+            decoder_initial_state = self.attention_cell.zero_state(batch_size, tf.float32)
+            
+            # Autoregressive decoding for all timesteps
+            decoder_outputs = []
+            decoder_state = decoder_initial_state
+            
+            for t in range(seq_len):
+                # Decoder input for timestep t
+                decoder_input = encoder_outputs[:, t, :]  # [B, encoder_units]
+                
+                # Run decoder for one step
+                decoder_output, decoder_state = self.attention_cell(
+                    decoder_input, decoder_state
+                )
+                decoder_outputs.append(decoder_output)
+            
+            # Stack decoder outputs: [B, T, decoder_units]
+            decoder_outputs = tf.stack(decoder_outputs, axis=1)
             
             # Process all timesteps
             # Reshape decoder_outputs for processing
@@ -347,8 +420,8 @@ class DRLPolicy:
             # Reshape to [B*T, F] for processing
             decoder_outputs_flat = tf.reshape(decoder_outputs, [-1, feat_dim])
             
-            # Apply policy head
-            logits_flat = self.policy_head(decoder_outputs_flat)  # [B*T, action_dim]
+            # Apply output projection
+            logits_flat = self.output_projection(decoder_outputs_flat)  # [B*T, action_dim]
             
             # Reshape back to [B, T, action_dim]
             logits = tf.reshape(logits_flat, [tf.shape(decoder_outputs)[0], tf.shape(decoder_outputs)[1], self.action_dim])
