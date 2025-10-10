@@ -61,8 +61,8 @@ class DRLPolicy:
             self.value_head = tf.layers.Dense(1, name="value_head")
             
             # Initialize the heads with dummy input to create variables
-            # encoder_outputs has dimension 2*encoder_units (or 4*encoder_units if bidirectional)
-            dummy_input = tf.placeholder(tf.float32, [None, 2 * self.encoder_units], name="dummy_input")
+            # encoder_outputs has dimension 4*encoder_units (bidirectional)
+            dummy_input = tf.placeholder(tf.float32, [None, 4 * self.encoder_units], name="dummy_input")
             _ = self.policy_head(dummy_input)
             _ = self.value_head(dummy_input)
     
