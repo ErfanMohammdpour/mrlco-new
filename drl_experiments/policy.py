@@ -136,8 +136,9 @@ class DRLPolicy:
                 actual_timestep = tf.constant(actual_timestep, dtype=tf.int32)
             
             # Simple approach: just use the encoder output at the desired timestep
-            # Use tf.gather to safely index
-            decoder_input = tf.gather(encoder_outputs, actual_timestep, axis=1)
+            # Use safe indexing
+            decoder_input = encoder_outputs[:, actual_timestep, :]
+            
             final_output, _ = decoder_cell(decoder_input, decoder_state)
             
             # Note: This is a simplified version that doesn't use autoregressive decoding
@@ -268,5 +269,10 @@ class DRLPolicy:
         Returns:
             values: value estimates [B, T]
         """
-        _, _, values = self.evaluate_actions(obs, tf.zeros_like(obs[:, :, 0]))
+        # Create dummy actions for evaluation
+        batch_size = tf.shape(obs)[0]
+        seq_len = tf.shape(obs)[1]
+        dummy_actions = tf.zeros([batch_size, seq_len], dtype=tf.int32)
+        
+        _, _, values = self.evaluate_actions(obs, dummy_actions)
         return values
