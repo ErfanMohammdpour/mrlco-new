@@ -34,26 +34,8 @@ class DRLPolicy:
     def _build_encoder(self):
         """Build encoder for processing observations."""
         with tf.variable_scope(self.scope_name + "/encoder"):
-            # Placeholder for observations
-            self.obs_ph = tf.placeholder(tf.float32, [None, None, self.obs_dim], name='observations')
-            
-            # Input projection to match encoder units
-            projected_obs = tf.layers.dense(
-                self.obs_ph, 
-                self.encoder_units, 
-                activation=tf.nn.relu,
-                name="input_projection"
-            )
-            
-            # Use existing Graph2Seq encoder
-            self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
-                encoder_inputs=projected_obs,
-                encoder_units=self.encoder_units,
-                num_layers=self.num_layers,
-                is_bidirectional=True,
-                mode='train',
-                scope_name="drl_encoder"
-            )
+            # No placeholder needed - we'll use the input directly in methods
+            pass
     
     def _build_decoder(self):
         """Build autoregressive decoder for action generation."""
