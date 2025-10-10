@@ -29,12 +29,14 @@ class DeepRLOffloadingAgent:
                  buffer_size=100000,
                  batch_size=64,
                  update_frequency=4,
-                 target_update_frequency=100):
+                 target_update_frequency=100,
+                 num_layers=2):
         
         self.obs_dim = obs_dim
         self.action_dim = action_dim
         self.encoder_units = encoder_units
         self.decoder_units = decoder_units
+        self.num_layers = num_layers
         self.learning_rate = learning_rate
         self.gamma = gamma
         self.tau = tau
@@ -94,7 +96,7 @@ class DeepRLOffloadingAgent:
         encoder_outputs, encoder_state = create_graph2seq_encoder(
             encoder_inputs=obs,
             encoder_units=self.encoder_units,
-            num_layers=2,
+            num_layers=self.num_layers,
             is_bidirectional=True,
             mode='train',
             scope_name="actor_encoder"
@@ -154,7 +156,7 @@ class DeepRLOffloadingAgent:
         encoder_outputs, encoder_state = create_graph2seq_encoder(
             encoder_inputs=obs,
             encoder_units=self.encoder_units,
-            num_layers=2,
+            num_layers=self.num_layers,
             is_bidirectional=True,
             mode='train',
             scope_name="critic_encoder"

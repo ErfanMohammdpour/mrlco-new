@@ -82,7 +82,8 @@ def main():
         buffer_size=100000,
         batch_size=64,
         update_frequency=4,
-        target_update_frequency=100
+        target_update_frequency=100,
+        num_layers=1  # Use single layer to avoid tuple state issue
     )
     
     # Training metrics

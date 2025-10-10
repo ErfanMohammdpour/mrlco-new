@@ -82,7 +82,8 @@ def main():
         epsilon_end=0.0,
         epsilon_decay=1.0,
         buffer_size=1000,
-        batch_size=16
+        batch_size=16,
+        num_layers=1  # Use single layer to avoid tuple state issue
     )
     
     # Evaluation results
