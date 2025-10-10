@@ -42,9 +42,6 @@ class DRLPolicy:
         with tf.variable_scope(self.scope_name + "/decoder"):
             # LSTM cell for autoregressive generation
             self.lstm_cell = tf.nn.rnn_cell.LSTMCell(self.decoder_units)
-            
-            # Note: Attention mechanism will be created dynamically in methods
-            # since we don't have encoder_outputs at build time
     
     def _build_heads(self):
         """Build policy and value heads."""
@@ -101,22 +98,7 @@ class DRLPolicy:
                 scope_name="drl_encoder"
             )
             
-            # Create attention mechanism dynamically
-            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                self.decoder_units, encoder_outputs
-            )
-            
-            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-                self.lstm_cell, attention_mechanism,
-                attention_layer_size=self.decoder_units
-            )
-            
-            # Initialize decoder state
-            decoder_state = decoder_cell.zero_state(
-                tf.shape(obs)[0], dtype=tf.float32
-            ).clone(cell_state=encoder_state)
-            
-            # Run decoder for timestep steps
+            # Simple approach: use encoder output at the desired timestep
             seq_len = obs.shape[1] if hasattr(obs, 'shape') else tf.shape(obs)[1]
             
             # Ensure timestep is within bounds
@@ -129,19 +111,8 @@ class DRLPolicy:
             else:
                 actual_timestep = tf.minimum(timestep, seq_len - 1)
             
-            # Ensure actual_timestep is an integer tensor
-            if isinstance(actual_timestep, tf.Tensor):
-                actual_timestep = tf.cast(actual_timestep, tf.int32)
-            else:
-                actual_timestep = tf.constant(actual_timestep, dtype=tf.int32)
-            
-            # Simple approach: just use the encoder output at the desired timestep
-            # Use safe indexing
-            decoder_input = encoder_outputs[:, actual_timestep, :]
-            
-            final_output, _ = decoder_cell(decoder_input, decoder_state)
-            
-            # Note: This is a simplified version that doesn't use autoregressive decoding
+            # Use encoder output directly (no decoder for simplicity)
+            final_output = encoder_outputs[:, actual_timestep, :]
             
             # Policy head
             logits = self.policy_head(final_output)  # [B, action_dim]
@@ -183,8 +154,6 @@ class DRLPolicy:
             if isinstance(actions, np.ndarray):
                 actions = tf.constant(actions, dtype=tf.int32)
             
-            # batch_size and seq_len will be computed from decoder_outputs
-            
             # Input projection to match encoder units
             projected_obs = tf.layers.dense(
                 obs, 
@@ -203,28 +172,8 @@ class DRLPolicy:
                 scope_name="drl_encoder"
             )
             
-            # Create attention mechanism dynamically
-            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                self.decoder_units, encoder_outputs
-            )
-            
-            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-                self.lstm_cell, attention_mechanism,
-                attention_layer_size=self.decoder_units
-            )
-            
-            # Initialize decoder state
-            decoder_state = decoder_cell.zero_state(
-                tf.shape(obs)[0], dtype=tf.float32
-            ).clone(cell_state=encoder_state)
-            
-            # No need to store outputs in lists anymore
-            
-            # Simple approach: just use encoder outputs directly
-            # This is a simplified version that doesn't use autoregressive decoding
+            # Simple approach: use encoder outputs directly
             decoder_outputs = encoder_outputs  # [B, T, F]
-            
-            # Note: decoder_state is not used in this simplified version
             
             # Process all timesteps
             # Reshape decoder_outputs for processing
@@ -253,9 +202,6 @@ class DRLPolicy:
             # Value head
             values_flat = self.value_head(decoder_outputs_flat)[:, 0]  # [B*T]
             values = tf.reshape(values_flat, [tf.shape(decoder_outputs)[0], tf.shape(decoder_outputs)[1]])  # [B, T]
-            
-            # Stack outputs
-            # log_probs, entropy, values are already computed above
             
             return log_probs, entropy, values
     
