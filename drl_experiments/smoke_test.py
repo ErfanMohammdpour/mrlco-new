@@ -77,17 +77,9 @@ def smoke_test():
             obs = rollout['obs']
             actions = rollout['actions']
             
-            print(f"Debug - obs shape: {obs.shape}")
-            print(f"Debug - actions shape: {actions.shape}")
-            print(f"Debug - actions dtype: {actions.dtype}")
-            print(f"Debug - actions values: {actions}")
-            
             # Reshape for evaluation
             obs_batch = obs[np.newaxis, :, :]  # [1, T, F]
             actions_batch = actions[np.newaxis, :]  # [1, T]
-            
-            print(f"Debug - obs_batch shape: {obs_batch.shape}")
-            print(f"Debug - actions_batch shape: {actions_batch.shape}")
             
             log_probs, entropy, values = policy.evaluate_actions(obs_batch, actions_batch)
             print(f"Policy evaluation successful:")
@@ -96,8 +88,6 @@ def smoke_test():
             print(f"  Values shape: {values.shape}")
         except Exception as e:
             print(f"Error in policy evaluation: {e}")
-            import traceback
-            traceback.print_exc()
             return False
     
     print("✅ Smoke test passed!")

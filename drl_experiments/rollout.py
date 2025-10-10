@@ -42,6 +42,8 @@ def collect_rollout(env, policy, task_id, max_steps=50):
     values = []
     
     # Autoregressive action generation
+    sess = tf.get_default_session()
+    
     for t in range(seq_len):
         # Get current observation slice
         current_obs = obs[:, :t+1, :]  # [B=1, t+1, F]
@@ -49,9 +51,12 @@ def collect_rollout(env, policy, task_id, max_steps=50):
         # Sample action for timestep t
         action, log_prob, value = policy.sample_action(current_obs, t)
         
-        actions.append(action[0])  # Remove batch dimension
-        log_probs.append(log_prob[0])
-        values.append(value[0])
+        # Evaluate tensors to get actual values
+        action_val, log_prob_val, value_val = sess.run([action, log_prob, value])
+        
+        actions.append(action_val[0])  # Remove batch dimension
+        log_probs.append(log_prob_val[0])
+        values.append(value_val[0])
     
     # Convert to arrays
     actions = np.array(actions)  # [T]
