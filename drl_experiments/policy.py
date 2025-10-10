@@ -34,8 +34,16 @@ class DRLPolicy:
     def _build_encoder(self):
         """Build encoder for processing observations."""
         with tf.variable_scope(self.scope_name + "/encoder"):
-            # No placeholder needed - we'll use the input directly in methods
-            pass
+            # Input projection layer
+            self.input_projection = tf.layers.Dense(
+                self.encoder_units, 
+                activation=tf.nn.relu,
+                name="input_projection"
+            )
+            
+            # Initialize with dummy input to create variables
+            dummy_input = tf.placeholder(tf.float32, [None, None, self.obs_dim], name="dummy_obs")
+            _ = self.input_projection(dummy_input)
     
     def _build_decoder(self):
         """Build autoregressive decoder for action generation."""
@@ -51,6 +59,11 @@ class DRLPolicy:
             
             # Value head (scalar)
             self.value_head = tf.layers.Dense(1, name="value_head")
+            
+            # Initialize the heads with dummy input to create variables
+            dummy_input = tf.placeholder(tf.float32, [None, self.decoder_units], name="dummy_input")
+            _ = self.policy_head(dummy_input)
+            _ = self.value_head(dummy_input)
     
     def _apply_ready_mask(self, logits, timestep):
         """
@@ -81,12 +94,7 @@ class DRLPolicy:
                 obs = tf.constant(obs, dtype=tf.float32)
             
             # Input projection to match encoder units
-            projected_obs = tf.layers.dense(
-                obs, 
-                self.encoder_units, 
-                activation=tf.nn.relu,
-                name="input_projection"
-            )
+            projected_obs = self.input_projection(obs)
             
             # Get encoder outputs
             encoder_outputs, encoder_state = create_graph2seq_encoder(
@@ -155,12 +163,7 @@ class DRLPolicy:
                 actions = tf.constant(actions, dtype=tf.int32)
             
             # Input projection to match encoder units
-            projected_obs = tf.layers.dense(
-                obs, 
-                self.encoder_units, 
-                activation=tf.nn.relu,
-                name="input_projection"
-            )
+            projected_obs = self.input_projection(obs)
             
             # Get encoder outputs
             encoder_outputs, encoder_state = create_graph2seq_encoder(
