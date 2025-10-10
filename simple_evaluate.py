@@ -97,6 +97,10 @@ def main():
     # Run evaluation
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+        
+        # Initialize target networks
+        agent.initialize_target_networks()
+        
         agent.load_model(model_path)
         print("✅ Model loaded successfully!")
         

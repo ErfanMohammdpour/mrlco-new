@@ -55,9 +55,6 @@ class DeepRLOffloadingAgent:
         self._build_networks()
         self._build_training_ops()
         
-        # Initialize target networks
-        self.update_target_networks(tau=1.0)
-        
         # Training counters
         self.update_count = 0
         self.episode_count = 0
@@ -322,6 +319,14 @@ class DeepRLOffloadingAgent:
             self.epsilon *= self.epsilon_decay
         
         return actor_loss, critic_loss
+    
+    def initialize_target_networks(self):
+        """Initialize target networks with main network weights"""
+        sess = tf.get_default_session()
+        old_tau = self.tau
+        self.tau = 1.0  # Copy weights exactly
+        sess.run(self.update_target_ops)
+        self.tau = old_tau
     
     def update_target_networks(self, tau=1.0):
         """Update target networks"""

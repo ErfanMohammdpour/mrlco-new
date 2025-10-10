@@ -44,10 +44,10 @@ def main():
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_4/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_4/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
                                     # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
                                     # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
                                     # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
@@ -105,6 +105,9 @@ def main():
     # Training loop
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+        
+        # Initialize target networks
+        agent.initialize_target_networks()
         
         for episode in range(n_episodes):
             episode_start_time = time.time()
