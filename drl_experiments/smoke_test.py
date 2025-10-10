@@ -81,13 +81,20 @@ def smoke_test():
             obs_batch = obs[np.newaxis, :, :]  # [1, T, F]
             actions_batch = actions[np.newaxis, :]  # [1, T]
             
+            # Evaluate actions using session
             log_probs, entropy, values = policy.evaluate_actions(obs_batch, actions_batch)
+            
+            # Run evaluation in session
+            log_probs_val, entropy_val, values_val = sess.run([log_probs, entropy, values])
+            
             print(f"Policy evaluation successful:")
-            print(f"  Log probs shape: {log_probs.shape}")
-            print(f"  Entropy shape: {entropy.shape}")
-            print(f"  Values shape: {values.shape}")
+            print(f"  Log probs shape: {log_probs_val.shape}")
+            print(f"  Entropy shape: {entropy_val.shape}")
+            print(f"  Values shape: {values_val.shape}")
         except Exception as e:
             print(f"Error in policy evaluation: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     print("✅ Smoke test passed!")

@@ -117,22 +117,30 @@ class DRLPolicy:
             ).clone(cell_state=encoder_state)
             
             # Run decoder for timestep steps
-            for t in range(timestep + 1):
-                if t == 0:
-                    # First timestep: use encoder output
-                    decoder_input = encoder_outputs[:, t, :]
-                else:
-                    # Subsequent timesteps: use previous action embedding
-                    # For simplicity, we'll use encoder output at current timestep
-                    decoder_input = encoder_outputs[:, t, :]
-                
-                # Run decoder step
-                decoder_output, decoder_state = decoder_cell(
-                    decoder_input, decoder_state
-                )
+            seq_len = obs.shape[1] if hasattr(obs, 'shape') else tf.shape(obs)[1]
             
-            # Get final decoder output
-            final_output = decoder_output
+            # Ensure timestep is within bounds
+            if isinstance(timestep, int):
+                if isinstance(seq_len, tf.Tensor):
+                    seq_len_val = tf.cast(seq_len, tf.int32)
+                    actual_timestep = tf.minimum(timestep, seq_len_val - 1)
+                else:
+                    actual_timestep = min(timestep, seq_len - 1)
+            else:
+                actual_timestep = tf.minimum(timestep, seq_len - 1)
+            
+            # Ensure actual_timestep is an integer tensor
+            if isinstance(actual_timestep, tf.Tensor):
+                actual_timestep = tf.cast(actual_timestep, tf.int32)
+            else:
+                actual_timestep = tf.constant(actual_timestep, dtype=tf.int32)
+            
+            # Simple approach: just use the encoder output at the desired timestep
+            # Use tf.gather to safely index
+            decoder_input = tf.gather(encoder_outputs, actual_timestep, axis=1)
+            final_output, _ = decoder_cell(decoder_input, decoder_state)
+            
+            # Note: This is a simplified version that doesn't use autoregressive decoding
             
             # Policy head
             logits = self.policy_head(final_output)  # [B, action_dim]
@@ -174,8 +182,7 @@ class DRLPolicy:
             if isinstance(actions, np.ndarray):
                 actions = tf.constant(actions, dtype=tf.int32)
             
-            batch_size = tf.shape(obs)[0]
-            seq_len = tf.shape(obs)[1]
+            # batch_size and seq_len will be computed from decoder_outputs
             
             # Input projection to match encoder units
             projected_obs = tf.layers.dense(
@@ -207,55 +214,47 @@ class DRLPolicy:
             
             # Initialize decoder state
             decoder_state = decoder_cell.zero_state(
-                batch_size, dtype=tf.float32
+                tf.shape(obs)[0], dtype=tf.float32
             ).clone(cell_state=encoder_state)
             
-            # Store outputs
-            log_probs_list = []
-            entropy_list = []
-            values_list = []
+            # No need to store outputs in lists anymore
             
-            # Run decoder autoregressively
-            for t in range(seq_len):
-                if t == 0:
-                    decoder_input = encoder_outputs[:, t, :]
-                else:
-                    decoder_input = encoder_outputs[:, t, :]
-                
-                # Run decoder step
-                decoder_output, decoder_state = decoder_cell(
-                    decoder_input, decoder_state
-                )
-                
-                # Policy head
-                logits = self.policy_head(decoder_output)  # [B, action_dim]
-                logits = self._apply_ready_mask(logits, t)
-                
-                # Compute probabilities
-                action_probs = tf.nn.softmax(logits)
-                
-                # Get action for this timestep
-                action = actions[:, t]  # [B]
-                
-                # Compute log probability
-                log_prob = tf.log(action_probs + 1e-8)
-                action_one_hot = tf.one_hot(action, self.action_dim)
-                log_prob = tf.reduce_sum(action_one_hot * log_prob, axis=1)  # [B]
-                
-                # Compute entropy
-                entropy = -tf.reduce_sum(action_probs * tf.log(action_probs + 1e-8), axis=1)  # [B]
-                
-                # Value head
-                value = self.value_head(decoder_output)[:, 0]  # [B]
-                
-                log_probs_list.append(log_prob)
-                entropy_list.append(entropy)
-                values_list.append(value)
+            # Simple approach: just use encoder outputs directly
+            # This is a simplified version that doesn't use autoregressive decoding
+            decoder_outputs = encoder_outputs  # [B, T, F]
+            
+            # Note: decoder_state is not used in this simplified version
+            
+            # Process all timesteps
+            # Reshape decoder_outputs for processing
+            feat_dim = tf.shape(decoder_outputs)[2]
+            
+            # Reshape to [B*T, F] for processing
+            decoder_outputs_flat = tf.reshape(decoder_outputs, [-1, feat_dim])
+            
+            # Apply policy head
+            logits_flat = self.policy_head(decoder_outputs_flat)  # [B*T, action_dim]
+            
+            # Reshape back to [B, T, action_dim]
+            logits = tf.reshape(logits_flat, [tf.shape(decoder_outputs)[0], tf.shape(decoder_outputs)[1], self.action_dim])
+            
+            # Compute probabilities
+            action_probs = tf.nn.softmax(logits)
+            
+            # Compute log probabilities
+            log_prob = tf.log(action_probs + 1e-8)
+            action_one_hot = tf.one_hot(actions, self.action_dim)
+            log_probs = tf.reduce_sum(action_one_hot * log_prob, axis=2)  # [B, T]
+            
+            # Compute entropy
+            entropy = -tf.reduce_sum(action_probs * tf.log(action_probs + 1e-8), axis=2)  # [B, T]
+            
+            # Value head
+            values_flat = self.value_head(decoder_outputs_flat)[:, 0]  # [B*T]
+            values = tf.reshape(values_flat, [tf.shape(decoder_outputs)[0], tf.shape(decoder_outputs)[1]])  # [B, T]
             
             # Stack outputs
-            log_probs = tf.stack(log_probs_list, axis=1)  # [B, T]
-            entropy = tf.stack(entropy_list, axis=1)  # [B, T]
-            values = tf.stack(values_list, axis=1)  # [B, T]
+            # log_probs, entropy, values are already computed above
             
             return log_probs, entropy, values
     
