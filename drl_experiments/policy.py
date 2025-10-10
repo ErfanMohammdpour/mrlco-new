@@ -101,6 +101,10 @@ class DRLPolicy:
             value: value estimate [B]
         """
         with tf.variable_scope(self.scope_name, reuse=tf.AUTO_REUSE):
+            # Convert numpy array to tensor if needed
+            if isinstance(obs, np.ndarray):
+                obs = tf.constant(obs, dtype=tf.float32)
+            
             # Get encoder outputs
             encoder_outputs, encoder_state = create_graph2seq_encoder(
                 encoder_inputs=obs,
@@ -168,6 +172,12 @@ class DRLPolicy:
             values: value estimates [B, T]
         """
         with tf.variable_scope(self.scope_name, reuse=tf.AUTO_REUSE):
+            # Convert numpy arrays to tensors if needed
+            if isinstance(obs, np.ndarray):
+                obs = tf.constant(obs, dtype=tf.float32)
+            if isinstance(actions, np.ndarray):
+                actions = tf.constant(actions, dtype=tf.int32)
+            
             batch_size = tf.shape(obs)[0]
             seq_len = tf.shape(obs)[1]
             
