@@ -4,7 +4,6 @@ DRL Policy implementation with autoregressive decoder for task offloading.
 
 import numpy as np
 import tensorflow as tf
-from policies.graph2seq_encoder import create_graph2seq_encoder
 
 
 class DRLPolicy:
@@ -41,9 +40,13 @@ class DRLPolicy:
                 name="input_projection"
             )
             
+            # LSTM encoder
+            self.lstm_encoder = tf.nn.rnn_cell.LSTMCell(self.encoder_units)
+            
             # Initialize with dummy input to create variables
             dummy_input = tf.placeholder(tf.float32, [None, None, self.obs_dim], name="dummy_obs")
-            _ = self.input_projection(dummy_input)
+            projected = self.input_projection(dummy_input)
+            _, _ = tf.nn.dynamic_rnn(self.lstm_encoder, projected, dtype=tf.float32)
     
     def _build_decoder(self):
         """Build autoregressive decoder for action generation."""
@@ -61,8 +64,8 @@ class DRLPolicy:
             self.value_head = tf.layers.Dense(1, name="value_head")
             
             # Initialize the heads with dummy input to create variables
-            # encoder_outputs has dimension 4*encoder_units (bidirectional)
-            dummy_input = tf.placeholder(tf.float32, [None, 4 * self.encoder_units], name="dummy_input")
+            # encoder_outputs has dimension encoder_units (LSTM)
+            dummy_input = tf.placeholder(tf.float32, [None, self.encoder_units], name="dummy_input")
             _ = self.policy_head(dummy_input)
             _ = self.value_head(dummy_input)
     
@@ -97,14 +100,11 @@ class DRLPolicy:
             # Input projection to match encoder units
             projected_obs = self.input_projection(obs)
             
-            # Get encoder outputs
-            encoder_outputs, encoder_state = create_graph2seq_encoder(
-                encoder_inputs=projected_obs,
-                encoder_units=self.encoder_units,
-                num_layers=self.num_layers,
-                is_bidirectional=True,
-                mode='train',
-                scope_name="drl_encoder"
+            # Get encoder outputs using LSTM
+            encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
+                self.lstm_encoder, 
+                projected_obs, 
+                dtype=tf.float32
             )
             
             # Simple approach: use encoder output at the desired timestep
@@ -120,7 +120,7 @@ class DRLPolicy:
             else:
                 actual_timestep = tf.minimum(timestep, seq_len - 1)
             
-            # Use encoder output directly (no decoder for simplicity)
+            # Use encoder output directly
             final_output = encoder_outputs[:, actual_timestep, :]
             
             # Policy head
@@ -166,14 +166,11 @@ class DRLPolicy:
             # Input projection to match encoder units
             projected_obs = self.input_projection(obs)
             
-            # Get encoder outputs
-            encoder_outputs, encoder_state = create_graph2seq_encoder(
-                encoder_inputs=projected_obs,
-                encoder_units=self.encoder_units,
-                num_layers=self.num_layers,
-                is_bidirectional=True,
-                mode='train',
-                scope_name="drl_encoder"
+            # Get encoder outputs using LSTM
+            encoder_outputs, encoder_state = tf.nn.dynamic_rnn(
+                self.lstm_encoder, 
+                projected_obs, 
+                dtype=tf.float32
             )
             
             # Simple approach: use encoder outputs directly
