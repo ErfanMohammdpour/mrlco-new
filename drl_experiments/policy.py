@@ -43,20 +43,8 @@ class DRLPolicy:
             # LSTM cell for autoregressive generation
             self.lstm_cell = tf.nn.rnn_cell.LSTMCell(self.decoder_units)
             
-            # Attention mechanism
-            self.attention_mechanism = tf.contrib.seq2seq.LuongAttention(
-                self.decoder_units, self.encoder_outputs
-            )
-            
-            self.decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
-                self.lstm_cell, self.attention_mechanism,
-                attention_layer_size=self.decoder_units
-            )
-            
-            # Initial state
-            self.decoder_initial_state = self.decoder_cell.zero_state(
-                tf.shape(self.obs_ph)[0], dtype=tf.float32
-            ).clone(cell_state=self.encoder_state)
+            # Note: Attention mechanism will be created dynamically in methods
+            # since we don't have encoder_outputs at build time
     
     def _build_heads(self):
         """Build policy and value heads."""
@@ -113,8 +101,18 @@ class DRLPolicy:
                 scope_name="drl_encoder"
             )
             
+            # Create attention mechanism dynamically
+            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
+                self.decoder_units, encoder_outputs
+            )
+            
+            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+                self.lstm_cell, attention_mechanism,
+                attention_layer_size=self.decoder_units
+            )
+            
             # Initialize decoder state
-            decoder_state = self.decoder_cell.zero_state(
+            decoder_state = decoder_cell.zero_state(
                 tf.shape(obs)[0], dtype=tf.float32
             ).clone(cell_state=encoder_state)
             
@@ -129,7 +127,7 @@ class DRLPolicy:
                     decoder_input = encoder_outputs[:, t, :]
                 
                 # Run decoder step
-                decoder_output, decoder_state = self.decoder_cell(
+                decoder_output, decoder_state = decoder_cell(
                     decoder_input, decoder_state
                 )
             
@@ -197,8 +195,18 @@ class DRLPolicy:
                 scope_name="drl_encoder"
             )
             
+            # Create attention mechanism dynamically
+            attention_mechanism = tf.contrib.seq2seq.LuongAttention(
+                self.decoder_units, encoder_outputs
+            )
+            
+            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(
+                self.lstm_cell, attention_mechanism,
+                attention_layer_size=self.decoder_units
+            )
+            
             # Initialize decoder state
-            decoder_state = self.decoder_cell.zero_state(
+            decoder_state = decoder_cell.zero_state(
                 batch_size, dtype=tf.float32
             ).clone(cell_state=encoder_state)
             
@@ -215,7 +223,7 @@ class DRLPolicy:
                     decoder_input = encoder_outputs[:, t, :]
                 
                 # Run decoder step
-                decoder_output, decoder_state = self.decoder_cell(
+                decoder_output, decoder_state = decoder_cell(
                     decoder_input, decoder_state
                 )
                 
