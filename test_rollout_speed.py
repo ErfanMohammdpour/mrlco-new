@@ -22,7 +22,7 @@ def test_rollout_speed():
     print("Testing rollout collection speed...")
     
     # Create environment
-    resources = Resources()
+    resources = Resources(mec_process_capable=1000, mobile_process_capable=100)
     env = OffloadingEnvironment(resources)
     
     # Create policy
