@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 
 
-def collect_rollout(env, policy, task_id, max_steps=50):
+def collect_rollout(env, policy, task_id, max_steps=10):
     """
     Collect a single rollout for a given task.
     
