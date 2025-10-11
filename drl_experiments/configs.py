@@ -9,11 +9,11 @@ import os
 TRAIN_TASK_IDS = [i for i in range(1, 26) if i not in [2, 21, 25]]  # Maps 1-25, skip 2,21,25
 EVAL_TASK_IDS = [2, 21, 25]      # Evaluation maps
 
-# Training hyperparameters (simplified for faster training)
-tasks_per_epoch = 5              # Reduced from 10 to 5
-rollouts_per_task = 1            # Reduced from 3 to 1
-ppo_epochs = 2                   # Reduced from 4 to 2
-minibatch_size = 512             # Reduced from 2048 to 512
+# Training hyperparameters (ultra-fast for testing)
+tasks_per_epoch = 2              # Reduced to 2 tasks
+rollouts_per_task = 1            # Keep at 1
+ppo_epochs = 1                   # Reduced to 1 epoch
+minibatch_size = 256             # Reduced to 256
 
 # PPO hyperparameters (match original project)
 gamma = 0.99                     # Discount factor (same as original)

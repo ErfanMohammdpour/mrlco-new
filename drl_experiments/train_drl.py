@@ -18,6 +18,7 @@ from env.mec_offloaing_envs.offloading_env import Resources, OffloadingEnvironme
 from .configs import *
 from .policy import DRLPolicy
 from .rollout import collect_rollouts, batch_rollouts
+from .fast_rollout import collect_fast_rollouts, batch_fast_rollouts
 from .ppo import train_one_epoch, compute_makespan
 from .gae import compute_gae, normalize_advantages
 
@@ -180,18 +181,15 @@ def main():
             
             print(f"Epoch {epoch}: Sampling tasks {sampled_tasks}")
             
-            # Collect rollouts
-            all_rollouts = []
-            for task_id in sampled_tasks:
-                task_rollouts = collect_rollouts(env, policy, [task_id], args.rollouts_per_task)
-                all_rollouts.extend(task_rollouts)
+            # Collect rollouts (using fast version for testing)
+            all_rollouts = collect_fast_rollouts(env, policy, sampled_tasks, args.rollouts_per_task)
             
             if not all_rollouts:
                 print(f"Warning: No rollouts collected in epoch {epoch}")
                 continue
             
-            # Batch rollouts
-            batch_data = batch_rollouts(all_rollouts)
+            # Batch rollouts (using fast version)
+            batch_data = batch_fast_rollouts(all_rollouts)
             
             if batch_data is None:
                 print(f"Warning: Failed to batch rollouts in epoch {epoch}")
