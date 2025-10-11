@@ -181,15 +181,18 @@ def main():
             
             print(f"Epoch {epoch}: Sampling tasks {sampled_tasks}")
             
-            # Collect rollouts (using fast version for testing)
-            all_rollouts = collect_fast_rollouts(env, policy, sampled_tasks, args.rollouts_per_task)
+            # Collect rollouts (back to real rollout for quality)
+            all_rollouts = []
+            for task_id in sampled_tasks:
+                task_rollouts = collect_rollouts(env, policy, [task_id], args.rollouts_per_task)
+                all_rollouts.extend(task_rollouts)
             
             if not all_rollouts:
                 print(f"Warning: No rollouts collected in epoch {epoch}")
                 continue
             
-            # Batch rollouts (using fast version)
-            batch_data = batch_fast_rollouts(all_rollouts)
+            # Batch rollouts (back to real batching)
+            batch_data = batch_rollouts(all_rollouts)
             
             if batch_data is None:
                 print(f"Warning: Failed to batch rollouts in epoch {epoch}")
