@@ -22,15 +22,31 @@ def test_rollout_speed():
     print("Testing rollout collection speed...")
     
     # Create environment
-    resources = Resources(mec_process_capable=1000, mobile_process_capable=100)
-    env = OffloadingEnvironment(resources)
+    resource_cluster = Resources(
+        mec_process_capable=(10.0 * 1024 * 1024),
+        mobile_process_capable=(1.0 * 1024 * 1024),
+        bandwidth_up=7.0,
+        bandwidth_dl=7.0
+    )
+    
+    # Use only first 3 maps for quick test
+    test_graph_paths = TRAIN_GRAPH_PATHS[:3]
+    
+    env = OffloadingEnvironment(
+        resource_cluster=resource_cluster,
+        batch_size=1,
+        graph_number=10,  # Small number for quick test
+        graph_file_paths=test_graph_paths,
+        time_major=time_major
+    )
     
     # Create policy
     policy = DRLPolicy(
-        hidden_dim=hidden_dim,
-        num_layers=num_layers,
-        dropout_rate=dropout_rate,
-        scope_name="drl_policy"
+        obs_dim=17,
+        action_dim=2,
+        encoder_units=64,  # Smaller for quick test
+        decoder_units=64,
+        num_layers=1
     )
     
     # Initialize policy
