@@ -5,9 +5,9 @@ Contains hyperparameters and data splits for training and evaluation.
 
 import os
 
-# Data splits - train on all maps except 21, 2 (for evaluation)
-TRAIN_TASK_IDS = [i for i in range(1, 26) if i not in [21, 2]]  # Maps 1-25, skip 21,2
-EVAL_TASK_IDS = [21, 2]      # Evaluation maps
+# Data splits - train on all maps except 2, 21, 25 (for evaluation)
+TRAIN_TASK_IDS = [i for i in range(1, 26) if i not in [2, 21, 25]]  # Maps 1-25, skip 2,21,25
+EVAL_TASK_IDS = [2, 21, 25]      # Evaluation maps
 
 # Training hyperparameters (adjusted for DRL PPO)
 tasks_per_epoch = 10             # Number of tasks to sample per epoch
