@@ -9,11 +9,11 @@ import os
 TRAIN_TASK_IDS = [i for i in range(1, 26) if i not in [2, 21, 25]]  # Maps 1-25, skip 2,21,25
 EVAL_TASK_IDS = [2, 21, 25]      # Evaluation maps
 
-# Training hyperparameters (adjusted for DRL PPO)
-tasks_per_epoch = 10             # Number of tasks to sample per epoch
-rollouts_per_task = 3            # Number of rollouts per task
-ppo_epochs = 4                   # PPO epochs per batch
-minibatch_size = 2048            # Minibatch size for PPO updates (larger for stability)
+# Training hyperparameters (simplified for faster training)
+tasks_per_epoch = 5              # Reduced from 10 to 5
+rollouts_per_task = 1            # Reduced from 3 to 1
+ppo_epochs = 2                   # Reduced from 4 to 2
+minibatch_size = 512             # Reduced from 2048 to 512
 
 # PPO hyperparameters (match original project)
 gamma = 0.99                     # Discount factor (same as original)
@@ -59,4 +59,4 @@ eval_dir = os.path.join(base_dir, "drl_eval")
 
 # Logging
 log_interval = 10                # Log every N epochs
-save_interval = 20               # Save checkpoint every N epochs
+save_interval = 5                # Save checkpoint every 5 epochs (more frequent)
