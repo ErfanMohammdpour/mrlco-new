@@ -166,12 +166,12 @@ def finetune_policy(map_id, weight_path, steps=20, learning_rate=1e-4, batch_siz
         print("❌ Failed to load pre-trained weights!")
         return None, None, None
     
-    # Sampler
+    # Sampler - optimized for fine-tuning
     sampler = Seq2SeqSampler(
         env=env,
         policy=policy,
-        rollouts_per_task=1,
-        max_path_length=20000,
+        rollouts_per_task=5,  # Fewer rollouts for fine-tuning
+        max_path_length=1000,  # Reduced for faster fine-tuning
         parallel=False
     )
     

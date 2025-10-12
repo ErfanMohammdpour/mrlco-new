@@ -144,28 +144,28 @@ class Seq2SeqSampler(Sampler):
             
             for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses, actions_list, logits_list,
                                                                                     rewards, values_list, dones, env_infos):
-                # append new samples to running paths
-                for single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time \
-                        in zip(observation, action, logit, reward, value, task_finish_times):
-                    running_paths[idx]["observations"]= single_ob
-                    running_paths[idx]["actions"] = single_ac
-                    running_paths[idx]["logits"] = single_logit
-                    running_paths[idx]["rewards"] = single_reward
-                    running_paths[idx]["finish_time"] = single_task_finish_time
-                    running_paths[idx]["values"] = single_value
+                # Store the complete trajectory for this environment
+                running_paths[idx]["observations"] = observation
+                running_paths[idx]["actions"] = action
+                running_paths[idx]["logits"] = logit
+                running_paths[idx]["rewards"] = reward
+                running_paths[idx]["finish_time"] = task_finish_times
+                running_paths[idx]["values"] = value
 
+                # If episode is done, add the complete path
+                if done:
                     paths.append(dict(
-                        observations=np.squeeze(np.asarray(running_paths[idx]["observations"])),
-                        actions=np.squeeze(np.asarray(running_paths[idx]["actions"])),
-                        logits = np.squeeze(np.asarray(running_paths[idx]["logits"])),
-                        rewards=np.squeeze(np.asarray(running_paths[idx]["rewards"])),
-                        finish_time = np.squeeze(np.asarray(running_paths[idx]["finish_time"])),
-                        values  = np.squeeze(np.asarray(running_paths[idx]["values"]))
+                        observations=np.asarray(running_paths[idx]["observations"]),
+                        actions=np.asarray(running_paths[idx]["actions"]),
+                        logits=np.asarray(running_paths[idx]["logits"]),
+                        rewards=np.asarray(running_paths[idx]["rewards"]),
+                        finish_time=np.asarray(running_paths[idx]["finish_time"]),
+                        values=np.asarray(running_paths[idx]["values"])
                     ))
 
-                # if running path is done, add it to paths and empty the running path
-                new_samples += len(running_paths[idx]["rewards"])
-                running_paths[idx] = _get_empty_running_paths_dict()
+                    # Reset for next episode
+                    new_samples += len(running_paths[idx]["rewards"])
+                    running_paths[idx] = _get_empty_running_paths_dict()
 
             pbar.update(new_samples)
             n_samples += new_samples

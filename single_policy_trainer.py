@@ -170,8 +170,8 @@ if __name__ == "__main__":
     sampler = Seq2SeqSampler(
         env=env,
         policy=policy,
-        rollouts_per_task=1,
-        max_path_length=20000,
+        rollouts_per_task=10,  # More rollouts for better efficiency
+        max_path_length=1000,  # Reduced for faster training
         parallel=False,
     )
 

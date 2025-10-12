@@ -155,12 +155,12 @@ def pretrain_policy(num_maps=22, iterations=1000, batch_size=100, learning_rate=
         vocab_size=2
     )
     
-    # Sampler
+    # Sampler - optimized for better performance
     sampler = Seq2SeqSampler(
         env=env,
         policy=policy,
-        rollouts_per_task=1,
-        max_path_length=20000,
+        rollouts_per_task=10,  # More rollouts per task for better efficiency
+        max_path_length=1000,  # Reduced from 20000 for faster training
         parallel=False
     )
     

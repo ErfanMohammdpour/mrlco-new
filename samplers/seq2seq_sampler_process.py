@@ -79,4 +79,24 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
         advantages = np.array([path["advantages"] for path in paths])
         finish_time = np.array([path["finish_time"] for path in paths])
         
+        # Ensure logits have the correct shape for the policy
+        # Policy expects (batch_size, sequence_length, vocab_size)
+        if len(logits.shape) == 2:
+            # If logits are flattened, reshape them
+            # Assuming vocab_size=2 and sequence_length can be inferred
+            vocab_size = 2  # This should match the policy's vocab_size
+            if logits.shape[1] % vocab_size == 0:
+                sequence_length = logits.shape[1] // vocab_size
+                logits = logits.reshape(logits.shape[0], sequence_length, vocab_size)
+            else:
+                # If we can't reshape properly, pad or truncate
+                sequence_length = logits.shape[1] // vocab_size
+                if sequence_length * vocab_size < logits.shape[1]:
+                    # Pad with zeros
+                    padded_logits = np.zeros((logits.shape[0], sequence_length + 1, vocab_size))
+                    padded_logits[:, :sequence_length, :] = logits[:, :sequence_length * vocab_size].reshape(logits.shape[0], sequence_length, vocab_size)
+                    logits = padded_logits
+                else:
+                    logits = logits[:, :sequence_length * vocab_size].reshape(logits.shape[0], sequence_length, vocab_size)
+        
         return observations, actions, logits, rewards, returns, values, advantages, finish_time
