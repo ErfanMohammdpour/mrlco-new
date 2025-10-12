@@ -41,11 +41,18 @@ class SinglePolicyTrainer(object):
             # Sample trajectories from the environment
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
-            # Calculate greedy baseline for comparison
+            # Calculate greedy baseline for comparison (on current task)
             if hasattr(self.env, 'greedy_solution'):
+                # Get current task info
+                current_task = self.env.get_current_task_id() if hasattr(self.env, 'get_current_task_id') else 0
+                total_tasks = self.env.get_total_tasks() if hasattr(self.env, 'get_total_tasks') else 1
+                
+                # Calculate greedy solution for current task
                 _, greedy_times = self.env.greedy_solution()
                 avg_greedy_time = np.mean(greedy_times) if greedy_times else 0.0
                 logger.logkv('Average greedy latency,', avg_greedy_time)
+                logger.logkv('Current task,', current_task)
+                logger.logkv('Total tasks,', total_tasks)
                 greedy_latencies_all.append(avg_greedy_time)
 
             """ ----------------- Processing Samples ---------------------"""

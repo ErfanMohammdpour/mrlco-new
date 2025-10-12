@@ -159,7 +159,7 @@ def pretrain_policy(num_maps=22, iterations=1000, batch_size=100, learning_rate=
     sampler = Seq2SeqSampler(
         env=env,
         policy=policy,
-        rollouts_per_task=10,  # More rollouts per task for better efficiency
+        rollouts_per_task=1,  # 1 rollout per task for better diversity
         max_path_length=1000,  # Reduced from 20000 for faster training
         parallel=False
     )
@@ -178,8 +178,8 @@ def pretrain_policy(num_maps=22, iterations=1000, batch_size=100, learning_rate=
         policy=policy,
         sampler=sampler,
         sampler_process=sample_processor,
-        lr=learning_rate,
-        num_grad_steps=4,
+        lr=learning_rate * 2,  # Increase learning rate for better learning
+        num_grad_steps=8,  # More gradient steps for better learning
         clip_value=0.2,
         vf_coef=0.5,
         max_grad_norm=0.5

@@ -30,6 +30,18 @@ class SinglePolicyOffloadingEnvironment(OffloadingEnvironment):
         
         return np.array(self.encoder_batchs[self.current_task_id])
     
+    def get_current_task_id(self):
+        """
+        Get the current task ID for debugging
+        """
+        return self.current_task_id
+    
+    def get_total_tasks(self):
+        """
+        Get total number of tasks
+        """
+        return self.total_task
+    
     def step(self, action):
         """
         Run one timestep of the environment's dynamics.
