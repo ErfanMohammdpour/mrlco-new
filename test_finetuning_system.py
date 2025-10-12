@@ -129,6 +129,9 @@ def test_policy_creation():
     print("\nTesting policy creation...")
     
     try:
+        # Clear TensorFlow graph to avoid variable sharing conflicts
+        tf.compat.v1.reset_default_graph()
+        
         from policies.meta_seq2seq_policy import Seq2SeqPolicy
         
         # Create single policy
@@ -157,6 +160,9 @@ def test_algorithm_creation():
     print("\nTesting algorithm creation...")
     
     try:
+        # Clear TensorFlow graph to avoid variable sharing conflicts
+        tf.compat.v1.reset_default_graph()
+        
         from single_policy_ppo import SinglePolicyPPO
         from policies.meta_seq2seq_policy import Seq2SeqPolicy
         from samplers.seq2seq_sampler import Seq2SeqSampler
@@ -209,6 +215,9 @@ def test_map_creation():
     print("\nTesting map environment creation...")
     
     try:
+        # Clear TensorFlow graph to avoid variable sharing conflicts
+        tf.compat.v1.reset_default_graph()
+        
         from finetune_on_map import create_single_map_environment
         from env.single_policy_offloading_env import Resources
         
