@@ -92,9 +92,10 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
         advantages = np.array([path["advantages"] for path in paths])
         finish_time = np.array([path["finish_time"] for path in paths])
         
-        # Flatten all data to 1D for proper concatenation
+        # Flatten only the data that needs to be 1D for proper concatenation
         observations = observations.reshape(-1, observations.shape[-1])
-        actions = actions.flatten()
+        # Keep actions as 2D for the policy (batch_size, sequence_length)
+        actions = actions.reshape(-1, actions.shape[-1])
         rewards = rewards.flatten()
         returns = returns.flatten()
         values = values.flatten()
@@ -120,5 +121,10 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
                     logits = padded_logits
                 else:
                     logits = logits[:, :sequence_length * vocab_size].reshape(logits.shape[0], sequence_length, vocab_size)
+        elif len(logits.shape) == 3:
+            # Logits are already in the correct shape (batch_size, sequence_length, vocab_size)
+            pass
+        else:
+            raise ValueError(f"Unexpected logits shape: {logits.shape}")
         
         return observations, actions, logits, rewards, returns, values, advantages, finish_time
