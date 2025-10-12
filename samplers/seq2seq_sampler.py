@@ -180,7 +180,7 @@ class Seq2SeqSampler(Sampler):
         pbar.stop()
 
         self.total_timesteps_sampled += self.total_samples
-        if log:
+        if log is True:
             logger.logkv(log_prefix + "PolicyExecTime", policy_time)
             logger.logkv(log_prefix + "EnvExecTime", env_time)
         return paths
