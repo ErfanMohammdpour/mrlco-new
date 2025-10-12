@@ -143,20 +143,39 @@ class FOMAML:
         policy_losses = []
         value_losses = []
 
-        batch_number = int(task_samples['observations'].shape[0] / batch_size)
+        # Check if task_samples is valid and has data
+        if not task_samples or 'observations' not in task_samples:
+            print(f"Warning: No valid data for task {task_id}, skipping adaptation")
+            return [0.0], [0.0]
+        
+        # Ensure we have at least one batch
+        num_samples = task_samples['observations'].shape[0]
+        if num_samples == 0:
+            print(f"Warning: Empty data for task {task_id}, skipping adaptation")
+            return [0.0], [0.0]
+            
+        batch_number = max(1, int(num_samples / batch_size))
+        
+        # If we have fewer samples than batch_size, use all samples as one batch
+        if num_samples < batch_size:
+            batch_number = 1
+            actual_batch_size = num_samples
+        else:
+            actual_batch_size = batch_size
         
         # Prepare data
         shift_actions = np.column_stack(
             (np.zeros(task_samples['actions'].shape[0], dtype=np.int32), 
              task_samples['actions'][:, 0:-1]))
 
-        observations_batchs = np.split(np.array(task_samples['observations']), batch_number)
-        actions_batchs = np.split(np.array(task_samples['actions']), batch_number)
-        shift_action_batchs = np.split(np.array(shift_actions), batch_number)
-        old_logits_batchs = np.split(np.array(task_samples["logits"], dtype=np.float32), batch_number)
-        advs_batchs = np.split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
-        oldvpred = np.split(np.array(task_samples['values'], dtype=np.float32), batch_number)
-        returns = np.split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
+        # Split data into batches
+        observations_batchs = np.array_split(np.array(task_samples['observations']), batch_number)
+        actions_batchs = np.array_split(np.array(task_samples['actions']), batch_number)
+        shift_action_batchs = np.array_split(np.array(shift_actions), batch_number)
+        old_logits_batchs = np.array_split(np.array(task_samples["logits"], dtype=np.float32), batch_number)
+        advs_batchs = np.array_split(np.array(task_samples['advantages'], dtype=np.float32), batch_number)
+        oldvpred = np.array_split(np.array(task_samples['values'], dtype=np.float32), batch_number)
+        returns = np.array_split(np.array(task_samples['returns'], dtype=np.float32), batch_number)
 
         sess = tf.compat.v1.get_default_session()
 
@@ -202,12 +221,25 @@ class FOMAML:
         Evaluate the adapted policy on query set
         This computes the loss that will be used for meta-update
         """
+        # Check if task_samples is valid and has data
+        if not task_samples or 'observations' not in task_samples:
+            print(f"Warning: No valid query data for task {task_id}, returning zero loss")
+            return 0.0
+        
+        num_samples = task_samples['observations'].shape[0]
+        if num_samples == 0:
+            print(f"Warning: Empty query data for task {task_id}, returning zero loss")
+            return 0.0
+        
         # Use the same loss computation as inner loop but for evaluation
         # In practice, this would be the same as adapt_task but without parameter updates
         policy_losses, value_losses = self.adapt_task(task_samples, task_id)
         
         # Return the final loss for meta-update
-        return policy_losses[-1] + self.vf_coef * value_losses[-1]
+        if len(policy_losses) > 0 and len(value_losses) > 0:
+            return policy_losses[-1] + self.vf_coef * value_losses[-1]
+        else:
+            return 0.0
 
     def meta_update(self, adapted_policies, query_losses):
         """

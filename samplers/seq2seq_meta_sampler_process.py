@@ -26,7 +26,26 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         samples_data_meta_batch = []
         all_paths = []
 
+        print(f"Processing samples for {len(paths_meta_batch)} tasks")
+        
         for meta_task, paths in paths_meta_batch.items():
+            print(f"  Processing task {meta_task}: {len(paths)} paths")
+            
+            if len(paths) == 0:
+                print(f"    -> Empty task, creating dummy data")
+                # Create dummy data for empty tasks
+                dummy_data = {
+                    'observations': np.zeros((1, 1, 17), dtype=np.float32),
+                    'actions': np.zeros((1, 1), dtype=np.int32),
+                    'logits': np.zeros((1, 1, 2), dtype=np.float32),
+                    'rewards': np.zeros((1, 1), dtype=np.float32),
+                    'returns': np.zeros((1, 1), dtype=np.float32),
+                    'values': np.zeros((1, 1), dtype=np.float32),
+                    'advantages': np.zeros((1, 1), dtype=np.float32),
+                    'finish_time': np.zeros((1, 1), dtype=np.float32)
+                }
+                samples_data_meta_batch.append(dummy_data)
+                continue
 
             # fits baseline, comput advantages and stack path data
             samples_data, paths = self._compute_samples_data(paths)
@@ -34,15 +53,36 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
             samples_data_meta_batch.append(samples_data)
             all_paths.extend(paths)
 
-        # 7) compute normalized trajectory-batch rewards (for E-MAML)
-        overall_avg_reward = np.mean(
-            np.concatenate([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
-        overall_avg_reward_std = np.std(
-            np.concatenate([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
+        # Handle case where all tasks are empty
+        if len(samples_data_meta_batch) == 0:
+            print("Warning: All tasks are empty, creating dummy data")
+            dummy_data = {
+                'observations': np.zeros((1, 1, 17), dtype=np.float32),
+                'actions': np.zeros((1, 1), dtype=np.int32),
+                'logits': np.zeros((1, 1, 2), dtype=np.float32),
+                'rewards': np.zeros((1, 1), dtype=np.float32),
+                'returns': np.zeros((1, 1), dtype=np.float32),
+                'values': np.zeros((1, 1), dtype=np.float32),
+                'advantages': np.zeros((1, 1), dtype=np.float32),
+                'finish_time': np.zeros((1, 1), dtype=np.float32)
+            }
+            samples_data_meta_batch.append(dummy_data)
 
-        for samples_data in samples_data_meta_batch:
-            samples_data['adj_avg_rewards'] = (samples_data['rewards'] - overall_avg_reward) / (
-                        overall_avg_reward_std + 1e-8)
+        # 7) compute normalized trajectory-batch rewards (for E-MAML)
+        if len(samples_data_meta_batch) > 0:
+            try:
+                overall_avg_reward = np.mean(
+                    np.concatenate([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
+                overall_avg_reward_std = np.std(
+                    np.concatenate([samples_data['rewards'] for samples_data in samples_data_meta_batch]))
+
+                for samples_data in samples_data_meta_batch:
+                    samples_data['adj_avg_rewards'] = (samples_data['rewards'] - overall_avg_reward) / (
+                                overall_avg_reward_std + 1e-8)
+            except Exception as e:
+                print(f"Warning: Error in reward normalization: {e}")
+                for samples_data in samples_data_meta_batch:
+                    samples_data['adj_avg_rewards'] = samples_data['rewards']
 
         # 8) log statistics if desired
         self._log_path_stats(all_paths, log=log, log_prefix=log_prefix)

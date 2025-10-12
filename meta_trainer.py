@@ -72,8 +72,16 @@ class Trainer(object):
             task_policy_losses = []
             task_value_losses = []
             
+            # Debug: Print information about support samples
+            print(f"Support samples data length: {len(support_samples_data)}")
+            for i, data in enumerate(support_samples_data):
+                if data and 'observations' in data:
+                    print(f"  Task {i}: {data['observations'].shape[0]} samples")
+                else:
+                    print(f"  Task {i}: No valid data")
+            
             for task_id in range(self.algo.meta_batch_size):
-                if task_id < len(support_samples_data):
+                if task_id < len(support_samples_data) and support_samples_data[task_id] is not None:
                     policy_losses, value_losses = self.algo.adapt_task(
                         support_samples_data[task_id], task_id, batch_size=self.inner_batch_size)
                     task_policy_losses.append(policy_losses)
@@ -81,6 +89,7 @@ class Trainer(object):
                     adapted_policies.append(f"adapted_policy_{task_id}")  # Placeholder for adapted policy
                 else:
                     # Handle case where we have fewer tasks than meta_batch_size
+                    print(f"Warning: No support data for task {task_id}")
                     task_policy_losses.append([0.0])
                     task_value_losses.append([0.0])
                     adapted_policies.append(f"adapted_policy_{task_id}")
@@ -99,13 +108,22 @@ class Trainer(object):
             """ ------------------- Outer Loop: Meta-Update --------------------"""
             logger.log("Performing meta-update (outer loop)...")
             
+            # Debug: Print information about query samples
+            print(f"Query samples data length: {len(query_samples_data)}")
+            for i, data in enumerate(query_samples_data):
+                if data and 'observations' in data:
+                    print(f"  Task {i}: {data['observations'].shape[0]} samples")
+                else:
+                    print(f"  Task {i}: No valid data")
+            
             # Evaluate adapted policies on query sets
             query_losses = []
             for task_id in range(self.algo.meta_batch_size):
-                if task_id < len(query_samples_data):
+                if task_id < len(query_samples_data) and query_samples_data[task_id] is not None:
                     query_loss = self.algo.evaluate_adapted_policy(query_samples_data[task_id], task_id)
                     query_losses.append(query_loss)
                 else:
+                    print(f"Warning: No query data for task {task_id}")
                     query_losses.append(0.0)
             
             # Perform meta-update

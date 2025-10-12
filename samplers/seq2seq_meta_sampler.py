@@ -159,20 +159,31 @@ class Seq2SeqMetaSampler(Sampler):
         support_paths = {}
         query_paths = {}
         
+        print(f"Splitting paths for {len(paths)} tasks with support_ratio={support_ratio}")
+        
         for task_id, task_paths in paths.items():
+            print(f"  Task {task_id}: {len(task_paths)} paths")
+            
             if len(task_paths) == 0:
                 support_paths[task_id] = []
                 query_paths[task_id] = []
+                print(f"    -> Empty task, skipping")
                 continue
-                
+            
+            # Calculate split index
             split_idx = int(len(task_paths) * support_ratio)
+            
+            # Ensure we have at least one sample in each set
             if split_idx == 0:
                 split_idx = 1  # Ensure at least one sample in support set
             if split_idx >= len(task_paths):
                 split_idx = len(task_paths) - 1  # Ensure at least one sample in query set
-                
+            
+            # Split the paths
             support_paths[task_id] = task_paths[:split_idx]
             query_paths[task_id] = task_paths[split_idx:]
+            
+            print(f"    -> Support: {len(support_paths[task_id])} paths, Query: {len(query_paths[task_id])} paths")
             
         return support_paths, query_paths
 
