@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     baseline = ValueFunctionBaseline()
 
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=256, decoder_units=256,
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
                                     vocab_size=2)
 
     sampler = Seq2SeqMetaSampler(
@@ -212,7 +212,7 @@ if __name__ == "__main__":
                          inner_lr=5e-4,  # Increased from 5e-4 to improve learning
                          outer_lr=5e-4,  # Increased from 5e-4 to improve learning
                          meta_batch_size=META_BATCH_SIZE,
-                         num_inner_grad_steps=3,
+                         num_inner_grad_steps=1,
                          clip_value = 0.2)
 
     trainer = Trainer(algo = algo,
