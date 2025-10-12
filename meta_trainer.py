@@ -230,7 +230,7 @@ if __name__ == "__main__":
                          outer_lr=5e-4,  # Increased from 5e-4 to improve learning
                          meta_batch_size=META_BATCH_SIZE,
                          num_inner_grad_steps=1,
-                         clip_value = 0.3)
+                         clip_value = 0.2)
 
     trainer = Trainer(algo = algo,
                         env=env,
