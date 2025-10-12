@@ -74,12 +74,37 @@ class Seq2SeqSampler(Sampler):
                 obses_array = np.array(obses)
             else:
                 obses_array = obses
+            
+            # Reshape observations to match policy expectations
+            # Policy expects (batch_size, sequence_length, features)
+            # We have (num_envs, batch_size, sequence_length, features)
+            if len(obses_array.shape) == 4:
+                # Shape is (num_envs, batch_size, sequence_length, features)
+                # Reshape to (num_envs * batch_size, sequence_length, features)
+                original_shape = obses_array.shape
+                obses_array = obses_array.reshape(-1, original_shape[2], original_shape[3])
+            elif len(obses_array.shape) == 3:
+                # Shape is (num_envs, sequence_length, features) - this is correct
+                pass
+            else:
+                raise ValueError(f"Unexpected observation shape: {obses_array.shape}")
+            
             actions, logits, values = policy.get_actions(obses_array)
             policy_time += time.time() - t
 
             # Convert actions to list format for vectorized environment
             if isinstance(actions, np.ndarray):
-                actions_list = [actions[i] for i in range(len(actions))]
+                # Reshape actions back to match the original environment structure
+                if len(obses) > 0 and hasattr(obses[0], 'shape') and len(obses[0].shape) == 3:
+                    # Original shape was (num_envs, batch_size, sequence_length, features)
+                    # Actions should be reshaped to (num_envs, batch_size, sequence_length)
+                    batch_size_per_env = obses[0].shape[0]  # batch_size per environment
+                    num_envs = len(obses)
+                    actions_reshaped = actions.reshape(num_envs, batch_size_per_env, -1)
+                    actions_list = [actions_reshaped[i] for i in range(num_envs)]
+                else:
+                    # Fallback to simple list conversion
+                    actions_list = [actions[i] for i in range(len(actions))]
             else:
                 actions_list = actions
 
@@ -92,18 +117,28 @@ class Seq2SeqSampler(Sampler):
             new_samples = 0
             
             # Convert actions, logits, values to lists if they're numpy arrays
-            if isinstance(actions, np.ndarray):
-                actions_list = [actions[i] for i in range(len(actions))]
-            else:
-                actions_list = actions
-                
+            # Note: actions_list was already processed above for environment stepping
             if isinstance(logits, np.ndarray):
-                logits_list = [logits[i] for i in range(len(logits))]
+                # Reshape logits back to match the original environment structure
+                if len(obses) > 0 and hasattr(obses[0], 'shape') and len(obses[0].shape) == 3:
+                    batch_size_per_env = obses[0].shape[0]
+                    num_envs = len(obses)
+                    logits_reshaped = logits.reshape(num_envs, batch_size_per_env, -1)
+                    logits_list = [logits_reshaped[i] for i in range(num_envs)]
+                else:
+                    logits_list = [logits[i] for i in range(len(logits))]
             else:
                 logits_list = logits
                 
             if isinstance(values, np.ndarray):
-                values_list = [values[i] for i in range(len(values))]
+                # Reshape values back to match the original environment structure
+                if len(obses) > 0 and hasattr(obses[0], 'shape') and len(obses[0].shape) == 3:
+                    batch_size_per_env = obses[0].shape[0]
+                    num_envs = len(obses)
+                    values_reshaped = values.reshape(num_envs, batch_size_per_env, -1)
+                    values_list = [values_reshaped[i] for i in range(num_envs)]
+                else:
+                    values_list = [values[i] for i in range(len(values))]
             else:
                 values_list = values
             
