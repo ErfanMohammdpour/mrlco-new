@@ -144,6 +144,38 @@ class Seq2SeqMetaSampler(Sampler):
             logger.logkv(log_prefix + "EnvExecTime", env_time)
         return paths
 
+    def split_support_query(self, paths, support_ratio=0.7):
+        """
+        Split paths into support and query sets for MAML training
+        
+        Args:
+            paths (dict): Dictionary of paths for each task
+            support_ratio (float): Ratio of data to use for support set
+            
+        Returns:
+            support_paths (dict): Support set paths for each task
+            query_paths (dict): Query set paths for each task
+        """
+        support_paths = {}
+        query_paths = {}
+        
+        for task_id, task_paths in paths.items():
+            if len(task_paths) == 0:
+                support_paths[task_id] = []
+                query_paths[task_id] = []
+                continue
+                
+            split_idx = int(len(task_paths) * support_ratio)
+            if split_idx == 0:
+                split_idx = 1  # Ensure at least one sample in support set
+            if split_idx >= len(task_paths):
+                split_idx = len(task_paths) - 1  # Ensure at least one sample in query set
+                
+            support_paths[task_id] = task_paths[:split_idx]
+            query_paths[task_id] = task_paths[split_idx:]
+            
+        return support_paths, query_paths
+
 def _get_empty_running_paths_dict():
     return dict(observations=[], actions=[], logits=[], rewards=[])
 

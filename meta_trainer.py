@@ -28,7 +28,7 @@ class Trainer(object):
 
     def train(self):
         """
-        Implement the MRLCO training process for task offloading problem
+        Implement the FOMAML training process for task offloading problem
         """
 
         start_time = time.time()
@@ -40,6 +40,8 @@ class Trainer(object):
         policy_losses_all = []
         value_losses_all = []
         greedy_latencies_all = []
+        meta_losses_all = []
+        
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -48,63 +50,107 @@ class Trainer(object):
             task_ids = self.sampler.update_tasks()
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
-            #print("sampled path length is: ", len(paths[0]))
-
             greedy_run_time = [self.greedy_finish_time[x] for x in task_ids]
             logger.logkv('Average greedy latency,', np.mean(greedy_run_time))
             greedy_latencies_all.append(np.mean(greedy_run_time))
 
-            """ ----------------- Processing Samples ---------------------"""
-            logger.log("Processing samples...")
-            samples_data = self.sampler_processor.process_samples(paths, log=False, log_prefix='')
+            """ ----------------- Split into Support/Query Sets ---------------------"""
+            logger.log("Splitting data into support and query sets...")
+            support_paths, query_paths = self.sampler.split_support_query(paths, support_ratio=0.7)
 
-            """ ------------------- Inner Policy Update --------------------"""
-            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, batch_size=self.inner_batch_size )
+            """ ----------------- Processing Support Samples ---------------------"""
+            logger.log("Processing support samples...")
+            support_samples_data = self.sampler_processor.process_samples(support_paths, log=False, log_prefix='')
 
-            #print("task losses: ", losses)
-            print("average task losses: ", np.mean(policy_losses))
-            avg_loss.append(np.mean(policy_losses))
-            policy_losses_all.append(np.mean(policy_losses))
+            """ ----------------- Processing Query Samples ---------------------"""
+            logger.log("Processing query samples...")
+            query_samples_data = self.sampler_processor.process_samples(query_paths, log=False, log_prefix='')
 
-            print("average value losses: ", np.mean(value_losses))
-            value_losses_all.append(np.mean(value_losses))
+            """ ------------------- Inner Loop: Task Adaptation --------------------"""
+            logger.log("Performing task adaptation (inner loop)...")
+            adapted_policies = []
+            task_policy_losses = []
+            task_value_losses = []
+            
+            for task_id in range(self.algo.meta_batch_size):
+                if task_id < len(support_samples_data):
+                    policy_losses, value_losses = self.algo.adapt_task(
+                        support_samples_data[task_id], task_id, batch_size=self.inner_batch_size)
+                    task_policy_losses.append(policy_losses)
+                    task_value_losses.append(value_losses)
+                    adapted_policies.append(f"adapted_policy_{task_id}")  # Placeholder for adapted policy
+                else:
+                    # Handle case where we have fewer tasks than meta_batch_size
+                    task_policy_losses.append([0.0])
+                    task_value_losses.append([0.0])
+                    adapted_policies.append(f"adapted_policy_{task_id}")
 
-            """ ------------------ Resample from updated sub-task policy ------------"""
-            print("Evaluate the one-step update for sub-task policy")
-            new_paths = self.sampler.obtain_samples(log=True, log_prefix='')
-            new_samples_data = self.sampler_processor.process_samples(new_paths, log="all", log_prefix='')
+            # Log inner loop losses
+            avg_policy_loss = np.mean([np.mean(losses) for losses in task_policy_losses])
+            avg_value_loss = np.mean([np.mean(losses) for losses in task_value_losses])
+            
+            print("average inner loop policy losses: ", avg_policy_loss)
+            print("average inner loop value losses: ", avg_value_loss)
+            
+            avg_loss.append(avg_policy_loss)
+            policy_losses_all.append(avg_policy_loss)
+            value_losses_all.append(avg_value_loss)
 
-            """ ------------------ Outer Policy Update ---------------------"""
-            logger.log("Optimizing policy...")
-            self.algo.UpdateMetaPolicy()
+            """ ------------------- Outer Loop: Meta-Update --------------------"""
+            logger.log("Performing meta-update (outer loop)...")
+            
+            # Evaluate adapted policies on query sets
+            query_losses = []
+            for task_id in range(self.algo.meta_batch_size):
+                if task_id < len(query_samples_data):
+                    query_loss = self.algo.evaluate_adapted_policy(query_samples_data[task_id], task_id)
+                    query_losses.append(query_loss)
+                else:
+                    query_losses.append(0.0)
+            
+            # Perform meta-update
+            self.algo.meta_update(adapted_policies, query_losses)
+            
+            # Log meta-loss
+            avg_meta_loss = np.mean(query_losses)
+            meta_losses_all.append(avg_meta_loss)
+            print("average meta-loss: ", avg_meta_loss)
 
             """ ------------------- Logging Stuff --------------------------"""
-
+            # Compute average rewards from query sets
             ret = np.array([])
-            for i in range(5):
-                ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
+            for i in range(min(5, len(query_samples_data))):
+                ret = np.concatenate((ret, np.sum(query_samples_data[i]['rewards'], axis=-1)), axis=-1)
 
-            avg_reward = np.mean(ret)
+            if len(ret) > 0:
+                avg_reward = np.mean(ret)
+            else:
+                avg_reward = 0.0
 
+            # Compute average latencies from query sets
             latency = np.array([])
-            for i in range(5):
-                latency = np.concatenate((latency, new_samples_data[i]['finish_time']), axis=-1)
+            for i in range(min(5, len(query_samples_data))):
+                latency = np.concatenate((latency, query_samples_data[i]['finish_time']), axis=-1)
 
-            avg_latency = np.mean(latency)
+            if len(latency) > 0:
+                avg_latency = np.mean(latency)
+            else:
+                avg_latency = 0.0
+                
             avg_latencies.append(avg_latency)
-
 
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+            logger.logkv('Average meta-loss,', avg_meta_loss)
 
             logger.dumpkvs()
             avg_ret.append(avg_reward)
 
             if itr % self.save_interval == 0:
-                self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_"+str(itr)+".ckpt")
+                self.policy.core_policy.save_variables(save_path="./meta_model_fomaml/meta_model_"+str(itr)+".ckpt")
 
-        self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_final.ckpt")
+        self.policy.core_policy.save_variables(save_path="./meta_model_fomaml/meta_model_final.ckpt")
 
         # Generate automated report
         try:
@@ -112,7 +158,8 @@ class Trainer(object):
             additional_metrics = {
                 'policy_losses': policy_losses_all,
                 'value_losses': value_losses_all,
-                'greedy_latencies': greedy_latencies_all
+                'greedy_latencies': greedy_latencies_all,
+                'meta_losses': meta_losses_all
             }
             
             report_dir = create_training_report(
@@ -137,10 +184,10 @@ if __name__ == "__main__":
     from samplers.seq2seq_meta_sampler import Seq2SeqMetaSampler
     from samplers.seq2seq_meta_sampler_process import Seq2SeqMetaSamplerProcessor
     from baselines.vf_baseline import ValueFunctionBaseline
-    from meta_algos.MRLCO import MRLCO
+    from meta_algos.FOMAML import FOMAML
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-    logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
+    logger.configure(dir="./meta_offloading20_log_fomaml/", format_strs=['stdout', 'log', 'csv'])
 
     META_BATCH_SIZE = 10
 
@@ -206,11 +253,11 @@ if __name__ == "__main__":
                                                    gae_lambda=0.95,
                                                    normalize_adv=True,
                                                    positive_adv=False)
-    algo = MRLCO(policy=meta_policy,
+    algo = FOMAML(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
-                         inner_lr=5e-4,  # Increased from 5e-4 to improve learning
-                         outer_lr=5e-4,  # Increased from 5e-4 to improve learning
+                         inner_lr=5e-4,  # Inner loop learning rate
+                         outer_lr=5e-4,  # Outer loop learning rate
                          meta_batch_size=META_BATCH_SIZE,
                          num_inner_grad_steps=1,
                          clip_value = 0.2)
