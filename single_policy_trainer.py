@@ -42,13 +42,13 @@ class SinglePolicyTrainer(object):
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
             # Calculate greedy baseline for comparison (on current task)
-            if hasattr(self.env, 'greedy_solution'):
+            if hasattr(self.env, 'greedy_solution_for_current_task'):
                 # Get current task info
                 current_task = self.env.get_current_task_id() if hasattr(self.env, 'get_current_task_id') else 0
                 total_tasks = self.env.get_total_tasks() if hasattr(self.env, 'get_total_tasks') else 1
                 
-                # Calculate greedy solution for current task
-                _, greedy_times = self.env.greedy_solution()
+                # Calculate greedy solution ONLY for current task
+                _, greedy_times = self.env.greedy_solution_for_current_task()
                 avg_greedy_time = np.mean(greedy_times) if greedy_times else 0.0
                 logger.logkv('Average greedy latency,', avg_greedy_time)
                 logger.logkv('Current task,', current_task)
@@ -72,12 +72,20 @@ class SinglePolicyTrainer(object):
             """ ------------------- Logging Stuff --------------------------"""
             ret = np.sum(samples_data['rewards'], axis=-1)
             avg_reward = np.mean(ret)
-            logger.logkv('Itr', itr)
-            logger.logkv('Average reward, ', avg_reward)
-
+            
             latency = samples_data['finish_time']
             avg_latency = np.mean(latency)
             avg_latencies.append(avg_latency)
+            
+            # Debug information
+            print(f"Iteration {itr}:")
+            print(f"  - Average reward: {avg_reward:.4f}")
+            print(f"  - Average latency: {avg_latency:.4f}")
+            print(f"  - Reward range: [{np.min(ret):.4f}, {np.max(ret):.4f}]")
+            print(f"  - Latency range: [{np.min(latency):.4f}, {np.max(latency):.4f}]")
+            
+            logger.logkv('Itr', itr)
+            logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
 
             logger.dumpkvs()
