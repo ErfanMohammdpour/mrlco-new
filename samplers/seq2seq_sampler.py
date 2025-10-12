@@ -195,4 +195,4 @@ class Seq2SeqSampler(Sampler):
         return paths
 
 def _get_empty_running_paths_dict():
-    return dict(observations=[], actions=[], logits=[], rewards=[])
+    return dict(observations=[], actions=[], logits=[], rewards=[], finish_time=[], values=[])

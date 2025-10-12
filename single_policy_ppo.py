@@ -114,7 +114,7 @@ class SinglePolicyPPO():
         oldvpred = np.split(np.array(samples_data['values'], dtype=np.float32), batch_number)
         returns = np.split(np.array(samples_data['returns'], dtype=np.float32), batch_number)
 
-        sess = tf.compat.v1.get_default_session()
+        sess = tf.get_default_session()
 
         vf_loss = 0.0
         pg_loss = 0.0

@@ -76,10 +76,11 @@ class SinglePolicyTrainer(object):
             new_samples_data = self.sampler_processor.process_samples(new_paths, log=False, log_prefix='')
 
             """ ------------------- Logging Stuff --------------------------"""
-            ret = np.sum(samples_data['rewards'], axis=-1)
+            # Use new_samples_data for logging (like meta-RL)
+            ret = np.sum(new_samples_data['rewards'], axis=-1)
             avg_reward = np.mean(ret)
             
-            latency = samples_data['finish_time']
+            latency = new_samples_data['finish_time']
             avg_latency = np.mean(latency)
             avg_latencies.append(avg_latency)
             
