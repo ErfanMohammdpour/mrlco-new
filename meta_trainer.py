@@ -131,8 +131,7 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20.",
+                                
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
@@ -141,9 +140,11 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_20/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_24/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
 
@@ -159,7 +160,7 @@ if __name__ == "__main__":
 
     baseline = ValueFunctionBaseline()
 
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=256, decoder_units=256,
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
                                     vocab_size=2)
 
     sampler = Seq2SeqMetaSampler(
@@ -182,7 +183,7 @@ if __name__ == "__main__":
                          inner_lr=5e-4,
                          outer_lr=5e-4,
                          meta_batch_size=META_BATCH_SIZE,
-                         num_inner_grad_steps=3,
+                         num_inner_grad_steps=1,
                          clip_value = 0.2)
 
     trainer = Trainer(algo = algo,
@@ -190,7 +191,7 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=2500,
+                        n_itr=3500,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
                         inner_batch_size=1000)
