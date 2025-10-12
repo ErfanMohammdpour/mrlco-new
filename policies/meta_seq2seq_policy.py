@@ -73,6 +73,8 @@ class Seq2SeqNetwork():
         self.is_bidencoder = hparams.is_bidencoder
         self.reuse = reuse
 
+        self.hparams = hparams
+
         self.n_features = hparams.n_features
         self.time_major = hparams.time_major
         self.is_attention = hparams.is_attention
@@ -396,11 +398,18 @@ class Seq2SeqPolicy():
             is_bidencoder=False
         )
 
-        self.network = Seq2SeqNetwork( hparams = hparams, reuse=tf.compat.v1.AUTO_REUSE,
-                 encoder_inputs=self.obs,
-                 decoder_inputs=self.decoder_inputs,
-                 decoder_full_length=self.decoder_full_length,
-                 decoder_targets=self.decoder_targets,name = name)
+        # Detect accidental reuse breakage
+        scope = tf.compat.v1.get_variable_scope()
+        if "meta_policy" not in scope.name and self.name == "shared":
+            raise RuntimeError(f"[SCOPE WARNING] Attempted to create shared policy outside 'meta_policy' scope: {scope.name}")
+
+                
+        with tf.compat.v1.variable_scope(name, reuse=tf.compat.v1.AUTO_REUSE):
+            self.network = Seq2SeqNetwork( hparams = hparams, reuse=tf.compat.v1.AUTO_REUSE,
+                    encoder_inputs=self.obs,
+                    decoder_inputs=self.decoder_inputs,
+                    decoder_full_length=self.decoder_full_length,
+                    decoder_targets=self.decoder_targets,name = name)
 
         self.vf = self.network.vf
 
@@ -466,24 +475,45 @@ class MetaSeq2SeqPolicy():
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
+########
+        # self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy')
 
-        self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy')
+
+        # self.meta_policies = []
+
+        # self.assign_old_eq_new_tasks = []
+
+        # for i in range(meta_batch_size):
+        #     self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
+        #                                             vocab_size, name="task_"+str(i)+"_policy"))
+
+        #     self.assign_old_eq_new_tasks.append(
+        #         U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
+        #                                     for (oldv, newv) in
+        #                                     zipsame(self.meta_policies[i].get_variables(), self.core_policy.get_variables())])
+        #         )
+########
+        with tf.compat.v1.variable_scope("meta_policy", reuse=tf.compat.v1.AUTO_REUSE):
+            self.core_policy = Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name="shared")
+
+            self.meta_policies = []
+            for i in range(meta_batch_size):
+                # # === Debug: Confirm core and meta policies share variables ===
+                # print("\n[DEBUG] Core and Meta policies share trainable variables:")
+                # core_vars = self.core_policy.get_trainable_variables()
+                # for i, task_policy in enumerate(self.meta_policies):
+                #     meta_vars = task_policy.get_trainable_variables()
+                #     for v_core, v_meta in zip(core_vars, meta_vars):
+                #         if v_core is not v_meta:
+                #             print(f"[ERROR] Variable mismatch at task {i}: {v_core.name} != {v_meta.name}")
+                #         else:
+                #             print(f"[OK] Shared var at task {i}: {v_core.name}")
+
+                self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units, vocab_size, name="shared"))
 
 
-        self.meta_policies = []
 
-        self.assign_old_eq_new_tasks = []
-
-        for i in range(meta_batch_size):
-            self.meta_policies.append(Seq2SeqPolicy(obs_dim, encoder_units, decoder_units,
-                                                    vocab_size, name="task_"+str(i)+"_policy"))
-
-            self.assign_old_eq_new_tasks.append(
-                U.function([], [], updates=[tf.compat.v1.assign(oldv, newv)
-                                            for (oldv, newv) in
-                                            zipsame(self.meta_policies[i].get_variables(), self.core_policy.get_variables())])
-                )
-
+########
         self._dist = CategoricalPd(vocab_size)
 
 
@@ -502,10 +532,10 @@ class MetaSeq2SeqPolicy():
 
         return meta_actions, meta_logits, meta_v_values
 
-    def async_parameters(self):
-        # async_parameters.
-        for i in range(self.meta_batch_size):
-            self.assign_old_eq_new_tasks[i]()
+    # def async_parameters(self):
+    #     # async_parameters.
+    #     for i in range(self.meta_batch_size):
+    #         self.assign_old_eq_new_tasks[i]()
 
     @property
     def distribution(self):

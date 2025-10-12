@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import gc
 import time
 from utils import logger
 from automated_reporting import create_training_report
@@ -13,7 +14,7 @@ class Trainer(object):
                 n_itr,
                 greedy_finish_time,
                 start_itr=0,
-                inner_batch_size = 500,
+                inner_batch_size = 1000,
                 save_interval = 100):
         self.algo = algo
         self.env = env
@@ -46,8 +47,9 @@ class Trainer(object):
             logger.log("Sampling set of tasks/goals for this meta-batch...")
 
             task_ids = self.sampler.update_tasks()
-            paths = self.sampler.obtain_samples(log=False, log_prefix='')
-
+            # paths = self.sampler.obtain_samples(log=False, log_prefix='')  for FOMAML
+            train_paths = self.sampler.obtain_samples(log=False, log_prefix='') #for full MAML
+                
             #print("sampled path length is: ", len(paths[0]))
 
             greedy_run_time = [self.greedy_finish_time[x] for x in task_ids]
@@ -56,10 +58,11 @@ class Trainer(object):
 
             """ ----------------- Processing Samples ---------------------"""
             logger.log("Processing samples...")
-            samples_data = self.sampler_processor.process_samples(paths, log=False, log_prefix='')
+            # samples_data = self.sampler_processor.process_samples(paths, log=False, log_prefix='')  for FOMAML
+            samples_train_data = self.sampler_processor.process_samples(train_paths, log=False, log_prefix='') #for full MAML 
 
             """ ------------------- Inner Policy Update --------------------"""
-            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, batch_size=self.inner_batch_size )
+            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_train_data, batch_size=self.inner_batch_size )
 
             #print("task losses: ", losses)
             print("average task losses: ", np.mean(policy_losses))
@@ -76,7 +79,18 @@ class Trainer(object):
 
             """ ------------------ Outer Policy Update ---------------------"""
             logger.log("Optimizing policy...")
-            self.algo.UpdateMetaPolicy()
+            #self.algo.UpdateMetaPolicy() for FOMAML
+            self.algo.UpdateMetaPolicyWithFullMAML(new_samples_data)
+            # log for debug the full MAML debugging  /omidvaram niaz nashe va dorost kar kone
+            core_vars = self.policy.core_policy.get_trainable_variables()
+            grad_norms = [np.linalg.norm(var.eval()) for var in core_vars]
+
+            print("\n[DEBUG] After Meta Update")
+            print("  Avg Grad Norm (Meta Variables):", np.mean(grad_norms))
+            print("  Max Grad Norm:", np.max(grad_norms))
+            print("  Min Grad Norm:", np.min(grad_norms))
+            print("==================================================")
+
 
             """ ------------------- Logging Stuff --------------------------"""
 
@@ -100,7 +114,10 @@ class Trainer(object):
 
             logger.dumpkvs()
             avg_ret.append(avg_reward)
-
+            
+            gc.collect()
+            print("******************************** gc.collect()  executed. ********************************")
+            
             if itr % self.save_interval == 0:
                 self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_"+str(itr)+".ckpt")
 
