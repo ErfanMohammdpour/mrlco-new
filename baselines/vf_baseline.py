@@ -53,4 +53,7 @@ class ValueFunctionBaseline(Baseline):
 
         """
         baseline = path["values"]
+        # Flatten the baseline to match the expected shape for advantage computation
+        if len(baseline.shape) > 1:
+            baseline = baseline.flatten()
         return baseline

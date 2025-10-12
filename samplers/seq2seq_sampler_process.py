@@ -36,14 +36,27 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
 
         # 1) compute discounted rewards (returns)
         for idx, path in enumerate(paths):
-            path["returns"] = utils.discount_cumsum(path["rewards"], self.discount)
+            # Flatten rewards for return computation
+            rewards = path["rewards"]
+            if len(rewards.shape) > 1:
+                rewards = rewards.flatten()
+            path["returns"] = utils.discount_cumsum(rewards, self.discount)
 
         # 2) fit baseline estimator using the path returns and predict the return baselines
         self.baseline.fit(paths, target_key="returns")
         all_path_baselines = [self.baseline.predict(path) for path in paths]
 
         # 3) compute advantages and adjusted rewards
-        paths = self._compute_advantages(paths, all_path_baselines)
+        for idx, path in enumerate(paths):
+            # Flatten rewards for advantage computation
+            rewards = path["rewards"]
+            if len(rewards.shape) > 1:
+                rewards = rewards.flatten()
+            
+            # Compute advantages using the flattened data
+            path_baselines = np.append(all_path_baselines[idx], 0)
+            deltas = rewards + self.discount * path_baselines[1:] - path_baselines[:-1]
+            path["advantages"] = utils.discount_cumsum(deltas, self.discount * self.gae_lambda)
 
         observations, actions, logits, rewards, returns, values, advantages, finish_time = self._append_path_data(paths)
 
@@ -78,6 +91,15 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
         values = np.array([path["values"] for path in paths])
         advantages = np.array([path["advantages"] for path in paths])
         finish_time = np.array([path["finish_time"] for path in paths])
+        
+        # Flatten all data to 1D for proper concatenation
+        observations = observations.reshape(-1, observations.shape[-1])
+        actions = actions.flatten()
+        rewards = rewards.flatten()
+        returns = returns.flatten()
+        values = values.flatten()
+        advantages = advantages.flatten()
+        finish_time = finish_time.flatten()
         
         # Ensure logits have the correct shape for the policy
         # Policy expects (batch_size, sequence_length, vocab_size)
