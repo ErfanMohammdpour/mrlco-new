@@ -40,6 +40,15 @@ class Seq2SeqSampler(Sampler):
         else:
             self.vec_env = IterativeEnvExecutor(env, self.rollouts_per_task, self.max_path_length)
 
+    def update_tasks(self):
+        """
+        Sample a new task for single-policy RL (similar to meta-RL)
+        """
+        # For single-policy RL, we randomly select one task
+        task_id = self.env.sample_tasks(n_tasks=1)[0]
+        self.env.set_task(task_id)
+        return [task_id]
+
     def obtain_samples(self, log=False, log_prefix=''):
         """
         Collect rollouts_per_task trajectories from the environment

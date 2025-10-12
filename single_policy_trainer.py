@@ -36,24 +36,25 @@ class SinglePolicyTrainer(object):
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
-            logger.log("Sampling trajectories for this iteration...")
+            logger.log("Sampling set of tasks/goals for this iteration...")
 
-            # Sample trajectories from the environment
+            # Sample a new task (similar to meta-RL)
+            task_ids = self.sampler.update_tasks()
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
-            # Calculate greedy baseline for comparison (on current task)
-            if hasattr(self.env, 'greedy_solution_for_current_task'):
-                # Get current task info
-                current_task = self.env.get_current_task_id() if hasattr(self.env, 'get_current_task_id') else 0
-                total_tasks = self.env.get_total_tasks() if hasattr(self.env, 'get_total_tasks') else 1
-                
-                # Calculate greedy solution ONLY for current task
+            # Calculate greedy baseline for comparison (like meta-RL)
+            if hasattr(self.env, 'greedy_solution') and task_ids:
+                # Get greedy solution for current task (like meta-RL)
                 _, greedy_times = self.env.greedy_solution_for_current_task()
                 avg_greedy_time = np.mean(greedy_times) if greedy_times else 0.0
                 logger.logkv('Average greedy latency,', avg_greedy_time)
-                logger.logkv('Current task,', current_task)
-                logger.logkv('Total tasks,', total_tasks)
+                logger.logkv('Current task,', task_ids[0])
+                logger.logkv('Total tasks,', self.env.get_total_tasks())
                 greedy_latencies_all.append(avg_greedy_time)
+                
+                # Debug: Show greedy times for current task
+                print(f"Current task {task_ids[0]}: Greedy times = {greedy_times}")
+                print(f"Average greedy latency for task {task_ids[0]}: {avg_greedy_time:.4f}")
 
             """ ----------------- Processing Samples ---------------------"""
             logger.log("Processing samples...")
@@ -68,6 +69,11 @@ class SinglePolicyTrainer(object):
 
             print("average value loss: ", np.mean(value_losses))
             value_losses_all.append(np.mean(value_losses))
+
+            """ ------------------ Resample from updated policy ------------"""
+            print("Evaluate the updated policy")
+            new_paths = self.sampler.obtain_samples(log=True, log_prefix='')
+            new_samples_data = self.sampler_processor.process_samples(new_paths, log=False, log_prefix='')
 
             """ ------------------- Logging Stuff --------------------------"""
             ret = np.sum(samples_data['rewards'], axis=-1)
