@@ -1,6 +1,8 @@
 import tensorflow as tf
 import numpy as np
 import itertools
+from policies.model_helper import maml_batch_meta_update
+
 
 # this is the tf graph version of reptile:
 class MRLCO():
@@ -114,62 +116,95 @@ class MRLCO():
             self._outer_train = self.outer_optimizer.apply_gradients(outer_grads_and_var)
 
     def UpdateMetaPolicyWithFullMAML(self, val_data):
-        def shifted(actions):
-            return np.column_stack(
-                (np.zeros(actions.shape[0], dtype=np.int32), actions[:, :-1])
-            )
-
         sess = tf.compat.v1.get_default_session()
 
-        meta_losses = []
-        feed_dicts = []
-
-        # Collect symbolic losses and feed_dicts for each task
+        # ساخت دیکشنری input برای هر task از val_data
+        tasks_inputs = []
         for i in range(self.meta_batch_size):
-            actions = val_data[i]["actions"]
-
-            feed_dict = {
-                self.old_logits[i]: val_data[i]["logits"],
-                self.old_v[i]: val_data[i]["values"],
-                self.obs[i]: val_data[i]["observations"],
-                self.actions[i]: actions,
-                self.decoder_inputs[i]: shifted(actions),
-                self.decoder_full_length[i]: [val_data[i]["observations"].shape[1]] * len(val_data[i]["observations"]),
-                self.advs[i]: val_data[i]["advantages"],
-                self.r[i]: val_data[i]["returns"]
+            inputs = {
+                'encoder_inputs': val_data[i]['observations'],
+                'decoder_inputs': np.column_stack((np.zeros(val_data[i]['actions'].shape[0], dtype=np.int32), val_data[i]['actions'][:, :-1])),
+                'decoder_targets': val_data[i]['actions'],
+                'decoder_full_length': [val_data[i]["observations"].shape[1]] * len(val_data[i]["observations"])
             }
-            feed_dicts.append(feed_dict)
-            meta_losses.append(self.total_loss[i])
+            tasks_inputs.append(inputs)
 
-        meta_params = self.policy.core_policy.get_trainable_variables()
+        # فراخوانی symbolic meta update
+        apply_op, meta_losses = maml_batch_meta_update(
+            tasks_inputs=tasks_inputs,
+            hparams=self.policy.core_policy.network.hparams,
+            theta_vars=self.policy.core_policy.get_trainable_variables(),
+            inner_lr=self.inner_lr,
+            num_inner_steps=self.num_inner_grad_steps,
+            vocab_size=self.policy.action_dim
+        )
+        
+        uninit_vars = [v for v in tf.compat.v1.global_variables() 
+            if not sess.run(tf.compat.v1.is_variable_initialized(v))]
+        if uninit_vars:
+            sess.run(tf.compat.v1.variables_initializer(uninit_vars))
 
-        # Symbolic computation of averaged gradients
-        per_task_grads = [tf.gradients(loss, meta_params) for loss in meta_losses]
-        grads_per_param = list(zip(*per_task_grads))
 
-        avg_grads = []
-        for param_grads in grads_per_param:
-            dense_grads = [tf.convert_to_tensor(g) if isinstance(g, tf.IndexedSlices) else g for g in param_grads]
-            stacked = tf.stack(dense_grads)
-            avg = tf.reduce_mean(stacked, axis=0)
-            avg_grads.append(avg)
+        sess.run(apply_op)
 
-        # Evaluate gradients with feed_dicts merged
-        merged_feed = {}
-        for d in feed_dicts:
-            merged_feed.update(d)
 
-        grad_vals = sess.run(avg_grads, feed_dict=merged_feed)
+    # def UpdateMetaPolicyWithFullMAML(self, val_data):
+    #     def shifted(actions):
+    #         return np.column_stack(
+    #             (np.zeros(actions.shape[0], dtype=np.int32), actions[:, :-1])
+    #         )
 
-        # Feed into outer optimizer
-        update_feed = {
-            ph: val for ph, val in zip(self.grads_placeholders, grad_vals)
-        }
-        sess.run(self._outer_train, feed_dict=update_feed)
+    #     sess = tf.compat.v1.get_default_session()
 
-        # Sync
-        #self.policy.async_parameters()
-    # def UpdateMetaPolicy(self):
+    #     meta_losses = []
+    #     feed_dicts = []
+
+    #     # Collect symbolic losses and feed_dicts for each task
+    #     for i in range(self.meta_batch_size):
+    #         actions = val_data[i]["actions"]
+
+    #         feed_dict = {
+    #             self.old_logits[i]: val_data[i]["logits"],
+    #             self.old_v[i]: val_data[i]["values"],
+    #             self.obs[i]: val_data[i]["observations"],
+    #             self.actions[i]: actions,
+    #             self.decoder_inputs[i]: shifted(actions),
+    #             self.decoder_full_length[i]: [val_data[i]["observations"].shape[1]] * len(val_data[i]["observations"]),
+    #             self.advs[i]: val_data[i]["advantages"],
+    #             self.r[i]: val_data[i]["returns"]
+    #         }
+    #         feed_dicts.append(feed_dict)
+    #         meta_losses.append(self.total_loss[i])
+
+    #     meta_params = self.policy.core_policy.get_trainable_variables()
+
+    #     # Symbolic computation of averaged gradients
+    #     per_task_grads = [tf.gradients(loss, meta_params) for loss in meta_losses]
+    #     grads_per_param = list(zip(*per_task_grads))
+
+    #     avg_grads = []
+    #     for param_grads in grads_per_param:
+    #         dense_grads = [tf.convert_to_tensor(g) if isinstance(g, tf.IndexedSlices) else g for g in param_grads]
+    #         stacked = tf.stack(dense_grads)
+    #         avg = tf.reduce_mean(stacked, axis=0)
+    #         avg_grads.append(avg)
+
+    #     # Evaluate gradients with feed_dicts merged
+    #     merged_feed = {}
+    #     for d in feed_dicts:
+    #         merged_feed.update(d)
+
+    #     grad_vals = sess.run(avg_grads, feed_dict=merged_feed)
+
+    #     # Feed into outer optimizer
+    #     update_feed = {
+    #         ph: val for ph, val in zip(self.grads_placeholders, grad_vals)
+    #     }
+    #     sess.run(self._outer_train, feed_dict=update_feed)
+
+    #     # Sync
+    #     #self.policy.async_parameters()
+    # # def UpdateMetaPolicy(self):
     #     # get the parameters value of the policy network
     #     sess = tf.compat.v1.get_default_session()
 

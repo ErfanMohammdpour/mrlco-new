@@ -73,6 +73,8 @@ class Seq2SeqNetwork():
         self.is_bidencoder = hparams.is_bidencoder
         self.reuse = reuse
 
+        self.hparams = hparams
+
         self.n_features = hparams.n_features
         self.time_major = hparams.time_major
         self.is_attention = hparams.is_attention

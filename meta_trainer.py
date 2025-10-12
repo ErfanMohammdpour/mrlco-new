@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import gc
 import time
 from utils import logger
 from automated_reporting import create_training_report
@@ -113,7 +114,10 @@ class Trainer(object):
 
             logger.dumpkvs()
             avg_ret.append(avg_reward)
-
+            
+            gc.collect()
+            print("******************************** gc.collect()  executed. ********************************")
+            
             if itr % self.save_interval == 0:
                 self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_"+str(itr)+".ckpt")
 
