@@ -196,6 +196,9 @@ class Trainer(object):
 
 
 if __name__ == "__main__":
+    # Clear any existing graph
+    tf.reset_default_graph()
+    
     from env.mec_offloaing_envs.offloading_env import Resources
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
     from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy

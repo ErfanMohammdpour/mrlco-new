@@ -120,7 +120,7 @@ class FOMAML:
 
     def _build_meta_update_graph(self):
         """Build the meta-update computation graph"""
-        with tf.compat.v1.variable_scope("meta_update_parameters"):
+        with tf.compat.v1.variable_scope("meta_update_parameters", reuse=tf.compat.v1.AUTO_REUSE):
             # Get core policy parameters
             core_network_parameters = self.policy.core_policy.get_trainable_variables()
             

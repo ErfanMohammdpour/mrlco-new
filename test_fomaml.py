@@ -23,6 +23,9 @@ def test_fomaml_initialization():
     """Test FOMAML initialization"""
     print("Testing FOMAML initialization...")
     
+    # Clear any existing graph
+    tf.reset_default_graph()
+    
     # Create a simple environment for testing
     resource_cluster = Resources(
         mec_process_capable=(10.0 * 1024 * 1024),
@@ -86,6 +89,8 @@ def test_fomaml_initialization():
         return algo, env, sampler, sample_processor, meta_policy
     except Exception as e:
         print(f"❌ FOMAML initialization failed: {e}")
+        import traceback
+        traceback.print_exc()
         return None, None, None, None, None
 
 def test_support_query_splitting():
@@ -159,6 +164,9 @@ def test_support_query_splitting():
 def test_fomaml_training_step():
     """Test a single FOMAML training step"""
     print("\nTesting FOMAML training step...")
+    
+    # Clear any existing graph
+    tf.reset_default_graph()
     
     algo, env, sampler, sample_processor, meta_policy = test_fomaml_initialization()
     
