@@ -83,48 +83,62 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
         return samples_data, paths
 
     def _append_path_data(self, paths):
-        observations = np.array([path["observations"] for path in paths])
-        actions = np.array([path["actions"] for path in paths])
-        logits = np.array([path["logits"] for path in paths])
-        rewards = np.array([path["rewards"] for path in paths])
-        returns = np.array([path["returns"] for path in paths])
-        values = np.array([path["values"] for path in paths])
-        advantages = np.array([path["advantages"] for path in paths])
-        finish_time = np.array([path["finish_time"] for path in paths])
-        
-        # Flatten only the data that needs to be 1D for proper concatenation
-        observations = observations.reshape(-1, observations.shape[-1])
-        # Keep actions as 2D for the policy (batch_size, sequence_length)
-        actions = actions.reshape(-1, actions.shape[-1])
-        rewards = rewards.flatten()
-        returns = returns.flatten()
-        values = values.flatten()
-        advantages = advantages.flatten()
-        finish_time = finish_time.flatten()
+        # Concatenate all paths into single arrays
+        observations = np.concatenate([path["observations"] for path in paths])
+        actions = np.concatenate([path["actions"] for path in paths])
+        logits = np.concatenate([path["logits"] for path in paths])
+        rewards = np.concatenate([path["rewards"] for path in paths])
+        returns = np.concatenate([path["returns"] for path in paths])
+        values = np.concatenate([path["values"] for path in paths])
+        advantages = np.concatenate([path["advantages"] for path in paths])
+        finish_time = np.concatenate([path["finish_time"] for path in paths])
         
         # Ensure logits have the correct shape for the policy
         # Policy expects (batch_size, sequence_length, vocab_size)
-        if len(logits.shape) == 2:
-            # If logits are flattened, reshape them
-            # Assuming vocab_size=2 and sequence_length can be inferred
+        print(f"Original logits shape: {logits.shape}")
+        
+        if len(logits.shape) == 3:
+            # Logits are (batch_size, sequence_length, features)
+            # We need to reshape to (batch_size, sequence_length, vocab_size)
             vocab_size = 2  # This should match the policy's vocab_size
+            if logits.shape[2] == vocab_size:
+                # Already correct shape
+                pass
+            elif logits.shape[2] % vocab_size == 0:
+                # Reshape from (batch_size, sequence_length, features) to (batch_size, sequence_length, vocab_size)
+                sequence_length = logits.shape[1]
+                features_per_step = logits.shape[2] // vocab_size
+                logits = logits.reshape(logits.shape[0], sequence_length * features_per_step, vocab_size)
+            else:
+                # Pad or truncate to match vocab_size
+                sequence_length = logits.shape[1]
+                current_features = logits.shape[2]
+                if current_features > vocab_size:
+                    # Truncate
+                    logits = logits[:, :, :vocab_size]
+                else:
+                    # Pad with zeros
+                    padded_logits = np.zeros((logits.shape[0], sequence_length, vocab_size))
+                    padded_logits[:, :, :current_features] = logits
+                    logits = padded_logits
+        elif len(logits.shape) == 2:
+            # If logits are flattened, reshape them
+            vocab_size = 2
             if logits.shape[1] % vocab_size == 0:
                 sequence_length = logits.shape[1] // vocab_size
                 logits = logits.reshape(logits.shape[0], sequence_length, vocab_size)
             else:
-                # If we can't reshape properly, pad or truncate
+                # Pad or truncate
                 sequence_length = logits.shape[1] // vocab_size
                 if sequence_length * vocab_size < logits.shape[1]:
-                    # Pad with zeros
                     padded_logits = np.zeros((logits.shape[0], sequence_length + 1, vocab_size))
                     padded_logits[:, :sequence_length, :] = logits[:, :sequence_length * vocab_size].reshape(logits.shape[0], sequence_length, vocab_size)
                     logits = padded_logits
                 else:
                     logits = logits[:, :sequence_length * vocab_size].reshape(logits.shape[0], sequence_length, vocab_size)
-        elif len(logits.shape) == 3:
-            # Logits are already in the correct shape (batch_size, sequence_length, vocab_size)
-            pass
         else:
             raise ValueError(f"Unexpected logits shape: {logits.shape}")
+        
+        print(f"Final logits shape: {logits.shape}")
         
         return observations, actions, logits, rewards, returns, values, advantages, finish_time

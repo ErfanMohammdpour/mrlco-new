@@ -75,7 +75,6 @@ class Seq2SeqSampler(Sampler):
             else:
                 obses_array = obses
             
-            # Reshape observations to match policy expectations
             # Policy expects (batch_size, sequence_length, features)
             # We have (num_envs, batch_size, sequence_length, features)
             if len(obses_array.shape) == 4:
@@ -154,17 +153,25 @@ class Seq2SeqSampler(Sampler):
 
                 # If episode is done, add the complete path
                 if done:
+                    # Ensure data is in the correct format
+                    obs = np.asarray(running_paths[idx]["observations"])
+                    act = np.asarray(running_paths[idx]["actions"])
+                    log = np.asarray(running_paths[idx]["logits"])
+                    rew = np.asarray(running_paths[idx]["rewards"])
+                    val = np.asarray(running_paths[idx]["values"])
+                    fin = np.asarray(running_paths[idx]["finish_time"])
+                    
                     paths.append(dict(
-                        observations=np.asarray(running_paths[idx]["observations"]),
-                        actions=np.asarray(running_paths[idx]["actions"]),
-                        logits=np.asarray(running_paths[idx]["logits"]),
-                        rewards=np.asarray(running_paths[idx]["rewards"]),
-                        finish_time=np.asarray(running_paths[idx]["finish_time"]),
-                        values=np.asarray(running_paths[idx]["values"])
+                        observations=obs,
+                        actions=act,
+                        logits=log,
+                        rewards=rew,
+                        finish_time=fin,
+                        values=val
                     ))
 
                     # Reset for next episode
-                    new_samples += len(running_paths[idx]["rewards"])
+                    new_samples += len(rew)
                     running_paths[idx] = _get_empty_running_paths_dict()
 
             pbar.update(new_samples)
