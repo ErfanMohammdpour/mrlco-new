@@ -93,10 +93,22 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
         advantages = np.concatenate([path["advantages"] for path in paths])
         finish_time = np.concatenate([path["finish_time"] for path in paths])
         
+        # Reshape advantages to match actions shape (batch_size, sequence_length)
+        # advantages is currently (total_samples,) but should be (batch_size, sequence_length)
+        if len(advantages.shape) == 1:
+            # Reshape to match actions shape
+            advantages = advantages.reshape(actions.shape[0], actions.shape[1])
+        
+        # Reshape values to match actions shape
+        if len(values.shape) == 1:
+            values = values.reshape(actions.shape[0], actions.shape[1])
+            
+        # Reshape returns to match actions shape  
+        if len(returns.shape) == 1:
+            returns = returns.reshape(actions.shape[0], actions.shape[1])
+        
         # Ensure logits have the correct shape for the policy
         # Policy expects (batch_size, sequence_length, vocab_size)
-        print(f"Original logits shape: {logits.shape}")
-        
         if len(logits.shape) == 3:
             # Logits are (batch_size, sequence_length, features)
             # We need to reshape to (batch_size, sequence_length, vocab_size)
@@ -138,7 +150,5 @@ class Seq2SeqSamplerProcessor(SampleProcessor):
                     logits = logits[:, :sequence_length * vocab_size].reshape(logits.shape[0], sequence_length, vocab_size)
         else:
             raise ValueError(f"Unexpected logits shape: {logits.shape}")
-        
-        print(f"Final logits shape: {logits.shape}")
         
         return observations, actions, logits, rewards, returns, values, advantages, finish_time
