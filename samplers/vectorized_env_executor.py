@@ -230,3 +230,192 @@ def worker(remote, parent_remote, env_pickle, n_envs, max_path_length, seed):
 
         else:
             raise NotImplementedError
+
+
+class IterativeEnvExecutor(object):
+    """
+    Wraps multiple environments of the same kind and provides functionality to reset / step the environments
+    in a vectorized manner. Internally, the environments are executed iteratively.
+    For single-policy RL (non-meta).
+
+    Args:
+        env: environment object
+        n_envs (int): number of environments
+        max_path_length (int): maximum length of sampled environment paths - if the max_path_length is reached,
+                               the respective environment is reset
+    """
+
+    def __init__(self, env, n_envs, max_path_length):
+        self.envs = np.asarray([copy.deepcopy(env) for _ in range(n_envs)])
+        self.ts = np.zeros(len(self.envs), dtype='int')  # time steps
+        self.max_path_length = max_path_length
+
+    def step(self, actions):
+        """
+        Steps the wrapped environments with the provided actions
+
+        Args:
+            actions (list): lists of actions, of length n_envs
+
+        Returns
+            (tuple): a length 4 tuple of lists, containing obs (np.array), rewards (float), dones (bool),
+             env_infos (dict). Each list is of length n_envs
+        """
+        assert len(actions) == self.num_envs
+
+        all_results = [env.step(a) for (a, env) in zip(actions, self.envs)]
+
+        # stack results split to obs, rewards, ...
+        obs, rewards, dones, env_infos = list(map(list, zip(*all_results)))
+
+        # reset env when done or max_path_length reached
+        dones = np.asarray(dones)
+        self.ts += 1
+        dones = np.logical_or(self.ts >= self.max_path_length, dones)
+        for i in np.argwhere(dones).flatten():
+            obs[i] = self.envs[i].reset()
+            self.ts[i] = 0
+
+        return obs, rewards, dones, env_infos
+
+    def reset(self):
+        """
+        Resets the environments
+
+        Returns:
+            (list): list of (np.ndarray) with the new initial observations.
+        """
+        obses = [env.reset() for env in self.envs]
+        self.ts[:] = 0
+        return obses
+
+    @property
+    def num_envs(self):
+        """
+        Number of environments
+
+        Returns:
+            (int): number of environments
+        """
+        return len(self.envs)
+
+
+class ParallelEnvExecutor(object):
+    """
+    Wraps multiple environments of the same kind and provides functionality to reset / step the environments
+    in a vectorized manner. Thereby the environments are distributed among processes and
+    executed in parallel. For single-policy RL (non-meta).
+
+    Args:
+        env: environment object
+        n_envs (int): number of environments
+        max_path_length (int): maximum length of sampled environment paths - if the max_path_length is reached,
+                             the respective environment is reset
+    """
+
+    def __init__(self, env, n_envs, max_path_length):
+        self.n_envs = n_envs
+        self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(n_envs)])
+        seeds = np.random.choice(range(10**6), size=n_envs, replace=False)
+
+        self.ps = [
+            Process(target=single_worker, args=(work_remote, remote, pickle.dumps(env), max_path_length, seed))
+            for (work_remote, remote, seed) in zip(self.work_remotes, self.remotes, seeds)]
+
+        for p in self.ps:
+            p.daemon = True  # if the main process crashes, we should not cause things to hang
+            p.start()
+        for remote in self.work_remotes:
+            remote.close()
+
+    def step(self, actions):
+        """
+        Executes actions on each env
+
+        Args:
+            actions (list): lists of actions, of length n_envs
+
+        Returns
+            (tuple): a length 4 tuple of lists, containing obs (np.array), rewards (float), dones (bool), env_infos (dict)
+                      each list is of length n_envs
+        """
+        assert len(actions) == self.num_envs
+
+        # step remote environments
+        for remote, action in zip(self.remotes, actions):
+            remote.send(('step', action))
+
+        results = [remote.recv() for remote in self.remotes]
+
+        obs, rewards, dones, env_infos = map(list, zip(*results))
+
+        return obs, rewards, dones, env_infos
+
+    def reset(self):
+        """
+        Resets the environments of each worker
+
+        Returns:
+            (list): list of (np.ndarray) with the new initial observations.
+        """
+        for remote in self.remotes:
+            remote.send(('reset', None))
+        return [remote.recv() for remote in self.remotes]
+
+    @property
+    def num_envs(self):
+        """
+        Number of environments
+
+        Returns:
+            (int): number of environments
+        """
+        return self.n_envs
+
+
+def single_worker(remote, parent_remote, env_pickle, max_path_length, seed):
+    """
+    Instantiation of a parallel worker for collecting samples in single-policy RL.
+    It loops continually checking the task that the remote sends to it.
+
+    Args:
+        remote (multiprocessing.Connection):
+        parent_remote (multiprocessing.Connection):
+        env_pickle (pkl): pickled environment
+        max_path_length (int): maximum path length of the task
+        seed (int): random seed for the worker
+    """
+    parent_remote.close()
+
+    env = pickle.loads(env_pickle)
+    np.random.seed(seed)
+
+    ts = 0
+
+    while True:
+        # receive command and data from the remote
+        cmd, data = remote.recv()
+
+        # do a step in the environment of the worker
+        if cmd == 'step':
+            obs, reward, done, info = env.step(data)
+            ts += 1
+            if done or (ts >= max_path_length):
+                done = True
+                obs = env.reset()
+                ts = 0
+            remote.send((obs, reward, done, info))
+
+        # reset the environment of the worker
+        elif cmd == 'reset':
+            obs = env.reset()
+            ts = 0
+            remote.send(obs)
+
+        # close the remote and stop the worker
+        elif cmd == 'close':
+            remote.close()
+            break
+
+        else:
+            raise NotImplementedError

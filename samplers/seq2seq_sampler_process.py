@@ -2,8 +2,7 @@ from samplers.base import SampleProcessor
 from utils import utils
 import numpy as np
 
-
-class Seq2SeSamplerProcessor(SampleProcessor):
+class Seq2SeqSamplerProcessor(SampleProcessor):
     def process_samples(self, paths, log=False, log_prefix=''):
         """
         Processes sampled paths. This involves:
@@ -14,24 +13,23 @@ class Seq2SeSamplerProcessor(SampleProcessor):
             - logging statistics of the paths
 
         Args:
-            paths_meta_batch (dict): A list of dict of lists, size: [meta_batch_size] x (batch_size) x [5] x (max_path_length)
+            paths (list): A list of dicts containing path data
             log (boolean): indicates whether to log
             log_prefix (str): prefix for the logging keys
 
         Returns:
-            (list of dicts) : Processed sample data among the meta-batch; size: [meta_batch_size] x [7] x (batch_size x max_path_length)
+            (dict): Processed sample data
         """
+        assert isinstance(paths, list), 'paths must be a list'
         assert self.baseline, 'baseline must be specified'
-
-        all_paths = []
 
         # fits baseline, comput advantages and stack path data
         samples_data, paths = self._compute_samples_data(paths)
 
-        all_paths.extend(paths)
+        # log statistics if desired
+        self._log_path_stats(paths, log=log, log_prefix=log_prefix)
 
         return samples_data
-
 
     def _compute_samples_data(self, paths):
         assert type(paths) == list
@@ -74,13 +72,11 @@ class Seq2SeSamplerProcessor(SampleProcessor):
     def _append_path_data(self, paths):
         observations = np.array([path["observations"] for path in paths])
         actions = np.array([path["actions"] for path in paths])
-
         logits = np.array([path["logits"] for path in paths])
         rewards = np.array([path["rewards"] for path in paths])
         returns = np.array([path["returns"] for path in paths])
         values = np.array([path["values"] for path in paths])
         advantages = np.array([path["advantages"] for path in paths])
         finish_time = np.array([path["finish_time"] for path in paths])
-
+        
         return observations, actions, logits, rewards, returns, values, advantages, finish_time
-
