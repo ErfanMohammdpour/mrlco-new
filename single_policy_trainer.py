@@ -44,17 +44,21 @@ class SinglePolicyTrainer(object):
 
             # Calculate greedy baseline for comparison (like meta-RL)
             if hasattr(self.env, 'greedy_solution') and task_ids:
-                # Get greedy solution for current task (like meta-RL)
-                _, greedy_times = self.env.greedy_solution_for_current_task()
-                avg_greedy_time = np.mean(greedy_times) if greedy_times else 0.0
+                # Get greedy solution for all tasks (like meta-RL)
+                greedy_run_time = []
+                for task_id in task_ids:
+                    self.env.set_task(task_id)
+                    _, greedy_times = self.env.greedy_solution_for_current_task()
+                    greedy_run_time.extend(greedy_times)
+                
+                avg_greedy_time = np.mean(greedy_run_time) if greedy_run_time else 0.0
                 logger.logkv('Average greedy latency,', avg_greedy_time)
-                logger.logkv('Current task,', task_ids[0])
+                logger.logkv('Current tasks,', task_ids)
                 logger.logkv('Total tasks,', self.env.get_total_tasks())
                 greedy_latencies_all.append(avg_greedy_time)
                 
-                # Debug: Show greedy times for current task
-                print(f"Current task {task_ids[0]}: Greedy times = {greedy_times}")
-                print(f"Average greedy latency for task {task_ids[0]}: {avg_greedy_time:.4f}")
+                # Debug: Show greedy times for all tasks
+                print(f"Tasks {task_ids}: Average greedy latency = {avg_greedy_time:.4f}")
 
             """ ----------------- Processing Samples ---------------------"""
             logger.log("Processing samples...")

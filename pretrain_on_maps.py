@@ -159,8 +159,8 @@ def pretrain_policy(num_maps=22, iterations=1000, batch_size=100, learning_rate=
     sampler = Seq2SeqSampler(
         env=env,
         policy=policy,
-        rollouts_per_task=5,  # Same as original project
-        max_path_length=20000,  # Same as original project
+        rollouts_per_task=1,  # Same as original project
+        max_path_length=20000,  # Same as original project (10 tasks)
         parallel=False
     )
     
@@ -179,7 +179,7 @@ def pretrain_policy(num_maps=22, iterations=1000, batch_size=100, learning_rate=
         sampler=sampler,
         sampler_process=sample_processor,
         lr=5e-4,  # Same as original project
-        num_grad_steps=4,  # Same as original project
+        num_grad_steps=1,  # Reduced for faster training (like meta-RL inner steps)
         clip_value=0.2,
         vf_coef=0.5,
         max_grad_norm=0.5

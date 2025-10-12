@@ -42,23 +42,22 @@ class Seq2SeqSampler(Sampler):
 
     def update_tasks(self):
         """
-        Sample a new task for single-policy RL (similar to meta-RL)
+        Sample multiple tasks for single-policy RL (like meta-RL)
         """
-        # For single-policy RL, we randomly select one task
-        task_id = self.env.sample_tasks(n_tasks=1)[0]
-        self.env.set_task(task_id)
-        return [task_id]
+        # For single-policy RL, we randomly select 10 tasks (like meta-RL)
+        task_ids = self.env.sample_tasks(n_tasks=10)
+        return task_ids
 
     def obtain_samples(self, log=False, log_prefix=''):
         """
-        Collect rollouts_per_task trajectories from the environment
+        Collect rollouts_per_task trajectories from the environment for multiple tasks
 
         Args:
             log (boolean): whether to log sampling times
             log_prefix (str): prefix for logger
 
         Returns:
-            (list): A list of paths
+            (list): A list of paths for all tasks
         """
 
         # initial setup / preparation
