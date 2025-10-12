@@ -127,43 +127,49 @@ def test_learning():
     print("Starting training test...")
     print("=" * 60)
     
-    # Run training
-    try:
-        avg_ret, avg_loss, avg_latencies = trainer.train()
+    # Initialize TensorFlow session
+    sess = tf.compat.v1.Session()
+    with sess.as_default():
+        # Initialize all variables
+        sess.run(tf.compat.v1.global_variables_initializer())
         
-        print("=" * 60)
-        print("TRAINING TEST COMPLETED")
-        print("=" * 60)
-        print(f"Final average reward: {avg_ret[-1] if avg_ret else 'N/A'}")
-        print(f"Final average loss: {avg_loss[-1] if avg_loss else 'N/A'}")
-        print(f"Final average latency: {avg_latencies[-1] if avg_latencies else 'N/A'}")
-        
-        # Check if learning occurred
-        if len(avg_ret) > 1:
-            reward_improvement = avg_ret[-1] - avg_ret[0]
-            print(f"Reward improvement: {reward_improvement:.4f}")
+        # Run training
+        try:
+            avg_ret, avg_loss, avg_latencies = trainer.train()
             
-            if reward_improvement > 0:
-                print("✅ LEARNING DETECTED: Reward improved over time!")
-            else:
-                print("❌ NO LEARNING: Reward did not improve")
-        
-        if len(avg_loss) > 1:
-            loss_change = avg_loss[-1] - avg_loss[0]
-            print(f"Loss change: {loss_change:.4f}")
+            print("=" * 60)
+            print("TRAINING TEST COMPLETED")
+            print("=" * 60)
+            print(f"Final average reward: {avg_ret[-1] if avg_ret else 'N/A'}")
+            print(f"Final average loss: {avg_loss[-1] if avg_loss else 'N/A'}")
+            print(f"Final average latency: {avg_latencies[-1] if avg_latencies else 'N/A'}")
             
-            if loss_change < 0:
-                print("✅ LEARNING DETECTED: Loss decreased over time!")
-            else:
-                print("❌ NO LEARNING: Loss did not decrease")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Training test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+            # Check if learning occurred
+            if len(avg_ret) > 1:
+                reward_improvement = avg_ret[-1] - avg_ret[0]
+                print(f"Reward improvement: {reward_improvement:.4f}")
+                
+                if reward_improvement > 0:
+                    print("✅ LEARNING DETECTED: Reward improved over time!")
+                else:
+                    print("❌ NO LEARNING: Reward did not improve")
+            
+            if len(avg_loss) > 1:
+                loss_change = avg_loss[-1] - avg_loss[0]
+                print(f"Loss change: {loss_change:.4f}")
+                
+                if loss_change < 0:
+                    print("✅ LEARNING DETECTED: Loss decreased over time!")
+                else:
+                    print("❌ NO LEARNING: Loss did not decrease")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Training test failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
 if __name__ == "__main__":
     success = test_learning()
