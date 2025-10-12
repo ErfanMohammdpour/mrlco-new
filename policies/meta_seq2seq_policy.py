@@ -409,6 +409,10 @@ class Seq2SeqPolicy():
     def get_actions(self, observations):
         sess = tf.compat.v1.get_default_session()
 
+        # Ensure observations is a numpy array
+        if isinstance(observations, list):
+            observations = np.array(observations)
+        
         decoder_full_length = np.array( [observations.shape[1]] * observations.shape[0] , dtype=np.int32)
 
         actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,

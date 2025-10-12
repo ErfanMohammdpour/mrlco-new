@@ -48,11 +48,22 @@ class SinglePolicyOffloadingEnvironment(OffloadingEnvironment):
         max_running_time_batch = self.max_running_time_batchs[self.current_task_id]
         min_running_time_batch = self.min_running_time_batchs[self.current_task_id]
 
-        for action_sequence, task_graph in zip(action, task_graph_batch):
-            plan_sequence = []
-            for action, task_id in zip(action_sequence, task_graph.prioritize_sequence):
-                plan_sequence.append((task_id, action))
-            plan_batch.append(plan_sequence)
+        # Handle single action vs batch action
+        if isinstance(action, (list, np.ndarray)) and len(action) > 0 and isinstance(action[0], (list, np.ndarray)):
+            # Batch action format
+            for action_sequence, task_graph in zip(action, task_graph_batch):
+                plan_sequence = []
+                for action, task_id in zip(action_sequence, task_graph.prioritize_sequence):
+                    plan_sequence.append((task_id, action))
+                plan_batch.append(plan_sequence)
+        else:
+            # Single action format - convert to batch format
+            action_sequence = action
+            for task_graph in task_graph_batch:
+                plan_sequence = []
+                for action, task_id in zip(action_sequence, task_graph.prioritize_sequence):
+                    plan_sequence.append((task_id, action))
+                plan_batch.append(plan_sequence)
 
         reward_batch, task_finish_time = self.get_reward_batch_step_by_step(
             plan_batch, task_graph_batch, max_running_time_batch, min_running_time_batch)

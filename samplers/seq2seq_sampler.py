@@ -69,18 +69,46 @@ class Seq2SeqSampler(Sampler):
         while n_samples < self.total_samples:
             # execute policy
             t = time.time()
-            actions, logits, values = policy.get_actions(obses)
+            # Convert list of observations to numpy array for policy
+            if isinstance(obses, list):
+                obses_array = np.array(obses)
+            else:
+                obses_array = obses
+            actions, logits, values = policy.get_actions(obses_array)
             policy_time += time.time() - t
+
+            # Convert actions to list format for vectorized environment
+            if isinstance(actions, np.ndarray):
+                actions_list = [actions[i] for i in range(len(actions))]
+            else:
+                actions_list = actions
 
             # step environments
             t = time.time()
-            next_obses, rewards, dones, env_infos = self.vec_env.step(actions)
+            next_obses, rewards, dones, env_infos = self.vec_env.step(actions_list)
             env_time += time.time() - t
 
             # stack agent_infos and if no infos were provided (--> None) create empty dicts
             new_samples = 0
-            for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses, actions, logits,
-                                                                                    rewards, values, dones, env_infos):
+            
+            # Convert actions, logits, values to lists if they're numpy arrays
+            if isinstance(actions, np.ndarray):
+                actions_list = [actions[i] for i in range(len(actions))]
+            else:
+                actions_list = actions
+                
+            if isinstance(logits, np.ndarray):
+                logits_list = [logits[i] for i in range(len(logits))]
+            else:
+                logits_list = logits
+                
+            if isinstance(values, np.ndarray):
+                values_list = [values[i] for i in range(len(values))]
+            else:
+                values_list = values
+            
+            for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses, actions_list, logits_list,
+                                                                                    rewards, values_list, dones, env_infos):
                 # append new samples to running paths
                 for single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time \
                         in zip(observation, action, logit, reward, value, task_finish_times):
