@@ -68,6 +68,7 @@ class Seq2SeqNetwork():
                  decoder_inputs,
                  decoder_full_length,
                  decoder_targets):
+        self.hparams = hparams
         self.encoder_hidden_unit = hparams.encoder_units
         self.decoder_hidden_unit = hparams.decoder_units
         self.is_bidencoder = hparams.is_bidencoder

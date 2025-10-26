@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import itertools
+from policies.model_helper import maml_batch_meta_update_fomaml
 
 # this is the tf graph version of reptile:
 class MRLCO():
@@ -138,63 +139,100 @@ class MRLCO():
 
 
     #Helper for FOMAML
-    def compute_surrogate_loss(self, task_id):
-        """
-        Returns the total PPO loss (surrogate + value loss) for a given task_id.
-        This is used for outer gradient computation in FOMAML.
-        """
-        policy_loss = self.surr_obj[task_id]
-        value_loss = self.vf_coef * self.vf_loss[task_id]
-        total_loss = policy_loss + value_loss
-        return total_loss
+    # def compute_surrogate_loss(self, task_id):
+    #     """
+    #     Returns the total PPO loss (surrogate + value loss) for a given task_id.
+    #     This is used for outer gradient computation in FOMAML.
+    #     """
+    #     policy_loss = self.surr_obj[task_id]
+    #     value_loss = self.vf_coef * self.vf_loss[task_id]
+    #     total_loss = policy_loss + value_loss
+    #     return total_loss
 
-    #First Order MAML version
-    def UpdateMetaPolicy(self, task_samples_post_update):
-        # REPTILE-style parameter diff logic is now removed
+    # #First Order MAML version
+    # def UpdateMetaPolicy(self, task_samples_post_update):
+    #     # REPTILE-style parameter diff logic is now removed
+    #     sess = tf.compat.v1.get_default_session()
+
+    #     print("Performing First-Order MAML update...")
+
+    #     core_params = self.policy.core_policy.get_trainable_variables()
+    #     grads_accum = [np.zeros_like(sess.run(v)) for v in core_params]
+
+    #     for i in range(self.meta_batch_size):
+    #         # Compute first-order surrogate loss on post-update task samples
+    #         loss_op = self.compute_surrogate_loss(i)
+
+    #         feed_dict = {
+    #             self.old_logits[i]: task_samples_post_update[i]["logits"],
+    #             self.old_v[i]: task_samples_post_update[i]["values"],
+    #             self.obs[i]: task_samples_post_update[i]["observations"],
+    #             self.actions[i]: task_samples_post_update[i]["actions"],
+    #             self.decoder_inputs[i]: np.column_stack((
+    #                 np.zeros(task_samples_post_update[i]['actions'].shape[0], dtype=np.int32),
+    #                 task_samples_post_update[i]['actions'][:, :-1]
+    #             )),
+    #             self.decoder_full_length[i]: np.array(
+    #                 [task_samples_post_update[i]["observations"].shape[1]] *
+    #                 task_samples_post_update[i]["observations"].shape[0],
+    #                 dtype=np.int32
+    #             ),
+    #             self.advs[i]: task_samples_post_update[i]["advantages"],
+    #             self.r[i]: task_samples_post_update[i]["returns"]
+    #         }
+
+    #         grads = tf.gradients(loss_op, core_params)
+    #         grads_val = sess.run(grads, feed_dict=feed_dict)
+
+    #         for j in range(len(grads_val)):
+    #             grads_accum[j] += grads_val[j] / self.meta_batch_size
+
+    #     update_feed = {
+    #         self.grads_placeholders[j]: grads_accum[j]
+    #         for j in range(len(grads_accum))
+    #     }
+
+    #     sess.run(self._outer_train, feed_dict=update_feed)
+    #     print("✅ FOMAML outer update applied to core policy.")
+
+    #     self.policy.async_parameters()
+       
+
+    def UpdateMetaPolicyWithFOMAML(self, val_data):
+        """Perform symbolic First‑Order MAML meta update."""
         sess = tf.compat.v1.get_default_session()
 
-        print("Performing First-Order MAML update...")
-
-        core_params = self.policy.core_policy.get_trainable_variables()
-        grads_accum = [np.zeros_like(sess.run(v)) for v in core_params]
-
+        # Prepare task inputs (each element corresponds to one meta‑task)
+        tasks_inputs = []
         for i in range(self.meta_batch_size):
-            # Compute first-order surrogate loss on post-update task samples
-            loss_op = self.compute_surrogate_loss(i)
-
-            feed_dict = {
-                self.old_logits[i]: task_samples_post_update[i]["logits"],
-                self.old_v[i]: task_samples_post_update[i]["values"],
-                self.obs[i]: task_samples_post_update[i]["observations"],
-                self.actions[i]: task_samples_post_update[i]["actions"],
-                self.decoder_inputs[i]: np.column_stack((
-                    np.zeros(task_samples_post_update[i]['actions'].shape[0], dtype=np.int32),
-                    task_samples_post_update[i]['actions'][:, :-1]
-                )),
-                self.decoder_full_length[i]: np.array(
-                    [task_samples_post_update[i]["observations"].shape[1]] *
-                    task_samples_post_update[i]["observations"].shape[0],
-                    dtype=np.int32
-                ),
-                self.advs[i]: task_samples_post_update[i]["advantages"],
-                self.r[i]: task_samples_post_update[i]["returns"]
+            inputs = {
+                'encoder_inputs': val_data[i]['observations'],
+                'decoder_inputs': np.column_stack(
+                    (np.zeros(val_data[i]['actions'].shape[0], dtype=np.int32),
+                     val_data[i]['actions'][:, :-1])),
+                'decoder_targets': val_data[i]['actions'],
+                'decoder_full_length': [val_data[i]['observations'].shape[1]] *
+                                       len(val_data[i]['observations'])
             }
+            tasks_inputs.append(inputs)
 
-            grads = tf.gradients(loss_op, core_params)
-            grads_val = sess.run(grads, feed_dict=feed_dict)
+        apply_op, meta_losses = maml_batch_meta_update_fomaml(
+            tasks_inputs=tasks_inputs,
+            hparams=self.policy.core_policy.network.hparams,
+            theta_vars=self.policy.core_policy.get_trainable_variables(),
+            inner_lr=self.inner_lr,
+            num_inner_steps=self.num_inner_grad_steps,
+            vocab_size=self.policy.action_dim)
 
-            for j in range(len(grads_val)):
-                grads_accum[j] += grads_val[j] / self.meta_batch_size
+        # initialize any newly created optimizer variables
+        uninit_vars = [v for v in tf.compat.v1.global_variables()
+                       if not sess.run(tf.compat.v1.is_variable_initialized(v))]
+        if uninit_vars:
+            sess.run(tf.compat.v1.variables_initializer(uninit_vars))
 
-        update_feed = {
-            self.grads_placeholders[j]: grads_accum[j]
-            for j in range(len(grads_accum))
-        }
-
-        sess.run(self._outer_train, feed_dict=update_feed)
-        print("✅ FOMAML outer update applied to core policy.")
-
-        self.policy.async_parameters()
+        print("Performing First‑Order MAML meta‑update ...")
+        sess.run(apply_op)
+        print("Meta‑update complete.")
         
     def UpdatePPOTarget(self, task_samples, batch_size=50):
         total_policy_losses = []

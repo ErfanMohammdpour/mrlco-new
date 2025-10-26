@@ -76,7 +76,7 @@ class Trainer(object):
 
             """ ------------------ Outer Policy Update ---------------------"""
             logger.log("Optimizing policy...")
-            self.algo.UpdateMetaPolicy(new_samples_data)
+            self.algo.UpdateMetaPolicyWithFOMAML(new_samples_data)
 
             """ ------------------- Logging Stuff --------------------------"""
 
