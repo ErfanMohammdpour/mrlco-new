@@ -113,29 +113,89 @@ class MRLCO():
 
             self._outer_train = self.outer_optimizer.apply_gradients(outer_grads_and_var)
 
-    def UpdateMetaPolicy(self):
-        # get the parameters value of the policy network
+    # def UpdateMetaPolicy(self):
+    #     # get the parameters value of the policy network
+    #     sess = tf.compat.v1.get_default_session()
+
+    #     for i in range(self.meta_batch_size):
+    #         params_symbol = self.policy.meta_policies[i].get_trainable_variables()
+    #         core_params_symble = self.policy.core_policy.get_trainable_variables()
+    #         params = sess.run(params_symbol)
+    #         core_params = sess.run(core_params_symble)
+
+    #         update_feed_dict = {}
+
+    #         # calcuate the gradient updates for the meta policy through first-order approximation.
+    #         for i, core_var, meta_var in zip(itertools.count(), core_params, params):
+    #             grads = (core_var - meta_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
+    #             update_feed_dict[self.grads_placeholders[i]] = grads
+
+    #         # update the meta policy parameters.
+    #         _ = sess.run(self._outer_train, feed_dict=update_feed_dict)
+
+    #     print("async core policy to meta-policy")
+    #     self.policy.async_parameters()
+
+
+    #Helper for FOMAML
+    def compute_surrogate_loss(self, task_id):
+        """
+        Returns the total PPO loss (surrogate + value loss) for a given task_id.
+        This is used for outer gradient computation in FOMAML.
+        """
+        policy_loss = self.surr_obj[task_id]
+        value_loss = self.vf_coef * self.vf_loss[task_id]
+        total_loss = policy_loss + value_loss
+        return total_loss
+
+    #First Order MAML version
+    def UpdateMetaPolicy(self, task_samples_post_update):
+        # REPTILE-style parameter diff logic is now removed
         sess = tf.compat.v1.get_default_session()
 
+        print("Performing First-Order MAML update...")
+
+        core_params = self.policy.core_policy.get_trainable_variables()
+        grads_accum = [np.zeros_like(sess.run(v)) for v in core_params]
+
         for i in range(self.meta_batch_size):
-            params_symbol = self.policy.meta_policies[i].get_trainable_variables()
-            core_params_symble = self.policy.core_policy.get_trainable_variables()
-            params = sess.run(params_symbol)
-            core_params = sess.run(core_params_symble)
+            # Compute first-order surrogate loss on post-update task samples
+            loss_op = self.compute_surrogate_loss(i)
 
-            update_feed_dict = {}
+            feed_dict = {
+                self.old_logits[i]: task_samples_post_update[i]["logits"],
+                self.old_v[i]: task_samples_post_update[i]["values"],
+                self.obs[i]: task_samples_post_update[i]["observations"],
+                self.actions[i]: task_samples_post_update[i]["actions"],
+                self.decoder_inputs[i]: np.column_stack((
+                    np.zeros(task_samples_post_update[i]['actions'].shape[0], dtype=np.int32),
+                    task_samples_post_update[i]['actions'][:, :-1]
+                )),
+                self.decoder_full_length[i]: np.array(
+                    [task_samples_post_update[i]["observations"].shape[1]] *
+                    task_samples_post_update[i]["observations"].shape[0],
+                    dtype=np.int32
+                ),
+                self.advs[i]: task_samples_post_update[i]["advantages"],
+                self.r[i]: task_samples_post_update[i]["returns"]
+            }
 
-            # calcuate the gradient updates for the meta policy through first-order approximation.
-            for i, core_var, meta_var in zip(itertools.count(), core_params, params):
-                grads = (core_var - meta_var) / self.inner_lr / self.num_inner_grad_steps / self.meta_batch_size / self.update_numbers
-                update_feed_dict[self.grads_placeholders[i]] = grads
+            grads = tf.gradients(loss_op, core_params)
+            grads_val = sess.run(grads, feed_dict=feed_dict)
 
-            # update the meta policy parameters.
-            _ = sess.run(self._outer_train, feed_dict=update_feed_dict)
+            for j in range(len(grads_val)):
+                grads_accum[j] += grads_val[j] / self.meta_batch_size
 
-        print("async core policy to meta-policy")
+        update_feed = {
+            self.grads_placeholders[j]: grads_accum[j]
+            for j in range(len(grads_accum))
+        }
+
+        sess.run(self._outer_train, feed_dict=update_feed)
+        print("✅ FOMAML outer update applied to core policy.")
+
         self.policy.async_parameters()
-
+        
     def UpdatePPOTarget(self, task_samples, batch_size=50):
         total_policy_losses = []
         total_value_losses = []
