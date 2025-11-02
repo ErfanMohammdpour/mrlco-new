@@ -159,7 +159,7 @@ if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 10
+    META_BATCH_SIZE = 5
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
