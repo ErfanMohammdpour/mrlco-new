@@ -166,7 +166,17 @@ def maml_batch_meta_update_fomaml(tasks_inputs,
                                   inner_lr,
                                   num_inner_steps,
                                   vocab_size):
-    """Implements symbolic First‑Order MAML update (no 2nd‑order gradients)."""
+    """
+    Implements symbolic First-Order MAML (FOMAML) meta-update.
+    
+    This function correctly implements FOMAML by:
+    1. Performing inner updates with stop_gradient to prevent second-order gradients
+    2. Computing outer loss on validation data using updated parameters
+    3. Computing gradients w.r.t. initial parameters (theta_vars) with first-order approximation
+    
+    The key mechanism: theta_prime_connected = theta_vars + stop_gradient(theta_prime - theta_vars)
+    This ensures forward pass uses theta_prime values while gradients flow back to theta_vars.
+    """
     meta_losses = []
     meta_grads_by_task = []
 
@@ -191,10 +201,22 @@ def maml_batch_meta_update_fomaml(tasks_inputs,
             grads = [g if g is not None else tf.zeros_like(v) for g, v in zip(grads, theta_prime)]
             theta_prime = [tf.stop_gradient(w - inner_lr * g) for w, g in zip(theta_prime, grads)]
 
-        # ---- Outer Loss (grad w.r.t. initial theta_vars) ----
-        theta_dict = {v.name.split(":")[0]: v for v in theta_prime}
+        # ---- Outer Loss Computation (for FOMAML) ----
+        # Create theta_prime_connected: uses theta_prime values but connected to theta_vars for gradients
+        # This allows: forward pass uses theta_prime values, gradients flow back to theta_vars
+        # The stop_gradient prevents second-order terms (true FOMAML)
+        theta_prime_connected = [
+            theta_var + tf.stop_gradient(theta_prime_val - theta_var)
+            for theta_var, theta_prime_val in zip(theta_vars, theta_prime)
+        ]
+        
+        # Build forward pass using theta_prime_connected (values = theta_prime, gradients -> theta_vars)
+        theta_dict = {v.name.split(":")[0]: v for v in theta_prime_connected}
         output = forward_fn(input_data, theta_dict)
         meta_loss = output['loss']
+        
+        # ---- Compute gradients w.r.t. INITIAL theta_vars (FOMAML) ----
+        # stop_gradient ensures first-order approximation (no chain rule through inner update)
         raw_grads = tf.gradients(meta_loss, theta_vars)
         meta_grads = [g if g is not None else tf.zeros_like(v) for g, v in zip(raw_grads, theta_vars)]
 
