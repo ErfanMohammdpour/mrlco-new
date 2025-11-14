@@ -7,7 +7,9 @@ from utils import utils
 if __name__ == "__main__":
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -35,7 +37,9 @@ if __name__ == "__main__":
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -63,7 +67,9 @@ if __name__ == "__main__":
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -91,7 +97,9 @@ if __name__ == "__main__":
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -119,7 +127,9 @@ if __name__ == "__main__":
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -147,7 +157,9 @@ if __name__ == "__main__":
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,

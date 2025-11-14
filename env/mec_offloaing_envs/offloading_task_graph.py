@@ -223,11 +223,17 @@ class OffloadingTaskGraph(object):
             task = self.task_list[i]
             local_process_cost = task.processing_data_size / resource_cluster.mobile_process_capable
             up_link_cost = resource_cluster.up_transmission_cost(task.processing_data_size)
-            mec_process_cost = task.processing_data_size / resource_cluster.mec_process_capble
+            mec_process_cost = task.processing_data_size / resource_cluster.mec_process_capable
             down_link_cost = resource_cluster.dl_transmission_cost(task.transmission_data_size)
+            
+            # V2V costs (Phase 1: same model as MEC, no distance factor)
+            v2v_ul_cost = resource_cluster.v2v_transmission_cost(task.processing_data_size)
+            v2v_helper_cost = task.processing_data_size / resource_cluster.v2v_process_capable
+            v2v_dl_cost = resource_cluster.v2v_transmission_cost(task.transmission_data_size)
 
             task_embeding_vector = [i, local_process_cost, up_link_cost,
-                                    mec_process_cost, down_link_cost]
+                                    mec_process_cost, down_link_cost,
+                                    v2v_ul_cost, v2v_helper_cost, v2v_dl_cost]
 
             pre_task_index_set = []
             succs_task_index_set = []
@@ -298,10 +304,13 @@ class OffloadingTaskGraph(object):
         for i, task in enumerate(self.task_list):
             t_locally = task.processing_data_size / resource_cluster.mobile_process_capable
             t_mec = resource_cluster.up_transmission_cost(task.processing_data_size) + \
-                    task.processing_data_size / resource_cluster.mec_process_capble + \
+                    task.processing_data_size / resource_cluster.mec_process_capable + \
                     resource_cluster.dl_transmission_cost(task.transmission_data_size)
+            t_v2v = resource_cluster.v2v_transmission_cost(task.processing_data_size) + \
+                    task.processing_data_size / resource_cluster.v2v_process_capable + \
+                    resource_cluster.v2v_transmission_cost(task.transmission_data_size)
 
-            w[i] = min(t_locally, t_mec)
+            w[i] = min(t_locally, t_mec, t_v2v)
 
         rank_dict = [-1] * self.task_number
         def rank(task_index):

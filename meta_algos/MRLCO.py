@@ -188,16 +188,6 @@ class MRLCO():
                      self.likelihood_ratio[task_id], self.advs[task_id], self.clipped_obj[task_id]], 
                     feed_dict=feed_dict)
                 
-                # Debug logging
-                if i == 0 and task_id == 0:  # Log only for first iteration and task
-                    print(f"\n[DEBUG] Loss calculation details:")
-                    print(f"  Policy loss (surr_obj): {policy_loss}")
-                    print(f"  Value loss: {value_loss}")
-                    print(f"  Likelihood ratio mean: {np.mean(likelihood_ratio_val)}")
-                    print(f"  Likelihood ratio std: {np.std(likelihood_ratio_val)}")
-                    print(f"  Advantages mean: {np.mean(advs_val)}")
-                    print(f"  Advantages std: {np.std(advs_val)}")
-                    print(f"  Clipped objective mean: {np.mean(clipped_obj_val)}")
 
                 vf_loss += value_loss
                 pg_loss += policy_loss

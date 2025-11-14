@@ -14,7 +14,9 @@ class Trainer(object):
                 greedy_finish_time,
                 start_itr=0,
                 inner_batch_size = 500,
-                save_interval = 100):
+                save_interval = 100,
+                print_action_choices=False,
+                action_print_interval=10):
         self.algo = algo
         self.env = env
         self.sampler = sampler
@@ -25,6 +27,8 @@ class Trainer(object):
         self.inner_batch_size = inner_batch_size
         self.greedy_finish_time = greedy_finish_time
         self.save_interval = save_interval
+        self.print_action_choices = print_action_choices
+        self.action_print_interval = action_print_interval
 
     def train(self):
         """
@@ -49,6 +53,32 @@ class Trainer(object):
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
             #print("sampled path length is: ", len(paths[0]))
+
+            # Print action choices (0=local, 1=MEC, 2=V2V)
+            if self.print_action_choices and (self.action_print_interval == 0 or itr == 0 or itr % self.action_print_interval == 0):
+                all_actions = []
+                for task_paths in paths.values():  # paths is OrderedDict, iterate over values (lists)
+                    for path in task_paths:  # Each task_paths is a list of dictionaries
+                        if 'actions' in path:
+                            actions = path['actions']
+                            if isinstance(actions, np.ndarray):
+                                all_actions.extend(actions.flatten())
+                            else:
+                                all_actions.extend(actions)
+                
+                if len(all_actions) > 0:
+                    all_actions = np.array(all_actions)
+                    action_counts = {
+                        'Local (0)': np.sum(all_actions == 0),
+                        'MEC (1)': np.sum(all_actions == 1),
+                        'V2V (2)': np.sum(all_actions == 2)
+                    }
+                    total = len(all_actions)
+                    print(f"\n[Action Choices - Iteration {itr}]")
+                    print(f"  Total actions: {total}")
+                    for action_name, count in action_counts.items():
+                        percentage = (count / total * 100) if total > 0 else 0
+                        print(f"  {action_name}: {count} ({percentage:.1f}%)")
 
             greedy_run_time = [self.greedy_finish_time[x] for x in task_ids]
             logger.logkv('Average greedy latency,', np.mean(greedy_run_time))
@@ -142,11 +172,19 @@ if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    META_BATCH_SIZE = 10
+    print("********* inner_batch_size = 10  and meta_batch_size = 5 ya Ali *********")
+
+    META_BATCH_SIZE = 5
+    
+    # Control flags for printing
+    PRINT_ACTION_CHOICES = True  # Set to True to print action choices (0=local, 1=MEC, 2=V2V)
+    ACTION_PRINT_INTERVAL = 0   # Print action choices every N iterations (0 = every iteration)
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -186,11 +224,14 @@ if __name__ == "__main__":
     finish_time = env.get_all_locally_execute_time()
     print("avg all local solution: ", np.mean(finish_time))
     print()
+    finish_time = env.get_all_v2v_execute_time()
+    print("avg all V2V solution: ", np.mean(finish_time))
+    print()
 
     baseline = ValueFunctionBaseline()
 
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=17, encoder_units=128, decoder_units=128,
-                                    vocab_size=2)
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=20, encoder_units=128, decoder_units=128,
+                                    vocab_size=3)
 
     sampler = Seq2SeqMetaSampler(
         env=env,
@@ -223,7 +264,9 @@ if __name__ == "__main__":
                         n_itr=3500,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
-                        inner_batch_size=1000)
+                        inner_batch_size=10,
+                        print_action_choices=PRINT_ACTION_CHOICES,
+                        action_print_interval=ACTION_PRINT_INTERVAL)
 
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())

@@ -87,7 +87,9 @@ if __name__ == "__main__":
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
+                                 v2v_bandwidth=5.0)  # Lower than MEC
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -119,11 +121,14 @@ if __name__ == "__main__":
     print()
     finish_time = env.get_all_locally_execute_time()
     print("avg all local solution: ", np.mean(finish_time))
+    print()
+    finish_time = env.get_all_v2v_execute_time()
+    print("avg all V2V solution: ", np.mean(finish_time))
 
-    policy = Seq2SeqPolicy(obs_dim=17,
+    policy = Seq2SeqPolicy(obs_dim=20,
                            encoder_units=128,
                            decoder_units=128,
-                           vocab_size=2,
+                           vocab_size=3,
                            name="core_policy")
 
     sampler = Seq2SeqSampler(env,
