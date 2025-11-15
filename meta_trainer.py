@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     print("********* inner_batch_size = 10  and meta_batch_size = 5 ya Ali *********")
 
-    META_BATCH_SIZE = 5
+    META_BATCH_SIZE = 10
     
     # Control flags for printing
     PRINT_ACTION_CHOICES = True  # Set to True to print action choices (0=local, 1=MEC, 2=V2V)
