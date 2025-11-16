@@ -454,6 +454,11 @@ class OffloadingEnvironment(MetaEnv):
             return return_latency, current_FT
 
     def score_func(self, cost, max_time, min_time):
+        """Score function that handles both scalars and lists/arrays.
+        
+        For lists/arrays, computes element-wise scoring.
+        """
+        cost = np.asarray(cost)
         return -(cost - min_time) / (max_time - min_time)
     
     def _compute_energy_bounds(self, task_graph, max_time, min_time):
@@ -509,14 +514,23 @@ class OffloadingEnvironment(MetaEnv):
                 max_energy, min_energy = self._compute_energy_bounds(
                     task_graph, max_running_time, min_running_time)
                 
+                # Sum energy to get total energy consumption
+                total_energy = np.sum(energy) if isinstance(energy, (list, np.ndarray)) else energy
+                
                 # Normalize energy (handle edge case where max == min)
                 if max_energy > min_energy:
-                    energy_score = self.score_func(energy, max_energy, min_energy)
+                    total_energy_score = self.score_func(total_energy, max_energy, min_energy)
+                    # Distribute energy score proportionally across steps
+                    if len(energy) > 0:
+                        energy_proportions = np.array(energy) / total_energy if total_energy > 0 else np.ones_like(energy) / len(energy)
+                        energy_score = total_energy_score * energy_proportions
+                    else:
+                        energy_score = np.array([total_energy_score])
                 else:
                     # If no variation, set to zero
                     energy_score = np.zeros_like(energy)
                 
-                # Normalize latency
+                # Normalize latency - cost is incremental latencies, normalize element-wise
                 latency_score = self.score_func(cost, max_running_time, min_running_time)
                 
                 # Combine rewards
