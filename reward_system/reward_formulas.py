@@ -46,69 +46,104 @@ class LinearReward(BaseReward):
     def get_params(self):
         return {}
 
-
 class LogarithmicReward(BaseReward):
-    """
-    Formula 2: Logarithmic Reward
-    
-    Provides better gradient signals near optimal solutions.
-    R = -log(1 - c_norm + ε) / log(base)
-    """
-    
     def compute(self, cost, max_time, min_time, log_base=10.0, epsilon=1e-6, **kwargs):
-        """
-        Compute logarithmic reward.
-        
-        Args:
-            cost: Incremental latency
-            max_time: Maximum possible latency
-            min_time: Minimum possible latency
-            log_base: Logarithm base (default: 10.0)
-            epsilon: Small constant for numerical stability (default: 1e-6)
-        
-        Returns:
-            Reward in approximately [-1, 0] range
-        """
         self.validate_inputs(cost, max_time, min_time)
-        
-        # Handle array inputs
-        is_array = isinstance(cost, (list, np.ndarray))
-        if is_array:
-            cost = np.array(cost, dtype=np.float64)
-        else:
-            cost = np.float64(cost)
-        
-        # Normalize cost
+
+        cost = np.asarray(cost, dtype=np.float64)
+
         cost_range = max_time - min_time
-        if cost_range < epsilon:
-            return np.zeros_like(cost) if is_array else 0.0
-        
-        normalized_cost = (cost - min_time) / cost_range
-        normalized_cost = np.clip(normalized_cost, epsilon, 1.0 - epsilon)
-        
-        # Logarithmic transformation
+        if cost_range <= 0:
+            return np.zeros_like(cost)
+
+        normalized_cost = cost / cost_range         
+        normalized_cost = np.clip(normalized_cost, 0.0, 1.0 - epsilon)
+
         if log_base == 'e' or log_base == np.e:
             log_func = np.log
+            base_log_eps = -np.log(epsilon)
         else:
             log_base_val = np.float64(log_base)
             log_func = lambda x: np.log(x) / np.log(log_base_val)
-        
-        # Compute logarithmic reward
-        log_reward = -log_func(1.0 - normalized_cost + epsilon)
-        
-        # Normalize to [-1, 0] range
-        log_reward_max = -log_func(epsilon)  # Best case
-        log_reward_worst = -log_func(2.0 * epsilon)  # Worst case
-        
-        normalized_reward = (log_reward - log_reward_max) / (log_reward_worst - log_reward_max)
-        
-        return normalized_reward
-    
+            base_log_eps = -log_func(epsilon)
+
+
+        log_reward = -log_func(1.0 - normalized_cost + epsilon) 
+
+
+        log_reward = log_reward / base_log_eps
+
+        reward = -log_reward
+
+        return reward
     def get_name(self):
         return "logarithmic"
     
     def get_params(self):
         return {'log_base': 10.0, 'epsilon': 1e-6}
+
+# class LogarithmicReward(BaseReward):
+#     """
+#     Formula 2: Logarithmic Reward
+    
+#     Provides better gradient signals near optimal solutions.
+#     R = -log(1 - c_norm + ε) / log(base)
+#     """
+    
+#     def compute(self, cost, max_time, min_time, log_base=10.0, epsilon=1e-6, **kwargs):
+#         """
+#         Compute logarithmic reward.
+        
+#         Args:
+#             cost: Incremental latency
+#             max_time: Maximum possible latency
+#             min_time: Minimum possible latency
+#             log_base: Logarithm base (default: 10.0)
+#             epsilon: Small constant for numerical stability (default: 1e-6)
+        
+#         Returns:
+#             Reward in approximately [-1, 0] range
+#         """
+#         self.validate_inputs(cost, max_time, min_time)
+        
+#         # Handle array inputs
+#         is_array = isinstance(cost, (list, np.ndarray))
+#         if is_array:
+#             cost = np.array(cost, dtype=np.float64)
+#         else:
+#             cost = np.float64(cost)
+        
+#         # Normalize cost
+#         cost_range = max_time - min_time
+#         if cost_range < epsilon:
+#             return np.zeros_like(cost) if is_array else 0.0
+        
+#         normalized_cost = (cost - min_time) / cost_range
+#         normalized_cost = np.clip(normalized_cost, epsilon, 1.0 - epsilon)
+        
+#         # Logarithmic transformation
+#         if log_base == 'e' or log_base == np.e:
+#             log_func = np.log
+#         else:
+#             log_base_val = np.float64(log_base)
+#             log_func = lambda x: np.log(x) / np.log(log_base_val)
+        
+#         # Compute logarithmic reward
+#         log_reward = -log_func(1.0 - normalized_cost + epsilon)
+        
+#         # Normalize to [-1, 0] range
+#         log_reward_max = -log_func(epsilon)  # Best case
+#         log_reward_worst = -log_func(2.0 * epsilon)  # Worst case
+        
+#         normalized_reward = (log_reward - log_reward_max) / (log_reward_worst - log_reward_max)
+        
+#         return normalized_reward
+    
+#     def get_name(self):
+#         return "logarithmic"
+    
+#     def get_params(self):
+#         return {'log_base': 10.0, 'epsilon': 1e-6}
 
 
 class ExponentialReward(BaseReward):
