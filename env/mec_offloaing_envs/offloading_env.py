@@ -700,7 +700,11 @@ class OffloadingEnvironment(MetaEnv):
                     for action, task_id in zip(plan, task_graph.prioritize_sequence):
                         plan_sequence.append((task_id, action))
 
-                    cos, task_finish_time = self.get_scheduling_cost_step_by_step(plan_sequence, task_graph)
+                    # Handle both energy-enabled and energy-disabled cases
+                    if self.resource_cluster.use_energy:
+                        cos, task_finish_time, _ = self.get_scheduling_cost_step_by_step(plan_sequence, task_graph)
+                    else:
+                        cos, task_finish_time = self.get_scheduling_cost_step_by_step(plan_sequence, task_graph)
                     plans_costs.append(task_finish_time)
 
                     prioritize_plan.append(plan_sequence)
@@ -727,9 +731,14 @@ class OffloadingEnvironment(MetaEnv):
             plan_sequence = []
 
             for action, task_id in zip(action_sequence,
-                                       task_graph.prioritize_sequence):
+                                      task_graph.prioritize_sequence):
                 plan_sequence.append((task_id, action))
 
+            # Call once after building the complete plan_sequence
+            # Handle both energy-enabled and energy-disabled cases
+            if self.resource_cluster.use_energy:
+                _, task_finish_time, _ = self.get_scheduling_cost_step_by_step(plan_sequence, task_graph)
+            else:
                 _, task_finish_time = self.get_scheduling_cost_step_by_step(plan_sequence, task_graph)
 
             cost_batch.append(task_finish_time)
