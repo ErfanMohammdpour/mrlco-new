@@ -72,6 +72,7 @@ class Trainer():
             # Log energy if enabled
             if self.env.resource_cluster.use_energy and 'energy' in samples_data:
                 avg_energy = np.mean(np.sum(samples_data['energy'], axis=-1))
+                print(f"Average energy per iteration {itr}: {avg_energy:.4f}")
                 logger.logkv('Average energy,', avg_energy)
             
             logger.dumpkvs()
@@ -93,7 +94,7 @@ if __name__ == "__main__":
 
     # ========== ENERGY CONFIGURATION ==========
     # Set to True to enable energy optimization alongside latency
-    USE_ENERGY = False
+    USE_ENERGY = True
     
     ENERGY_CONFIG = {
         'use_energy': USE_ENERGY,
@@ -140,10 +141,15 @@ if __name__ == "__main__":
         flat_finish_times = [item for sublist in finish_time for item in sublist]
         print("avg greedy solution: ", np.mean(flat_finish_times))
     
-    target_batch, task_finish_time_batch = env.get_reward_batch_step_by_step(action[env.task_id],
+    # Get reward batch (with energy if enabled)
+    reward_result = env.get_reward_batch_step_by_step(action[env.task_id],
                                           env.task_graphs_batchs[env.task_id],
                                           env.max_running_time_batchs[env.task_id],
                                           env.min_running_time_batchs[env.task_id])
+    if env.resource_cluster.use_energy:
+        target_batch, task_finish_time_batch, energy_batch = reward_result
+    else:
+        target_batch, task_finish_time_batch = reward_result
     discounted_reward = []
     for reward_path in target_batch:
         discounted_reward.append(utils.discount_cumsum(reward_path, 1.0)[0])
