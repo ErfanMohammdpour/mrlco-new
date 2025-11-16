@@ -68,6 +68,12 @@ class Trainer():
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+            
+            # Log energy if enabled
+            if self.env.resource_cluster.use_energy and 'energy' in samples_data:
+                avg_energy = np.mean(np.sum(samples_data['energy'], axis=-1))
+                logger.logkv('Average energy,', avg_energy)
+            
             logger.dumpkvs()
             avg_ret.append(avg_reward)
 
@@ -85,9 +91,28 @@ if __name__ == "__main__":
 
     logger.configure(dir="./meta_evaluate_ppo_log/task_offloading", format_strs=['stdout', 'log', 'csv'])
 
+    # ========== ENERGY CONFIGURATION ==========
+    # Set to True to enable energy optimization alongside latency
+    USE_ENERGY = False
+    
+    ENERGY_CONFIG = {
+        'use_energy': USE_ENERGY,
+        'energy_weight': 0.5,      # Weight for energy in combined reward
+        'latency_weight': 0.5,     # Weight for latency in combined reward
+        'rho': 1.0,                # Computation energy coefficient
+        'f_l': 1.0,                # Local CPU frequency (normalized)
+        'zeta': 2.0,               # CPU frequency exponent
+        'ptx': 0.1,                # Transmission power (Watts)
+        'prx': 0.05,               # Reception power (Watts)
+        'normalize_energy': True,   # Whether to normalize energy rewards
+    }
+    # ==========================================
+
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 use_energy=USE_ENERGY,
+                                 energy_config=ENERGY_CONFIG)
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -100,7 +125,21 @@ if __name__ == "__main__":
     print("calculate baseline solution======")
 
     env.set_task(0)
-    action, finish_time = env.greedy_solution()
+    # Get greedy solution (with energy if enabled)
+    greedy_result = env.greedy_solution()
+    if env.resource_cluster.use_energy:
+        action, finish_time, greedy_energy = greedy_result
+        # Flatten finish times and energy for averaging
+        flat_finish_times = [item for sublist in finish_time for item in sublist]
+        flat_energy = [item for sublist in greedy_energy for item in sublist]
+        print("avg greedy solution latency: ", np.mean(flat_finish_times))
+        print("avg greedy solution energy: ", np.mean(flat_energy))
+    else:
+        action, finish_time = greedy_result
+        # Flatten finish times for averaging
+        flat_finish_times = [item for sublist in finish_time for item in sublist]
+        print("avg greedy solution: ", np.mean(flat_finish_times))
+    
     target_batch, task_finish_time_batch = env.get_reward_batch_step_by_step(action[env.task_id],
                                           env.task_graphs_batchs[env.task_id],
                                           env.max_running_time_batchs[env.task_id],

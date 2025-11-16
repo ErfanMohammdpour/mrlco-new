@@ -14,10 +14,13 @@ class Resources(object):
         mobile_process_capable: computation capacity of the mobile device
         bandwidth_up: wireless uplink band width
         bandwidth_dl: wireless downlink band width
+        use_energy: boolean flag to enable energy optimization (default: False)
+        energy_config: dictionary with energy configuration parameters
     """
 
     def __init__(self, mec_process_capable,
-                  mobile_process_capable, bandwidth_up = 7.0, bandwidth_dl = 7.0):
+                  mobile_process_capable, bandwidth_up = 7.0, bandwidth_dl = 7.0,
+                  use_energy=False, energy_config=None):
         self.mec_process_capble = mec_process_capable
         self.mobile_process_capable = mobile_process_capable
         self.mobile_process_avaliable_time = 0.0
@@ -25,6 +28,20 @@ class Resources(object):
 
         self.bandwidth_up = bandwidth_up
         self.bandwidth_dl = bandwidth_dl
+        
+        # Energy extension parameters
+        self.use_energy = use_energy
+        if energy_config is None:
+            energy_config = self._default_energy_config()
+        self.energy_config = energy_config
+        
+        # Store energy weights if enabled
+        if self.use_energy:
+            self.latency_weight = energy_config.get('latency_weight', 0.5)
+            self.energy_weight = energy_config.get('energy_weight', 0.5)
+        else:
+            self.latency_weight = 1.0
+            self.energy_weight = 0.0
 
     def up_transmission_cost(self, data):
         rate = self.bandwidth_up * (1024.0 * 1024.0 / 8.0)
@@ -53,6 +70,48 @@ class Resources(object):
         computation_time = data / processing_power
 
         return computation_time
+    
+    def _default_energy_config(self):
+        """Default energy configuration parameters"""
+        return {
+            'rho': 1.0,           # Computation energy coefficient
+            'f_l': 1.0,           # Local CPU frequency (normalized)
+            'zeta': 2.0,          # CPU frequency exponent
+            'ptx': 0.1,           # Transmission power (Watts)
+            'prx': 0.05,          # Reception power (Watts)
+            'latency_weight': 0.5, # Weight for latency in combined reward
+            'energy_weight': 0.5,  # Weight for energy in combined reward
+            'normalize_energy': True,  # Whether to normalize energy rewards
+        }
+    
+    def compute_local_energy(self, execution_time):
+        """Compute energy consumption for local execution
+        
+        Args:
+            execution_time: Local execution time
+            
+        Returns:
+            Energy consumption (0.0 if use_energy=False)
+        """
+        if not self.use_energy:
+            return 0.0
+        return execution_time * self.energy_config['rho'] * \
+               (self.energy_config['f_l'] ** self.energy_config['zeta'])
+    
+    def compute_transmission_energy(self, uplink_time, downlink_time):
+        """Compute energy consumption for transmission
+        
+        Args:
+            uplink_time: Uplink transmission time
+            downlink_time: Downlink transmission time
+            
+        Returns:
+            Energy consumption (0.0 if use_energy=False)
+        """
+        if not self.use_energy:
+            return 0.0
+        return (uplink_time * self.energy_config['ptx'] + 
+                downlink_time * self.energy_config['prx'])
 
 class OffloadingEnvironment(MetaEnv):
     def __init__(self, resource_cluster, batch_size,
@@ -179,14 +238,22 @@ class OffloadingEnvironment(MetaEnv):
 
             plan_batch.append(plan_sequence)
 
-        reward_batch, task_finish_time= self.get_reward_batch_step_by_step(plan_batch,
-                                                  task_graph_batch,
-                                                  max_running_time_batch,
-                                                  min_running_time_batch)
+        # Get rewards and optionally energy
+        result = self.get_reward_batch_step_by_step(plan_batch,
+                                                     task_graph_batch,
+                                                     max_running_time_batch,
+                                                     min_running_time_batch)
+        
+        if self.resource_cluster.use_energy:
+            reward_batch, task_finish_time, energy_batch = result
+            # Include energy in info for logging
+            info = (task_finish_time, energy_batch)
+        else:
+            reward_batch, task_finish_time = result
+            info = task_finish_time
 
         done = True
         observation = np.array(self.encoder_batchs[self.task_id])
-        info = task_finish_time
 
         return observation, reward_batch, done, info
 
@@ -315,7 +382,11 @@ class OffloadingEnvironment(MetaEnv):
                 task_finish_time = FT_locally[i]
 
                 # calculate the energy consumption
-                #energy_consumption = T_l[i] * self.rho * (self.f_l ** self.zeta)
+                if self.resource_cluster.use_energy:
+                    energy_consumption = self.resource_cluster.compute_local_energy(T_l[i])
+                    return_energy.append(energy_consumption)
+                else:
+                    return_energy.append(0.0)
             # mcc scheduling
             else:
                 if len(task_graph.pre_task_sets[i]) != 0:
@@ -340,7 +411,11 @@ class OffloadingEnvironment(MetaEnv):
                     FT_wr[i] = wr_finish_time
 
                     # calculate the energy consumption
-                    #energy_consumption = T_ul[i] * self.ptx + T_dl[i] * self.prx
+                    if self.resource_cluster.use_energy:
+                        energy_consumption = self.resource_cluster.compute_transmission_energy(T_ul[i], T_dl[i])
+                        return_energy.append(energy_consumption)
+                    else:
+                        return_energy.append(0.0)
 
                 else:
                     ws_start_time = ws_avaliable_time
@@ -359,7 +434,11 @@ class OffloadingEnvironment(MetaEnv):
                     FT_wr[i] = wr_finish_time
 
                     # calculate the energy consumption
-                    #energy_consumption = T_ul[i] * self.ptx + T_dl[i] * self.prx
+                    if self.resource_cluster.use_energy:
+                        energy_consumption = self.resource_cluster.compute_transmission_energy(T_ul[i], T_dl[i])
+                        return_energy.append(energy_consumption)
+                    else:
+                        return_energy.append(0.0)
 
                 task_finish_time = wr_finish_time
 
@@ -368,15 +447,52 @@ class OffloadingEnvironment(MetaEnv):
             current_FT = max(task_finish_time, current_FT)
             return_latency.append(delta_make_span)
 
-        return return_latency, current_FT
+        # Return based on energy flag for backward compatibility
+        if self.resource_cluster.use_energy:
+            return return_latency, current_FT, return_energy
+        else:
+            return return_latency, current_FT
 
     def score_func(self, cost, max_time, min_time):
         return -(cost - min_time) / (max_time - min_time)
+    
+    def _compute_energy_bounds(self, task_graph, max_time, min_time):
+        """Compute theoretical min/max energy consumption for normalization
+        
+        Args:
+            task_graph: Task graph object
+            max_time: Maximum running time (for reference)
+            min_time: Minimum running time (for reference)
+            
+        Returns:
+            tuple: (max_energy, min_energy) or (0.0, 0.0) if energy disabled
+        """
+        if not self.resource_cluster.use_energy:
+            return 0.0, 0.0
+        
+        # Max energy: All tasks executed locally
+        max_energy = sum([
+            self.resource_cluster.compute_local_energy(
+                task.processing_data_size / self.resource_cluster.mobile_process_capable
+            ) for task in task_graph.task_list
+        ])
+        
+        # Min energy: All tasks offloaded (minimal transmission)
+        min_energy = sum([
+            self.resource_cluster.compute_transmission_energy(
+                self.resource_cluster.up_transmission_cost(task.processing_data_size),
+                self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+            ) for task in task_graph.task_list
+        ])
+        
+        return max_energy, min_energy
 
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):
         target_batch = []
         task_finish_time_batch = []
+        energy_batch = []  # NEW: Energy batch for logging
+        
         for i in range(len(action_sequence_batch)):
             max_running_time = max_running_time_batch[i]
             min_running_time = min_running_time_batch[i]
@@ -384,24 +500,59 @@ class OffloadingEnvironment(MetaEnv):
             task_graph = task_graph_batch[i]
             self.resource_cluster.reset()
             plan = action_sequence_batch[i]
-            cost, task_finish_time = self.get_scheduling_cost_step_by_step(plan, task_graph)
-
-            latency = self.score_func(cost, max_running_time, min_running_time)
-
-            score =  np.array(latency)
-            #print("score is", score)
-            target_batch.append(score)
+            
+            # Get latency and optionally energy
+            if self.resource_cluster.use_energy:
+                cost, task_finish_time, energy = self.get_scheduling_cost_step_by_step(plan, task_graph)
+                
+                # Compute energy bounds for normalization
+                max_energy, min_energy = self._compute_energy_bounds(
+                    task_graph, max_running_time, min_running_time)
+                
+                # Normalize energy (handle edge case where max == min)
+                if max_energy > min_energy:
+                    energy_score = self.score_func(energy, max_energy, min_energy)
+                else:
+                    # If no variation, set to zero
+                    energy_score = np.zeros_like(energy)
+                
+                # Normalize latency
+                latency_score = self.score_func(cost, max_running_time, min_running_time)
+                
+                # Combine rewards
+                combined_score = (self.resource_cluster.latency_weight * latency_score + 
+                                self.resource_cluster.energy_weight * energy_score)
+                
+                target_batch.append(combined_score)
+                energy_batch.append(energy)
+            else:
+                # Original behavior - backward compatible
+                cost, task_finish_time = self.get_scheduling_cost_step_by_step(plan, task_graph)
+                latency = self.score_func(cost, max_running_time, min_running_time)
+                score = np.array(latency)
+                target_batch.append(score)
+                energy_batch.append([])  # Empty for backward compatibility
+            
             task_finish_time_batch.append(task_finish_time)
 
         target_batch = np.array(target_batch)
-        return target_batch, task_finish_time_batch
+        
+        # Return based on energy flag for backward compatibility
+        if self.resource_cluster.use_energy:
+            return target_batch, task_finish_time_batch, energy_batch
+        else:
+            return target_batch, task_finish_time_batch
 
     def greedy_solution(self):
         result_plan = []
         finish_time_batchs = []
+        energy_batchs = []  # Track energy for greedy solution
+        
         for task_graph_batch in self.task_graphs_batchs:
             plan_batchs = []
             finish_time_plan = []
+            energy_plan = []  # Energy per task graph
+            
             for task_graph in task_graph_batch:
                 cloud_avaliable_time = 0.0
                 ws_avaliable_time = 0.0
@@ -415,6 +566,13 @@ class OffloadingEnvironment(MetaEnv):
                 FT_locally = [0] * task_graph.task_number
                 # finish time recieving channel for each task
                 FT_wr = [0] * task_graph.task_number
+                
+                # Energy tracking
+                total_energy = 0.0
+                T_l = [0] * task_graph.task_number
+                T_ul = [0] * task_graph.task_number
+                T_dl = [0] * task_graph.task_number
+                
                 plan = []
 
                 for i in task_graph.prioritize_sequence:
@@ -429,12 +587,14 @@ class OffloadingEnvironment(MetaEnv):
 
                     local_running_time = self.resource_cluster.locally_execution_cost(task.processing_data_size)
                     FT_locally[i] = start_time + local_running_time
+                    T_l[i] = local_running_time
 
                     # calculate the remote finish time
                     if len(task_graph.pre_task_sets[i]) != 0:
                         ws_start_time = max(ws_avaliable_time,
                                             max([max(FT_locally[j], FT_ws[j]) for j in task_graph.pre_task_sets[i]]))
-                        FT_ws[i] = ws_start_time + self.resource_cluster.up_transmission_cost(task.processing_data_size)
+                        T_ul[i] = self.resource_cluster.up_transmission_cost(task.processing_data_size)
+                        FT_ws[i] = ws_start_time + T_ul[i]
                         cloud_start_time = max(cloud_avaliable_time,
                                                max([max(FT_ws[i], FT_cloud[j]) for j in task_graph.pre_task_sets[i]]))
                         cloud_finish_time = cloud_start_time + self.resource_cluster.mec_execution_cost(
@@ -442,39 +602,67 @@ class OffloadingEnvironment(MetaEnv):
                         FT_cloud[i] = cloud_finish_time
                         # print("task {}, Cloud finish time {}".format(i, FT_cloud[i]))
                         wr_start_time = FT_cloud[i]
-                        wr_finish_time = wr_start_time + self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                        T_dl[i] = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                        wr_finish_time = wr_start_time + T_dl[i]
                         FT_wr[i] = wr_finish_time
                     else:
                         ws_start_time = ws_avaliable_time
-                        ws_finish_time = ws_start_time + self.resource_cluster.up_transmission_cost(task.processing_data_size)
+                        T_ul[i] = self.resource_cluster.up_transmission_cost(task.processing_data_size)
+                        ws_finish_time = ws_start_time + T_ul[i]
                         FT_ws[i] = ws_finish_time
 
                         cloud_start_time = max(cloud_avaliable_time, FT_ws[i])
                         FT_cloud[i] = cloud_start_time + self.resource_cluster.mec_execution_cost(
                             task.processing_data_size)
-                        FT_wr[i] = FT_cloud[i] + self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                        T_dl[i] = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                        FT_wr[i] = FT_cloud[i] + T_dl[i]
 
                     if FT_locally[i] < FT_wr[i]:
                         action = 0
                         local_avaliable_time = FT_locally[i]
+                        
+                        # Compute energy for local execution
+                        if self.resource_cluster.use_energy:
+                            total_energy += self.resource_cluster.compute_local_energy(T_l[i])
+                        
                         FT_wr[i] = 0.0
                         FT_cloud[i] = 0.0
                         FT_ws[i] = 0.0
+                        T_ul[i] = 0.0
+                        T_dl[i] = 0.0
                     else:
                         action = 1
                         FT_locally[i] = 0.0
                         cloud_avaliable_time = FT_cloud[i]
                         ws_avaliable_time = FT_ws[i]
+                        
+                        # Compute energy for offloading
+                        if self.resource_cluster.use_energy:
+                            total_energy += self.resource_cluster.compute_transmission_energy(T_ul[i], T_dl[i])
+                        
+                        T_l[i] = 0.0
+                    
                     plan.append((i, action))
 
                 finish_time = max( max(FT_wr), max(FT_locally) )
                 plan_batchs.append(plan)
                 finish_time_plan.append(finish_time)
+                
+                # Store energy for this task graph
+                if self.resource_cluster.use_energy:
+                    energy_plan.append(total_energy)
+                else:
+                    energy_plan.append(0.0)
 
             finish_time_batchs.append(finish_time_plan)
             result_plan.append(plan_batchs)
+            energy_batchs.append(energy_plan)
 
-        return result_plan, finish_time_batchs
+        # Return based on energy flag for backward compatibility
+        if self.resource_cluster.use_energy:
+            return result_plan, finish_time_batchs, energy_batchs
+        else:
+            return result_plan, finish_time_batchs
 
     def calculate_optimal_solution(self):
         # Finding the optimal solution via exhausting search the solution space.
@@ -575,9 +763,14 @@ class OffloadingEnvironment(MetaEnv):
         return running_cost
 
     def greedy_solution_for_current_task(self):
-        result_plan, finish_time_batchs = self.greedy_solution()
-
-        return result_plan[self.task_id], finish_time_batchs[self.task_id]
+        greedy_result = self.greedy_solution()
+        
+        if self.resource_cluster.use_energy:
+            result_plan, finish_time_batchs, energy_batchs = greedy_result
+            return result_plan[self.task_id], finish_time_batchs[self.task_id], energy_batchs[self.task_id]
+        else:
+            result_plan, finish_time_batchs = greedy_result
+            return result_plan[self.task_id], finish_time_batchs[self.task_id]
 
 
 

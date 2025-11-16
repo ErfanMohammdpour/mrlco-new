@@ -40,6 +40,7 @@ class Trainer(object):
         policy_losses_all = []
         value_losses_all = []
         greedy_latencies_all = []
+        avg_energies = []  # Track energy metrics for reporting
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -93,10 +94,25 @@ class Trainer(object):
             avg_latency = np.mean(latency)
             avg_latencies.append(avg_latency)
 
-
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+            
+            # Log and track energy if enabled
+            if self.env.resource_cluster.use_energy:
+                energy = np.array([])
+                for i in range(5):
+                    if 'energy' in new_samples_data[i]:
+                        energy = np.concatenate((energy, np.sum(new_samples_data[i]['energy'], axis=-1)), axis=-1)
+                if len(energy) > 0:
+                    avg_energy = np.mean(energy)
+                    logger.logkv('Average energy,', avg_energy)
+                    avg_energies.append(avg_energy)
+                else:
+                    avg_energies.append(0.0)  # Append 0 if no energy data
+            else:
+                # Track empty list when energy disabled (for consistency)
+                avg_energies.append(None)
 
             logger.dumpkvs()
             avg_ret.append(avg_reward)
@@ -114,6 +130,14 @@ class Trainer(object):
                 'value_losses': value_losses_all,
                 'greedy_latencies': greedy_latencies_all
             }
+            
+            # Add energy metrics if enabled
+            if self.env.resource_cluster.use_energy and len(avg_energies) > 0:
+                # Filter out None values if any
+                energy_values = [e for e in avg_energies if e is not None]
+                if len(energy_values) > 0:
+                    additional_metrics['average_energy'] = energy_values
+                    print(f"Added energy metrics to report ({len(energy_values)} iterations)")
             
             report_dir = create_training_report(
                 avg_ret=avg_ret,
@@ -144,9 +168,28 @@ if __name__ == "__main__":
 
     META_BATCH_SIZE = 10
 
+    # ========== ENERGY CONFIGURATION ==========
+    # Set to True to enable energy optimization alongside latency
+    USE_ENERGY = False
+    
+    ENERGY_CONFIG = {
+        'use_energy': USE_ENERGY,
+        'energy_weight': 0.5,      # Weight for energy in combined reward
+        'latency_weight': 0.5,     # Weight for latency in combined reward
+        'rho': 1.0,                # Computation energy coefficient
+        'f_l': 1.0,                # Local CPU frequency (normalized)
+        'zeta': 2.0,               # CPU frequency exponent
+        'ptx': 0.1,                # Transmission power (Watts)
+        'prx': 0.05,               # Reception power (Watts)
+        'normalize_energy': True,   # Whether to normalize energy rewards
+    }
+    # ==========================================
+
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
-                                 bandwidth_up=7.0, bandwidth_dl=7.0)
+                                 bandwidth_up=7.0, bandwidth_dl=7.0,
+                                 use_energy=USE_ENERGY,
+                                 energy_config=ENERGY_CONFIG)
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -177,8 +220,20 @@ if __name__ == "__main__":
                                 ],
                                 time_major=False)
 
-    action, greedy_finish_time = env.greedy_solution()
-    print("avg greedy solution: ", np.mean(greedy_finish_time))
+    # Get greedy solution (with energy if enabled)
+    greedy_result = env.greedy_solution()
+    if env.resource_cluster.use_energy:
+        action, greedy_finish_time, greedy_energy = greedy_result
+        # Flatten finish times and energy for averaging
+        flat_finish_times = [item for sublist in greedy_finish_time for item in sublist]
+        flat_energy = [item for sublist in greedy_energy for item in sublist]
+        print("avg greedy solution latency: ", np.mean(flat_finish_times))
+        print("avg greedy solution energy: ", np.mean(flat_energy))
+    else:
+        action, greedy_finish_time = greedy_result
+        # Flatten finish times for averaging
+        flat_finish_times = [item for sublist in greedy_finish_time for item in sublist]
+        print("avg greedy solution: ", np.mean(flat_finish_times))
     print()
     finish_time = env.get_all_mec_execute_time()
     print("avg all remote solution: ", np.mean(finish_time))
