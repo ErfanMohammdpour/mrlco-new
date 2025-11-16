@@ -385,9 +385,6 @@ class OffloadingEnvironment(MetaEnv):
                 if self.resource_cluster.use_energy:
                     energy_consumption = self.resource_cluster.compute_local_energy(T_l[i])
                     return_energy.append(energy_consumption)
-                    # Debug: Print first energy computation
-                    if i == 0 and len(return_energy) == 1:
-                        print(f"[DEBUG] Local energy computed: task={i}, time={T_l[i]}, energy={energy_consumption}, use_energy={self.resource_cluster.use_energy}")
                 else:
                     return_energy.append(0.0)
             # mcc scheduling
@@ -417,9 +414,6 @@ class OffloadingEnvironment(MetaEnv):
                     if self.resource_cluster.use_energy:
                         energy_consumption = self.resource_cluster.compute_transmission_energy(T_ul[i], T_dl[i])
                         return_energy.append(energy_consumption)
-                        # Debug: Print first transmission energy computation
-                        if i == 0 and len(return_energy) == 1:
-                            print(f"[DEBUG] Transmission energy computed: task={i}, T_ul={T_ul[i]}, T_dl={T_dl[i]}, energy={energy_consumption}, use_energy={self.resource_cluster.use_energy}")
                     else:
                         return_energy.append(0.0)
 
@@ -443,9 +437,6 @@ class OffloadingEnvironment(MetaEnv):
                     if self.resource_cluster.use_energy:
                         energy_consumption = self.resource_cluster.compute_transmission_energy(T_ul[i], T_dl[i])
                         return_energy.append(energy_consumption)
-                        # Debug: Print first transmission energy computation
-                        if i == 0 and len(return_energy) == 1:
-                            print(f"[DEBUG] Transmission energy computed: task={i}, T_ul={T_ul[i]}, T_dl={T_dl[i]}, energy={energy_consumption}, use_energy={self.resource_cluster.use_energy}")
                     else:
                         return_energy.append(0.0)
 
@@ -526,14 +517,6 @@ class OffloadingEnvironment(MetaEnv):
                 # Sum energy to get total energy consumption
                 total_energy = np.sum(energy) if isinstance(energy, (list, np.ndarray)) else energy
                 
-                # Debug: Print energy computation details (first batch only)
-                if i == 0 and len(target_batch) == 0:
-                    print(f"[DEBUG] Energy enabled: {self.resource_cluster.use_energy}")
-                    print(f"[DEBUG] Energy values: {energy}")
-                    print(f"[DEBUG] Total energy: {total_energy}")
-                    print(f"[DEBUG] Max energy: {max_energy}, Min energy: {min_energy}")
-                    print(f"[DEBUG] Energy weights: latency={self.resource_cluster.latency_weight}, energy={self.resource_cluster.energy_weight}")
-                
                 # Normalize energy (handle edge case where max == min)
                 if max_energy > min_energy:
                     total_energy_score = self.score_func(total_energy, max_energy, min_energy)
@@ -546,16 +529,9 @@ class OffloadingEnvironment(MetaEnv):
                         energy_score = np.full_like(energy, total_energy_score / len(energy), dtype=float)
                     else:
                         energy_score = np.array([total_energy_score])
-                    
-                    # Debug: Print energy score details (first batch only)
-                    if i == 0 and len(target_batch) == 0:
-                        print(f"[DEBUG] Total energy score: {total_energy_score}")
-                        print(f"[DEBUG] Energy score per step: {energy_score}")
                 else:
                     # If no variation, set to zero
                     energy_score = np.zeros_like(energy)
-                    if i == 0 and len(target_batch) == 0:
-                        print(f"[DEBUG] WARNING: max_energy == min_energy ({max_energy}), energy_score set to zero!")
                 
                 # Normalize latency - cost is incremental latencies, normalize element-wise
                 latency_score = self.score_func(cost, max_running_time, min_running_time)
@@ -563,13 +539,6 @@ class OffloadingEnvironment(MetaEnv):
                 # Combine rewards
                 combined_score = (self.resource_cluster.latency_weight * latency_score + 
                                 self.resource_cluster.energy_weight * energy_score)
-                
-                # Debug: Print combined score details (first batch only)
-                if i == 0 and len(target_batch) == 0:
-                    print(f"[DEBUG] Latency score (first 3): {latency_score[:3] if len(latency_score) > 3 else latency_score}")
-                    print(f"[DEBUG] Combined score (first 3): {combined_score[:3] if len(combined_score) > 3 else combined_score}")
-                    print(f"[DEBUG] Latency contribution (first 3): {(self.resource_cluster.latency_weight * latency_score)[:3] if len(latency_score) > 3 else (self.resource_cluster.latency_weight * latency_score)}")
-                    print(f"[DEBUG] Energy contribution (first 3): {(self.resource_cluster.energy_weight * energy_score)[:3] if len(energy_score) > 3 else (self.resource_cluster.energy_weight * energy_score)}")
                 
                 target_batch.append(combined_score)
                 energy_batch.append(energy)

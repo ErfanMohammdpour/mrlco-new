@@ -106,9 +106,11 @@ class Trainer(object):
                         energy = np.concatenate((energy, np.sum(new_samples_data[i]['energy'], axis=-1)), axis=-1)
                 if len(energy) > 0:
                     avg_energy = np.mean(energy)
+                    print(f"Average energy per iteration {itr}: {avg_energy:.4f}")
                     logger.logkv('Average energy,', avg_energy)
                     avg_energies.append(avg_energy)
                 else:
+                    print(f"Average energy per iteration {itr}: 0.0 (no energy data)")
                     avg_energies.append(0.0)  # Append 0 if no energy data
             else:
                 # Track empty list when energy disabled (for consistency)
