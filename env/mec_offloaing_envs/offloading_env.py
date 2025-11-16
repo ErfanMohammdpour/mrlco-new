@@ -370,8 +370,24 @@ class OffloadingEnvironment(MetaEnv):
 
         return return_latency, current_FT
 
-    def score_func(self, cost, max_time, min_time):
-        return -(cost - min_time) / (max_time - min_time)
+    def score_func(self, cost, max_time, min_time, **kwargs):
+        """
+        Compute reward using the configured reward function.
+        
+        Args:
+            cost: Incremental latency
+            max_time: Maximum possible latency
+            min_time: Minimum possible latency
+            **kwargs: Additional parameters for reward function
+        
+        Returns:
+            Reward value
+        """
+        if hasattr(self, 'reward_function') and self.reward_function is not None:
+            return self.reward_function.compute(cost, max_time, min_time, **kwargs)
+        else:
+            # Default linear reward (backward compatibility)
+            return -(cost - min_time) / (max_time - min_time)
 
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):

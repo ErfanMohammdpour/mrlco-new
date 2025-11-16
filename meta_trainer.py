@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import time
+import argparse
 from utils import logger
 from automated_reporting import create_training_report
 
@@ -138,9 +139,26 @@ if __name__ == "__main__":
     from samplers.seq2seq_meta_sampler_process import Seq2SeqMetaSamplerProcessor
     from baselines.vf_baseline import ValueFunctionBaseline
     from meta_algos.MRLCO import MRLCO
+    from reward_system.reward_registry import RewardRegistry
+
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Train MRLCO with different reward functions')
+    parser.add_argument('--reward', type=str, default='linear',
+                        choices=['linear', 'logarithmic', 'exponential', 'temporal_difference', 'adaptive_difficulty'],
+                        help='Reward function to use (default: linear)')
+    args = parser.parse_args()
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
+    
+    # Get reward function
+    reward_function = RewardRegistry.get(args.reward)
+    if reward_function is None:
+        raise ValueError(f"Reward '{args.reward}' not found. Available rewards: {RewardRegistry.list_all()}")
+    
+    print(f"\n{'='*80}")
+    print(f"Using Reward Function: {args.reward.upper()}")
+    print(f"{'='*80}\n")
 
     META_BATCH_SIZE = 10
 
@@ -176,6 +194,10 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
+    
+    # Set reward function in environment
+    env.reward_function = reward_function
+    env.reward_type = args.reward
 
     action, greedy_finish_time = env.greedy_solution()
     print("avg greedy solution: ", np.mean(greedy_finish_time))
