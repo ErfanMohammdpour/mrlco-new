@@ -160,7 +160,7 @@ if __name__ == "__main__":
     print(f"Using Reward Function: {args.reward.upper()}")
     print(f"{'='*80}\n")
 
-    META_BATCH_SIZE = 10
+    META_BATCH_SIZE = 5
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
@@ -176,22 +176,22 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_4/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_16/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_20/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_24/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_16/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_20/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_24/random.20.",
+                                    # "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
     
@@ -242,7 +242,7 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=3500,
+                        n_itr=100,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
                         inner_batch_size=1000)
