@@ -11,7 +11,8 @@ from reward_system.reward_formulas import (
     LogarithmicReward,
     ExponentialReward,
     TemporalDifferenceReward,
-    AdaptiveDifficultyReward
+    AdaptiveDifficultyReward,
+    GreedyNormalizedReward
 )
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     'LogarithmicReward',
     'ExponentialReward',
     'TemporalDifferenceReward',
-    'AdaptiveDifficultyReward'
+    'AdaptiveDifficultyReward',
+    'GreedyNormalizedReward'
 ]
 

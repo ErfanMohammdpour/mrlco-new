@@ -144,7 +144,7 @@ if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Train MRLCO with different reward functions')
     parser.add_argument('--reward', type=str, default='linear',
-                        choices=['linear', 'logarithmic', 'exponential', 'temporal_difference', 'adaptive_difficulty'],
+                        choices=['linear', 'logarithmic', 'exponential', 'temporal_difference', 'adaptive_difficulty', 'greedy_normalized'],
                         help='Reward function to use (default: linear)')
     args = parser.parse_args()
 
@@ -200,6 +200,7 @@ if __name__ == "__main__":
     env.reward_type = args.reward
 
     action, greedy_finish_time = env.greedy_solution()
+    env.greedy_finish_time = greedy_finish_time
     print("avg greedy solution: ", np.mean(greedy_finish_time))
     print()
     finish_time = env.get_all_mec_execute_time()

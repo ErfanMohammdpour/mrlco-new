@@ -393,6 +393,10 @@ class OffloadingEnvironment(MetaEnv):
                                       max_running_time_batch, min_running_time_batch):
         target_batch = []
         task_finish_time_batch = []
+        
+        # Get greedy_finish_time if available
+        greedy_finish_time = getattr(self, "greedy_finish_time", None)
+        
         for i in range(len(action_sequence_batch)):
             max_running_time = max_running_time_batch[i]
             min_running_time = min_running_time_batch[i]
@@ -402,7 +406,18 @@ class OffloadingEnvironment(MetaEnv):
             plan = action_sequence_batch[i]
             cost, task_finish_time = self.get_scheduling_cost_step_by_step(plan, task_graph)
 
-            latency = self.score_func(cost, max_running_time, min_running_time)
+            # Prepare keyword arguments for score_func
+            score_kwargs = {}
+            if greedy_finish_time is not None and self.task_id >= 0:
+                try:
+                    greedy_time = greedy_finish_time[self.task_id][i]
+                    score_kwargs['greedy_time'] = greedy_time
+                    score_kwargs['episode_time'] = task_finish_time
+                except (IndexError, TypeError):
+                    # If indexing fails, skip greedy_time (fallback to default behavior)
+                    pass
+
+            latency = self.score_func(cost, max_running_time, min_running_time, **score_kwargs)
 
             score =  np.array(latency)
             #print("score is", score)

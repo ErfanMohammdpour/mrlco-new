@@ -262,6 +262,58 @@ class AdaptiveDifficultyReward(BaseReward):
         return {'base_temperature': 2.0}
 
 
+class GreedyNormalizedReward(BaseReward):
+    """
+    Formula 6: Greedy Normalized Reward
+    
+    Rewards based on normalized gap from greedy solution.
+    R = -gap, where gap = max(0, min(1, (episode_time - greedy_time) / greedy_time))
+    """
+    
+    def compute(self, cost, max_time, min_time, greedy_time=None, episode_time=None, **kwargs):
+        """
+        Compute greedy normalized reward.
+        
+        Args:
+            cost: Incremental latency (not used, kept for interface compatibility)
+            max_time: Maximum possible latency (not used, kept for interface compatibility)
+            min_time: Minimum possible latency (not used, kept for interface compatibility)
+            greedy_time: Greedy solution finish time (required)
+            episode_time: Episode finish time (required)
+        
+        Returns:
+            Reward in [-1, 0] range, broadcast as constant over all timesteps
+        """
+        if greedy_time is None or episode_time is None:
+            # Fallback to linear reward if greedy_time or episode_time not provided
+            cost_range = max_time - min_time
+            if cost_range < 1e-8:
+                return np.zeros_like(cost) if isinstance(cost, (list, np.ndarray)) else 0.0
+            return -(cost - min_time) / cost_range
+        
+        # Compute gap: normalized difference from greedy solution
+        if greedy_time <= 0:
+            gap = 1.0  # Worst case if greedy_time is invalid
+        else:
+            gap = (episode_time - greedy_time) / greedy_time
+            gap = max(0.0, min(1.0, gap))  # Clip to [0, 1]
+        
+        # Reward is negative gap, broadcast as constant
+        reward = -gap
+        
+        # Broadcast as constant over all timesteps (if cost is array-like)
+        if isinstance(cost, (list, np.ndarray)):
+            return np.ones_like(cost, dtype=np.float64) * reward
+        else:
+            return reward
+    
+    def get_name(self):
+        return "greedy_normalized"
+    
+    def get_params(self):
+        return {}
+
+
 # Register all rewards
 from reward_system.reward_registry import RewardRegistry
 
@@ -270,4 +322,5 @@ RewardRegistry.register('logarithmic', LogarithmicReward)
 RewardRegistry.register('exponential', ExponentialReward)
 RewardRegistry.register('temporal_difference', TemporalDifferenceReward)
 RewardRegistry.register('adaptive_difficulty', AdaptiveDifficultyReward)
+RewardRegistry.register('greedy_normalized', GreedyNormalizedReward)
 
