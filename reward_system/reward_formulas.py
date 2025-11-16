@@ -387,7 +387,7 @@ class AdaptiveDifficultyReward(BaseReward):
     def get_params(self):
         return {"base_temperature": 2.0}
         
-class GreedyShapedLinearReward(BaseReward):
+class GreedyNormalizedReward(BaseReward):
     def compute(self, cost, max_time, min_time,
                 greedy_time=None, episode_time=None,
                 beta=0.5, **kwargs):
