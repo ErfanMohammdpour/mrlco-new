@@ -170,7 +170,7 @@ if __name__ == "__main__":
 
     # ========== ENERGY CONFIGURATION ==========
     # Set to True to enable energy optimization alongside latency
-    USE_ENERGY = TRUE
+    USE_ENERGY = True
     
     ENERGY_CONFIG = {
         'use_energy': USE_ENERGY,
