@@ -63,7 +63,14 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         # 3) compute advantages and adjusted rewards
         paths = self._compute_advantages(paths, all_path_baselines)
 
-        observations, actions, logits, rewards, returns, values, advantages, finish_time = self._append_path_data(paths)
+        path_data = self._append_path_data(paths)
+        
+        # Handle optional energy data
+        if len(path_data) == 9:  # Includes energy
+            observations, actions, logits, rewards, returns, values, advantages, finish_time, energy = path_data
+        else:
+            observations, actions, logits, rewards, returns, values, advantages, finish_time = path_data
+            energy = None
 
         decoder_full_lengths = np.array(observations.shape[0] * [observations.shape[1]])
         # 5) if desired normalize / shift advantages
@@ -84,6 +91,10 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
             advantages=advantages,
             finish_time=finish_time
         )
+        
+        # Add energy if available
+        if energy is not None:
+            samples_data['energy'] = energy
 
         return samples_data, paths
 
@@ -97,5 +108,9 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         advantages = np.array([path["advantages"] for path in paths])
         finish_time = np.array([path["finish_time"] for path in paths])
         
-        return observations, actions,logits, rewards, returns, values, advantages, finish_time
-
+        # Handle energy if present (optional, for logging)
+        if "energy" in paths[0] and paths[0]["energy"] is not None:
+            energy = np.array([path["energy"] for path in paths])
+            return observations, actions, logits, rewards, returns, values, advantages, finish_time, energy
+        else:
+            return observations, actions, logits, rewards, returns, values, advantages, finish_time

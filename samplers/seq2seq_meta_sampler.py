@@ -106,28 +106,48 @@ class Seq2SeqMetaSampler(Sampler):
 
             #  stack agent_infos and if no infos were provided (--> None) create empty dicts
             new_samples = 0
-            for idx, observation, action, logit, reward, value, done, task_finish_times in zip(itertools.count(), obses, actions, logits,
+            for idx, observation, action, logit, reward, value, done, env_info in zip(itertools.count(), obses, actions, logits,
                                                                                     rewards, values, dones, env_infos):
+                # Handle energy in env_info (backward compatible)
+                if hasattr(self.env, 'resource_cluster') and self.env.resource_cluster.use_energy:
+                    if isinstance(env_info, tuple) and len(env_info) == 2:
+                        task_finish_times, energy_info = env_info
+                    else:
+                        task_finish_times = env_info
+                        energy_info = None
+                else:
+                    task_finish_times = env_info
+                    energy_info = None
+                
                 # append new samples to running paths
-
                 # handling
-                for single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time \
-                        in zip(observation, action, logit, reward, value, task_finish_times):
+                for i, (single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time) \
+                        in enumerate(zip(observation, action, logit, reward, value, task_finish_times)):
                     running_paths[idx]["observations"]= single_ob
                     running_paths[idx]["actions"] = single_ac
                     running_paths[idx]["logits"] = single_logit
                     running_paths[idx]["rewards"] = single_reward
                     running_paths[idx]["finish_time"] = single_task_finish_time
                     running_paths[idx]["values"] = single_value
+                    
+                    # Store energy if enabled (energy_info[i] is the energy list for trajectory i)
+                    if energy_info is not None and i < len(energy_info):
+                        running_paths[idx]["energy"] = energy_info[i]
 
-                    paths[idx // self.envs_per_task].append(dict(
+                    path_dict = dict(
                         observations=np.squeeze(np.asarray(running_paths[idx]["observations"])),
                         actions=np.squeeze(np.asarray(running_paths[idx]["actions"])),
                         logits = np.squeeze(np.asarray(running_paths[idx]["logits"])),
                         rewards=np.squeeze(np.asarray(running_paths[idx]["rewards"])),
                         finish_time = np.squeeze(np.asarray(running_paths[idx]["finish_time"])),
                         values  = np.squeeze(np.asarray(running_paths[idx]["values"]))
-                    ))
+                    )
+                    
+                    # Add energy to path if available
+                    if "energy" in running_paths[idx]:
+                        path_dict["energy"] = np.asarray(running_paths[idx]["energy"])
+                    
+                    paths[idx // self.envs_per_task].append(path_dict)
 
                 # if running path is done, add it to paths and empty the running path
                     new_samples += len(running_paths[idx]["rewards"])
@@ -146,7 +166,6 @@ class Seq2SeqMetaSampler(Sampler):
 
 def _get_empty_running_paths_dict():
     return dict(observations=[], actions=[], logits=[], rewards=[])
-
 
 
 

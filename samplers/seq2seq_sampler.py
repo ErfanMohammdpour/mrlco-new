@@ -81,24 +81,40 @@ class Seq2SeqSampler(Sampler):
 
             #  stack agent_infos and if no infos were provided (--> None) create empty dicts
             new_samples = 0
-            for observation, action, logit, reward, value, finish_time in zip(obses, actions, logits,
+            # Handle energy if enabled (env_infos can be tuple (finish_time, energy) or just finish_time)
+            for observation, action, logit, reward, value, env_info in zip(obses, actions, logits,
                                                                        rewards, values, env_infos):
                 running_paths["observations"] = observation
                 running_paths["actions"] = action
                 running_paths["logits"] = logit
                 running_paths["rewards"] = reward
                 running_paths["values"] = value
-                running_paths["finish_time"] = finish_time
+                
+                # Extract finish_time and energy from env_info
+                if isinstance(env_info, tuple) and len(env_info) == 2:
+                    finish_time, energy = env_info
+                    running_paths["finish_time"] = finish_time
+                    running_paths["energy"] = energy
+                else:
+                    finish_time = env_info
+                    running_paths["finish_time"] = finish_time
+                    running_paths["energy"] = None
+                
                 # handling
-
-                paths.append(dict(
+                path_dict = dict(
                     observations=np.squeeze(np.asarray(running_paths["observations"])),
                     actions=np.squeeze(np.asarray(running_paths["actions"])),
                     logits=np.squeeze(np.asarray(running_paths["logits"])),
                     rewards=np.squeeze(np.asarray(running_paths["rewards"])),
                     values=np.squeeze(np.asarray(running_paths["values"])),
                     finish_time=np.squeeze(np.asarray(running_paths["finish_time"]))
-                ))
+                )
+                
+                # Add energy to path if available
+                if running_paths["energy"] is not None:
+                    path_dict["energy"] = np.asarray(running_paths["energy"])
+                
+                paths.append(path_dict)
 
                 # if running path is done, add it to paths and empty the running path
                 new_samples += len(running_paths["rewards"])
