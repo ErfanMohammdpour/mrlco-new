@@ -57,7 +57,8 @@ class Resources(object):
 class OffloadingEnvironment(MetaEnv):
     def __init__(self, resource_cluster, batch_size,
                  graph_number,
-                 graph_file_paths, time_major):
+                 graph_file_paths, time_major,
+                 reward_type='linear', reward_params=None):
         self.resource_cluster = resource_cluster
         self.task_graphs_batchs = []
         self.encoder_batchs = []
@@ -66,6 +67,24 @@ class OffloadingEnvironment(MetaEnv):
         self.max_running_time_batchs = []
         self.min_running_time_batchs = []
         self.graph_file_paths = graph_file_paths
+        
+        # Reward system setup
+        try:
+            from reward_system.reward_registry import RewardRegistry
+            self.reward_type = reward_type
+            self.reward_params = reward_params or {}
+            self.reward_function = RewardRegistry.get(reward_type)
+            if self.reward_function is None:
+                # Fallback to default if reward not found
+                self.reward_function = RewardRegistry.get_default()
+                self.reward_type = 'linear'
+                print(f"Warning: Reward '{reward_type}' not found, using default 'linear'")
+        except ImportError:
+            # If reward_system not available, use default linear reward
+            self.reward_type = 'linear'
+            self.reward_params = {}
+            self.reward_function = None
+            print("Warning: reward_system not available, using default linear reward")
 
         # load all the task graphs into the evnironment
         for graph_file_path in graph_file_paths:
@@ -370,8 +389,26 @@ class OffloadingEnvironment(MetaEnv):
 
         return return_latency, current_FT
 
-    def score_func(self, cost, max_time, min_time):
-        return -(cost - min_time) / (max_time - min_time)
+    def score_func(self, cost, max_time, min_time, **kwargs):
+        """
+        Compute reward using registered reward function.
+        
+        Args:
+            cost: Incremental latency
+            max_time: Maximum possible latency
+            min_time: Minimum possible latency
+            **kwargs: Additional parameters
+        
+        Returns:
+            Reward value(s)
+        """
+        # Use reward function if available, otherwise use default linear
+        if self.reward_function is not None:
+            params = {**self.reward_params, **kwargs}
+            return self.reward_function.compute(cost, max_time, min_time, **params)
+        else:
+            # Default linear reward (backward compatibility)
+            return -(cost - min_time) / (max_time - min_time + 1e-8)
 
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):

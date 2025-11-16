@@ -14,7 +14,9 @@ class Trainer(object):
                 greedy_finish_time,
                 start_itr=0,
                 inner_batch_size = 500,
-                save_interval = 100):
+                save_interval = 100,
+                test_rewards=False,
+                reward_test_config=None):
         self.algo = algo
         self.env = env
         self.sampler = sampler
@@ -25,12 +27,23 @@ class Trainer(object):
         self.inner_batch_size = inner_batch_size
         self.greedy_finish_time = greedy_finish_time
         self.save_interval = save_interval
+        self.test_rewards = test_rewards
+        self.reward_test_config = reward_test_config or {}
 
     def train(self):
         """
         Implement the MRLCO training process for task offloading problem
         """
-
+        # Check if reward testing is enabled
+        if self.test_rewards:
+            return self._train_with_reward_testing()
+        else:
+            return self._normal_training()
+    
+    def _normal_training(self):
+        """
+        Normal training loop (existing implementation).
+        """
         start_time = time.time()
         avg_ret = []
         avg_loss = []
@@ -128,6 +141,62 @@ class Trainer(object):
             print("Training completed successfully but report generation failed.")
 
         return avg_ret, avg_loss, avg_latencies
+    
+    def _train_with_reward_testing(self):
+        """
+        Training with reward testing enabled.
+        Tests all reward functions and compares results.
+        """
+        import tensorflow as tf
+        
+        print("\n" + "="*80)
+        print("REWARD TESTING MODE ENABLED")
+        print("="*80)
+        print("This will test all reward functions and compare results.")
+        print("Normal training will be skipped.")
+        print("="*80 + "\n")
+        
+        # Get session
+        sess = tf.compat.v1.get_default_session()
+        if sess is None:
+            raise RuntimeError("Reward testing requires a TensorFlow session. Please run within a session context.")
+        
+        # Initialize reward tester
+        from reward_system.reward_tester import RewardTester
+        
+        reward_tester = RewardTester(
+            base_env=self.env,
+            base_algo=self.algo,
+            base_sampler=self.sampler,
+            base_sample_processor=self.sampler_processor,
+            base_policy=self.policy,
+            greedy_finish_time=self.greedy_finish_time,
+            n_itr_per_reward=self.reward_test_config.get('n_itr_per_reward', self.n_itr),
+            reward_names=self.reward_test_config.get('reward_names', None),
+            inner_batch_size=self.inner_batch_size,
+            save_interval=self.save_interval,
+            checkpoint_dir=self.reward_test_config.get('checkpoint_dir', './checkpoints'),
+            session=sess
+        )
+        
+        # Run comparison training
+        comparison_results = reward_tester.run_comparison_training()
+        
+        # Return results in compatible format
+        # Extract best performing reward's metrics for compatibility
+        if comparison_results.get('overall_ranking'):
+            best_reward = comparison_results['overall_ranking'][0]
+            best_metrics = comparison_results['detailed_comparison'][best_reward]
+            
+            # Return in same format as normal training
+            avg_ret = best_metrics.get('avg_reward', [])
+            avg_loss = best_metrics.get('avg_policy_loss', [])
+            avg_latencies = best_metrics.get('avg_latency', [])
+            
+            return avg_ret, avg_loss, avg_latencies
+        else:
+            # Fallback if no valid results
+            return [], [], []
 
 
 if __name__ == "__main__":
