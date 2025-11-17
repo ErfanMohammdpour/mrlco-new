@@ -89,7 +89,20 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         returns = np.array([path["returns"] for path in paths])
         values = np.array([path["values"] for path in paths])
         advantages = np.array([path["advantages"] for path in paths])
-        finish_time = np.array([path["finish_time"] for path in paths])
+        
+        # Handle finish_time - ensure it's a scalar for each path
+        finish_times = []
+        for path in paths:
+            ft = path["finish_time"]
+            # Convert to scalar if it's an array/list
+            if isinstance(ft, (list, np.ndarray)):
+                if len(ft) > 0:
+                    # Take the last element (final finish time) or max if multiple
+                    ft = float(np.max(ft) if len(ft) > 1 else ft[-1] if len(ft) == 1 else ft[0])
+                else:
+                    ft = 0.0
+            finish_times.append(ft)
+        finish_time = np.array(finish_times)
         
         # Handle energy if present (optional, for logging)
         if "energy" in paths[0] and paths[0]["energy"] is not None:

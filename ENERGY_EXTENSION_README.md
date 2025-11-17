@@ -541,3 +541,4 @@ The energy extension provides a clean, backward-compatible way to optimize both 
 
 To use the extension, simply set `use_energy=True` and configure the energy parameters. The system will automatically optimize both objectives while maintaining full compatibility with the original latency-only mode.
 
+

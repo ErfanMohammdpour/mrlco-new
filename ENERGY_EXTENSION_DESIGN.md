@@ -483,3 +483,4 @@ This design provides a clean, backward-compatible extension for energy optimizat
 
 The implementation follows a minimal-invasive approach, ensuring the existing system remains unchanged while providing a powerful extension for energy-aware optimization.
 
+

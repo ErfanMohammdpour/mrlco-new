@@ -81,23 +81,55 @@ class Seq2SeqSampler(Sampler):
 
             #  stack agent_infos and if no infos were provided (--> None) create empty dicts
             new_samples = 0
-            # Handle energy if enabled (env_infos can be tuple (finish_time, energy) or just finish_time)
-            for observation, action, logit, reward, value, env_info in zip(obses, actions, logits,
-                                                                       rewards, values, env_infos):
+            # Handle energy if enabled (env_infos is a single batch-level object, not a list)
+            # Extract batch-level finish_time and energy
+            if isinstance(env_infos, tuple) and len(env_infos) == 2:
+                task_finish_times_batch, energy_batch = env_infos
+            else:
+                task_finish_times_batch = env_infos
+                energy_batch = None
+            
+            # Convert to list if needed (ensure it's iterable)
+            if not isinstance(task_finish_times_batch, (list, np.ndarray)):
+                task_finish_times_batch = [task_finish_times_batch]
+            elif isinstance(task_finish_times_batch, np.ndarray) and task_finish_times_batch.ndim == 0:
+                # Handle scalar numpy array
+                task_finish_times_batch = [float(task_finish_times_batch)]
+            elif isinstance(task_finish_times_batch, np.ndarray):
+                # Convert numpy array to list for easier indexing
+                task_finish_times_batch = task_finish_times_batch.tolist()
+            
+            if energy_batch is not None:
+                if not isinstance(energy_batch, (list, np.ndarray)):
+                    energy_batch = [energy_batch]
+                elif isinstance(energy_batch, np.ndarray) and energy_batch.ndim == 0:
+                    energy_batch = [energy_batch]
+                elif isinstance(energy_batch, np.ndarray):
+                    energy_batch = energy_batch.tolist()
+            
+            # Iterate over individual trajectories in the batch
+            for i, (observation, action, logit, reward, value) in enumerate(zip(obses, actions, logits,
+                                                                       rewards, values)):
                 running_paths["observations"] = observation
                 running_paths["actions"] = action
                 running_paths["logits"] = logit
                 running_paths["rewards"] = reward
                 running_paths["values"] = value
                 
-                # Extract finish_time and energy from env_info
-                if isinstance(env_info, tuple) and len(env_info) == 2:
-                    finish_time, energy = env_info
+                # Extract individual finish_time and energy from batch
+                if i < len(task_finish_times_batch):
+                    finish_time = task_finish_times_batch[i]
+                    # Ensure finish_time is a scalar (not array)
+                    if isinstance(finish_time, (list, np.ndarray)):
+                        finish_time = finish_time[0] if len(finish_time) == 1 else float(finish_time[-1])
                     running_paths["finish_time"] = finish_time
-                    running_paths["energy"] = energy
                 else:
-                    finish_time = env_info
-                    running_paths["finish_time"] = finish_time
+                    running_paths["finish_time"] = 0.0
+                
+                if energy_batch is not None and i < len(energy_batch):
+                    energy = energy_batch[i]
+                    running_paths["energy"] = energy if isinstance(energy, (list, np.ndarray)) else [energy]
+                else:
                     running_paths["energy"] = None
                 
                 # handling

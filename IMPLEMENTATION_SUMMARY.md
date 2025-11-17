@@ -234,3 +234,4 @@ The energy extension has been successfully implemented with:
 
 The system is ready for use in both legacy mode (latency-only) and energy mode (latency + energy optimization).
 
+

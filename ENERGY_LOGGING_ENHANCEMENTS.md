@@ -292,3 +292,4 @@ Energy metrics are now fully integrated into the reporting system:
 
 The system automatically handles energy logging when `USE_ENERGY = True` with no additional configuration needed.
 
+
