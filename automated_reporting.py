@@ -331,3 +331,4 @@ def create_training_report(avg_ret, avg_loss, avg_latencies, additional_metrics=
     
     return reporter.create_report(metrics_data)
 
+
