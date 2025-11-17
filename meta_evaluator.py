@@ -33,6 +33,9 @@ class Trainer():
         avg_vf_loss = []
 
         avg_latencies = []
+        avg_greedy_latencies = []  # Track greedy solution latencies
+        avg_greedy_energies = []   # Track greedy solution energies (if enabled)
+        
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -54,6 +57,28 @@ class Trainer():
             print("average value losses: ", np.mean(value_losses))
             avg_vf_loss.append(np.mean(value_losses))
 
+            """ ------------------- Compute Greedy Solution --------------------"""
+            # Compute greedy solution for comparison
+            self.env.set_task(0)  # Ensure we're evaluating the correct task
+            greedy_result = self.env.greedy_solution()
+            
+            avg_greedy_energy = None
+            if self.env.resource_cluster.use_energy:
+                greedy_action, greedy_finish_time, greedy_energy = greedy_result
+                # Flatten finish times and energy for averaging
+                flat_greedy_finish_times = [item for sublist in greedy_finish_time for item in sublist]
+                flat_greedy_energy = [item for sublist in greedy_energy for item in sublist]
+                avg_greedy_latency = np.mean(flat_greedy_finish_times)
+                avg_greedy_energy = np.mean(flat_greedy_energy)
+                avg_greedy_latencies.append(avg_greedy_latency)
+                avg_greedy_energies.append(avg_greedy_energy)
+            else:
+                greedy_action, greedy_finish_time = greedy_result
+                # Flatten finish times for averaging
+                flat_greedy_finish_times = [item for sublist in greedy_finish_time for item in sublist]
+                avg_greedy_latency = np.mean(flat_greedy_finish_times)
+                avg_greedy_latencies.append(avg_greedy_latency)
+
             """ ------------------- Logging Stuff --------------------------"""
 
             ret = np.sum(samples_data['rewards'], axis=-1)
@@ -68,12 +93,19 @@ class Trainer():
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+            logger.logkv('Greedy latency,', avg_greedy_latency)
             
             # Log energy if enabled
             if self.env.resource_cluster.use_energy and 'energy' in samples_data:
                 avg_energy = np.mean(np.sum(samples_data['energy'], axis=-1))
                 print(f"Average energy per iteration {itr}: {avg_energy:.4f}")
+                if avg_greedy_energy is not None:
+                    print(f"Greedy energy per iteration {itr}: {avg_greedy_energy:.4f}")
                 logger.logkv('Average energy,', avg_energy)
+                if avg_greedy_energy is not None:
+                    logger.logkv('Greedy energy,', avg_greedy_energy)
+            
+            print(f"Policy latency: {avg_latency:.4f}, Greedy latency: {avg_greedy_latency:.4f}")
             
             logger.dumpkvs()
             avg_ret.append(avg_reward)
