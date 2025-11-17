@@ -95,12 +95,24 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         for path in paths:
             ft = path["finish_time"]
             # Convert to scalar if it's an array/list
-            if isinstance(ft, (list, np.ndarray)):
-                if len(ft) > 0:
-                    # Take the last element (final finish time) or max if multiple
-                    ft = float(np.max(ft) if len(ft) > 1 else ft[-1] if len(ft) == 1 else ft[0])
+            if isinstance(ft, np.ndarray):
+                if ft.ndim == 0:
+                    # Scalar numpy array
+                    ft = float(ft)
+                elif ft.size > 0:
+                    # Non-empty array - take max or last element
+                    ft = float(np.max(ft) if ft.size > 1 else ft.flat[0])
                 else:
                     ft = 0.0
+            elif isinstance(ft, list):
+                if len(ft) > 0:
+                    # Take the last element (final finish time) or max if multiple
+                    ft = float(np.max(ft) if len(ft) > 1 else ft[-1])
+                else:
+                    ft = 0.0
+            else:
+                # Already a scalar, ensure it's a float
+                ft = float(ft)
             finish_times.append(ft)
         finish_time = np.array(finish_times)
         
