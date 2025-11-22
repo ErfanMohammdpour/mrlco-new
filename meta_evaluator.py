@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import time
 from utils import logger
+from automated_reporting import create_training_report
 
 class Trainer():
     def __init__(self,algo,
@@ -33,6 +34,19 @@ class Trainer():
         avg_vf_loss = []
 
         avg_latencies = []
+        avg_greedy_latencies = []   # Track greedy solution latencies
+        avg_energies = []          # Track policy energy consumption per iteration
+        avg_greedy_energies = []   # Track greedy solution energies
+        
+        # Energy configuration (matching mrlco-new project)
+        ENERGY_CONFIG = {
+            'rho': 1.0,                # Computation energy coefficient
+            'f_l': 1.0,                # Local CPU frequency (normalized)
+            'zeta': 2.0,               # CPU frequency exponent
+            'ptx': 0.1,                # Transmission power (Watts)
+            'prx': 0.05,               # Reception power (Watts)
+        }
+        
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -54,6 +68,19 @@ class Trainer():
             print("average value losses: ", np.mean(value_losses))
             avg_vf_loss.append(np.mean(value_losses))
 
+            """ ------------------- Compute Greedy Solution --------------------"""
+            # Compute greedy solution for comparison
+            self.env.set_task(0)  # Ensure we're evaluating the correct task
+            greedy_result = self.env.greedy_solution()
+            greedy_action, greedy_finish_time = greedy_result
+            flat_greedy_finish_times = [item for sublist in greedy_finish_time for item in sublist]
+            avg_greedy_latency = np.mean(flat_greedy_finish_times)
+            avg_greedy_latencies.append(avg_greedy_latency)
+            
+            # Calculate greedy energy
+            avg_greedy_energy = self._calculate_greedy_energy(greedy_action, ENERGY_CONFIG)
+            avg_greedy_energies.append(avg_greedy_energy)
+
             """ ------------------- Logging Stuff --------------------------"""
 
             ret = np.sum(samples_data['rewards'], axis=-1)
@@ -61,17 +88,160 @@ class Trainer():
 
             latency = samples_data['finish_time']
             avg_latency = np.mean(latency)
-
             avg_latencies.append(avg_latency)
 
+            # Calculate policy energy consumption
+            avg_energy = self._calculate_policy_energy(samples_data, ENERGY_CONFIG)
+            avg_energies.append(avg_energy)
 
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
+            logger.logkv('Greedy latency,', avg_greedy_latency)
+            logger.logkv('Average energy,', avg_energy)
+            logger.logkv('Greedy energy,', avg_greedy_energy)
+            
+            # Print energy report after each epoch
+            print(f"\n========== EPOCH {itr} ENERGY REPORT ==========")
+            print(f"Policy Average Energy: {avg_energy:.6f} Joules")
+            print(f"Greedy Average Energy: {avg_greedy_energy:.6f} Joules")
+            print(f"Energy Ratio (Policy/Greedy): {avg_energy/avg_greedy_energy:.4f}" if avg_greedy_energy > 0 else "Energy Ratio: N/A")
+            print(f"Policy Average Latency: {avg_latency:.6f}")
+            print(f"Greedy Average Latency: {avg_greedy_latency:.6f}")
+            print(f"===============================================\n")
+            
             logger.dumpkvs()
             avg_ret.append(avg_reward)
 
-        return avg_ret, avg_pg_loss,avg_vf_loss, avg_latencies
+        # Generate automated report with energy metrics
+        try:
+            print("\n==================== GENERATING AUTOMATED REPORT ====================")
+            additional_metrics = {
+                'policy_losses': avg_pg_loss,
+                'value_losses': avg_vf_loss,
+                'greedy_latencies': avg_greedy_latencies,
+                'average_energy': avg_energies,
+                'greedy_energy': avg_greedy_energies
+            }
+            
+            report_dir = create_training_report(
+                avg_ret=avg_ret,
+                avg_loss=avg_pg_loss,  # Using policy loss as main loss metric
+                avg_latencies=avg_latencies,
+                additional_metrics=additional_metrics
+            )
+            print(f"Report generated successfully at: {report_dir}")
+            print("=====================================================================\n")
+        except Exception as e:
+            print(f"WARNING: Failed to generate automated report: {str(e)}")
+            print("Evaluation completed successfully but report generation failed.")
+            import traceback
+            traceback.print_exc()
+
+        return avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies
+    
+    def _calculate_policy_energy(self, samples_data, energy_config):
+        """
+        Calculate energy consumption for policy actions.
+        Uses the same energy model as mrlco-new project:
+        - Local execution: T_l * rho * (f_l ^ zeta)
+        - Offloading: T_ul * ptx + T_dl * prx
+        """
+        # Get actions and finish times
+        actions = samples_data['actions']  # Shape: [batch_size, seq_len]
+        finish_times = samples_data['finish_time']  # Shape: [batch_size]
+        
+        total_energy = 0.0
+        env = self.env
+        
+        # Calculate energy for each trajectory
+        for i in range(len(finish_times)):
+            action_seq = actions[i]
+            finish_time = finish_times[i]
+            
+            # Get the task graph for this trajectory
+            task_graph = env.task_graphs_batchs[env.task_id][i % len(env.task_graphs_batchs[env.task_id])]
+            
+            # Build plan from actions
+            plan = []
+            for idx, action in enumerate(action_seq):
+                if idx < len(task_graph.prioritize_sequence):
+                    task_id = task_graph.prioritize_sequence[idx]
+                    plan.append((task_id, int(action)))
+            
+            # Calculate energy using environment's scheduling cost method
+            # We'll simulate the scheduling to get execution times
+            energy_sum = 0.0
+            
+            for task_id, action in plan:
+                if task_id < len(task_graph.task_list):
+                    task = task_graph.task_list[task_id]
+                    
+                    if action == 0:  # Local execution
+                        # Calculate local execution time
+                        T_l = env.resource_cluster.locally_execution_cost(task.processing_data_size)
+                        # Energy: T_l * rho * (f_l ^ zeta)
+                        energy = T_l * energy_config['rho'] * (energy_config['f_l'] ** energy_config['zeta'])
+                    else:  # Offloading
+                        # Calculate transmission times
+                        T_ul = env.resource_cluster.up_transmission_cost(task.processing_data_size)
+                        T_dl = env.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                        # Energy: T_ul * ptx + T_dl * prx
+                        energy = T_ul * energy_config['ptx'] + T_dl * energy_config['prx']
+                    
+                    energy_sum += energy
+            
+            total_energy += energy_sum
+        
+        return total_energy / len(finish_times) if len(finish_times) > 0 else 0.0
+    
+    def _calculate_greedy_energy(self, greedy_action, energy_config):
+        """
+        Calculate energy consumption for greedy solution.
+        Uses the same energy model as mrlco-new project:
+        - Local execution: T_l * rho * (f_l ^ zeta)
+        - Offloading: T_ul * ptx + T_dl * prx
+        """
+        if not greedy_action or len(greedy_action) == 0:
+            return 0.0
+        
+        total_energy = 0.0
+        env = self.env
+        
+        # Process each task graph batch
+        for batch_idx, task_batch in enumerate(greedy_action):
+            if batch_idx < len(env.task_graphs_batchs):
+                task_graphs = env.task_graphs_batchs[batch_idx]
+                
+                for plan_idx, plan in enumerate(task_batch):
+                    if plan_idx < len(task_graphs):
+                        task_graph = task_graphs[plan_idx]
+                        energy_sum = 0.0
+                        
+                        # plan is a list of (task_id, action) tuples
+                        for task_id, action in plan:
+                            if task_id < len(task_graph.task_list):
+                                task = task_graph.task_list[task_id]
+                                
+                                if action == 0:  # Local execution
+                                    # Calculate local execution time
+                                    T_l = env.resource_cluster.locally_execution_cost(task.processing_data_size)
+                                    # Energy: T_l * rho * (f_l ^ zeta)
+                                    energy = T_l * energy_config['rho'] * (energy_config['f_l'] ** energy_config['zeta'])
+                                else:  # Offloading
+                                    # Calculate transmission times
+                                    T_ul = env.resource_cluster.up_transmission_cost(task.processing_data_size)
+                                    T_dl = env.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                                    # Energy: T_ul * ptx + T_dl * prx
+                                    energy = T_ul * energy_config['ptx'] + T_dl * energy_config['prx']
+                                
+                                energy_sum += energy
+                        
+                        total_energy += energy_sum
+        
+        # Average across all task graphs
+        total_plans = sum(len(batch) for batch in greedy_action)
+        return total_energy / total_plans if total_plans > 0 else 0.0
 
 if __name__ == "__main__":
     from env.mec_offloaing_envs.offloading_env import Resources
@@ -114,10 +284,10 @@ if __name__ == "__main__":
     print("avg greedy solution: ", np.mean(finish_time))
 
     print()
-    finish_time, energy_cost = env.get_all_mec_execute_time()
+    finish_time = env.get_all_mec_execute_time()
     print("avg all remote solution: ", np.mean(finish_time))
     print()
-    finish_time, energy_cost = env.get_all_locally_execute_time()
+    finish_time = env.get_all_locally_execute_time()
     print("avg all local solution: ", np.mean(finish_time))
 
     policy = Seq2SeqPolicy(obs_dim=17,
@@ -161,7 +331,7 @@ if __name__ == "__main__":
 
     with tf.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
-        policy.load_variables(load_path="./meta_model_offload20_25_batch_10/meta_model_2900.ckpt")
+        policy.load_variables(load_path="./meta_model_inner_step1/meta_model_final.ckpt")
         avg_ret, avg_pg_loss, avg_vf_loss, avg_latencies = trainer.train()
 
 
