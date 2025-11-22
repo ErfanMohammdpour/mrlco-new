@@ -165,10 +165,11 @@ class Trainer(object):
             
             # Add energy metrics if enabled
             if self.env.resource_cluster.use_energy and len(avg_energies) > 0:
-                # Filter out None values
-                valid_energies = [e for e in avg_energies if e is not None]
-                if len(valid_energies) > 0:
-                    additional_metrics['average_energy'] = valid_energies
+                # Filter out None values if any
+                energy_values = [e for e in avg_energies if e is not None]
+                if len(energy_values) > 0:
+                    additional_metrics['average_energy'] = energy_values
+                    print(f"Added energy metrics to report ({len(energy_values)} iterations)")
             
             report_dir = create_training_report(
                 avg_ret=avg_ret,
@@ -197,36 +198,40 @@ if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
-    print("********* inner_batch_size = 10  and meta_batch_size = 5 ya Ali *********")
-
     META_BATCH_SIZE = 10
     
     # Control flags for printing
     PRINT_ACTION_CHOICES = True  # Set to True to print action choices (0=local, 1=MEC, 2=V2V)
     ACTION_PRINT_INTERVAL = 0   # Print action choices every N iterations (0 = every iteration)
 
-    # Energy configuration - enable energy optimization
+    # ========== ENERGY CONFIGURATION ==========
+    # Set to True to enable energy optimization alongside latency
+    USE_ENERGY = True
+    
     ENERGY_CONFIG = {
-        'rho': 1.0,           # Local computation energy coefficient
-        'f_l': 1.0,           # Local CPU frequency (normalized)
-        'zeta': 2.0,          # CPU frequency exponent
-        'ptx': 0.1,           # MEC transmission power (Watts)
-        'prx': 0.05,          # MEC reception power (Watts)
-        'ptx_v2v': 0.06,      # V2V transmission power (Watts, typically < ptx)
-        'prx_v2v': 0.03,      # V2V reception power (Watts, typically < prx)
-        'rho_v2v': 0.7,       # V2V computation energy coefficient (70% of local)
-        'f_v2v': 1.0,         # V2V CPU frequency (normalized, same as local)
-        'latency_weight': 0.5, # Weight for latency in combined reward
-        'energy_weight': 0.5,  # Weight for energy in combined reward
-        'normalize_energy': True,  # Whether to normalize energy rewards
+        'use_energy': USE_ENERGY,
+        'energy_weight': 0.5,      # Weight for energy in combined reward
+        'latency_weight': 0.5,     # Weight for latency in combined reward
+        'rho': 1.0,                # Computation energy coefficient
+        'f_l': 1.0,                # Local CPU frequency (normalized)
+        'zeta': 2.0,               # CPU frequency exponent
+        'ptx': 0.1,                # Transmission power (Watts)
+        'prx': 0.05,               # Reception power (Watts)
+        # V2V-specific parameters
+        'ptx_v2v': 0.06,           # V2V transmission power (Watts, typically < ptx)
+        'prx_v2v': 0.03,           # V2V reception power (Watts, typically < prx)
+        'rho_v2v': 0.7,            # V2V computation energy coefficient (70% of local)
+        'f_v2v': 1.0,              # V2V CPU frequency (normalized, same as local)
+        'normalize_energy': True,   # Whether to normalize energy rewards
     }
+    # ==========================================
     
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0,
                                  v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
                                  v2v_bandwidth=5.0,  # Lower than MEC
-                                 use_energy=True,  # Enable energy optimization
+                                 use_energy=USE_ENERGY,
                                  energy_config=ENERGY_CONFIG)
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,

@@ -992,9 +992,14 @@ class OffloadingEnvironment(MetaEnv):
             plan_sequence = []
 
             for action, task_id in zip(action_sequence,
-                                       task_graph.prioritize_sequence):
+                                      task_graph.prioritize_sequence):
                 plan_sequence.append((task_id, action))
 
+            # Call once after building the complete plan_sequence
+            # Handle both energy-enabled and energy-disabled cases
+            if self.resource_cluster.use_energy:
+                _, task_finish_time, _ = self.get_scheduling_cost_step_by_step(plan_sequence, task_graph)
+            else:
                 _, task_finish_time = self.get_scheduling_cost_step_by_step(plan_sequence, task_graph)
 
             cost_batch.append(task_finish_time)
@@ -1043,9 +1048,14 @@ class OffloadingEnvironment(MetaEnv):
         return running_cost
 
     def greedy_solution_for_current_task(self):
-        result_plan, finish_time_batchs = self.greedy_solution()
-
-        return result_plan[self.task_id], finish_time_batchs[self.task_id]
+        greedy_result = self.greedy_solution()
+        
+        if self.resource_cluster.use_energy:
+            result_plan, finish_time_batchs, energy_batchs = greedy_result
+            return result_plan[self.task_id], finish_time_batchs[self.task_id], energy_batchs[self.task_id]
+        else:
+            result_plan, finish_time_batchs = greedy_result
+            return result_plan[self.task_id], finish_time_batchs[self.task_id]
 
 
 
