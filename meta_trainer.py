@@ -44,6 +44,7 @@ class Trainer(object):
         policy_losses_all = []
         value_losses_all = []
         greedy_latencies_all = []
+        avg_energies = []  # Track energy metrics for reporting
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -123,6 +124,23 @@ class Trainer(object):
             avg_latency = np.mean(latency)
             avg_latencies.append(avg_latency)
 
+            # Log and track energy if enabled
+            if self.env.resource_cluster.use_energy:
+                energy = np.array([])
+                for i in range(5):
+                    if 'energy' in new_samples_data[i]:
+                        energy = np.concatenate((energy, np.sum(new_samples_data[i]['energy'], axis=-1)), axis=-1)
+                if len(energy) > 0:
+                    avg_energy = np.mean(energy)
+                    print(f"Average energy per iteration {itr}: {avg_energy:.4f}")
+                    logger.logkv('Average energy,', avg_energy)
+                    avg_energies.append(avg_energy)
+                else:
+                    print(f"Average energy per iteration {itr}: 0.0 (no energy data)")
+                    avg_energies.append(0.0)  # Append 0 if no energy data
+            else:
+                # Track empty list when energy disabled (for consistency)
+                avg_energies.append(None)
 
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
@@ -144,6 +162,13 @@ class Trainer(object):
                 'value_losses': value_losses_all,
                 'greedy_latencies': greedy_latencies_all
             }
+            
+            # Add energy metrics if enabled
+            if self.env.resource_cluster.use_energy and len(avg_energies) > 0:
+                # Filter out None values
+                valid_energies = [e for e in avg_energies if e is not None]
+                if len(valid_energies) > 0:
+                    additional_metrics['average_energy'] = valid_energies
             
             report_dir = create_training_report(
                 avg_ret=avg_ret,
@@ -180,11 +205,29 @@ if __name__ == "__main__":
     PRINT_ACTION_CHOICES = True  # Set to True to print action choices (0=local, 1=MEC, 2=V2V)
     ACTION_PRINT_INTERVAL = 0   # Print action choices every N iterations (0 = every iteration)
 
+    # Energy configuration - enable energy optimization
+    ENERGY_CONFIG = {
+        'rho': 1.0,           # Local computation energy coefficient
+        'f_l': 1.0,           # Local CPU frequency (normalized)
+        'zeta': 2.0,          # CPU frequency exponent
+        'ptx': 0.1,           # MEC transmission power (Watts)
+        'prx': 0.05,          # MEC reception power (Watts)
+        'ptx_v2v': 0.06,      # V2V transmission power (Watts, typically < ptx)
+        'prx_v2v': 0.03,      # V2V reception power (Watts, typically < prx)
+        'rho_v2v': 0.7,       # V2V computation energy coefficient (70% of local)
+        'f_v2v': 1.0,         # V2V CPU frequency (normalized, same as local)
+        'latency_weight': 0.5, # Weight for latency in combined reward
+        'energy_weight': 0.5,  # Weight for energy in combined reward
+        'normalize_energy': True,  # Whether to normalize energy rewards
+    }
+    
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0,
                                  v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
-                                 v2v_bandwidth=5.0)  # Lower than MEC
+                                 v2v_bandwidth=5.0,  # Lower than MEC
+                                 use_energy=True,  # Enable energy optimization
+                                 energy_config=ENERGY_CONFIG)
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -193,30 +236,39 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_4/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_8/random.20.",
+                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_16/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_20/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_24/random.20.",
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
                                 ],
                                 time_major=False)
 
-    action, greedy_finish_time = env.greedy_solution()
-    print("avg greedy solution: ", np.mean(greedy_finish_time))
+    # Get greedy solution (with energy if enabled)
+    greedy_result = env.greedy_solution()
+    if env.resource_cluster.use_energy:
+        action, greedy_finish_time, greedy_energy = greedy_result
+        # Flatten finish times and energy for averaging
+        flat_finish_times = [item for sublist in greedy_finish_time for item in sublist]
+        flat_energy = [item for sublist in greedy_energy for item in sublist]
+        print("avg greedy solution latency: ", np.mean(flat_finish_times))
+        print("avg greedy solution energy: ", np.mean(flat_energy))
+    else:
+        action, greedy_finish_time = greedy_result
+        # Flatten finish times for averaging
+        flat_finish_times = [item for sublist in greedy_finish_time for item in sublist]
+        print("avg greedy solution: ", np.mean(flat_finish_times))
     print()
     finish_time = env.get_all_mec_execute_time()
     print("avg all remote solution: ", np.mean(finish_time))
@@ -261,7 +313,7 @@ if __name__ == "__main__":
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=1500,
+                        n_itr=3500,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
                         inner_batch_size=10,
