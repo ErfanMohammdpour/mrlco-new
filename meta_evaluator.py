@@ -1,8 +1,19 @@
 import tensorflow as tf
 import numpy as np
 import time
+import os
 from utils import logger
 from automated_reporting import create_training_report
+
+# Try to import openpyxl for Excel export
+try:
+    import openpyxl
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    EXCEL_AVAILABLE = True
+except ImportError:
+    EXCEL_AVAILABLE = False
+    print("Warning: openpyxl not available. Excel export will not work. Install with: pip install openpyxl")
 
 class Trainer():
     def __init__(self,algo,
@@ -37,6 +48,10 @@ class Trainer():
         avg_greedy_latencies = []  # Track greedy solution latencies
         avg_greedy_energies = []   # Track greedy solution energies (if enabled)
         avg_energies = []          # Track policy energies (if enabled)
+        
+        # Create directory for detailed Excel exports
+        excel_output_dir = "./meta_evaluate_ppo_log/detailed_iterations"
+        os.makedirs(excel_output_dir, exist_ok=True)
         
         # Energy configuration (same as in your project)
         ENERGY_CONFIG = {
@@ -132,6 +147,14 @@ class Trainer():
             
             logger.dumpkvs()
             avg_ret.append(avg_reward)
+            
+            # Save detailed Excel file for this iteration
+            try:
+                self._save_iteration_excel(itr, samples_data, excel_output_dir)
+            except Exception as e:
+                print(f"Warning: Failed to save detailed Excel for iteration {itr}: {str(e)}")
+                import traceback
+                traceback.print_exc()
 
         # Generate comprehensive report
         try:
@@ -304,6 +327,312 @@ class Trainer():
         # Average across all task graphs
         total_plans = sum(len(batch) for batch in greedy_action)
         return total_energy / total_plans if total_plans > 0 else 0.0
+    
+    def _save_iteration_excel(self, iteration, samples_data, output_dir):
+        """
+        Save detailed Excel file for each iteration with node-level information.
+        
+        Args:
+            iteration: Current iteration number
+            samples_data: Processed sample data containing actions, observations, etc.
+            output_dir: Directory to save Excel files
+        """
+        if not EXCEL_AVAILABLE:
+            print(f"Skipping Excel export for iteration {iteration}: openpyxl not available")
+            return
+        
+        # Create workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"Iteration_{iteration}"
+        
+        # Define headers
+        headers = [
+            'Graph_ID', 'Node_ID', 'Action', 'Action_Name',
+            'Latency', 'Energy_Consumption', 'Finish_Time',
+            'Processing_Data_Size', 'Transmission_Data_Size',
+            'Task_Depth', 'Start_Time', 'Execution_Time',
+            'Uplink_Time', 'Downlink_Time', 'V2V_Uplink_Time', 'V2V_Downlink_Time',
+            'Num_Predecessors', 'Num_Successors'
+        ]
+        
+        # Style headers
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Extract data from samples
+        actions = samples_data['actions']  # Shape: [batch_size, seq_len]
+        observations = samples_data['observations']  # Shape: [batch_size, seq_len, obs_dim]
+        finish_times = samples_data['finish_time']  # Shape: [batch_size]
+        
+        # Get energy if available
+        energy_data = samples_data.get('energy', None)  # Shape: [batch_size, seq_len] or None
+        
+        row_idx = 2
+        env = self.env
+        task_graphs_batch = env.task_graphs_batchs[env.task_id]
+        
+        # Process each graph (each row in batch corresponds to one graph)
+        for graph_idx, (action_seq, obs_seq, finish_time) in enumerate(zip(actions, observations, finish_times)):
+            if graph_idx >= len(task_graphs_batch):
+                break
+                
+            task_graph = task_graphs_batch[graph_idx]
+            
+            # Get energy for this graph if available
+            graph_energy = None
+            if energy_data is not None:
+                if isinstance(energy_data, np.ndarray):
+                    if graph_idx < len(energy_data):
+                        graph_energy = energy_data[graph_idx]
+                        # If it's a list/array, convert to list for easier indexing
+                        if isinstance(graph_energy, np.ndarray):
+                            graph_energy = graph_energy.tolist()
+                        elif isinstance(graph_energy, (list, tuple)):
+                            graph_energy = list(graph_energy)
+                elif isinstance(energy_data, (list, tuple)) and graph_idx < len(energy_data):
+                    graph_energy = energy_data[graph_idx]
+                    if isinstance(graph_energy, np.ndarray):
+                        graph_energy = graph_energy.tolist()
+            
+            # Build plan from actions
+            plan = []
+            for idx, action in enumerate(action_seq):
+                if idx < len(task_graph.prioritize_sequence):
+                    task_id = task_graph.prioritize_sequence[idx]
+                    plan.append((task_id, int(action)))
+            
+            # Get detailed scheduling information
+            detailed_info = self._get_detailed_scheduling_info(plan, task_graph)
+            
+            # Write data for each node
+            for node_info in detailed_info:
+                node_id = node_info['node_id']
+                action = node_info['action']
+                action_name = ['Local', 'MEC', 'V2V'][action] if 0 <= action <= 2 else 'Unknown'
+                
+                # Get task properties
+                if node_id < len(task_graph.task_list):
+                    task = task_graph.task_list[node_id]
+                    processing_data_size = task.processing_data_size
+                    transmission_data_size = task.transmission_data_size
+                    depth = task.depth
+                    num_predecessors = len(task_graph.pre_task_sets[node_id])
+                    num_successors = len(task_graph.succ_task_sets[node_id])
+                else:
+                    processing_data_size = 0
+                    transmission_data_size = 0
+                    depth = 0
+                    num_predecessors = 0
+                    num_successors = 0
+                
+                # Get energy for this node (from detailed scheduling info - already calculated correctly)
+                node_energy = float(node_info.get('energy', 0.0))
+                
+                # Write row data
+                row_data = [
+                    graph_idx,  # Graph_ID
+                    node_id,  # Node_ID
+                    action,  # Action
+                    action_name,  # Action_Name
+                    node_info.get('latency', 0.0),  # Latency
+                    node_energy,  # Energy_Consumption
+                    node_info.get('finish_time', finish_time),  # Finish_Time
+                    processing_data_size,  # Processing_Data_Size
+                    transmission_data_size,  # Transmission_Data_Size
+                    depth,  # Task_Depth
+                    node_info.get('start_time', 0.0),  # Start_Time
+                    node_info.get('execution_time', 0.0),  # Execution_Time
+                    node_info.get('uplink_time', 0.0),  # Uplink_Time
+                    node_info.get('downlink_time', 0.0),  # Downlink_Time
+                    node_info.get('v2v_uplink_time', 0.0),  # V2V_Uplink_Time
+                    node_info.get('v2v_downlink_time', 0.0),  # V2V_Downlink_Time
+                    num_predecessors,  # Num_Predecessors
+                    num_successors  # Num_Successors
+                ]
+                
+                for col_idx, value in enumerate(row_data, start=1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                    if isinstance(value, (int, float)):
+                        cell.number_format = '0.000000'
+                
+                row_idx += 1
+        
+        # Auto-adjust column widths
+        for col_idx in range(1, len(headers) + 1):
+            max_length = len(headers[col_idx - 1])
+            for row_idx in range(2, ws.max_row + 1):
+                cell_value = str(ws.cell(row=row_idx, column=col_idx).value)
+                if len(cell_value) > max_length:
+                    max_length = len(cell_value)
+            ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_length + 2, 30)
+        
+        # Save Excel file
+        excel_path = os.path.join(output_dir, f"iteration_{iteration}_detailed.xlsx")
+        wb.save(excel_path)
+        print(f"Saved detailed Excel for iteration {iteration}: {excel_path} ({row_idx - 2} rows)")
+    
+    def _get_detailed_scheduling_info(self, plan, task_graph):
+        """
+        Get detailed scheduling information for each node in the plan.
+        Returns a list of dictionaries with node-level details.
+        """
+        env = self.env
+        detailed_info = []
+        
+        # Reset resources
+        env.resource_cluster.reset()
+        
+        cloud_avaliable_time = 0.0
+        ws_avaliable_time = 0.0
+        local_avaliable_time = 0.0
+        v2v_available_time = 0.0
+        v2v_channel_available_time = 0.0
+        
+        # Finish time arrays
+        FT_cloud = [0] * task_graph.task_number
+        FT_ws = [0] * task_graph.task_number
+        FT_locally = [0] * task_graph.task_number
+        FT_wr = [0] * task_graph.task_number
+        FT_v2v_ul = [0] * task_graph.task_number
+        FT_v2v_exec = [0] * task_graph.task_number
+        FT_v2v_dl = [0] * task_graph.task_number
+        
+        current_FT = 0.0
+        
+        for action_idx, (node_id, action) in enumerate(plan):
+            if node_id >= len(task_graph.task_list):
+                continue
+                
+            task = task_graph.task_list[node_id]
+            node_info = {
+                'node_id': node_id,
+                'action': action,
+                'action_idx': action_idx,
+                'latency': 0.0,
+                'energy': 0.0,
+                'finish_time': 0.0,
+                'start_time': 0.0,
+                'execution_time': 0.0,
+                'uplink_time': 0.0,
+                'downlink_time': 0.0,
+                'v2v_uplink_time': 0.0,
+                'v2v_downlink_time': 0.0
+            }
+            
+            if action == 0:  # Local execution
+                if len(task_graph.pre_task_sets[node_id]) != 0:
+                    start_time = max(local_avaliable_time,
+                                     max([max(FT_locally[j], FT_wr[j], FT_v2v_dl[j]) 
+                                          for j in task_graph.pre_task_sets[node_id]]))
+                else:
+                    start_time = local_avaliable_time
+                
+                T_l = env.resource_cluster.locally_execution_cost(task.processing_data_size)
+                FT_locally[node_id] = start_time + T_l
+                local_avaliable_time = FT_locally[node_id]
+                task_finish_time = FT_locally[node_id]
+                
+                node_info['start_time'] = start_time
+                node_info['execution_time'] = T_l
+                node_info['finish_time'] = task_finish_time
+                
+                if env.resource_cluster.use_energy:
+                    node_info['energy'] = env.resource_cluster.compute_local_energy(T_l)
+                
+            elif action == 1:  # MEC offloading
+                if len(task_graph.pre_task_sets[node_id]) != 0:
+                    ws_start_time = max(ws_avaliable_time,
+                                        max([max(FT_locally[j], FT_ws[j]) 
+                                             for j in task_graph.pre_task_sets[node_id]]))
+                else:
+                    ws_start_time = ws_avaliable_time
+                
+                T_ul = env.resource_cluster.up_transmission_cost(task.processing_data_size)
+                ws_finish_time = ws_start_time + T_ul
+                FT_ws[node_id] = ws_finish_time
+                ws_avaliable_time = ws_finish_time
+                
+                cloud_start_time = max(cloud_avaliable_time,
+                                       max([max(FT_ws[node_id], FT_cloud[j]) 
+                                            for j in task_graph.pre_task_sets[node_id]]) 
+                                       if len(task_graph.pre_task_sets[node_id]) != 0 else FT_ws[node_id])
+                exec_time = env.resource_cluster.mec_execution_cost(task.processing_data_size)
+                cloud_finish_time = cloud_start_time + exec_time
+                FT_cloud[node_id] = cloud_finish_time
+                cloud_avaliable_time = cloud_finish_time
+                
+                wr_start_time = FT_cloud[node_id]
+                T_dl = env.resource_cluster.dl_transmission_cost(task.transmission_data_size)
+                wr_finish_time = wr_start_time + T_dl
+                FT_wr[node_id] = wr_finish_time
+                task_finish_time = wr_finish_time
+                
+                node_info['start_time'] = ws_start_time
+                node_info['uplink_time'] = T_ul
+                node_info['execution_time'] = exec_time
+                node_info['downlink_time'] = T_dl
+                node_info['finish_time'] = task_finish_time
+                
+                if env.resource_cluster.use_energy:
+                    node_info['energy'] = env.resource_cluster.compute_transmission_energy(T_ul, T_dl)
+                
+            elif action == 2:  # V2V offloading
+                if len(task_graph.pre_task_sets[node_id]) != 0:
+                    v2v_ul_start_time = max(v2v_channel_available_time,
+                                             max([max(FT_locally[j], FT_wr[j], FT_v2v_dl[j]) 
+                                                  for j in task_graph.pre_task_sets[node_id]]))
+                else:
+                    v2v_ul_start_time = v2v_channel_available_time
+                
+                T_v2v_ul = env.resource_cluster.v2v_transmission_cost(task.processing_data_size)
+                v2v_ul_finish_time = v2v_ul_start_time + T_v2v_ul
+                FT_v2v_ul[node_id] = v2v_ul_finish_time
+                v2v_channel_available_time = v2v_ul_finish_time
+                
+                v2v_exec_start_time = max(v2v_available_time, FT_v2v_ul[node_id])
+                if len(task_graph.pre_task_sets[node_id]) != 0:
+                    v2v_exec_start_time = max(v2v_exec_start_time,
+                                              max([max(FT_locally[j], FT_wr[j], FT_v2v_exec[j]) 
+                                                   for j in task_graph.pre_task_sets[node_id]]))
+                
+                exec_time = env.resource_cluster.v2v_execution_cost(task.processing_data_size)
+                v2v_exec_finish_time = v2v_exec_start_time + exec_time
+                FT_v2v_exec[node_id] = v2v_exec_finish_time
+                v2v_available_time = v2v_exec_finish_time
+                
+                v2v_dl_start_time = max(v2v_exec_finish_time, v2v_channel_available_time)
+                T_v2v_dl = env.resource_cluster.v2v_transmission_cost(task.transmission_data_size)
+                v2v_dl_finish_time = v2v_dl_start_time + T_v2v_dl
+                FT_v2v_dl[node_id] = v2v_dl_finish_time
+                v2v_channel_available_time = v2v_dl_finish_time
+                task_finish_time = v2v_dl_finish_time
+                
+                node_info['start_time'] = v2v_ul_start_time
+                node_info['v2v_uplink_time'] = T_v2v_ul
+                node_info['execution_time'] = exec_time
+                node_info['v2v_downlink_time'] = T_v2v_dl
+                node_info['finish_time'] = task_finish_time
+                
+                if env.resource_cluster.use_energy:
+                    transmission_energy = env.resource_cluster.compute_v2v_transmission_energy(T_v2v_ul, T_v2v_dl)
+                    computation_energy = env.resource_cluster.compute_v2v_energy(exec_time)
+                    node_info['energy'] = transmission_energy + computation_energy
+            
+            # Calculate incremental latency
+            delta_makespan = max(task_finish_time, current_FT) - current_FT
+            current_FT = max(task_finish_time, current_FT)
+            node_info['latency'] = delta_makespan
+            
+            detailed_info.append(node_info)
+        
+        return detailed_info
 
 if __name__ == "__main__":
     from env.mec_offloaing_envs.offloading_env import Resources
