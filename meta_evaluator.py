@@ -385,7 +385,7 @@ class Trainer():
         # Define headers
         headers = [
             'Graph_ID', 'Node_ID', 'Action', 'Action_Name',
-            'Latency', 'Energy_Consumption', 'Finish_Time',
+            'Latency', 'Total_Time', 'Energy_Consumption', 'Finish_Time',
             'Processing_Data_Size', 'Transmission_Data_Size',
             'Task_Depth', 'Start_Time', 'Execution_Time',
             'Uplink_Time', 'Downlink_Time', 'V2V_Uplink_Time', 'V2V_Downlink_Time',
@@ -484,15 +484,21 @@ class Trainer():
                 # Get energy for this node (from detailed scheduling info - already calculated correctly)
                 node_energy = float(node_info.get('energy', 0.0))
                 
+                # Calculate total time (including waiting) = finish_time - start_time
+                start_time = node_info.get('start_time', 0.0)
+                finish_time_node = node_info.get('finish_time', finish_time)
+                total_time = max(0.0, finish_time_node - start_time)
+                
                 # Write row data
                 row_data = [
                     graph_idx,  # Graph_ID
                     node_id,  # Node_ID
                     action,  # Action
                     action_name,  # Action_Name
-                    node_info.get('latency', 0.0),  # Latency
+                    node_info.get('latency', 0.0),  # Latency (actual work time)
+                    total_time,  # Total_Time (including waiting)
                     node_energy,  # Energy_Consumption
-                    node_info.get('finish_time', finish_time),  # Finish_Time
+                    finish_time_node,  # Finish_Time
                     processing_data_size,  # Processing_Data_Size
                     transmission_data_size,  # Transmission_Data_Size
                     depth,  # Task_Depth
@@ -690,10 +696,32 @@ class Trainer():
                     computation_energy = env.resource_cluster.compute_v2v_energy(exec_time)
                     node_info['energy'] = transmission_energy + computation_energy
             
-            # Calculate incremental latency
+            # Calculate latency as the actual time taken for this node
+            # Use sum of time components to avoid precision issues with finish_time - start_time
+            if action == 0:  # Local
+                # Latency = execution time only
+                node_latency = node_info.get('execution_time', 0.0)
+            elif action == 1:  # MEC
+                # Latency = uplink + execution + downlink
+                node_latency = (node_info.get('uplink_time', 0.0) + 
+                               node_info.get('execution_time', 0.0) + 
+                               node_info.get('downlink_time', 0.0))
+            elif action == 2:  # V2V
+                # Latency = uplink + execution + downlink (channel waiting is included in start_time calculation)
+                node_latency = (node_info.get('v2v_uplink_time', 0.0) + 
+                               node_info.get('execution_time', 0.0) + 
+                               node_info.get('v2v_downlink_time', 0.0))
+            else:
+                # Fallback: use finish_time - start_time
+                start_time = node_info.get('start_time', 0.0)
+                node_latency = max(0.0, task_finish_time - start_time)
+            
+            node_info['latency'] = node_latency
+            
+            # Also track incremental makespan for reference (but use actual latency for reporting)
             delta_makespan = max(task_finish_time, current_FT) - current_FT
             current_FT = max(task_finish_time, current_FT)
-            node_info['latency'] = delta_makespan
+            node_info['incremental_makespan'] = delta_makespan
             
             detailed_info.append(node_info)
         
