@@ -850,7 +850,7 @@ if __name__ == "__main__":
                       sampler=sampler,
                       sample_processor=sample_processor,
                       policy=policy,
-                      n_itr=21,
+                      n_itr=101,
                       start_itr=0,
                       batch_size=500,
                       num_inner_grad_steps=3)
