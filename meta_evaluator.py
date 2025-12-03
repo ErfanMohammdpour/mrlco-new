@@ -11,9 +11,11 @@ try:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     EXCEL_AVAILABLE = True
+    print("✓ openpyxl is available - Excel export enabled")
 except ImportError:
     EXCEL_AVAILABLE = False
-    print("Warning: openpyxl not available. Excel export will not work. Install with: pip install openpyxl")
+    print("✗ WARNING: openpyxl not available. Excel export will not work.")
+    print("  Install with: pip install openpyxl")
 
 class Trainer():
     def __init__(self,algo,
@@ -51,7 +53,21 @@ class Trainer():
         
         # Create directory for detailed Excel exports
         excel_output_dir = "./meta_evaluate_ppo_log/detailed_iterations"
-        os.makedirs(excel_output_dir, exist_ok=True)
+        try:
+            os.makedirs(excel_output_dir, exist_ok=True)
+            print(f"[DEBUG] Excel output directory created/verified: {excel_output_dir}")
+            # Test if directory is writable
+            test_file = os.path.join(excel_output_dir, ".test_write")
+            try:
+                with open(test_file, 'w') as f:
+                    f.write("test")
+                os.remove(test_file)
+                print(f"[DEBUG] Directory is writable")
+            except Exception as e:
+                print(f"WARNING: Directory may not be writable: {str(e)}")
+        except Exception as e:
+            print(f"ERROR: Failed to create Excel output directory: {str(e)}")
+            excel_output_dir = None
         
         # Energy configuration (same as in your project)
         ENERGY_CONFIG = {
@@ -149,12 +165,21 @@ class Trainer():
             avg_ret.append(avg_reward)
             
             # Save detailed Excel file for this iteration
-            try:
-                self._save_iteration_excel(itr, samples_data, excel_output_dir)
-            except Exception as e:
-                print(f"Warning: Failed to save detailed Excel for iteration {itr}: {str(e)}")
-                import traceback
-                traceback.print_exc()
+            if excel_output_dir is not None:
+                try:
+                    print(f"\n[DEBUG] Attempting to save Excel for iteration {itr}...")
+                    print(f"[DEBUG] EXCEL_AVAILABLE: {EXCEL_AVAILABLE}")
+                    print(f"[DEBUG] samples_data keys: {list(samples_data.keys())}")
+                    if 'actions' in samples_data:
+                        print(f"[DEBUG] actions shape: {samples_data['actions'].shape}")
+                    self._save_iteration_excel(itr, samples_data, excel_output_dir)
+                    print(f"[DEBUG] Excel save completed for iteration {itr}\n")
+                except Exception as e:
+                    print(f"ERROR: Failed to save detailed Excel for iteration {itr}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f"WARNING: Skipping Excel export for iteration {itr} - output directory not available")
 
         # Generate comprehensive report
         try:
@@ -338,7 +363,18 @@ class Trainer():
             output_dir: Directory to save Excel files
         """
         if not EXCEL_AVAILABLE:
-            print(f"Skipping Excel export for iteration {iteration}: openpyxl not available")
+            print(f"ERROR: Skipping Excel export for iteration {iteration}: openpyxl not available")
+            print("Please install openpyxl: pip install openpyxl")
+            return
+        
+        print(f"[DEBUG] _save_iteration_excel called for iteration {iteration}")
+        print(f"[DEBUG] output_dir: {output_dir}")
+        
+        # Check if required keys exist
+        required_keys = ['actions', 'observations', 'finish_time']
+        missing_keys = [key for key in required_keys if key not in samples_data]
+        if missing_keys:
+            print(f"ERROR: Missing required keys in samples_data: {missing_keys}")
             return
         
         # Create workbook
@@ -371,19 +407,32 @@ class Trainer():
         observations = samples_data['observations']  # Shape: [batch_size, seq_len, obs_dim]
         finish_times = samples_data['finish_time']  # Shape: [batch_size]
         
+        print(f"[DEBUG] actions shape: {actions.shape}")
+        print(f"[DEBUG] observations shape: {observations.shape}")
+        print(f"[DEBUG] finish_times shape: {finish_times.shape}")
+        print(f"[DEBUG] Number of graphs: {len(actions)}")
+        
         # Get energy if available
         energy_data = samples_data.get('energy', None)  # Shape: [batch_size, seq_len] or None
+        if energy_data is not None:
+            print(f"[DEBUG] energy_data shape: {energy_data.shape if hasattr(energy_data, 'shape') else type(energy_data)}")
         
         row_idx = 2
         env = self.env
         task_graphs_batch = env.task_graphs_batchs[env.task_id]
+        print(f"[DEBUG] task_graphs_batch length: {len(task_graphs_batch)}")
         
         # Process each graph (each row in batch corresponds to one graph)
+        graphs_processed = 0
+        total_nodes_written = 0
+        
         for graph_idx, (action_seq, obs_seq, finish_time) in enumerate(zip(actions, observations, finish_times)):
             if graph_idx >= len(task_graphs_batch):
+                print(f"[DEBUG] Stopping at graph_idx {graph_idx} (exceeds task_graphs_batch length {len(task_graphs_batch)})")
                 break
                 
             task_graph = task_graphs_batch[graph_idx]
+            graphs_processed += 1
             
             # Get energy for this graph if available
             graph_energy = None
@@ -463,6 +512,13 @@ class Trainer():
                         cell.number_format = '0.000000'
                 
                 row_idx += 1
+                total_nodes_written += 1
+        
+        print(f"[DEBUG] Processed {graphs_processed} graphs, wrote {total_nodes_written} node rows")
+        
+        if total_nodes_written == 0:
+            print("WARNING: No rows were written to Excel! Check if actions/observations are empty.")
+            return
         
         # Auto-adjust column widths
         for col_idx in range(1, len(headers) + 1):
@@ -475,8 +531,17 @@ class Trainer():
         
         # Save Excel file
         excel_path = os.path.join(output_dir, f"iteration_{iteration}_detailed.xlsx")
-        wb.save(excel_path)
-        print(f"Saved detailed Excel for iteration {iteration}: {excel_path} ({row_idx - 2} rows)")
+        print(f"[DEBUG] Saving Excel to: {excel_path}")
+        print(f"[DEBUG] Total rows to write: {row_idx - 2}")
+        
+        try:
+            wb.save(excel_path)
+            print(f"✓ Successfully saved detailed Excel for iteration {iteration}: {excel_path} ({row_idx - 2} rows)")
+        except Exception as e:
+            print(f"ERROR: Failed to save Excel file: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     def _get_detailed_scheduling_info(self, plan, task_graph):
         """
