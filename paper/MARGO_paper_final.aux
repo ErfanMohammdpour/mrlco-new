@@ -1,0 +1,197 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{mao2017survey}
+\citation{mao2017survey,kumar2013survey}
+\citation{topcuoglu2002performance}
+\citation{arabnejad2014list}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:introduction}{{I}{1}{Introduction}{section.1}{}}
+\citation{topcuoglu2002performance}
+\citation{chen2019optimized,hu2019dynamic,xu2019deep}
+\citation{wang2020fast}
+\citation{nichol2018reptile}
+\citation{sun2019v2v,feng2017mobile}
+\citation{xu2018graph2seq}
+\citation{hamilton2017inductive}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-A}}Limitations of Existing Approaches}{2}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-B}}Our Contributions}{2}{subsection.1.2}\protected@file@percent }
+\citation{wang2020fast}
+\citation{mao2017survey,kumar2013survey}
+\citation{topcuoglu2002performance,arabnejad2014list}
+\citation{schulman2017proximal}
+\citation{schulman2016gae}
+\citation{finn2017model}
+\citation{nichol2018reptile}
+\citation{wang2020fast}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-C}}Paper Organization}{3}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {II}Background}{3}{section.2}\protected@file@percent }
+\newlabel{sec:background}{{II}{3}{Background}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-A}}Multi-access Edge Computing and Task Offloading}{3}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-B}}Reinforcement Learning and PPO}{3}{subsection.2.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces V2V-assisted MEC system architecture used in our simulator. The UE can execute tasks locally, offload to the MEC server via cellular uplink/downlink, or offload to a nearby V2V helper vehicle via the half-duplex V2V channel.}}{3}{figure.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:system_model}{{1}{3}{V2V-assisted MEC system architecture used in our simulator. The UE can execute tasks locally, offload to the MEC server via cellular uplink/downlink, or offload to a nearby V2V helper vehicle via the half-duplex V2V channel}{figure.caption.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-C}}Meta-Reinforcement Learning}{3}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {III}Problem Formulation}{3}{section.3}\protected@file@percent }
+\newlabel{sec:problem}{{III}{3}{Problem Formulation}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Network Architecture}{3}{subsection.3.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces System Parameters and Default Values}}{4}{table.caption.2}\protected@file@percent }
+\newlabel{tab:system_params}{{I}{4}{System Parameters and Default Values}{table.caption.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}DAG Task Model}{4}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}20-Dimensional Task Feature Encoding}{4}{subsection.3.3}\protected@file@percent }
+\newlabel{eq:task_features}{{1}{4}{20-Dimensional Task Feature Encoding}{equation.3.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}HEFT-based Task Prioritization}{4}{subsection.3.4}\protected@file@percent }
+\newlabel{eq:heft_rank}{{2}{4}{HEFT-based Task Prioritization}{equation.3.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}V2V Half-Duplex Channel Model}{5}{subsection.3.5}\protected@file@percent }
+\newlabel{eq:v2v_ul_start}{{4}{5}{V2V Half-Duplex Channel Model}{equation.3.4}{}}
+\newlabel{eq:v2v_ul_end}{{5}{5}{V2V Half-Duplex Channel Model}{equation.3.5}{}}
+\newlabel{eq:v2v_exec_start}{{6}{5}{V2V Half-Duplex Channel Model}{equation.3.6}{}}
+\newlabel{eq:v2v_exec_end}{{7}{5}{V2V Half-Duplex Channel Model}{equation.3.7}{}}
+\newlabel{eq:v2v_dl_start}{{8}{5}{V2V Half-Duplex Channel Model}{equation.3.8}{}}
+\newlabel{eq:v2v_ft}{{9}{5}{V2V Half-Duplex Channel Model}{equation.3.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-F}}Action Space Definition}{5}{subsection.3.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-G}}Execution Time Computation}{5}{subsection.3.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {III-G}1}Local Execution ($a_i = 0$)}{5}{subsubsection.3.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {III-G}2}MEC Offloading ($a_i = 1$)}{5}{subsubsection.3.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {III-G}3}V2V Offloading ($a_i = 2$)}{5}{subsubsection.3.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-H}}Energy Consumption Models}{5}{subsection.3.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {III-H}1}Local Execution Energy}{5}{subsubsection.3.8.1}\protected@file@percent }
+\newlabel{eq:energy_local}{{16}{5}{Local Execution Energy}{equation.3.16}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {III-H}2}MEC Offloading Energy}{5}{subsubsection.3.8.2}\protected@file@percent }
+\newlabel{eq:energy_mec}{{17}{5}{MEC Offloading Energy}{equation.3.17}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {III-H}3}V2V Offloading Energy}{5}{subsubsection.3.8.3}\protected@file@percent }
+\newlabel{eq:energy_v2v_comm}{{18}{5}{V2V Offloading Energy}{equation.3.18}{}}
+\newlabel{eq:energy_v2v_comp}{{19}{5}{V2V Offloading Energy}{equation.3.19}{}}
+\newlabel{eq:energy_v2v_total}{{20}{5}{V2V Offloading Energy}{equation.3.20}{}}
+\citation{xu2018graph2seq}
+\citation{hamilton2017inductive}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-I}}Joint Optimization Objective}{6}{subsection.3.9}\protected@file@percent }
+\newlabel{eq:objective}{{21}{6}{Joint Optimization Objective}{equation.3.21}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-J}}Reinforcement Learning Formulation}{6}{subsection.3.10}\protected@file@percent }
+\newlabel{eq:reward}{{22}{6}{Reinforcement Learning Formulation}{equation.3.22}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Proposed Method: \textsc  {MARGO}{}}{6}{section.4}\protected@file@percent }
+\newlabel{sec:method}{{IV}{6}{Proposed Method: \method {}}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Feature Embedding Layer}{6}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Graph2Seq Encoder Architecture}{6}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-B}1}Sequence-to-Graph Conversion}{6}{subsubsection.4.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-B}2}Two-Layer Mean Aggregation}{6}{subsubsection.4.2.2}\protected@file@percent }
+\newlabel{eq:mean_agg_1}{{27}{6}{Two-Layer Mean Aggregation}{equation.4.27}{}}
+\newlabel{eq:self_transform_1}{{28}{6}{Two-Layer Mean Aggregation}{equation.4.28}{}}
+\newlabel{eq:neigh_transform_1}{{29}{6}{Two-Layer Mean Aggregation}{equation.4.29}{}}
+\newlabel{eq:combine_1}{{30}{6}{Two-Layer Mean Aggregation}{equation.4.30}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-B}3}Dropout Regularization}{6}{subsubsection.4.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Triple Readout Mechanism (Novel Contribution)}{6}{subsection.4.3}\protected@file@percent }
+\citation{schulman2017proximal}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textsc  {MARGO}{} architecture overview. (a) The Graph2Seq encoder takes 20-dimensional task features as input and applies two layers of mean aggregation. (b) The triple readout combines attention pooling, mean pooling, and max pooling to produce a graph-level representation. (c) The LSTM decoder with Luong attention generates offloading decisions autoregressively. (d) The meta-learning framework uses Reptile with PPO for fast adaptation.}}{7}{figure.caption.3}\protected@file@percent }
+\newlabel{fig:architecture}{{2}{7}{\method {} architecture overview. (a) The Graph2Seq encoder takes 20-dimensional task features as input and applies two layers of mean aggregation. (b) The triple readout combines attention pooling, mean pooling, and max pooling to produce a graph-level representation. (c) The LSTM decoder with Luong attention generates offloading decisions autoregressively. (d) The meta-learning framework uses Reptile with PPO for fast adaptation}{figure.caption.3}{}}
+\newlabel{eq:attn_score}{{37}{7}{Triple Readout Mechanism (Novel Contribution)}{equation.4.37}{}}
+\newlabel{eq:attn_weight}{{38}{7}{Triple Readout Mechanism (Novel Contribution)}{equation.4.38}{}}
+\newlabel{eq:attn_pool}{{39}{7}{Triple Readout Mechanism (Novel Contribution)}{equation.4.39}{}}
+\newlabel{eq:mean_pool}{{40}{7}{Triple Readout Mechanism (Novel Contribution)}{equation.4.40}{}}
+\newlabel{eq:max_pool}{{41}{7}{Triple Readout Mechanism (Novel Contribution)}{equation.4.41}{}}
+\newlabel{eq:readout_fusion}{{42}{7}{Triple Readout Mechanism (Novel Contribution)}{equation.4.42}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}LSTM Decoder with Luong Attention}{7}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-D}1}Two-Layer LSTM Architecture}{7}{subsubsection.4.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-D}2}Luong Attention over Encoder Outputs}{7}{subsubsection.4.4.2}\protected@file@percent }
+\newlabel{eq:luong_score}{{47}{7}{Luong Attention over Encoder Outputs}{equation.4.47}{}}
+\newlabel{eq:luong_weight}{{48}{7}{Luong Attention over Encoder Outputs}{equation.4.48}{}}
+\newlabel{eq:luong_ctx}{{49}{7}{Luong Attention over Encoder Outputs}{equation.4.49}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-D}3}Output Projection}{7}{subsubsection.4.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-E}}Value Function for PPO}{7}{subsection.4.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-F}}PPO Inner-Loop Optimization}{7}{subsection.4.6}\protected@file@percent }
+\citation{schulman2016gae}
+\citation{nichol2018reptile}
+\citation{wang2020fast}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-F}1}Clipped Surrogate Objective}{8}{subsubsection.4.6.1}\protected@file@percent }
+\newlabel{eq:ppo_clip}{{55}{8}{Clipped Surrogate Objective}{equation.4.55}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-F}2}Clipped Value Function Loss}{8}{subsubsection.4.6.2}\protected@file@percent }
+\newlabel{eq:ppo_vf}{{57}{8}{Clipped Value Function Loss}{equation.4.57}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-F}3}Total Loss}{8}{subsubsection.4.6.3}\protected@file@percent }
+\newlabel{eq:ppo_total}{{58}{8}{Total Loss}{equation.4.58}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-F}4}Generalized Advantage Estimation (GAE)}{8}{subsubsection.4.6.4}\protected@file@percent }
+\newlabel{eq:gae}{{59}{8}{Generalized Advantage Estimation (GAE)}{equation.4.59}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-G}}Reptile Meta-Learning Framework}{8}{subsection.4.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-G}1}Inner Loop (Task Adaptation)}{8}{subsubsection.4.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {IV-G}2}Outer Loop (Meta-Update)}{8}{subsubsection.4.7.2}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces \textsc  {MARGO}{} Meta-Training}}{8}{algorithm.1}\protected@file@percent }
+\newlabel{alg:margo}{{1}{8}{\method {} Meta-Training}{algorithm.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {V}Experiments}{8}{section.5}\protected@file@percent }
+\newlabel{sec:experiments}{{V}{8}{Experiments}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Experimental Setup}{8}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-A}1}Dataset Description}{8}{subsubsection.5.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-A}2}Implementation}{8}{subsubsection.5.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-A}3}Baselines}{8}{subsubsection.5.1.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Hyperparameter Configuration}}{9}{table.caption.4}\protected@file@percent }
+\newlabel{tab:hyperparams}{{II}{9}{Hyperparameter Configuration}{table.caption.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Average latency during training. Lower is better. Both task distributions show consistent improvement over iterations.}}{9}{figure.caption.5}\protected@file@percent }
+\newlabel{fig:latency_comparison}{{3}{9}{Average latency during training. Lower is better. Both task distributions show consistent improvement over iterations}{figure.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Main Results}{9}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-B}1}Latency Performance}{9}{subsubsection.5.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-B}2}Energy Performance}{9}{subsubsection.5.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-B}3}Comparison with Greedy Baseline}{9}{subsubsection.5.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-B}4}Training Dynamics}{9}{subsubsection.5.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-B}5}Policy and Value Loss Analysis}{9}{subsubsection.5.2.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Comparison with \textsc  {MRLCO}{} (Without V2V)}{9}{subsection.5.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Average energy consumption during training. Lower is better. The energy reduction is more pronounced than latency due to V2V efficiency.}}{9}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:energy_comparison}{{4}{9}{Average energy consumption during training. Lower is better. The energy reduction is more pronounced than latency due to V2V efficiency}{figure.caption.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Direct comparison between \textsc  {MARGO}{} and greedy baseline. Blue lines show learned policy performance; orange dashed lines show greedy baseline. The learned policy consistently outperforms greedy on both metrics.}}{9}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:greedy_comparison}{{5}{9}{Direct comparison between \method {} and greedy baseline. Blue lines show learned policy performance; orange dashed lines show greedy baseline. The learned policy consistently outperforms greedy on both metrics}{figure.caption.7}{}}
+\citation{mao2017survey,kumar2013survey}
+\citation{topcuoglu2002performance}
+\citation{chen2019optimized,hu2019dynamic,xu2019deep}
+\citation{wang2020fast}
+\citation{dai2024smrlmto,li2023gtrxlpr}
+\citation{xiong2020v2x}
+\citation{liu2021multihop}
+\citation{xiao2022perception}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Training dynamics. (a)-(b) show increasing average reward indicating policy improvement. (c)-(d) show converging loss indicating stable learning.}}{10}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:training_dynamics}{{6}{10}{Training dynamics. (a)-(b) show increasing average reward indicating policy improvement. (c)-(d) show converging loss indicating stable learning}{figure.caption.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Detailed loss analysis. Policy losses (PPO clipped surrogate) and value function losses both show convergence, indicating stable optimization under the Reptile meta-learning framework.}}{10}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:loss_analysis}{{7}{10}{Detailed loss analysis. Policy losses (PPO clipped surrogate) and value function losses both show convergence, indicating stable optimization under the Reptile meta-learning framework}{figure.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Ablation Studies}{10}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Related Work}{10}{section.6}\protected@file@percent }
+\newlabel{sec:related_work}{{VI}{10}{Related Work}{section.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Direct comparison with \textsc  {MRLCO}{} using binary action space (without V2V). The Graph2Seq encoder with triple readout provides improvements even without the V2V extension.}}{10}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:mrlco_comparison}{{8}{10}{Direct comparison with \baseline {} using binary action space (without V2V). The Graph2Seq encoder with triple readout provides improvements even without the V2V extension}{figure.caption.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces \textsc  {MRLCO}{} comparison with greedy baseline. These results show the performance of the original \textsc  {MRLCO}{} method without our proposed improvements.}}{10}{figure.caption.11}\protected@file@percent }
+\newlabel{fig:mrlco_greedy}{{9}{10}{\baseline {} comparison with greedy baseline. These results show the performance of the original \baseline {} method without our proposed improvements}{figure.caption.11}{}}
+\citation{hamilton2017inductive,xu2018graph2seq,luong2015effective}
+\bibstyle{IEEEtran}
+\bibdata{MARGO_references}
+\bibcite{mao2017survey}{1}
+\bibcite{kumar2013survey}{2}
+\bibcite{topcuoglu2002performance}{3}
+\bibcite{arabnejad2014list}{4}
+\bibcite{chen2019optimized}{5}
+\bibcite{hu2019dynamic}{6}
+\bibcite{xu2019deep}{7}
+\bibcite{wang2020fast}{8}
+\bibcite{nichol2018reptile}{9}
+\bibcite{sun2019v2v}{10}
+\bibcite{feng2017mobile}{11}
+\bibcite{xu2018graph2seq}{12}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Performance After 20 Fine-tuning Iterations}}{11}{table.caption.12}\protected@file@percent }
+\newlabel{tab:main_results}{{III}{11}{Performance After 20 Fine-tuning Iterations}{table.caption.12}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Ablation Study Results}}{11}{table.caption.13}\protected@file@percent }
+\newlabel{tab:ablation}{{IV}{11}{Ablation Study Results}{table.caption.13}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Discussion}{11}{section.7}\protected@file@percent }
+\newlabel{sec:discussion}{{VII}{11}{Discussion}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Why \textsc  {MARGO}{} Outperforms \textsc  {MRLCO}{}}{11}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}Limitations}{11}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-C}}Future Directions}{11}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Conclusion}{11}{section.8}\protected@file@percent }
+\newlabel{sec:conclusion}{{VIII}{11}{Conclusion}{section.8}{}}
+\@writefile{toc}{\contentsline {section}{References}{11}{section*.15}\protected@file@percent }
+\bibcite{hamilton2017inductive}{13}
+\bibcite{schulman2017proximal}{14}
+\bibcite{schulman2016gae}{15}
+\bibcite{finn2017model}{16}
+\bibcite{dai2024smrlmto}{17}
+\bibcite{li2023gtrxlpr}{18}
+\bibcite{xiong2020v2x}{19}
+\bibcite{liu2021multihop}{20}
+\bibcite{xiao2022perception}{21}
+\bibcite{luong2015effective}{22}
+\gdef \@abspage@last{12}

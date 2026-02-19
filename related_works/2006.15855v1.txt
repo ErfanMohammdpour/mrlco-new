@@ -1,0 +1,2418 @@
+
+
+===== PAGE 1 =====
+1
+Intelligent Task Ofﬂoading for Heterogeneous V2X
+Communications
+Kai Xiong, Supeng Leng, Member, IEEE, Chongwen Huang, Chau Yuen, Senior Member, IEEE and Yong Liang
+Guan, Senior Member, IEEE
+Abstract—With the rapid development of autonomous driving
+technologies, it becomes difﬁcult to reconcile the conﬂict between
+ever-increasing demands for high process rate in the intelligent
+automotive tasks and resource-constrained on-board processors.
+Fortunately, vehicular edge computing (VEC) has been proposed
+to meet the pressing resource demands. Due to the delay-
+sensitive traits of automotive tasks, only a heterogeneous vehic-
+ular network with multiple access technologies may be able to
+handle these demanding challenges. In this paper, we propose an
+intelligent task ofﬂoading framework in heterogeneous vehicular
+networks with three Vehicle-to-Everything (V2X) communication
+technologies, namely Dedicated Short Range Communication
+(DSRC), cellular-based V2X (C-V2X) communication, and mil-
+limeter wave (mmWave) communication. Based on stochastic
+network calculus, this paper ﬁrstly derives the delay upper
+bound of different ofﬂoading technologies with a certain failure
+probability. Moreover, we propose a federated Q-learning method
+that optimally utilizes the available resources to minimize the
+communication/computing budgets and the ofﬂoading failure
+probabilities. Simulation results indicate that our proposed al-
+gorithm can signiﬁcantly outperform the existing algorithms in
+terms of ofﬂoading failure probability and resource cost.
+Index Terms—Vehicular Edge Computing, DSRC, C-V2X,
+mmWave, Federated Q-Learning.
+I. INTRODUCTION
+M
+ODERN transportation systems have evolved vehicles
+with the automotive artiﬁcial intelligence which can
+make decisions through on-board processors and shares road
+information by Vehicle-to-Everything (V2X) communications.
+The emergence of services like intelligent cruise scheduling,
+road trafﬁc management, and cooperative driving with the
+shared on-board computing resources, has prompted the need
+for signiﬁcant computing capacity and rigorous delay tolerance
+[1]. Previous literature [2] remarked that an autonomous
+vehicle can create 1 GB of data per second from the on-board
+processor. However, the volume of the data will exponentially
+grow with the increasing number of autonomous vehicles.
+Without enough communication and computing resources,
+K. Xiong and S. Leng are with School of Information and Communication
+Engineering, University of Electronic Science and Technology of China,
+Chengdu, 611731, China.
+C. Huang and C. Yuen is with Singapore University of Technology and
+Design (SUTD), Singapore.
+Y. L. Guan is with the School of Electrical and Electronic Engineering,
+Nanyang Technological University, Singapore.
+This work was partly supported by National Key R&D Program of China
+(No.2018YFE0117500), the Science and Technology Program of Sichuan
+Province, China (No.2019YFH0007), and the EU H2020 Project COSAFE
+(MSCA-RISE-2018-824019).
+The corresponding author is Supeng Leng, email: spleng@uestc.edu.cn
+road risk estimation becomes leggy and inaccurate that may
+incur life-threatening problems.
+Due to the constrained on-board processing power and
+communication bandwidth in vehicular networks, it is im-
+practical to raise the computing and communication capacity
+of an individual vehicle for automotive applications. To cope
+with the scarce computing resources problem, Vehicular Edge
+Computing (VEC) technology has been proposed to support
+the computing-thirsty tasks in the intelligent transportation
+systems, in which the computing capabilities of vehicles can be
+improved through ofﬂoading the overburden tasks of a vehicle
+to the adjacent vehicles or edge servers [3]. However, previous
+work [4], [5] mainly pays attention to the task ofﬂoading
+schemes with sufﬁcient communication resources. However,
+the performance of VEC is signiﬁcantly constrained by the
+limited communication bandwidth in a practical vehicular
+network.
+On the other hand, the use of heterogeneous V2X commu-
+nications has great potential to enhance the communication
+capability for the large scale application of autonomous ve-
+hicles [6]. Vehicle-to-Vehicle (V2V) communications are the
+major transmission form in the platoon-based edge computing
+paradigm, where a platoon of vehicles with sufﬁcient on-
+board computing resources and communication bandwidth can
+offer additional mobile computing resources cooperatively [7].
+Speciﬁcally, there are three widely used types of V2V com-
+munication technologies, including the Dedicated Short Range
+Communications (DSRC) communication, cellular-based V2V
+(C-V2V) communication, and mmWave communication. As
+for the Vehicle-to-Infrastructure (V2I) communication, it can
+support the infrastructure-based edge computing [8], in which
+the overburden task is ofﬂoaded from vehicles to the nearby
+base station that provides the communication service. In this
+paper, we investigate the cellular-based V2I communication
+(C-V2I) that requires vehicles to stay within cellular coverage.
+In addition, DSRC and mmWave V2V operate on the license
+free bands [9], [10]. However, the C-V2V and C-V2I work on
+the licensed band to provide paid communication service.
+In the context of VEC with heterogeneous V2X connections
+and computing servers, the ofﬂoading reliability is tightly
+affected by the selection of access technologies and ofﬂoading
+targets. Malfunctions of any part (transmission may fail or
+task processing may be interrupted) deteriorate the VEC per-
+formance. However, only a few work has investigated the in-
+tegrating failure probability of computing and communication
+processes in a heterogeneous VEC network, or incorporated
+this failure probability into the VEC optimization objective.
+arXiv:2006.15855v1  [cs.NI]  29 Jun 2020
+
+
+===== PAGE 2 =====
+2
+Therefore, with the constrains of the ofﬂoading failure proba-
+bility and resource cost, it is still an open challenge to attain
+the reliable and economical VEC services through the optimal
+selection of access technologies and ofﬂoading targets.
+To fulﬁll these research gaps, our study exploits the hetero-
+geneous VEC to optimize tasks ofﬂoading with multiple V2X
+technologies. First, we derive the upper bound of the ofﬂoad-
+ing delay using different access technologies with variable
+failure probability. Based on the analysis of the upper bounds,
+a federated learning-based intelligent ofﬂoading scheme is
+proposed to minimize the failure probability and the resource
+cost in terms of communication cost and computing cost. Our
+federated Q-learning algorithm can parallelly exploit and share
+the local knowledge among vehicles. The main contributions
+are summarized as follows:
+• We derive the upper bound of ofﬂoading delay for dif-
+ferent V2X technologies by leveraging stochastic network
+calculus. It is the ﬁrst closed-form of the upper bound for
+the ofﬂoading delay in the VEC. These upper bounds can
+guide the design of optimal ofﬂoading scheduling and the
+selection of communication forms for the task ofﬂoading.
+• We propose a new optimization model taking account of
+the communication and computing budgets as well as the
+failure probability. This is the ﬁrst work to consider the
+ofﬂoading failure probability in the heterogeneous VEC.
+Simulations show that the cellular-based V2X (C-V2X)
+communication have the best performance in terms of the
+failure probability under different trafﬁc loads.
+• We design a federated learning-based parallel scheme
+with high scalability and fast convergence. The opti-
+mization model is decoupled and parallelly trained by a
+set of local Q-learning processes, which can accumulate
+global knowledge by exploiting different local action-
+state spaces, simultaneously. The proposed consensus Q-
+Table can amplify the knowledge sharing, and avoid the
+heavy communication overhead of the training phase.
+The remainder of this paper is organized as follows. Section
+II presents the related works. Section III introduces the system
+model. Section IV provides the platoon-based edge computing
+and infrastructure-based edge computing formations. Section
+V presents the optimization model and our two solutions on
+the V2X ofﬂoading selection. Section VI demonstrates the
+simulation results and the performance discussion. Finally, we
+draw the conclusion in Section VII.
+II. RELATED WORK
+Existing work on VEC focuses on selecting the optimal
+ofﬂoading targets taking account of resource constraints. Dai
+et al. [4] investigated the multiple vehicles task ofﬂoading
+problem of VEC and proposed the two-step iterative algorithm
+to optimize ofﬂoading ratio and computation resource. Zhang
+et al. [11] proposed a Stackelberg game approach for the
+ofﬂoading candidates selection to optimize the utilities of both
+vehicles and VEC servers. Zhang et al. [8] regarded vehicles
+as caching servers and proposed a caching service migration
+scheme, where the communication, computing, and caching
+resources at the wireless network edge are jointly scheduled.
+However, these VEC solutions ignored the potential selection
+problem of optimal access technologies for task ofﬂoading.
+Furthermore, each V2X technology has its own limitations.
+DSRC is a typical competition-based communication that is
+not suitable for multiple tasks communication due to scal-
+ability issues [12]. The C-V2X technology eliminates the
+above drawbacks, while it charges the fee to vehicles [13].
+In contrast, the mmWave communication works at the high-
+frequency unlicensed bands with the large available bandwidth
+[6]. However, it needs antenna beam alignment that incurs
+additional link budget [14]. Consequently, the academic so-
+ciety has been exploited a heterogeneous V2X architecture
+that complements shortcomings of individual V2X technol-
+ogy. Abboud et al. [15] discussed the interworking issue of
+DSRC and cellular communication solutions. Perales et al.
+[16] proposed a heterogeneous DSRC and mmWave vehicular
+network, which used side information of DSRC channel to
+speed up mmWave beam alignment. Prior work of Sim et
+al. [17] integrated mmWave into C-V2X. Katsaros et al. [18]
+developed stochastic network calculus to derive the stochastic
+upper bound of the end-to-end delay for the DSRC combining
+with C-V2X hybrid communications.
+However, to our best knowledge, there is no literature dis-
+cussed the interworking of DSRC, C-V2X, and mmWave com-
+munications in the heterogeneous VEC system. In addition,
+existing work on VEC devoted to the computation ofﬂoading
+between the vehicle and the VEC servers. They ignored the
+ofﬂoading failure probability due to communication issues and
+the reliability of VEC. To ﬁll the research gap, our work
+attempts to addresses the problem of tasks ofﬂoading in the
+heterogeneous VEC environment in accounts of the ofﬂoading
+failure probability and resource cost. This is a challenging
+problem due to the complicated dependency between multiple
+access technologies and ofﬂoading targets.
+III. SYSTEM MODEL
+As shown in Fig. 1, the proposed VEC framework consists
+of vehicles, cellular base stations (BSs), and VEC servers,
+where VEC servers are located with the BSs at the roadside
+to reduce the end-to-end communication and process latency.
+Since the C-V2I communication has several advantages over
+other V2I technologies, including longer range and enhanced
+reliability [12], this paper only regards the cellular BS as the
+roadside infrastructure. In addition, VEC servers are connected
+with each other through the X2 interfaces of the accompanied
+BSs to form a resource pool, namely, the VEC pool. To
+simplify the model, we apply the virtual link to depict the
+logical connection between the VEC pool and the connected
+VEC servers. In this paper, the centralized resource manage-
+ment is implemented in the VEC pool that provides efﬁcient
+resource utilization to the C-V2I ofﬂoading tasks. However,
+the resource management in a platoon is achieved by the
+platoon header that is a resource-rich vehicle elected from the
+platoon vehicles [3].
+Furthermore, we propose the Synchronous Federated Q-
+Learning (Sync-FQL) algorithm that instructs the ofﬂoading
+direction of the network trafﬁc taking accounts of ofﬂoading
+
+
+===== PAGE 3 =====
+3
+C-V2I
+DSRC, mmWave
+Platoon edge computing
+Infrastructure edge 
+computing
+VEC
+Server
+VEC Pool
+VEC
+Server
+X2
+C-V2X
+Virtual link
+mmWave V2V
+DSRC
+C-V2V
+Fig. 1: Illustration of the heterogeneous VEC framework.
+failure probability and resource cost. This algorithm is de-
+ployed in the VEC pool or platoon header. As shown in Fig. 2,
+the input of Sync-FQL algorithm includes delay requirements
+Tmax of the ofﬂoading tasks, trafﬁc attributes of the ofﬂoading
+tasks (arrival rate λ of and brustiness measure o), as well as
+the service attributes of servers (envelope service rate ξ and
+peak service capacity η of each server) [19]. Note that we treat
+V2X communication and task processing as a service.
+Since the V2X technologies and the ofﬂoading targets
+(vehicles or VEC servers) are tightly coupled, it is a typical
+studied object for the stochastic network calculus theory.
+Recent advances in network performance researches have
+adopted network calculus to estimate the end-to-end delay
+[18], [20]. However, these previous works did not investigate
+the stochastic network calculus in the VEC system from
+the perspective of the ofﬂoading failure probability as well
+as communication and computing resources. In this paper,
+we investigate the stochastic network calculus to obtain the
+ofﬂoading performance metrics. Once the theoretical perfor-
+mance of each V2X technology is available, it can be used to
+guide the search pruning in the training process.
+Moreover, ofﬂoading scheduling is impacted by the proper-
+ties of input network trafﬁc. Thus, it is important to capture
+the statistical characteristics of the input trafﬁc. From the per-
+spective of the network calculus, an arrival trafﬁc curve X(t)
+can be modelled as the cumulative volume of the input trafﬁc
+during interval (0, t]. And, X(τ, t) = X(t−τ) = X(t)−X(τ)
+is the cumulative volume of the input trafﬁc during (τ, t],
+where τ < t. Moreover, X(τ, t) has a statistical envelope
+(λ, o), referred to as exponentially bounded burstiness model
+[19], which provides a validated inequality P[Xi(t −τ) ≥
+λi · (t −τ) + oi] ≤ε, where λi is an arrival rate of task i. oi
+is the burstiness measure of task i [19]. And, ε is the violated
+probability. In virtue of Chernoff’s bound [19], we get
+P[Xi(t −τ) ≥λi · (t −τ) + oi] ≤e−θ(λi·(t−τ)+oi)E
+
+eθXi
+,
+(1)
+where E(x) is the expectation of random variable x. θ is a
+constant parameter. We assume that there are K categories
+automotive tasks {1, . . . , K} in the transportation system, such
+as vehicular Internet and infotainment, remote diagnostics and
+management, cooperative lane change assist, and cooperative
+adaptive cruise control [21]. Each task i generates own net-
+work trafﬁc that is characterized by the arrival rate λi and
+brustiness measure oi. In addition, the task can be divided
+into several parts and processed separately.
+Hereafter, we investigate the dynamic service curve that is
+provided by a channel or a processor Y (τ, t), t ≥τ ≥0
+[22]. Y (τ, t) is non-negative and increases with t. A dynamic
+service envelope is deﬁned as P[Y (t−τ) ≥ξ·(t−τ)−η] ≤ε
+for all t ≥τ ≥0, where ξ is the envelope service rate. η
+is the peak service capacity of the server [19]. According to
+Chernoff’s bound, the envelope is rewritten as
+P[Y (t −τ) ≤ξ · (t −τ) −η] ≤eθ(ξ·(t−τ)−η)E
+
+e−θY 
+.
+(2)
+When the dynamic server Y (s, t) processes the input trafﬁc
+X(s, t), the processing delay d(ε) with a failure probability
+ε(η) satisﬁes the following inequality [23]
+P [(X ⊘Ynet) (t + d(ε), t) ≥0] ≤ε(η),
+(3)
+where X ⊘Y (s, t) = supτ∈[0,s][X(τ, t) −Y (τ, s)].
+IV. PERFORMANCE ANALYSIS ON VEC
+In this section, we derive the end-to-end delay upper bound
+of different networks in the platoon-based edge computing and
+infrastructure-based edge computing, respectively.
+A. Platoon-based Edge Computing
+Vehicles can form a platoon to share their computing
+resource with the surrounding vehicles for cooperatively pro-
+cessing tasks. The ofﬂoading target of the platoon-based edge
+computing is the neighbor vehicles. There are three kinds of
+communication technologies to support the platoon-based edge
+computing that is shown in Fig. 2. The C-V2V communication
+operates in a licensed band and needs the vehicles to pay a fee
+to the mobile network operator. While DSRC and mmWave
+V2V communications are free to access.
+1) Delay Upper Bound of DSRC: The DSRC standard is
+based on the 802.11p amendment to the IEEE 802.11 standard
+that adapts the exponential back-off algorithm to cope the
+access competition. The initial size of the back-off window
+is assumed as W0. The retry limit is set to γ. Thus, the
+number of the back-off stage is γ + 1 [18]. And, the available
+bandwidth of DSRC is denoted by Rdsrc. Therefore, the size
+of the window in the back-off state g can be expressed as
+Wg = min
+
+2gW0, 2G W0
+	
+, where G is a threshold of the
+back-off counter, 0 < G ≤γ. When the back-off counter
+exceeds G , the size of the window will not grow anymore.
+Hence, the access delay of input trafﬁc at the head-of-line is
+ˆtserv = Pγ
+g=0 ˆtg, in which ˆtg is the longest duration of the
+back-off stage g. And, ˆtg = wB
+g tw + tT X [24], where
+wB
+g =
+ 2gW0
+g ≤G
+2G W0
+g > G
+,
+(4)
+represents the largest number of back-off slots at stage g. tw
+is the average length of a back-off slot. And, tT X =
+o
+Rdsrc
+is the average length of a transmission slot, where o is the
+average brustiness measure of the input trafﬁc [19]. Without
+loss of generality, we assume tw = 1 and the probability of
+
+
+===== PAGE 4 =====
+4
+Minimize the 
+resource cost and 
+offloading failure 
+probability
+Requirements and 
+attributes of 
+applications (, , )
+Attributes of servers 
+(ξ, ) 
+How many data 
+needs to be 
+processed locally
+processed 
+locally
+How many data 
+needs to be 
+offloaded
+offloading
+Platoon edge 
+computing
+Infra edge 
+computing
+mmWave V2V
+(unlicensed)
+C-V2V 
+(licensed)
+DSRC V2V 
+(unlicensed)
+C-V2I
+(licensed)
+Sync-Federated 
+Q-Learning
+Fig. 2: Demonstration of the ofﬂoading scheduling.
+a collision occurring in a transmission slot is M . Therefore,
+M
+Rdsrc represents the probability of a collision occurring in an
+unit period. If
+2M
+Rdsrc > 1, we get ˆtserv ≈W0( 2M
+Rdsrc )G .
+Moreover, the DSRC transmission process can be regarded
+as the classical latency-rate service β(t) = R(t −s)+ where
+s is the access delay [22]. Therefore, the latency-rate service
+curve of DSRC is given as
+βdsrc(t −τ) = Rdsrc  (t −τ) −ˆtserv
++ ,
+(5)
+in which (X)+ = 0 when X < 0. Otherwise, (X)+ = X.
+By virtue of the superposition property [19], the whole input
+trafﬁc except for task i is regarded as the background arrival
+curve αbg
+i (t) for task i:
+αbg(t −τ) =
+K
+X
+j̸=i
+ϱdsrc
+j
+Oj(t −τ),
+(6)
+where ϱdsrc
+j
+is the percentage of task j using the DSRC
+ofﬂoading. And, Oj(t −τ) is the accumulated trafﬁc volume
+of task j in interval [τ, t], i.e., Oj(t −τ) = λj · (t −τ) + oj,
+where λj is an envelope arrival rate of task j; oj is a
+burstiness measure of task j [19]. Then, based on the theory
+of Leftover Service [22], the service curve Sdsrc
+i
+(t −τ) of
+DSRC transmission for task i is expressed as
+Sdsrc
+i
+(t −τ) = (βdsrc −αbg
+i )+(t −τ)
+= (Rdsrc −
+K
+X
+j̸=i
+ϱdsrc
+j
+λj)(t −τ) −Rdsrcˆtserv −
+K
+X
+j̸=i
+ϱdsrc
+j
+oj.
+(7)
+If task i has ofﬂoaded to the target vehicle, it needs to compete
+with other ofﬂoaded tasks (i.e., ofﬂoaded by mmWave, DSRC,
+and C-V2V) and the local processed tasks for the on-board
+CPU cycling (computing resource). Similar to Eq. (6), the
+background on-board processing service curve of task i is
+φbg
+i (t −τ) = Oj(t −τ)
+N
+
+
+K
+X
+j=1
+(1 −ϱv2i
+j
+) −ϱdsrc
+i
+
+,
+(8)
+where N is the number of vehicles in the road segment. ϱx
+j is
+the percentage of the task j using x category ofﬂoading, where
+x represents one of the DSRC, C-V2I, C-V2V, mmWave, and
+local processing. Hence, for any task i, the equation ϱlocal
+i
++
+ϱmmw
+i
++ϱdsrc
+i
++ϱv2i
+i
++ϱcv2v
+i
+= 1 holds. Afterwards, based on
+the Leftover Service property [22], the on-board processing
+service curve for task i using DSRC ofﬂoading is given as
+Ωdsrc
+i
+(t −τ) = (Ωveh −φbg
+i )+(t −τ)
+=
+
+Θveh −1
+N (
+K
+X
+j̸=i
+ϱdsrc
+j
+λj +
+K
+X
+j=1
+(1 −ϱdsrc
+j
++ ϱv2i
+j
+)λj)
+
+·
+(t −τ) −1
+N
+
+
+K
+X
+j̸=i
+ϱdsrc
+j
+oj +
+K
+X
+j=1
+(1 −ϱdsrc
+j
++ ϱv2i
+j
+)oj
+
+,
+(9)
+where Ωveh(t−τ) = Θveh·(t−τ), and Θveh is the computing
+capacity for the on-board processor. Furthermore, according to
+the concatenated property [23], the total service curve of the
+DSRC transmission and the on-board processing is
+Y dsrc
+i
+(t −τ) = (Sdsrc
+i
+⊗Ωdsrc
+i
+)(t −τ),
+(10)
+which represents task i traversing the services of DSRC
+transmission and the on-board processor, where (x⊗y)(s, t) =
+infτ∈[s,t][x(s, τ) + y(τ, t)]. Therefore, based on Eq. (3), the
+validated inequality of DSRC ofﬂoading is
+P{Xi ⊘Y dsrc
+i
+(t + d(ε), t) ≥0}
+≤eθ·0Ee
+θ[ sup
+τ∈[0,t]
+Xi(τ,t)−Y dsrc
+i
+(τ,t+d(ε))]
+≤eθϱdsrc
+i
+oi X
+τ∈[0,t]
+eθλi(t−τ)
+t
+X
+v=τ
+E
+h
+e−θSi
+dsrc(τ,v)i
+·
+E
+h
+e−θΩdsrc
+i
+(v,t+d(ε))i
+≤eθϱdsrc
+i
+oi+θ(ηcomp
+dsrc +ηdsrc)e−θξcomp
+dsrc d(ε)
+1 −e−θ((ξdsrc−ξcomp
+dsrc ))
+∞
+X
+τ=0
+e−θ(ξcomp
+dsrc −λi)τ
+=
+eθϱdsrc
+i
+oi+θ(ηcomp
+dsrc +ηdsrc)e−θξcomp
+dsrc di
+(1 −e−θ((ξdsrc−ξcomp
+dsrc )))(1 −e−θ(ξcomp
+dsrc −λi)),
+(11)
+
+
+===== PAGE 5 =====
+5
+where ξdsrc = Rdsrc, ηdsrc = Rdsrcˆtserv, ξcomp
+dsrc
+= Θ −
+1
+N [
+K
+P
+j̸=i
+ϱdsrc
+j
+λj +
+K
+P
+j=1
+(ϱmmw
+j
++ϱcv2v
+j
++ϱlocal
+j
+)λj], and ηcomp
+dsrc =
+1
+N [
+K
+P
+j̸=i
+ϱdsrc
+j
+oj +
+K
+P
+j=1
+(ϱmmw
+j
++ ϱcv2v
+j
++ ϱlocal
+j
+)oj]. The ﬁrst
+inequality of Eq. (11) is attained by the Chernoff’s bound.
+And, the second inequality is derived by the fact:
+E
+h
+e−θY dsrc
+i
+(τ,t)i
+= E
+h
+e−θ minv∈[τ,t]{Sdsrc
+i
+(τ,v)+Ωdsrc
+i
+(v,t)}i
+≤
+t
+X
+v=τ
+E
+h
+e−θSdsrc
+i
+(τ,v)i
+E
+h
+e−θΩdsrc
+i
+(v,t)i
+.
+(12)
+The third inequality of Eq. (11) is based on the assumption
+E
+
+e−θY (τ,t)
+≤e−θ(ξ(t−τ)−η) with t →∞. The last equality
+of Eq. (11) is obtained by the inﬁnity geometric sum, where
+(ξdsrc −ξcomp
+dsrc ) > 0 is assumed for convergence. In addition,
+we can regard the last equation as the ofﬂoading failure
+probability of task i:
+εi =
+eθϱdsrc
+i
+oi+θ(ηcomp
+dsrc +ηdsrc)e−θξcomp
+dsrc di
+(1 −e−θ(ξdsrc−ξcomp
+dsrc ))(1 −e−θ(ξcomp
+dsrc −λi)),
+(13)
+where εi represents the probability that the ofﬂoading delay
+(transmission delay plus the on-board processing delay) ex-
+ceeds the value of di. Through a simple algebraic operation,
+we get the upper bound of the ofﬂoading delay di:
+di =
+1
+ξcomp
+dsrc
+(ϱdsrc
+i
+oi + ηcomp
+dsrc + ηdsrc) −
+1
+θξcomp
+dsrc
+(ln ε + U )
+≤
+1
+ξcomp
+dsrc
+(ϱdsrc
+i
+oi + ηcomp
+dsrc + ηdsrc −ln ε
+θ ),
+(14)
+where U = ln(1−e−θ((ξdsrc−ξcomp
+dsrc )))+ln(1−e−θ(ξcomp
+dsrc −λi)).
+The inequality of Eq. (14) is because of U ≤0. Hence, the
+delay upper bound of DSRC ofﬂoading for task i with the
+ofﬂoading failure probability εi is expressed as
+ddsrc
+i
+=
+1
+N
+K
+P
+j=1
+[1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+]oj + W0(2M)G
+(Rdsrc)G −1 −ln εi
+θ
+Θveh −1
+N
+K
+P
+j=1
+[1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+]λj + ϱdsrc
+i
+λi
+.
+(15)
+2) Delay Upper Bound of C-V2V: C-V2V communication
+can be regarded as speciﬁc reservation-based V2V technology.
+Additionally, Release 14 of C-V2X standardization in the
+Third Generation Partnership Project deﬁnes two new modes
+(mode 3 and mode 4) for C-V2V communication [25]. To
+simplify the analysis, we focus on the C-V2V communication
+under mode 3. In mode 3, the communication resource for
+each V2V communication is pre-assigned by the nearby base
+station. There is no access competition in the transmission
+procedure. Hence, the service curve of C-V2V communication
+under mode 3 is βcv2v
+i
+= Rcv2v
+i
+(t −τ), where Rcv2v
+i
+is
+the exclusive bandwidth for task i. Similar to the DSRC
+task ofﬂoading, task i also needs to compete with other
+ofﬂoaded tasks and the local processed tasks in the on-board
+processor. Based on the Leftover Service property, the on-
+board processing service curve of C-V2V ofﬂoading is
+Ωcv2v
+i
+(t −τ) =
+[Θveh + ϱcv2v
+i
+λi −1
+N
+K
+X
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj]·
+(t −τ) −
+
+
+
+1
+N
+K
+X
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj −ϱcv2v
+i
+oi
+
+
+.
+(16)
+Hereafter, by virtue of the concatenated property, the total
+service curve of C-V2V ofﬂoading for task i is Y cv2v
+i
+(t−τ) =
+βcv2v
+i
+⊗Ωcv2v
+i
+(t −τ). Therefore, the validated inequality of
+C-V2V ofﬂoading is given as
+P{Xi ⊘Y cv2v
+i
+(t + di, t) ≥0}
+≤
+eθϱcv2v
+i
+oi+θ(ηcomp
+cv2v +ηcv2v)e−θξcomp
+cv2v d(ε)
+(1 −e−θ((ξcv2v−ξcomp
+cv2v )))(1 −e−θ(ξcomp
+cv2v −λi)).
+(17)
+where ξcv2v = Rcv2v
+i
+, ξcomp
+cv2v = Θveh + ϱcv2v
+i
+λi −1
+N
+K
+P
+j=1
+(1 −
+ϱv2i
+j
++(N −1)ϱlocal
+j
+)λj, ηcomp
+cv2v = −ϱcv2v
+i
+oi+ 1
+N
+K
+P
+j=1
+(1−ϱv2i
+j
++
+(N −1)ϱlocal
+j
+)oj, and ηcv2v = 0. Then, we denote the right
+hand-side of Eq. (17) as the ofﬂoading failure probability εi.
+Hence, the delay upper bound dcv2v
+i
+of C-V2V ofﬂoading is
+dcv2v
+i
+=
+1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj −ln εi
+θ
+Θveh −1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj + ϱcv2v
+i
+λi
+,
+(18)
+3) Delay Upper Bound of mmWave: The implementation
+of mmWave communication needs the antenna beam align-
+ment at ﬁrst that incurs additional time overhead compared
+to other V2V communications [26]. Furthermore, the usage
+of the control channel for beam alignment can signiﬁcantly
+reduce the complexity of the alignment [27]. This control
+channel delivers the Request-To-Send like (RTS-like) and
+Clear-To-Send like (CTS-like) beacons that contain vehicular
+kinetic information (location, speed, acceleration, and heading
+direction) and the communication types [27]. In addition, the
+sub-6GHz control channel for RTS/CTS-like beacons can be
+a competition-based channel or a reservation-based channel.
+To simplify the notations, the mmWave ofﬂoading with the
+competition-based channel aided alignment is denoted by
+CmmW. And, RmmW represents the mmWave ofﬂoading with
+the reservation-based channel aided alignment.
+a) Delay Upper Bound of CmmW: In this sub-section,
+we resort to the DSRC channel as the competition-based
+control channel for the beam alignment, which is depicted in
+Fig. 3. The mmWave communication includes two procedures:
+the beam alignment and the data transmission. Vehicle A
+initiates the beam alignment through sending an RTS-like
+
+
+===== PAGE 6 =====
+6
+mmWave
+DSRC
+A sends RTS via 
+DSRC
+Vehicle A
+Vehicle B
+B received RTS
+sends
+a
+CTS
+via DSRC
+A received CTS
+transmits
+data
+via mmWave
+DSRC based RTS-
+like beacon 
+Data transmission
+A
+B
+DSRC based CTS-
+like beacon 
+Fig. 3: Beam alignment of CmmW communications.
+beacon that contains the kinetic information of vehicle A.
+When vehicle B has listened to the RTS-like beacon, it returns
+a CTS-like beacon with its kinetic information to conﬁrm the
+mmWave communication, then the alignment procedure has
+completed [16]. Due to the concatenated property, the service
+curve of mmWave communication is the convolution of the
+beam alignment procedure and the data transmission proce-
+dure. Moreover, the beam alignment procedure is composed
+of the RTS-like beacon transmission and CTS-like beacon
+transmission. Consequently, the service curve of mmWave
+communication is given as
+βnet(t −τ) =
+ βRT S ⊗βCT S ⊗βCmmW 
+(t −τ),
+(19)
+where βRT S and βCT S are the service curves of RTS and
+CTS transmissions, respectively. In general, the transmissions
+of RTS and CTS are symmetrical. Thus, we assume the service
+curves of RTS and CTS transmissions are same. However, due
+to the beam alignment using the DSRC channel, the original
+DSRC trafﬁc could impact on the alignment performance.
+According to the Leftover Service theory, the service curve
+of the DSRC-based RTS is βRT S
+= [Rdsrc
+i
+−(2Ob +
+N
+P
+j=1
+ϱdsrc
+j
+Oj)]+(t −τ), where Ob is the brustiness measure
+of the RTS-like trafﬁc that is identical to that of the CTS-
+like trafﬁc. However, the brustiness measure of RTS/CTS-
+like beacons usually too small to interfere with the channel
+capacity, compared with that of the DSRC trafﬁc. To sim-
+plify the analysis, the brustiness measure of RTS/CTS-like
+trafﬁc is negligible, i.e., Ob = 0. In addition, the service
+curve of mmWave data transmission is βCmmW (t −τ) =
+RmmW × (t −τ), where RmmW is the channel capacity of
+mmWave. Therefore, according to Eq.(19), the service curve
+for mmWave transmission is
+βnet(t −τ) = [Rdsrc −2
+N
+X
+j=1
+ϱdsrc
+j
+Oj]+(t −τ).
+(20)
+When task i has arrived at the service vehicle through
+mmWave transmission, it also competes with other ofﬂoaded
+or local processed tasks for the on-board CPU cycling. The
+on-board processing service curve of the CmmW ofﬂoading
+for task i is
+ΩCmmW
+i
+(t −τ) =
+[Θveh + ϱCmmW
+i
+λi −1
+N
+K
+X
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj]·
+(t −τ) −
+
+
+
+1
+N
+K
+X
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj −ϱCmmW
+i
+oi
+
+
+.
+(21)
+Hence, based on the concatenated property, we get the total
+service curve of the CmmW ofﬂoading, Y CmmW
+i
+:
+Y CmmW
+i
+(t −τ) = βnet ⊗ΩCmmW
+i
+(t −τ).
+(22)
+The validated inequality for the CmmW ofﬂoading is
+P{Xi ⊘Y CmmW
+i
+(t + d(ε), t) ≥0}
+≤
+eθϱmmw
+i
+oi+θ(ηcomp
+mmw+ηmmw)e−θξcomp
+mmwd(ε)
+(1 −e−θ((ξmmw−ξcomp
+mmw)))(1 −e−θ(ξcomp
+mmw−λi)),
+(23)
+where ξmmw = Rdsrc −2
+N
+P
+j=1
+ϱdsrc
+j
+Oj, ξcomp
+mmw = Θveh +
+ϱmmw
+i
+λi −
+1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj, ηcomp
+mmw =
+−ϱmmw
+i
+oi + 1
+N
+K
+P
+j=1
+(1−ϱv2i
+j
++(N −1)ϱlocal
+j
+)oj, and ηmmw =
+2
+K
+P
+j=1
+ϱdsrc
+j
+oj. Since the right hand-side of Eq. (23) can be
+regarded as the failure probability εi, the upper bound of
+CmmW ofﬂoading delay dmmwc
+i
+for task i is
+dmmwc
+i
+=
+2
+K
+P
+j=1
+ϱdsrc
+j
+oj + 1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj −ln εi
+θ
+Θveh −1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj + ϱmmw
+i
+λi
+.
+(24)
+Compared with the C-V2V ofﬂoading, the mmWave of-
+ﬂoading has an additional item 2
+K
+P
+j=1
+ϱdsrc
+j
+oj that causes by
+the DSRC trafﬁc. The additional DSRC trafﬁc deteriorates the
+performance of CmmW ofﬂoading.
+b) Delay Upper Bound of RmmW: The reservation-
+based control channel is purchased from the mobile network
+operator or licensed by the standards in the future. Following
+the same derivation of the CmmW ofﬂoading, the service
+curve of RTS/CTS transmission in the RmmW alignment is
+βRT S
+r
+= [Rrc
+i
+−2
+N
+P
+j=1
+ϱmmw
+j
+Ob
+j ]+(t −τ) where Rrc is the
+capacity of reserved control channel. Therefore, the service
+curve βnet
+r
+for the RmmW transmission is
+βnet
+r
+(t −τ) = [Rrc −4
+N
+X
+j=1
+ϱmmw
+j
+Ob
+j ]+(t −τ).
+(25)
+In addition, the on-board processing service curve of the
+RmmW ofﬂoading is the same as that of CmmW ofﬂoading.
+
+
+===== PAGE 7 =====
+7
+Thus, the delay upper bound of RmmW ofﬂoading dmmwr
+i
+for
+task i is
+dmmwr
+i
+=
+4
+N
+P
+j=1
+ϱmmw
+j
+ob
+j + 1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj −ln εi
+θ
+Θveh −1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj + ϱmmw
+i
+λi
+,
+(26)
+where ob
+j is the brustiness measure of the RTS/CTS-like trafﬁc.
+Usually, the volume of the control trafﬁc is constrained to
+be very small to mitigate the communication budgets. Hence,
+the constant 4
+N
+P
+j=1
+ϱmmw
+j
+ob
+j is negligible. Hereafter, the delay
+upper bound of RmmW ofﬂoading is similar to that of the C-
+V2V ofﬂoading, i.e., Eq.(18). Consequently, the performance
+of C-V2V ofﬂoading can be a good reference for that of
+RmmW. Therefore, we do not individually explore the RmmW
+ofﬂoading in the remainder of this paper.
+B. Infrastructure-based Edge Computing
+As shown in Fig. 1, cellular base stations, deployed in the
+roadsides, collect data from vehicles, and deliver the data to
+the VEC pool for processing. Thus, the C-V2I ofﬂoading
+has two components: uplink transmission and VEC pool
+processing. Since C-V2I uplink is typical reservation-based
+communication, its service curve can be expressed as
+βuplink
+i
+(t −τ) = Rv2i
+i
+(t −τ),
+(27)
+where Rv2i
+i
+is the assignment uplink bandwidth for task i. As
+for the VEC pool processing, the computing resources of VEC
+pool are shared to all the upload tasks. Thus, the VEC pool
+processing service curve for task i is
+Ωv2i
+i
+(t −τ) = (Θepc −
+K
+X
+j̸=i
+ϱv2i
+j
+λj)(t −τ) −
+K
+X
+j̸=i
+ϱv2i
+j
+oj,
+(28)
+in which Θepc is the total computing capacity of the VEC
+pool that is larger than the computing capacity of on-board
+processor Θveh. The total service curve of C-V2I ofﬂoading
+for task i is denoted by Y v2i
+i
+(t −τ) = βuplink
+i
+⊗Ωv2i
+i
+(t −τ).
+Referring to the derivation of Eq. (11), the validated inequality
+of C-V2I ofﬂoading is
+P{Xi ⊘Y v2i
+i
+(t + d(ε), t) ≥0}
+≤
+eθøi+θ(ηepc+ηuplink)e−θξepcdi
+(1 −e−θ((ξuplink−ξepc)))(1 −e−θ(ξepc−λi)),
+(29)
+where ξepc = Θepc −
+K
+P
+j̸=i
+ϱv2i
+j
+λj, ξuplink = Rv2i
+i
+, ηepc =
+K
+P
+j̸=i
+ϱv2i
+j
+oj, and ηuplink = 0. Therefore, the delay upper bound
+of C-V2I ofﬂoading is:
+dv2i
+i
+=
+K
+P
+j=1
+ϱv2i
+j
+oj −ln εi
+θ
+Θepc −P
+j̸=i
+ϱv2i
+j
+λj
+.
+(30)
+C. Local Processing
+Vehicular applications could be self-digested by the vehi-
+cle’s own on-board processor. However, the local processed
+task i still has to compete with other ofﬂoaded and local tasks.
+Hence, the local processing service curve of task i is
+Y local
+i
+(t −τ) =
+[Θveh −1
+N
+K
+X
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj](t −τ)
+−1
+N
+K
+X
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj.
+(31)
+And, the corresponding validated inequality is
+P{Xi ⊘Y local
+i
+(t + d(ε), t) ≥0}
+≤
+eθϱlocal
+i
+oi+θ(ηcomp
+local +ηlocal)e−θξcomp
+local d(ε)
+(1 −e−θ((ξlocal−ξcomp
+local )))(1 −e−θ(ξcomp
+local −λi)),
+(32)
+where ξlocal = 0, ξcomp
+local = Θveh −1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −
+1)ϱlocal
+j
+)λj, ηcomp
+local = 1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj, and
+ηlocal = 0. Let the right hand-side of Eq. (32) equal to εi, the
+delay upper bound dlocal
+i
+for local processing is given as
+dlocal
+i
+=
+1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)oj −ln εi
+θ
+Θveh −1
+N
+K
+P
+j=1
+(1 −ϱv2i
+j
++ (N −1)ϱlocal
+j
+)λj
+. (33)
+V. MODEL OPTIMIZATION
+This section proposes a new optimization model taking
+account of the considered communication and computing cost,
+as well as the failure probability. When vehicles have utilized
+C-V2X communication, the cellular operator could charge
+the fee Ai per Mbps to vehicles for transmission service.
+Moreover, the communication cost Ccomm
+i
+(t −τ) of task i
+is only generated by the C-V2X communication due to the
+licensed band, i.e.,
+Ccomm
+i
+(t −τ) = Ai(ϱv2i
+i
++ ϱcv2v
+i
+)Oi(t −τ).
+(34)
+Regarding the computing cost, the unit computing costs of the
+VEC pool and on-board processor are A infra
+i
+per Mbps and
+A veh
+i
+per Mbps, respectively. The VEC pool computing cost
+is produced by C-V2I ofﬂoading, while the computing cost
+of the on-board processor is yielded by the DSRC ofﬂoading,
+the C-V2V ofﬂoading, and the mmWave ofﬂoading. Since the
+local processing only employs the local computing resource, it
+
+
+===== PAGE 8 =====
+8
+does not generate any cost of communication and computing.
+Thus, the computing cost for task i is
+Ccomp
+i
+(t −τ) =
+[A infra
+i
+ϱv2i
+i
++ A veh
+i
+(ϱcv2v
+i
++ ϱmmw
+i
++ ϱdsrc
+i
+)]HiOi(t −τ),
+(35)
+where Hi is the computation complexity of task i [28].
+Furthermore, we originally treat the failure probability as
+another cost in the VEC because the failed ofﬂoading will
+tightly deteriorate the quality of service for automotive tasks.
+Moreover, the minimized cost model for the heterogeneous
+VEC is proposed in P1.
+P1:
+min
+ϱ
+K
+X
+i=1
+Ccomm
+i
+(ϱ) + Ccomp
+i
+(ϱ) + δiεi
+s.t.,
+C1: ϱh
+i , εi ∈[0, 1],
+X
+h
+ϱh
+i = 1, i ∈I
+C2:
+K
+X
+i=1
+(ϱv2i + ϱcv2v)Oi(t) ≤Rcv2x
+C3:
+K
+X
+i=1
+ϱdsrc
+i
+Oi(t) ≤Rdsrc
+C4:
+\
+h
+
+dh
+i ≤T max
+i
+	
+, i ∈I
+(36)
+where
+h
+∈
+{dsrc, v2i, cv2v, mmw, local}.
+ϱ
+=
+[ϱdsrc, ϱv2i, ϱcv2v, ϱmmw, ϱlocal].
+T max
+i
+is
+the
+delay
+requirement of task i. dh
+i and the ofﬂoading failure probability
+εi of different access technologies are attained by Eq. (15),
+(18), (26), (24), (30), (33), respectively. δ = [δ1, δ2, . . . δK]
+represents the priority of application i. This paper ﬁrst
+proposes the ofﬂoading failure probability as the optimization
+objective that is rational and neglected in previous literature.
+However, since P1 is non-convex that is difﬁcult to solve.
+According to Eq. (15), (18), (24), (30), (33), εi is inversely
+proportional to dh
+i . When εi has been minimized, constraint
+C4 becomes tight, i.e., dh
+i = T max
+i
+. Consequently, C4 can
+be removed by replacing ln εi as max
+h
+ln εh
+i (ϱ). Thus, P1
+transforms into P2, equivalently.
+P2:
+min
+ϱ
+K
+X
+i=1
+Ccomm
+i
+(ϱ) + Ccomp
+i
+(ϱ) + δi max
+h
+ln εh
+i (ϱ)
+s.t.,
+C1, C2, C3.
+(37)
+Considering the non-convex objective of P2, it is also
+difﬁcult to directly solve. In this paper, we propose two
+canonical solutions to address P2. One is a parallel learning-
+based method, federated Q-learning (FQL) that is presented in
+Alg. 1, in which Ns is the training times of the federated Q-
+learning. CQ−table is the consensus Q-table for aggregating.
+The other canonical solution is Relaxation optimization that
+applies the relaxation trick to transfer the original non-convex
+problem P2 to a convex problem with low complexity.
+Algorithm 1: Sync Federated Q-Learning (Sync-FQL)
+1 Initialize action-state Q-table Qi; CQ-table CQ; ϱ
+2 for j : 1 to Ns do
+3
+for each ofﬂoad technology i in parallel do
+4
+Selecting an action with max Qi or randomly
+rollout with a certain probability;
+5
+Update reward ri using Eq. (38); compute local
+update of Qi using Eq. (39);
+6
+if the aggregator receives all local updated Qi(t)
+then
+7
+Update global CQ(t + 1) using Eq. (40);
+8
+Set Qi(t + 1) ←CQ(t + 1) for all i;
+A. Federated Q-Learning
+The V2X ofﬂoading selection is modeled as a markov
+decision process, which consists of a tuple {T, A, P, R} where
+T and A are the set of states and actions, respectively.
+Transition probability P(ti|ti−1, ai−1) is the probability of a
+transition occurred where an agent enters state ti after taking
+action ai−1 at state ti−1. Reward R(ti, ai) is a feedback of
+selecting action ai at state ti [29].
+1) State: xt = {ϱ(t), Wt} is a state of the ofﬂoading
+scheduling, where ϱ(t) = {ϱdsrc
+i
+, ϱv2i
+i
+. . . , ϱlocal
+i
+} is the as-
+signed proportion of different ofﬂoading technologies used
+in task i. Wt = {Rcv2x
+r
+, Rdsrc
+r
+} is the reserved bandwidth
+for C-V2X and DSRC ofﬂoading. In addition, according to
+current assignment ϱ, the available bandwidth for C-V2X and
+DSRC ofﬂoading are updated to Rcv2x
+r
+= Rcv2x −
+K
+P
+i=1
+(ϱv2i +
+ϱcv2v)Oi(t), and Rdsrc
+r
+= Rdsrc−
+K
+P
+i=1
+ϱdsrc
+i
+Oi(t), respectively.
+2) Action: an action stands for a trafﬁc assignment of
+different ofﬂoading technologies. When one kind of ofﬂoading
+technology increases/decreases 0.01 (or 0.1) percentage of
+trafﬁc volume, the other ofﬂoading technologies will equally
+decrease/increase
+0.01
+Ntotal
+f
+−1 ( or
+0.1
+Ntotal
+f
+−1) percentage of trafﬁc
+volume, respectively. N total
+f
+is the total number of ofﬂoading
+technologies. The agent has a certain probability p to select the
+action with the maximum value of the Q-Table. or randomly
+choose an action in the available action set with probability
+1 −p.
+3) Transition Probability: at each state, P(ti|ti−1, ai−1)
+is non-zero except for the ofﬂoading percentage ϱh
+i of one
+ofﬂoading technology is equal to 1 or 0 that cannot increase or
+decrease, respectively. Otherwise, the current ofﬂoading per-
+centage of the technology randomly adds one of the element in
+{0.1, 0.01, −0.1, −0.01} to update its ofﬂoading percentage.
+4) Reward: When the proportion (ofﬂoading percentage) of
+ofﬂoading technology i updates, the algorithm returns reward
+ri that represents the gain of selecting ofﬂoading technology
+i. Noted that the reward is a negative form of the total cost.
+
+
+===== PAGE 9 =====
+9
+ri = −δi max
+h
+ln εh
+i (ϱ) −
+( K
+X
+i=1
+Ccomm
+i
+(ϱ) + Ccomp
+i
+(ϱ)
+)
+.
+(38)
+5) Q-Table: Q-Table could be regarded as an action-state
+performance index function. In this paper, the Q-Table is a
+three-dimensional matrix whose size is N total
+f
+×K×Nϱ, where
+N total
+f
+is the number of the ofﬂoading technology (including
+local processing). K is the number of the application category.
+Nϱ is the number of feasible ϱi, and the number of feasible ϱi
+is determined by the accuracy of ϱi. In this paper, the accuracy
+is set to 0.01, which means ϱi will increase/decrease with
+at least 0.01 in each iteration. The number of feasible ϱi is
+101, counting from 0 to 100. Therefore, the element [i, j, k]
+of the Q-table represents the learning reward (according to
+Eq. (39)) attained by the state that k percentage of the jth
+category application is ofﬂoaded through the ith technology.
+Additionally, the Q-table is updated as follow
+Qi(xt, a) = α
+n
+rt + γ max
+a
+[Qi (xt−1, a)]
+o
++ (1 −α)Qi(xt−1, a),
+(39)
+where α is the learning rate. γ is the discount factor. Each
+ofﬂoading technology i has own local Q-Table Qi(t), where t
+denotes the iteration time. At t = 0, the local Q-Tables of all
+technologies are initialized to the same value. When t > 0, the
+local Q-learning updates a new local Q-table Qi(t) based on
+the previous local Q-table Qi(t −1). The Q-learning for ith
+technology ofﬂoading optimization is referred to as the local
+learning i. After multiple local updates, a global aggregation is
+performed through the aggregator (deployed at the VEC server
+and the platoon head).
+Moreover, we investigate two kinds of aggregations: the
+asynchronous aggregation and the synchronous aggregation.
+The synchronous aggregation operation that can implement the
+global aggregation when all local learnings have been updated.
+However, an asynchronous aggregation that executes the global
+aggregation when each local learning has been updated. After
+the global aggregation, the aggregator yields a consensus Q-
+table CQ based on the local Q-tables:
+CQ(t) =
+(N update −1) × CQ(t −1) +
+1
+Nf
+Ntotal
+fP
+i
+Qi(t)
+N update
+,
+(40)
+where Qi(t) is the local Q-table for ofﬂoading technology i at
+iteration t. N update is the number of the updated local Q-Table
+that is equal to N total
+f
+in the synchronous aggregation. The
+synchronous update represents that when all local learnings
+have updated their own Q-table, the global consensus Q-table
+CQ(t) is updated. In the simulation part, we can see that the
+performance of synchronous federated learning outperforms
+that of asynchronous federated learning. The main potential
+problem of the asynchronous aggregation is that each local
+update is achieved on the model that could be outdated. Con-
+sequently, we mainly focus on the synchronous aggregation
+in this paper. After the synchronous aggregation, the updated
+consensus Q-table CQ(t) is broadcasted to each local Q-
+learning. Then, the local Q-table is replaced by the consensus
+Q-table CQ. This procedure is shown in Alg. 1.
+B. Relaxation Optimization
+In this section, we propose an approximation programming,
+i.e., the Relaxation algorithm, to quickly obtain the suboptimal
+result. This Relaxation algorithm has a low computation
+complexity advantage that approximates P2 to a convex
+optimization problem P3:
+P3:
+min
+ϱ
+K
+X
+i=1
+(
+Ccomm
+i
+(ϱ) + Ccomp
+i
+(ϱ) + δi
+X
+h
+ln εh
+i (ϱ)
+)
+s.t.,
+C1, C2, C3
+(41)
+where
+the
+non-convex
+part
+max
+h
+ln εh
+i
+of
+P2
+is
+re-
+placed to P
+h
+ln εh
+i . Since the objective of P3 has a gap
+P
+h
+ln εh
+i (ϱ) −max
+h
+ln εh
+i (ϱ)
+
+with the original problem P2,
+the total cost of P3 will be worse (larger) than that of P2.
+However, ln εh
+i (ϱ) is an afﬁne function of ϱ that indicates the
+linear summation of the afﬁne function P
+h
+ln εh
+i (ϱ) is convex.
+Moreover, C1 to C3 are linear constraints. Hence, P3 is a
+convex optimization problem. Although the optimal solution
+of P3 is worse than that of P2, the computational complexity
+is greatly simpliﬁed because the non-convex problem P2 is
+converted to the convex problem P3. It means that the Matlab-
+based CVX toolbox could solve P3 directly.
+VI. PERFORMANCE EVALUATION
+To conﬁrm the efﬁciency of the proposed synchronous
+federated Q-learning (Sync-FQL), we investigate the asyn-
+chronous
+federated
+Q-learning
+(Asyn-FQL),
+original
+Q-
+learning (QL), Greedy algorithm, and Relaxation algorithm to
+compare with Sync-FQL. The Asyn-FQL method is substan-
+tially the same as the Sync-FQL. But the global generation
+in Asyn-FQL is performed when each local learning has been
+updated. As for the original Q-learning, it does not have the
+global aggregation process. The greedy algorithm is devised
+to always choose the maximum reward ri for each action
+selection. The results of the Relaxation algorithm are obtained
+by directly solving P3 via CVX.
+A. Performance of Ofﬂoading Algorithms
+The box-plot of the total cost (i.e., the objective value of P2)
+versus different algorithms is illustrated in Fig. 4a, where the
+y-axis represents the total cost of P2 of different algorithms.
+It is collected from 500 simulations. The training period of
+the learning-based algorithms (i.e., Sync-FQL, Asyn-FQL, and
+QL) is set to 200 times. There are 5 vehicular tasks generated
+by each vehicle. The default number of vehicles is set to 5.
+Without loss of generality,
+To simplify the analysis, the priorities of different appli-
+cations are set equal, i.e., δ = [1, 1, . . . , 1]. The comput-
+ing resource of a service vehicle and the VEC pool are
+
+
+===== PAGE 10 =====
+10
+103Mbps and 104Mbps, respectively. As for the commu-
+nication bandwidth, the transmission rate of DSRC and C-
+V2X are 103Mbps and 104Mbps. However, since mmWave
+communication provides signiﬁcant large bandwidth compared
+to the sub-6 GHz technologies, we assume the transmission
+delay of mmWave communication is negligible. The arrival
+rates of the tasks are [20, 70, 30, 80, 8], respectively. And
+the corresponding burstiness measures of different tasks are
+[60, 400, 90, 380, 10]. Moreover, the delay requirement of tasks
+are [2, 6, 2.5, 3, 1], respectively.
+As shown in Fig. 4a, the proposed Sync-FQL has the
+lowest P2 cost (total cost), and the total cost of Greedy
+and Relaxation are much worse than that of the learning-
+based algorithms. The reason is that the proposed federated
+learning-based algorithm (Sync-FQL and Asyn-FQL) can ob-
+tain the learning results of different access technologies via
+the global aggregation operation. However, due to lacking
+global aggregation, the original Q-learning cannot share the
+diverse learning results between different access technologies.
+In addition, Sync-FQL implements global aggregation when
+all local learnings have updated. However, Asyn-FQL applies
+global aggregation when each local learning has updated.
+Although asynchronous aggregation has proven to be faster
+than those synchronous, which often results in convergence to
+poor results. The main potential problem of the asynchronous
+aggregation is that each local update implements over poten-
+tially old parameters.
+The execution time of different algorithms is illustrated in
+Fig. 4b. In the simulations, each algorithm runs 500 times to
+obtain stable statistical results. The simulation is implemented
+by Matlab on a laptop with i5-8300h CPU and 16G RAM. The
+Greedy and Relaxation algorithms have low execution time
+because of the simplicity. Regarding the practical vehicular
+applications, Campolo et al. [21] pointed out that not all
+the applications are delay-sensitive. For example, the latency
+requirements of the vehicular Internet, infotainment, remote
+diagnostics and management are over 100m. These delay-
+tolerant applications occupy almost whole vehicular transmis-
+sion. Once Sync-FQL is trained on a powerful edge server at
+ﬁrst, it could meet the requirement of the delay-tolerant appli-
+cations. As for the delay-sensitive applications, we can apply
+the proposed Relaxation algorithm rather than the learning-
+based ofﬂoading scheme. Although the performance of the
+Relaxation is worse than that of learning-based algorithm, the
+delay-sensitive applications only occupies a small percentage
+of the wireless communication bandwidths. The overall V2X
+ofﬂoading efﬁciency will not decline signiﬁcantly.
+Furthermore, we investigate the performance of heteroge-
+neous ofﬂoading frameworks in Fig. 5. There are 4 different
+heterogeneous frameworks: the C-V2X combining with DSRC
+and CmmW (CV2X-DSRC-CmmW) framework; the DSRC
+combining with CmmW (DSRC-CmmW) framework; the C-
+V2X combining with RmmW (CV2X-RmmW) framework;
+and the C-V2X combining with DSRC (CV2X-DSRC) frame-
+work. Since the formation of Eq.(18) is the same as that
+of Eq.(26) when ob
+j is negligible, the performance of the
+CV2X-DSRC framework is a good reference for that of the
+RmmW combing with DSRC (RmmW-DSRC) framework. In
+Total Cost
+(a) Total cost of ofﬂoading algo-
+rithms.
+0
+10
+20
+30
+40
+Execution Time  (s)
+Sync-FQLAsyn-FQL
+QL
+Greedy Relaxation
+(b) Execution time of ofﬂoading
+algorithms.
+Fig. 4: Performances of ofﬂoading algorithms.
+-4950
+-4900
+-4850
+-4800
+Total Cost 
+CV2X-DSRC-CmmW
+DSRC-CmmW
+CV2X-RmmW
+CV2X-DSRC
+(a)
+Performances
+of
+different
+frameworks with light loads.
+-4500
+-4000
+-3500
+-3000
+-2500
+-2000
+-1500
+Total Cost 
+DSRC-CmmW
+CV2X-RmmW
+CV2X-DSRC
+CV2X-DSRC-CmmW
+(b)
+Performances
+of
+different
+frameworks with heavy loads.
+Fig. 5: Performances of frameworks in different trafﬁc loads.
+the light trafﬁc loads scenario, there are 5 categories tasks
+with the arrival rate λ = [5, 5, 5, 5, 5], brustiness measure o =
+[2, 2, 2, 2, 2], and the delay requirement Tmax = [1, 1, 1, 1, 1],
+respectively. While the heavy trafﬁc loads of Fig. 5b are set
+to λ = [100, 100, 100, 100, 100] and o = [50, 50, 50, 50, 50]
+with Tmax = [1, 1, 1, 1, 1].
+Upon the light trafﬁc loads (Fig. 5a), CV2X-RmmW offers
+the lowest total cost (resource cost and failure probability).
+In heavy trafﬁc loads (Fig. 5b), the performance of CV2X-
+DSRC is slightly better than that of CV2X-RmmW. Regarding
+the DSRC-CmmW framework, it has largest total cost. The
+reason is that CmmW ofﬂoading will compete with DSRC
+ofﬂoading for the bandwidth, because the mmWave beam
+alignment needs the side information transferred by the DSRC
+channel. In addition, the RmmW ofﬂoading can provide better
+service experience than that of DSRC in the light trafﬁc
+loads. However, the situation converses in heavy trafﬁc loads.
+This is because the mmWave beam alignment requires double
+transmissions: the RTS-like transmission and CTS-like trans-
+mission. Respecting the DSRC ofﬂoading, it only has one data
+transmission. Therefore, the RmmW ofﬂoading suffers more
+deteriorating than that of DSRC upon the heavy trafﬁc.
+Remark. Upon the light trafﬁc loads, the C-V2X combining
+with the RmmW has the lowest total cost (resource cost and the
+ofﬂoading failure probability). However, the C-V2X combining
+with DSRC ofﬂoading has the lowest total cost in the heavy
+trafﬁc loads.
+B. Performance of Ofﬂoading Technologies
+The failure probability versus delay requirement Tmax for
+different V2X technologies depicts in Fig. 6a-6e. In heavy traf-
+ﬁc loads, these ofﬂoading failure probabilities are inverse with
+delay requirement Tmax. Relaxation algorithm has the lowest
+failure probability. Besides, Fig. 6f presents the resource cost
+
+
+===== PAGE 11 =====
+11
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Delay requirement of applications  T max
+-10000
+-9000
+-8000
+-7000
+-6000
+-5000
+-4000
+-3000
+-2000
+-1000
+0
+Logarithm of DSRC failure probability
+Sync-FQL
+Asyn-FQL
+QL
+Greedy
+Relaxation
+(a)
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Delay requirement of applications  T max
+-10000
+-9000
+-8000
+-7000
+-6000
+-5000
+-4000
+-3000
+-2000
+-1000
+0
+Logarithm of V2I failure probability
+Sync-FQL
+Asyn-FQL
+QL
+Greedy
+Relaxation
+(b)
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Delay requirement of applications  T max
+-10000
+-9000
+-8000
+-7000
+-6000
+-5000
+-4000
+-3000
+-2000
+-1000
+0
+Logarithm of CV2V failure probability
+Sync-FQL
+Asyn-FQL
+QL
+Greedy
+Relaxation
+(c)
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Delay requirement of applications  T max
+-10000
+-9000
+-8000
+-7000
+-6000
+-5000
+-4000
+-3000
+-2000
+-1000
+0
+Logarithm of CmmW failure probability
+Sync-FQL
+Asyn-FQL
+QL
+Greedy
+Relaxation
+(d)
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Delay requirement of applications  T max
+-10000
+-9000
+-8000
+-7000
+-6000
+-5000
+-4000
+-3000
+-2000
+-1000
+0
+Logarithm of local process failure probability
+Sync-FQL
+Asyn-FQL
+QL
+Greedy
+Relaxation
+(e)
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Delay requirement of applications  T max
+3000
+4000
+5000
+6000
+7000
+8000
+9000
+10000
+11000
+12000
+Resource Cost
+Sync-FQL
+Asyn-FQL
+QL
+Greedy
+Relaxation
+(f)
+Fig. 6: (a)-(e) are the logarithm failure probabilities for DSRC, V2I,
+C-V2V, mmWave, and local processing, respectively. (f) is the resource
+cost for different algorithms
+of different algorithms, where the resource cost is deﬁned as
+the sum of the communication cost and the computing cost
+K
+P
+i=1
+Ccomm
+i
+(ϱ) + Ccomp
+i
+(ϱ). Because of the inherent stochastic
+character of learning-based algorithms, the cost curves of
+learning-based algorithms are ﬂuctuations, while curves of
+Greedy and Relaxation are constant. And, the resource cost
+of the Greedy and the Relaxation algorithms are larger than
+that of learning-based algorithms. Due to the complexity of
+the P2, the Greedy algorithm cannot simultaneously optimize
+the failure probability and resource cost. As for the Relaxation
+algorithm, since the objective of P3 includes the sum of all
+failure probabilities, the weight of the optimization tends to
+the failure probability rather than the resource cost. This is
+the reason that the total cost of Greedy and Relaxation are
+worse than others in Fig. 4.
+C. Performance with Trafﬁc Loads
+Fig. 7 veriﬁes the impact of different trafﬁc loads on the
+ofﬂoading. Fig. 7a shows the delay upper bounds of different
+V2X technologies increased with the arrival rate λ of tasks.
+In this simulation, the acceptable failure probability is set to
+0.01, and the burstiness is set to 100Mbp. When the arrival
+rate excesses 500Mpbs, the delay upper bound of the local
+process grows sharply. It reveals that ofﬂoading the heavy
+workloads to others (i.e., vehicles or VEC servers) instead
+of processing locally, is an efﬁcient approach to reduce the
+ofﬂoading delay. Fig. 7b illustrates that the delay upper bounds
+of V2X technologies raised with the burstiness measure o. In
+addition, the delay upper bound of mmWave increases faster
+than that of other V2X technologies. That means mmWave
+ofﬂoading is not suitable for heavy burstiness trafﬁc. However,
+in Fig. 7c, the C-V2I ofﬂoading has the lowest delay upper
+bound. Thus, a task has the large burstiness trait that prefers
+to C-V2I ofﬂoading.
+Fig. 7c illustrates the failure probability decreased with
+the rising of delay requirements Tmax of tasks. MmWave
+communication declines slowest than the other ofﬂoading
+technologies, which demonstrates that the mmWave ofﬂoading
+is not the best choice for the delay-tolerant trafﬁc. However,
+in Fig. 7c, C-V2V ofﬂoading (or RmmW ofﬂoading) has the
+lowest failure probability. Therefore, the delay-tolerant task
+prefers to C-V2V ofﬂoading for the lowest failure probability.
+Remark. Vehicles should ofﬂoad the large arrival rate trafﬁc
+to others; the CmmW ofﬂoading is not proper to handle the
+tasks with the heavy burstiness measure. And, a delay-tolerant
+task prefers to employ the C-V2V ofﬂoading for the lowest
+failure probability.
+VII. CONCLUSION
+In this paper, we have studied the task ofﬂoading in the
+heterogeneous VEC system with various V2X communications
+and edge servers. To minimize the ofﬂoading failure proba-
+bility and resource cost, we ﬁrst derive the upper bound of
+ofﬂoading delay with ofﬂoading failure probability through
+the stochastic network calculus. These upper bounds can be
+used as an indicator to guarantee the quality of services for
+automotive tasks. Hereafter, we devote to efﬁcient ofﬂoading
+in the presence of task ofﬂoading failure (transmission failed
+and computing interrupted), and propose an intelligent of-
+ﬂoading scheme to ensure ofﬂoading reliability while reducing
+resource cost. Simulations show that the C-V2X combining
+with RmmW ofﬂoading and the C-V2X combining with DSRC
+ofﬂoading have the best performance in the light and heavy
+trafﬁc loads, respectively. Upon the trafﬁc load with a high
+arrival rate, vehicles should ofﬂoad the high arrival rate trafﬁc
+to others. However, when tasks become more bursty, vehicles
+should avoid using CmmW communication. Besides, a delay-
+tolerant application should utilize the C-V2V ofﬂoading for
+the low ofﬂoading failure probability.
+REFERENCES
+[1] K. Zhang, Y. Mao et al., “Mobile-edge computing for vehicular net-
+works: A promising network paradigm with predictive off-loading,”
+IEEE Vehicular Technology Magazine, pp. 36–44, 2017.
+[2] Z. Zhou, H. Yu et al., “Begin: Big data enabled energy-efﬁcient vehicular
+edge computing,” IEEE Communications Magazine, 2018.
+[3] G. Qiao, S. Leng et al., “Deep reinforcement learning for cooperative
+content caching in vehicular edge computing and networks,” IEEE
+Internet of Things Journal, pp. 247–257, 2020.
+
+
+===== PAGE 12 =====
+12
+0
+100
+500
+600
+200 
+300 
+400 
+Application arrival rate
+0
+0.5
+1
+1.5
+2
+2.5
+3
+3.5
+4
+4.5
+delay (s) with the failure probability 0.01
+DSRC
+V2I
+CV2V
+mmWave
+Local
+(a) Delay upper bound with different arrival
+rate λ under the failure probability ε = 0.01
+and o = 100.
+0
+50
+100
+150
+burstiness measure
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+delay (s) with the failure probability 0.01
+DSRC
+V2I
+CV2V
+mmWave
+Local
+(b) Delay upper bound with different bursti-
+ness o under the failure probability ε = 0.01
+and λ = 50.
+1
+1.5
+2
+2.5
+3
+3.5
+4
+4.5
+5
+5.5
+6
+Delay requirement of applications  T max
+-3500
+-3000
+-2500
+-2000
+-1500
+-1000
+-500
+0
+Logarithm of the failure probability
+DSRC
+V2I
+CV2V
+mmWave
+Local
+(c) Logarithm failure probability ln ε with dif-
+ferent delay requirements.
+Fig. 7: Performance of different ofﬂoading technologies under various tasks.
+[4] Y. Dai, D. Xu et al., “Joint load balancing and ofﬂoading in vehicular
+edge computing and networks,” IEEE Internet of Things Journal, pp.
+4377–4387, 2019.
+[5] H.
+Chai,
+S.
+Leng
+et
+al.,
+“Proof-of-reputation
+based-consortium
+blockchain for trust resource sharing in internet of vehicles,” IEEE
+Access, pp. 175 744–175 757, 2019.
+[6] X. Chen, S. Leng et al., “A millimeter wave-based sensor data broad-
+casting scheme for vehicular communications,” IEEE Access, 2019.
+[7] G. Qiao, S. Leng et al., “Collaborative task ofﬂoading in vehicular edge
+multi-access networks,” IEEE Communications Magazine, 2018.
+[8] K. Zhang, S. Leng et al., “Cooperative Content Caching in 5G Networks
+with Mobile Edge Computing,” IEEE Wireless Communications, 2018.
+[9] I. Mavromatis, A. Tassi et al., “Operating ITS-G5 DSRC over Unli-
+censed Bands: A City-Scale Performance Evaluation,” in 2019 IEEE
+30th Annual International Symposium on Personal, Indoor and Mobile
+Radio Communications (PIMRC), 2019.
+[10] Y. Ghasempour, C. da Silva et al., “IEEE 802.11ay: Next-Generation
+60 GHz Communication for 100 Gb/s Wi-Fi,” IEEE Communications
+Magazine, pp. 186–192, 2017.
+[11] K. Zhang, Y. Mao et al., “Optimal delay constrained ofﬂoading for
+vehicular edge computing networks,” in 2017 IEEE International Con-
+ference on Communications (ICC), 2017.
+[12] M. N. Sial, Y. Deng et al., “Stochastic Geometry Modeling of Cellular
+V2X Communication Over Shared Channels,” IEEE Transactions on
+Vehicular Technology, pp. 11 873–11 887, 2019.
+[13] Q. Zheng, K. Zheng et al., “Dynamic performance analysis of uplink
+transmission in cluster-based heterogeneous vehicular networks,” IEEE
+Transactions on Vehicular Technology, pp. 5584–5595, 2015.
+[14] C. Huang, L. Liu et al., “Iterative Channel Estimation Using LSE and
+Sparse Message Passing for MmWave MIMO Systems,” IEEE Trans.
+Signal Process., pp. 245–259, 2019.
+[15] K. Abboud, H. A. Omar, W. Zhuang et al., “Interworking of DSRC and
+Cellular Network Technologies for V2X Communications: A Survey,”
+IEEE Transactions on Vehicular Technology, pp. 9457–9470, Dec 2016.
+[16] B. Coll-Perales et al., “Sub-6GHz Assisted MAC for Millimeter Wave
+Vehicular Communications,” IEEE Communications Magazine, 2019.
+[17] G. H. Sim, S. Klos et al., “An online context-aware machine learn-
+ing algorithm for 5g mmwave vehicular communications,” IEEE/ACM
+Transactions on Networking, pp. 2487–2500, 2018.
+[18] K. Katsaros, M. Dianati et al., “End-to-End Delay Bound Analysis
+for Location-Based Routing in Hybrid Vehicular Networks,” IEEE
+Transactions on Vehicular Technology, pp. 7462–7475, Sep. 2016.
+[19] M. Fidler, A. Rizk et al., “A guide to the stochastic network calculus,”
+IEEE Communications Surveys Tutorials, pp. 92–105, 2015.
+[20] G. Yang, M. Xiao et al., “Analysis of Millimeter-Wave Multi-Hop
+Networks With Full-Duplex Buffered Relays,” IEEE/ACM Transactions
+on Networking, pp. 576–590, Feb 2018.
+[21] C. Campolo, Antonella et al., “5g network slicing for vehicle-to-
+everything services,” IEEE Wireless Communications, 2017.
+[22] Y. Jiang, Y. Liu et al., “Stochastic network calculus,” 2008.
+[23] M. Fidler et al., “An End-to-End Probabilistic Network Calculus with
+Moment Generating Functions,” in 200614th IEEE International Work-
+shop on Quality of Service, 2006, pp. 261–270.
+[24] K. Katsaros, M. Dianati et al., “End-to-end delay bound analysis for
+location-based routing in hybrid vehicular networks,” IEEE Transactions
+on Vehicular Technology, pp. 7462–7475, 2016.
+[25] S. Chen, J. Hu et al., “Vehicle-to-everything (v2x) services supported by
+lte-based systems and 5g,” IEEE Communications Standards Magazine,
+vol. 1, no. 2, pp. 70–76, 2017.
+[26] C. Huang, L. Liu, C. Yuen et al., “Asymptotically optimal estimation
+algorithm for the sparse signal with arbitrary distributions,” IEEE Trans.
+on Veh. Tech., pp. 10 070–10 075, 2018.
+[27] B. Coll-Perales, M. Gruteser et al., “Sub-6GHz Assisted MAC for
+Millimeter Wave Vehicular Communications,” IEEE Communications
+Magazine, pp. 125–131, 2019.
+[28] Q. Z. Jianhui Liu et al., “Ofﬂoading schemes in mobile edge computing
+for ultra-reliable low latency communications,” IEEE Transactions on
+Wireless Communications, 2018.
+[29] H. Baier1 et al., “Nested monte-carlo tree search for online planning in
+large mdps,” European Conference on Artiﬁcial Intelligence, 2012.

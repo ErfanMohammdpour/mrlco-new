@@ -1,0 +1,1794 @@
+
+
+===== PAGE 1 =====
+1
+Mobility-Aware Multi-hop Task Offloading for
+Autonomous Driving in Vehicular Edge Computing
+and Networks
+Lei Liu, Ming Zhao, Miao Yu, Mian Ahmad Jan, Dapeng Lan and Amirhosein Taherkordi
+Abstract—Vehicular Edge Computing (VEC) has gained sig-
+nificant interest due to its potential to provide low latency and
+reduce the load in backhaul networks. To meet the increasing
+computational demands of emerging and ever-growing vehicular
+applications, e.g. autonomous driving, abundance in computation
+resources of individual vehicles can play a crucial role in task
+execution within a VEC scenario, that can further contribute
+towards improving the user experience. This is however an
+extremely challenging task due to high mobility of vehicles that
+can easily lead to intermittent connectivity, thereby disrupting
+on-going task processing. In this paper, we propose a task
+offloading scheme by exploiting multi-hop vehicle computation
+resources in VEC based on mobility analysis of vehicles. In
+addition to the vehicles within one hop from the task vehicle
+that generates computation tasks, certain multi-hop vehicles
+that meet the given requirements in terms of link connectivity
+and computation capacity, are also leveraged to carry out the
+tasks offloaded by the task vehicle. An optimization problem is
+formulated for the task vehicle to minimize the weighted sum of
+execution time and computation cost of all tasks. A semidefinite
+relaxation approach with an adaptive adjustment procedure
+is proposed to solve the formulated optimization problem for
+obtaining the corresponding offloading decisions. The simulation
+results show that our proposed offloading scheme can achieve
+significant improvement in terms of response delay by at least
+34% compared with the existing algorithms, i.e., local processing
+and random offloading.
+Index Terms—Vehicular edge computing, task offloading,
+multi-hop, mobility, connectivity.
+I. INTRODUCTION
+With the advancement of information and communication
+technologies [1]–[4], Internet of Vehicles (IoV) has attracted
+considerable attention in recent years from the research com-
+munity [5], [6], and has witnessed a remarkable development
+along with the availability of more advanced devices and
+technologies [7], [8]. This has led to crucial developments
+in a variety of vehicular applications aimed at improving road
+safety, enhancing traffic efficiency and providing convenient
+infotainment services to the users [9]. Nonetheless, such
+Lei Liu and Ming Zhao are with the State Key Laboratory of In-
+tegrated Service Networks, Xidian University, Xi’an 710071, China(e-
+mail:tianjiaoliulei@163.com;zm227926019@163.com.)
+Miao Yu is with the College of Textiles and Clothing, Qingdao University,
+Qingdao 266071, China(e-mail:yumiao@qdu.edu.cn.)
+Mian Ahmad Jan is with the Department of Computer Science, Abdul Wali
+Khan University Mardan, Pakistan (e-mail:mianjan@awkum.edu.pk.)
+Dapeng Lan and Amirhosein Taherkordi are with the Department
+of Informatics, University of Oslo, Norway(email: dapengl@ifi.uio.no;
+amirhost@ifi.uio.no).
+Corresponding Author: Mian Ahmad Jan
+applications, particularly those with strict latency constraints
+and intensive processing, such as autonomous driving, impose
+considerable demands on computation and storage resources.
+[10]. To meet these demands, Vehicular Edge Computing
+(VEC) is viewed as a promising approach [11], [12]. With the
+integration of Mobile Edge Computing (MEC) [13]–[15] and
+vehicular networks, VEC aims at reducing the response time
+and alleviating backhaul network load by moving the computa-
+tion and storage resources in proximity to vehicular users [16].
+However, due to unique characteristics of vehicular networks
+[17], especially the high mobility of nodes and varying channel
+conditions, designing an efficient edge-enabled task offloading
+scheme is quite challenging.
+There have been numerous efforts devoted to task offload-
+ing in VEC, most of which focus on investigating server-
+based offloading strategy where Road Side Units (RSUs) with
+certain communication, computation and storage resources
+mainly act as edge servers. In [18], workload scheduling
+was implemented on a single edge server. The work in [19]
+considered a multi-server network scenario. In [20] and [21],
+mobility-based task offloading among multiple edge servers
+was studied. However, the penetration of edge servers is low at
+initial stages of deployment. Besides, the deployment of edge
+servers can be quite expensive. From a business perspective,
+it is impractical to fully deploy edge servers along the road
+segments, especially in a large-scale network. Edge servers, on
+the other hand, struggle to keep up with rapidly growing traffic
+data due to restricted computation capability when compared
+to the cloud.
+Vehicle-to-Vehicle (V2V) offloading is an exciting solution
+for dealing with the limitations of server-based offloading and
+mitigating the scarcity of processing resources in VEC. The
+increasing growth in the processing speed and storage capacity
+allow the smart and connected vehicles to communicate as well
+as permit them to have some computation and cache resources
+for task processing. The presence of large underutilized re-
+sources in individual vehicles presents a huge opportunity for
+improving vehicular networks’ communication and processing
+capability. The aggregation of these abundant idle resources
+can improve resource utilization and user experience. All these
+factors provide a powerful platform for exploiting the vehicle
+resources. V2V offloading, in particular, benefits from being
+close to vehicular users, allowing proximity services to be
+provided through resource sharing.
+In literature, there has been few studies conducted for
+designing an efficient V2V offloading schemes. Some of these
+
+
+===== PAGE 2 =====
+2
+studies make use of the computation resources of vehicles for
+service provisioning, but fail to fully capture the mobility of
+vehicles and are based on the assumption that all the vehicles
+are willing to share resources for free, e.g, [22]. Specifically,
+most of existing work on V2V offloading mainly depend on
+one-hop vehicles for task execution, ignoring the utilization of
+available multi-hop vehicles. Based on this statement, there is
+an urgent need to design an efficient V2V offloading scheme.
+To this end, the following factors should be well considered
+for any such design:
+1) Resource discovery. The mobility and computational ca-
+pacity for each vehicle are different. Multi-hop link, on
+the other hand, is vulnerable because of the complicated
+channel environment and dynamic changes in topology.
+Therefore, it is crucial to find available vehicles for task
+processing.
+2) Response latency. Due to the computational and trans-
+mission needs, response delay is regarded as the most
+demanding metric to measure the quality of service.
+Thus, minimizing the response delay is one of the main
+targets for an offloading scheme.
+3) Incentive scheme. Considering the selfishness of nodes,
+the owners of computation and storage resources may
+not be willing to rent out their resources unless they get
+paid well. An incentive strategy is therefore necessary
+to encourage resource sharing among the nodes.
+4) Mobility. Suffering from the high mobility of nodes, the
+network topology varies with time, which introduces
+difficulties in providing optimal decision making. In
+addition, due to the short contact time between nodes,
+a successful offloading process should guarantee that
+the task offloaded from a task vehicle to its service
+vehicle should be completed before the link between
+them becomes broken.
+To address these issues, we propose a Mobility-Aware
+Multi-hop Task Offloading (MMTO) in vehicular edge com-
+puting, with the aim to maximize resource utilization and
+enhance user experience by making the best use of the
+underutilized computation resources of vehicles. Its novelty
+is that the offloading policy is constructed by addressing the
+difficulties in task assignment caused by mobility for one-hop
+service vehicles and taking advantage of multi-hop service
+vehicles for task computation. For one-hop service vehicles,
+the assigned tasks need to be finished before they move
+out of the transmission range of the task vehicle. As for
+multi-hop service vehicles, they are capable of participating
+in task processing only if the link connectivity between the
+task vehicle and the service vehicle is available before the
+calculation results are returned to the task vehicle. Based
+on the proposed task offloading scheme, a mixed-integer
+program is formulated. To provide a solution to this problem,
+a semidefinite relaxation approach is proposed along with an
+adaptive adjustment procedure considering the connectivity
+constraints on one-hop and multi-hop service vehicles. The
+contributions of our work are summarized as follows.
+• A task offloading scheme is proposed by utilizing multi-
+hop vehicles which meet the given requirements regard-
+ing mobility pattern and computation capacity, in addition
+to one hop vehicles of the task vehicle.
+• An offloading policy is designed considering the response
+delay and economic cost to minimize the utility of task
+vehicle, subject to the connectivity constraints.
+• A semidefinite relaxation (SDR) approach with an adap-
+tive adjustment scheme is presented to solve the formu-
+lated optimization problem by considering the connectiv-
+ity constraints of one-hop and multi-hop service vehicles
+while offloading the tasks.
+The remainder of this paper is organized as follows. Section
+II gives an introduction of some existing work in VEC. Section
+III presents the system overview of our work. The exploiting
+mobility task offloading algorithm is proposed in Section
+IV. Numerical results are given in Section V, followed by
+conclusion in Section VI.
+II. RELATED WORK
+In literature, a number of studies have been devoted to the
+research on vehicle edge computing (VEC), some solid works
+among which are introduced in this section.
+In VEC, edge servers with certain computation and cache
+resources, e.g., RSUs, are mainly used for vehicular users to
+execute certain tasks. The work in [18] investigated work-
+load offloading and task scheduling by accounting for the
+high mobility of vehicles and their sojourn time within the
+communication range of edge servers. In [23], a dual-side
+optimization problem was formulated with the aim to bal-
+ance the interests of both vehicles and edge servers at the
+same time. The computation offloading behavior of different
+vehicles is regarded as a competition for an edge server’s
+resources in [24], where vehicles are to allowed to adjust
+their offloading probabilities in the pursuit of maximizing the
+utility. The works in [18], [23], [24] mainly focused on a
+single edge server. On the other hand, the works of [19],
+[25]–[27] focused on multi-server scenarios. An architecture
+for vehicle-infrastructure communication with high reliability
+and low latency was proposed in [19], which optimizes the
+association of vehicle and a small base station along with
+wireless resource management. In [25], the designed task
+offloading scheme simultaneously optimizes the selection of
+target server and the determination of transmission model.
+Communication, caching and computation are jointly taken
+into account to reduce the delay in [26]. Similar to [26], the
+authors utilized a deep reinforcement learning approach to
+solve the resource allocation problem with the consideration
+of networking, caching and computation in [27]. The work
+of [28] aimed at the joint optimization of task offloading and
+resource management while taking into account the differential
+privacy as well.
+The popularization and intelligence of vehicles make it
+possible to fully exploit idle vehicle computation and cache
+resources for service provisioning. Owing to the remark-
+able characteristics including large number of vehicles, long
+sojourn time as well as specific staying locations, parked
+vehicles are regarded as a good choice to serve as service
+infrastructures. Clusters of parked vehicles were used to
+
+
+===== PAGE 3 =====
+3
+act as virtual RSUs in [29], which is of significant benefit
+in coping with severe network fragmentation in vehicular
+networks. The work of [29] studied two key questions: the
+selection of gateway nodes in virtual clusters and seamless
+handovers among these gateways. Content downloading is
+investigated in [30], where parked vehicles are utilized to
+extend the service coverage of RSUs. Optimization models
+are presented to maximize the content freshness, the resource
+utilization as well as the fairness of exploiting the energy
+resources. The authors in [31] proposed a cooperative and
+distributed computation framework, where vehicles with some
+computation resources act as edge nodes. A vehicle-assisted
+offloading algorithm was presented in [22], where vehicles
+are exploited for providing computation services. With the
+aim to minimize the average offloading delay, an adaptive
+learning-based task offloading scheme was proposed in [32].
+The delay performance of one-hop service vehicles is learnt by
+the task vehicle in a distributed manner. A V2V task offloading
+framework was presented in [33], where the computation re-
+sources of available surrounding vehicles can be utilized by the
+task vehicle. Specially, context-aware opportunistic offloading
+algorithms are implemented with the consideration of vehicle
+speed, direction and location to deal with mobility issues. In
+[34], a k-hop-limited V2I vehicular data offloading scheme
+was designed. The novelty of this scheme lies in finding the
+multi-hop V2V path by which the front or the rear RSU can
+be connected from the task vehicle, thereby increasing the
+possibility of vehicular data offloading. The novelty of the
+designed task offloading strategy in [35] lies in combining the
+dual features of V2V, i.e., communication and sensing. The
+scheduling policy, bandwidth ratio and transmission choice
+are jointly optimized for the purpose of minimizing the total
+response latency.
+In VEC, the high mobility of vehicles should be well
+addressed, which will impact the success of task offloading.
+When a task is offloaded by a task vehicle to an edge
+server, it is likely that the task vehicle needs to pass through
+multiple edge servers before the task is finished. In order
+to deal with this issue, a mobility-based task offloading is
+agreed as a promising approach [20] [21]. A prediction-based
+transmission scheme was proposed in [20] for task processing
+with the consideration of mobility of vehicles, which enables
+the improvement of transmission efficiency while meeting the
+delay requirement. The work in [21] studies the problem
+of resource allocation in a multi-user multi-server network
+scenario by integrating load balancing with task offloading.
+Each vehicle can offload its task to a desired server for
+computation through movement. In [36], a generic relative
+motion model was provided to design a link stability metric
+by which the most stable vehicles surrounding the task vehicle
+are discovered. Among these stable vehicles, the vehicle which
+meets the task vehicle’s preferences and the service constraints
+is selected as the optimal service provider. The authors in [37]
+designed a mobility-oriented retrieval scheme, where vehicles
+and RSUs are used for the communication nodes. In this
+scheme, the processed data can be effectively retrieved. An
+efficient mobility-based task offloading scheme was investi-
+gated in [38], which aims at the selection of offloading time
+Fig. 1: Network scenario
+and the allocation of communication, computing and caching
+resources with the consideration of the vehicle mobility and
+the latency constraint. In [39], the random mobility of vehicles
+and the potential handover during the offloading process
+are considered while designing a mobility-aware offloading
+algorithm.
+A comparison of the above mentioned works is presented
+in Table I. In summary, most of the existing works on
+task offloading in VEC are assisted by edge servers. While
+mobility has been viewed as a challenge, we introduce a new
+perspective that enables us to exploit the link connectivity for
+optimizing task offloading further. In particular, we include
+multi-hop vehicles of the task vehicle in addition to one-hop
+vehicles for task offloading. In this regard, our work is one
+of the first to explore underutilized computation resources
+in individual vehicles to enhance the edge capacity by con-
+sidering the potential opportunity of multi-hop vehicles on
+task implementation, which is beneficial for guaranteeing the
+quality of service of vehicular users.
+III. SYSTEM OVERVIEW
+Our work focuses on V2V offloading as illustrated in Fig.1.
+The considered scenario is a straight road, e.g., a highway,
+where vehicles are moving in two different directions. The
+main symbols used in this paper are summarized in Table II.
+In the proposed scenario, there are two types of vehicles,
+i.e., client vehicles and service vehicles. They are classified
+based on their roles in task processing. Vehicles which gener-
+ate tasks and need to process these tasks are defined as client
+vehicles, while vehicles which have surplus idle computation
+resources and are willing to share their resources are defined as
+service vehicles. Note that the role of each vehicle can change
+with time, which is dependent on whether it has a task to be
+executed or has abundant computation resources to share.
+A vehicular application may consist of multiple services.
+For example, AR-based driving assistance application is com-
+posed of object recognition and video streaming as introduced
+in [40]. Each service has its attributes, including data size,
+computation complexity, etc. Here, we regard each service
+as a task. For a client vehicle, its tasks can be processed by
+the following two strategies: (a) Computed locally: the client
+vehicle processes its tasks by itself. (b) Offloaded to nearby
+vehicles: the client vehicle uploads its tasks to its neighboring
+vehicles with surplus computation resources for task execution.
+
+
+===== PAGE 4 =====
+4
+TABLE I: COMPARISON of EXISTING RELATED WORK
+Reference
+Offloading Model
+Key Metric
+Main Contribution
+[18]
+Vehicle-to-RSU
+The rejection rate of re-
+quests
+Investigate the workload offloading and scheduling using edge cloud
+capacities
+[23]
+Vehicle-to-RSU
+Cost and Profit
+Minimize the cost of vehicles and edge servers simultaneously by
+formulating a dual-side optimization problem
+[24]
+Vehicle-to-RSU
+Offloading probability,
+payoff and latency
+Study the distributed computation offloading method by using a multi-
+user noncooperative game
+[25]
+Vehicle-to-RSU
+Offloading utility
+Leverage the deep learning approach to jointly optimize the selection
+of edge server and the determination of data transmission strategy
+[26]
+Vehicle-to-RSU
+Delay and cache hit ra-
+tio
+Provide a joint communication, caching and computation approach to
+reduce the delay for infotainment content retrieval
+[27]
+Vehicle-to-RSU
+Total utility
+Design an integrated architecture for dynamically managing network-
+ing, cache and computation resources
+blue [28]
+Vehicle-to-RSU
+Average delay reduc-
+tion
+Make the joint optimization of task offloading and resource manage-
+ment with the consideration of differential privacy
+[29]
+Vehicle-to-Vehicle
+Success
+ratio,MAC
+busy-fraction
+and
+number of handovers
+Make clusters of vehicles to serve as virtual server unit
+[30]
+Vehicle-to-Vehicle
+freshness
+Investigate the content downloading with the assistance of parked cares
+which extend the service convergence of edge servers
+[31]
+Vehicle-to-Vehicle
+Formulation
+latency,
+performance
+gain,
+perception
+reaction
+time
+Provide a collaborative task offloading scheme for task processing
+[22]
+Vehicle-to-Vehicle
+Utility
+function
+and
+processing Latency
+Explore vehicle resources to design an offloading scheme with the
+consideration of processing latency
+[32]
+Vehicle-to-Vehicle
+Delay
+Develop an adaptive learning task offloading scheme by using multi-
+armed bandit algorithm
+[33]
+Vehicle-to-Vehicle
+Efficiency,
+average
+waiting
+time,
+failure
+rate
+Devise a context-aware opportunistic task offloading scheme which
+takes full use of available vehicle resources
+[34]
+Vehicle-to-Vehicle
+Average path lifetime
+and
+average
+session
+time
+Integrate vehicle-to-infrastructure offloading and vehicle-to-vehicle
+offloading for task processing
+blue [35]
+Vehicle-to-Vehicle
+Overall response time
+Jointly optimize the scheduling policy, bandwidth ratio and transmis-
+sion choice for the purpose of minimizing the total response latency
+[20]
+Mobility-aware
+Offloading time cost
+Present a prediction based offloading scheme which can address the
+offloading time cost and the mobility
+[21]
+Mobility-aware
+Cost and Profit
+Integrate load balancing and task offloading for resource management
+[36]
+Mobility-aware
+Average link stability
+derivation, provider ve-
+hicle duration, service
+delay, successful exe-
+cution ratio
+Investigates the service selection by link stability metric and fuzzy
+quantification
+[37]
+Mobility-aware
+Delay
+Provide a data retrieval strategy based on mobility for computation
+offloading
+[38]
+Mobility-aware
+System cost
+Investigate the task offloading strategy with the aim to make the
+minimization of the system cost subjecting to the maximum latency
+and other constraints
+[39]
+Mobility-aware
+Cost and cost reduction
+Develop the mobility-aware computation offloading with the consid-
+eration of random mobility and potential handover of vehicles when
+the offloading is being implemented
+Our work
+Mobility-aware
+Delay and cost
+Provide a mobility-aware multi-hop task offloading to improve the
+quality of service by exploring the computation resources of one-hop
+and multi-hop vehicles
+
+
+===== PAGE 5 =====
+5
+TABLE II: Main Symbols Used in This Paper
+Notation
+Description
+R
+Transmission range
+rij
+The data transmission ratio between vehicle i and vehicle j
+lij
+The connection time between vehicle i and vehicle j
+o
+The client vehicle which have some tasks to implement
+N
+The set of all the tasks from the client vehicle
+M
+The set of all the available service vehicles
+si
+The input data size from vehicle i
+ci
+The required computational resource for processing the task
+from vehicle i
+x0i
+Whether task i is processed locally
+xki
+Whether task i is processed by service vehicle k
+T0i
+The time required for client vehicle o to execute task i locally
+Tki
+The time required for service vehicle k to execute task i
+pok
+The connectivity of the optimal offloading path between client
+vehicle o and service vehicle k
+Cki
+The total cost needed for service vehicle k to process task i
+X
+The task allocation matrix
+t(X)
+The time for processing all the tasks from client vehicle
+c(X)
+The cost for processing all the tasks from client vehicle
+φ(X)
+The offloading utility of client vehicle
+λc
+The weight factor
+The general process of task processing includes: discover
+service vehicles, allocate client vehicle’s tasks and implement
+computation tasks, which are described in detail as below.
+1) Service Vehicle Discovery: In vehicular networks, vehi-
+cles exchange the speed and position information with their
+neighbors by periodically broadcasting beacons. For service
+vehicles, they can announce their availability by adding the
+computation information in the sent beacons. When a client
+vehicle needs to process the generated tasks, it listens to the
+beacons from its neighboring vehicles to find some available
+service vehicles for task offloading.
+(a) One-hop service vehicles: For a client vehicle, vehicles
+within its one-hop range are called as one-hop vehicles, which
+can act as candidate service vehicle. This is because the client
+vehicle can directly communicate with each one-hop vehicle,
+which enables the task offloading between them. As shown in
+Fig. 2, vehicle 2 and vehicle 3 are within the communication
+range of client vehicle 1. In this case, vehicle 1 can directly
+upload its tasks to vehicle 2 and vehicle 3 for processing if
+needed.
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Ut purus elit, vestibu-
+lum ut, placerat ac, adipiscing vitae, felis.
+Curabitur dictum gravida mauris.
+Nam arcu libero, nonummy eget, consectetuer id, vulputate a, magna. Donec
+vehicula augue eu neque.
+Pellentesque habitant morbi tristique senectus et
+netus et malesuada fames ac turpis egestas. Mauris ut leo.
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Ut purus elit, vestibu-
+lum ut, placerat ac, adipiscing vitae, felis.
+Curabitur dictum gravida mauris.
+Nam arcu libero, nonummy eget, consectetuer id, vulputate a, magna. Donec
+vehicula augue eu neque.
+Pellentesque habitant morbi tristique senectus et
+netus et malesuada fames ac turpis egestas. Mauris ut leo.
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Ut purus elit, vestibu-
+lum ut, placerat ac, adipiscing vitae, felis.
+Curabitur dictum gravida mauris.
+Nam arcu libero, nonummy eget, consectetuer id, vulputate a, magna. Donec
+vehicula augue eu neque.
+Pellentesque habitant morbi tristique senectus et
+netus et malesuada fames ac turpis egestas. Mauris ut leo.
+Lorem ipsum dolor sit amet, consectetuer adipiscing elit.
+Fig. 2: Example of service vehicles
+(b) Multi-hop service vehicles: Vehicles within the multi-
+hop range of the client vehicle are also potential service
+vehicles. This is based on the fact that these multi-hop
+vehicles can connect to the client vehicle with the multi-
+hop transmission of intermediate vehicles. At the initial stage,
+the client vehicle cannot directly communicate with its multi-
+hop vehicles due to the limitation of inter-vehicle distance.
+However, it can obtain the information (e.g., speed, position
+and computation resources) of its multi-hop vehicles assisted
+by its intermediate vehicles which can serve as relay nodes.
+The client vehicle broadcasts the service requirements for
+task execution (e.g., delay and energy consumption). After
+receiving this information, each one-hop vehicle will continue
+to transmit it onward when the link connectivity satisfies
+certain conditions. On the other hand, the one-hop vehicle
+can reply the client vehicle for being service vehicle along
+the reverse path if it fulfills the service requirements. This
+procedure is repeated until reaching the maximal hop number.
+Given a service vehicle, more than one routing paths may exist
+from itself to the client vehicle. The routing path with best
+transmission performance can be determined as the optimal
+one for data transmission. Based on the collected information
+related to multi-hop vehicles, the client vehicle is able to judge
+if these multi-hop vehicles are available. If a multi-hop vehicle
+is selected as the service vehicle to help the client vehicle in
+task processing, it first receives the offloaded tasks from the
+client vehicle with the assistance of intermediate relay nodes
+and then participates in task processing. For example, vehicle
+1 broadcasts the offloaded tasks in Fig. 2. Upon the reception
+of these tasks, one-hop vehicle 2 and one-hop vehicle 3 are
+responsible for relaying these tasks to two-hop vehicles 4 and
+5, respectively. The selected two-hop service vehicle executes
+the assigned tasks and then transmits the calculated results to
+the client vehicle using a multi-hop transmission.
+2) Task Allocation of Client Vehicles: Upon collecting the
+information of available service vehicles, the client vehicle
+needs to design an efficient task allocation algorithm to decide
+where and how to run its tasks to meet its requirements.
+(a) The design of optimization problem: In order to make
+the optimal offloading decisions, an optimization problem
+is formulated where the processing delay and the incentive
+pay are considered. The delay includes the uploading delay
+by wireless transmission, computing delay at vehicles, and
+downloading delay through wireless transmission. Different
+from traditional MEC, the total delay in VEC is also affected
+by the inter-vehicle distance between the client vehicle and
+its service vehicles. With the aim to improve the utilization
+of vehicular resources and the experience of vehicular users,
+an incentive scheme is necessary to encourage more vehicles
+with abundant idle computation resources to participate in
+task offloading. For the client vehicle, it needs to take into
+account the payment when resorting to service vehicles for
+task processing while satisfying the applicable requirements.
+(b) Constraints: The link connectivity plays a crucial role in
+guaranteeing task offloading. Due to the mobility of nodes, fre-
+quent link disruptions are unavoidable in vehicular networks.
+Thus, the link connectivity between the client vehicle and its
+one-hop service vehicles will considerably impact the task
+allocation. When the client vehicle offloads the tasks to its
+one-hop service vehicles for task processing, the better the link
+connectivity, the larger the successful offloading probability
+will be. As shown in Fig. 3, a client vehicle A uploads some
+
+
+===== PAGE 6 =====
+6
+tasks to its one-hop vehicle C. However, as the short contact
+duration suffers from mobility, there is a possibility that when
+vehicle C completes executing the offloaded tasks from vehicle
+A, it has moved out of the transmission range of client vehicle
+A. In this case, the calculation result cannot be sent to client
+vehicle A. In order to guarantee the successful offloading
+process, the offloaded tasks should be finished before the link
+between the client vehicle and its one-hop service vehicle
+becomes disconnected.
+Fig. 3: Example of vehicle mobility
+The link connectivity should also be considered for multi-
+hop service vehicles. Different from the link between the
+client and its one-hop service vehicle, the one between the
+client and its multi-hop service vehicle is more likely to be
+interrupted. An available multi-hop service vehicle can obtain
+the assigned tasks from the client vehicle through multi-hop
+wireless transmission, and has the chance to send the result
+to the client vehicle if the link between the client vehicle and
+the multi-hop service vehicle remains connected during the
+offloading process.
+3) The Implementation of Computation Tasks: By solving
+the formulated problem, the client vehicle can obtain the op-
+timal offloading decisions. Based on the offloading decisions,
+if it is necessary to depend on some service vehicles for
+task processing, the client vehicle transmits its tasks to its
+service vehicles. Once these task are received, each service
+vehicle begins to participate in task processing. After finishing
+the assigned tasks, service vehicles send the results back.
+Receiving all the results, the client vehicle can successfully run
+its application. The entire flow chart of the proposed offloading
+scheme above is illustrated in Fig.4.
+Fig. 4: The flow chart of the proposed offloading scheme
+A. Channel Model
+1) Communication Range: The Nakagami-m distribution
+can be leveraged in vehicular networks. Through this model,
+we have the probability density function of received signal
+power denoted by x as :
+P(x) =
+ m
+Pr
+m xm−1
+Γ(m) e−mx
+Pr , for x ≥0,
+(1)
+where Γ(·), Pd and m represent the Gamma function, the
+average received power and the fading factor, respectively [41].
+Specially, Pd is related to the distance d.
+Based on (1), the cumulative distribution function of the
+communication range of vehicles under the situation that the
+received power exceeds a threshold Pth can be expressed as:
+F(d) = 1 −
+1
+Γ(m)
+m−1
+X
+i=0
+(m −1)!
+(m −1 −i)!
+mPth
+Pr
+m−1−i
+e−
+mPth
+Pr .
+(2)
+According to (2), the average communication range of
+vehicles will be [41]:
+R =
+1
+hΓ(m)
+m−1
+X
+i=0
+(m −1)!
+(m −1 −i)!Γ(m −1 −i + 1
+h)
+mPth
+PtK
+−1
+h
+,
+(3)
+where h indicates the path-loss exponent. For simplification, it
+is assumed that the transmission range is same for each vehicle
+in our work.
+2) Communication Model: The data transmission rate of
+per hop communication between two vehicles i and j is given
+by:
+rij = W · log2(1 +
+Pt
+Sij
+hPn
+),
+(4)
+where W represents the channel bandwidth, Sij denotes the
+inter-vehicle distance, Pt is the transmit power and Pn stands
+for the background noise power.
+B. Mobility Model
+In vehicular networks, suffering from the fast mobility of
+nodes, there is a short connection time between nodes. This
+will disturb on-going data transmission and can even result in
+transmission failure [20]. Thus, the link connectivity between
+nodes plays a paramount role in guaranteeing the offloading
+success. Here, we first give the definition of link connectivity.
+After that, the model of link connectivity is presented.
+For a pair of nodes i and j, there exists an available link
+between them if their inter-vehicle distance is not greater than
+the communication range of nodes. Thus, we use the link
+connection time between nodes to characterise the link con-
+nectivity. Denote D(t) as the inter-vehicle distance between
+i and j at time t with the initial value d0 at time 0. Link
+connection time is defined as the interval during which a
+direct communication link between i and j is continuously
+available from the initial time 0 until the moment that the link
+
+
+===== PAGE 7 =====
+7
+between them is disrupted. Let us denote lij be the available
+link connection time, then we have:
+lij= {min t|−R < D(τ) < −R,D(0) =d0,0 <τ < t}. (5)
+Let us define (xi, yi), (xj, yj) be their coordinates of vehicle
+i and vehicle j, respectively. Denote vi, vj as their speeds,
+respectively. Define dij as the their initial inter-vehicle dis-
+tance: dij = xj −xi. According to their movement behaviors,
+we calculate the link connection time between them for the
+following several cases:
+• two vehicles are moving in the same direction.
+If vi > vj, the link connection time between them can
+be expressed as:
+lij = R + dij
+|vi −vj|;
+(6)
+otherwise, the link connection time between them will
+be:
+lij = R −dij
+|vi −vj|.
+(7)
+• two vehicles are moving in opposite directions.
+When they are approaching toward each other, the link
+connection time between them is expressed as:
+lij =
+q
+R2 −(yi −yj)2 + dij
+|vi + vj|
+;
+(8)
+otherwise, the link connection time between them takes
+the form:
+lij =
+q
+R2 −(yi −yj)2 −dij
+|vi + vj|
+.
+(9)
+C. Task Execution
+We consider a client vehicle o with N independent tasks.
+The set of N tasks is defined as N = {1, ..., N}. The set of
+client vehicle’s service vehicles is defined as M = {1, ..., M}.
+Each task i ⊆N is characterized by a tuple {si, wi}, where si
+indicates the input data size and wi specifies the computational
+resource required for processing this task, i.e., the number of
+CPU cycles. Client vehicle o can process its tasks locally or by
+offloading. Let xki ∈{0, 1} be the offloading variable of task
+i, k ⊆M. If task i is processed locally, x0i = 1, otherwise,
+x0i = 0. Meanwhile, if task i is offloaded to service vehicle
+k, xki = 1, otherwise, xki = 0.
+In order to make efficient task offloading decisions, we
+give the performance analysis of each processing strategy
+in terms of response delay and computing cost. Besides,
+service constraints are introduced to reflect the effect of vehicle
+mobility on task offloading.
+1) Local Execution: Let f0 be the local computing capacity
+of client vehicle o in terms of CPU cycles/s. Then, the time
+required for client vehicle o to execute task i locally will be:
+T0i = wi
+f0
+.
+(10)
+Based on (10), the required time for processing all the tasks
+that need to be computed locally can be calculated as:
+T0 =
+N
+X
+i=1
+x0i
+wi
+f0
+=
+N
+X
+i=1
+x0iT0i.
+(11)
+2) Offloading Execution: We classify service vehicles of
+client vehicle o into two types: one-hop vehicles and multi-
+hop vehicles. Let Sone(o) and Smul(o) denote the set of one-
+hop vehicles and multi-hop vehicles, respectively. By using
+V2V wireless communication, client vehicle o can obtain the
+information (e.g., position, speed, computation capacity) of
+its one-hop and multi-hop vehicles. The collected information
+related to the one-hop and multi-hop vehicles is beneficial for
+client vehicle o to make an efficient offloading policy.
+For any one service vehicle k, the total time to accomplish
+the assigned task i by client vehicle o denoted by Tki is
+composed of transmission time T u
+ki, execution time T c
+ki and
+feedback time T f
+ki:
+Tki = T u
+ki + T c
+ki + T f
+ki.
+(12)
+The time needed to process these tasks from client vehicle
+o for service vehicle k can be witten as:
+Tk =
+N
+X
+i=1
+xki(T u
+ki + T c
+ki + T f
+ki)
+=
+N
+X
+i=1
+xkiTki
+.
+(13)
+Transmission time for one-hop service vehicles: The time
+required for uploading task i from client vehicle o to its one-
+hop service vehicle k ∈Sone(o) is written as:
+T u
+ki = si
+rok
+(14)
+where rok indicates the transmission rate calculated by (4).
+Constrained by the mobility of vehicles, the tasks offloaded
+from client vehicle o to one-hop service vehicles should be
+finished before the link between the client vehicle and its
+corresponding service vehicle becomes disconnected. In other
+words, it is a successful computation offloading only if the
+whole offloading process is completed before the link between
+two vehicles becomes unavailable. Let us define l0k as the
+connection time between client vehicle o and its one-hop
+vehicle k which can be obtained based on mobility analysis
+in Section III. One-hop vehicle k is able to process all the
+assigned tasks if the following equation holds:
+N
+X
+i=1
+xkiTki < l0k.
+(15)
+
+
+===== PAGE 8 =====
+8
+Transmission time for multi-hop service vehicles: For any
+multi-hop vehicle k ∈Smul(o), it can receive the information
+sent by client vehicle o from the intermediate relay nodes, as
+shown in Fig. 5. Suppose there exist H multi-hop routing path
+between client vehicle o and its multi-hop vehicle k which
+form the set H. For any one multi-hop routing path J ∈H,
+it is assumed that there are u one-hop links between client
+vehicle o and its multi-hop vehicle k. The connectivity of the
+routing path j can be expressed as:
+pJ = min {lo1, l12, . . . , l(u−1)k}.
+(16)
+Let us take path o →a →b →k for example, where the
+number associated each link is associated with indicates the
+corresponding link connection. Then, the connectivity of this
+routing path is 3.
+We select the one among H routing paths with the biggest
+connectivity for task uploading.
+Fig. 5: Example of Multi-hop service vehicles
+Task Remote Execution: The execution time needed for
+any service vehicle k to compute task i is expressed as:
+T c
+ki = wi
+fk
+.
+(17)
+Calculation Result Feedback: Because the size of the
+output result is much smaller than the input data, the required
+time for result feedback is neglected here.
+Vehicles in vehicular networks can be either cooperative
+or selfish. The network will exhibit the better performance
+when more vehicles participate in resource sharing. In order to
+motivate vehicles to share resources, the client vehicle should
+pay to the service vehicles for their resources. To this end,
+we assume that the unit cost for service vehicle k in task
+computing is ρk. Thus, the total cost needed for service vehicle
+k to process task i is formulated by:
+Cki = wiρk.
+(18)
+Based on (18), the total cost paid for all the offloaded tasks
+to service vehicles is calculated as:
+Ck =
+N
+X
+i=1
+xkiwiρk =
+N
+X
+i=1
+xkiCki.
+(19)
+IV.
+MOBILITY-AWARE MULTI-HOP TASK OFFLOADING
+ALGORITHM IN VEHICULAR EDGE NETWORKS
+The quality of experience (QoE) of the client vehicle faces
+an inherent tradeoff between the execution delay and the cost
+that it should pay to the service vehicles. Therefore, the utility
+of the client vehicle is defined as the weighted sum of the total
+latency and the total cost needed for task processing. Our work
+aims to minimize the utility of the client vehicle by optimizing
+the task offloading decisions subject to vehicle mobility.
+In the following, we first provide the utility of the client
+vehicle which is dependent on the execution time and com-
+putation cost needed for processing the tasks. Then, an opti-
+mization problem is formulated based on the designed utility.
+Finally, this optimization problem is solved to obtain the
+desired offloading policy.
+A. Utility Design
+After receiving the tasks offloaded from the client vehicle,
+service vehicles can process them in parallel. The time needed
+for the client vehicle and service vehicles to execute the
+assigned tasks may be different. In this case, the total execution
+time is expressed as the longest one for task execution among
+all the related vehicles, i.e.,
+t(X) =
+max
+k∈{0,M} Tk =
+max
+k∈{0,M}
+N
+X
+i=1
+xkiTki,
+(20)
+where X = {xki} ∈{0, 1}N×(M+1) indicates the task
+allocation matrix.
+The total computation cost, i.e., the payment provided for
+service vehicles is written as:
+c(X) =
+X
+k∈M
+Ck =
+X
+k∈M
+N
+X
+i=1
+xkiCki.
+(21)
+With the consideration of execution time and computation
+cost, the offloading utility of the client vehicle can now be
+expressed as:
+φ(X) = t(X) + λcc(X)
+=
+max
+k∈{0,M}
+N
+X
+i=1
+xkiTki + λc
+X
+k∈M
+N
+X
+i=1
+xkiCki,
+(22)
+where λc is a positive weight factor, which indicates the client
+vehicle’s preference on task execution time and computation
+cost.
+B. Problem Formulation
+To improve the QoE of the client vehicle, a mobility-aware
+multi-hop task offloading problem is formulated as the utility
+minimization problem of the client vehicle given by:
+
+
+===== PAGE 9 =====
+9
+P1 : min
+X φ(X) = t(X) + λcc(X)
+s.t.
+C1 :
+M
+X
+k=0
+xki = 1, ∀i ∈N
+C2 : xki ∈{0, 1}, ∀i ∈N, k ∈{0, M}
+C3 :
+N
+X
+i=1
+x0iT0i < lok, ∀k ∈Sone(o)
+C4 :
+N
+X
+i=1
+xkiTki < pok, ∀k ∈Smul(o)
+.
+(23)
+Problem P1 is difficult to solve in general. The constraints
+in P1 are explained as follows: C1 implies that each task can
+be computed only at one vehicle; C2 implies that each task
+can be either processed locally or executed by offloading; C3
+implies that the time needed for one-hop service vehicle to pro-
+cess the tasks offloaded from the client vehicle should be less
+than the connection time between them to guarantee successful
+task offloading; C4 implies that the multi-hop service vehicle
+can send the result to the client vehicle before the routing
+path between them is disconnected, where pok indicates the
+connectivity of the routing path for data transmission between
+the client vehicle and its multi-hop service vehicle, which can
+be calculated based on (16).
+C. Quadratically Constrained Quadratic Programming Trans-
+formation and Semidefinite Relation
+In order to solve problem P1, we first transform it into
+a separable quadratically constrained quadratic programming
+(QCQP) problem. Then, we apply the SDR approach for
+finding an approximate solution to this problem [42].
+1) QCQP Transformation: With the introduction of an
+auxiliary variable t to replace
+max
+k∈{0,M}
+N
+P
+i=1
+xkiTki, we move
+the delay term in problem P1 to the constraint set. Then,
+problem P1 is transformed into an equivalent problem P2:
+P2 : min
+X,t φ(X) = t + λcc(X)
+s.t.
+C5 :
+N
+X
+i=1
+xkiTki < t, k ∈{0, M}
+C1, C2, C3, C4
+(24)
+Let us define w ≜[xT , t]T , where x = {xT
+0 , xT
+1 , ..., xT
+M}T
+with xk = {xk1, xk2, ..., xkN}T , k ⊆{0, M}. Then, the
+objective term of problem P2 can be rewritten as:
+bT w,
+(25)
+where b = [λcbT
+1 , 1]T , b1 = [dT
+1 , dT
+2 ..., dT
+M]T , and dk =
+[ρkw1, ρkw2, ..., ρkwN]T .
+Next, we substitute each constraint in problem P2 by a
+corresponding matrix form.
+For constraint C1, its matrix form is given by:
+A1w = 1N×1,
+(26)
+where
+A1 =
+ I0,N
+I1,N
+I2,N
+· · ·
+IM,N
+01×N
+
+,
+(27)
+where I is a N-dimensional identify matrix.
+The integer constraint C2 is replaced by:
+xki(xki −1) = 0, k ∈{0, M}, i ∈N,
+(28)
+and it is further rewritten as the following matrix form:
+wT diag(ep)w −ep
+T w = 0,
+(29)
+where ep is a {N ∗(M + 1) + 1} × 1 standard unit vector
+with the pth entry being 1 and diag(ep) is a diagonal matrix,
+each diagonal element of which corresponds to each one of
+ep, respectively.
+The constraints C3 and C4 are equivalent to:
+A2w < Tc,
+(30)
+where
+A2 =
+
+
+DT
+0
+01×N
+01×N
+· · ·
+01×N
+0
+01×N
+DT
+1
+01×N
+· · ·
+01×N
+0
+01×N
+01×N
+DT
+2
+· · ·
+01×N
+0
+...
+...
+...
+...
+...
+...
+01×N
+01×N
+01×N
+· · ·
+DT
+M
+0
+
+
+,
+(31)
+Dk =
+
+Tk1,
+Tk2,
+· · · ,
+TkN
+T , k ∈{0, M},
+(32)
+and
+Tc =
+ +∞,
+l01,
+· · · ,
+l0M
+T .
+(33)
+Here l0j indicates the connectivity between two nodes which
+can be obtained based on mobility analysis in Section III.
+The constraint C5 can be expressed as:
+A3w < 0(M+1)×1,
+(34)
+where
+A3 =
+
+
+DT
+0
+01×N
+01×N
+· · ·
+01×N
+−1
+01×N
+DT
+1
+01×N
+· · ·
+01×N
+−1
+01×N
+01×N
+DT
+2
+· · ·
+01×N
+−1
+...
+...
+...
+...
+...
+...
+01×N
+01×N
+01×N
+· · ·
+DT
+M
+−1
+
+
+.
+(35)
+Based on (25)-(35), problem P2 is further transformed as
+an equivalent problem P3:
+P3 : min
+y
+bT w
+s.t
+C6 : A1w = 1N×1
+C7 : A2w < Tc
+C8 : A3w < 0(M+1)×1
+C9 : wT diag(ep)w −ep
+T w = 0
+(36)
+
+
+===== PAGE 10 =====
+10
+By defining z ≜[w, 1]T , problem P3 is homogenized to a
+separable QCQP problem:
+P4 : min
+z
+zT Gz
+s.t
+C10 : zT Giz = 1, i = 1, 2, ..., N
+C11 : zT Gjz < Tc,j, j = 1, 2, ..., M + 1
+C12 : zT Gkz < 0, k = 1, 2, ..., M + 1
+C13 : zT Glz = 0, l = 1, 2, ..., NM + N
+C14 : z ⪰0
+(37)
+where
+Q = N(M + 1) + 1,
+G =
+ 0Q×Q
+1
+2b
+1
+2bT
+0
+
+,
+Gi =
+ 0Q×Q
+1
+2A1,i
+1
+2A1,i
+T
+0
+
+,
+Gj =
+
+0Q×Q
+1
+2A2,j
+1
+2A2,j
+T
+0
+
+,
+Gk =
+
+0Q×Q
+1
+2A3,k
+1
+2A3,k
+T
+0
+
+,
+Gl =
+ diag(ep)
+−1
+2epT
+−1
+2ep
+0
+
+,
+where Tc,j indicates the jth element of Tc, A1,i, A2,j and
+A3,k represent the ith row vector of matrix A1, the jth row
+vector of matrix A2 and the kth row vector of matrix A3,
+respectively.
+2) Semidefinite Relation: Optimization problem P4 is dif-
+ficult to solve. We utilize the SDR approach to relax this
+problem into a separable semidefinite programming (SDP)
+problem for finding the solution to problem P4.
+Let us define Z ≜zzT , then we have zT Gz = Tr(GZ),
+where rank(Z) = 1. By dropping the constraint rank(Z) = 1,
+problem P4 is formulated as a separable SDP problem:
+P5 : min
+Z
+Tr(GZ)
+s.t
+C15 : Tr(GiZ) = 1
+C16 : Tr(GjZ) < Tc,j
+C17 : Tr(GkZ) < 0
+C18 : Tr(GlZ) = 0
+C19 : Z ⪰0
+C20 : ZQ+1,Q+1 = 1
+.
+(38)
+D. Adaptive Adjustment Algorithm
+By using standard SDP software, e.g., SeDuMi, we can
+solve problem P5 in polynomial time and obtain the opti-
+mal solution Zopt. Because of the remove of the constraint
+rank(Z) = 1 in problem P5, the offloading policy generated
+from Zopt will not be equivalent the one to the original
+problem P1. In order to deal with this issue, we use an
+adaptive adjustment procedure [43] to obtain an appropriate
+offloading policy, including three main steps as follows.
+1) Obtaining an Initial Offloading Solution: By analyzing
+Z, it can be found that: Z(Q, j) = z(j), j = 1, 2, ..., Q. On
+the other hand, the first Q elements of z correspond to the
+offloading decisions of all the tasks. Thus, we can leverage
+Z(Q, j) to recover the offloading decision z(j).
+We regard Z(Q, j) as the probability of z(j) being
+equal to 1. Denote p = {pT
+1 , pT
+2 , ..., pT
+N}T where pk =
+{p0k, p2k, ..., pMk}T , k ⊆N and let phk = Z(Q, h ∗N + k),
+h ⊆M. Define yk = [x0k, x1k, ..., xMk]T , then each element
+of yk is recovered by the following equation:
+yk =
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 1
+0
+· · ·
+0
+0 T , if max
+h∈M phk = p0k
+ 0
+1
+· · ·
+0
+0 T , if max
+h∈M phk = p1k
+· · ·
+· · ·
+ 0
+0
+· · ·
+1
+0 T , if max
+h∈M phk = p(M−1)k
+
+0
+0
+· · ·
+0
+1
+T , if max
+h∈M phk = pMk
+.
+(39)
+Let us define uk
+=
+[y1
+T (k), (y2)T (k), · · · , (yN)T (k)],
+where yT
+j (k) indicates the kth element of yT
+j , j ⊆N, then
+we can obtain such an initial offloading solution:
+xini = [u1, u2, · · · , uM+1]T .
+(40)
+2) Obtaining a Feasible Solution: There is no guarantee
+that the generated initial offloading solution xini can meet
+constraint C16. Thus, it is necessary to obtain a feasible
+offloading solution which satisfies the given constraints once
+xini is not feasible.
+Based on xini, we first select these tasks which need to be
+executed on service vehicles to form a set Soff, i.e., Soff =
+{i|yT
+i (1) = 0}, i ⊆N. Then, check the feasibility of xini. If
+xini is not feasible, choose randomly i ∈Soff and modify
+the offloading decision of task i to be processed locally, i.e.,
+yT
+i = [1, 0, ..., 0]. Repeat this procedure until xini is feasible.
+Due to the fact that there is a finite number of available
+options in Soff, the above procedure is guaranteed to converge
+to a feasible offloading decision.
+3) Obtaining a Local Optimum Solution: When obtaining a
+feasible solution, an iterative mechanism is adopted to obtain
+a local optimum solution to problem P1 by minimizing the
+client vehicle’s utility. The detailed procedure is introduced as
+follows:
+• Make the list of all N tasks from the client vehicle with
+random order.
+• According to this list, examine each task in sequence.
+For the ith task, it has (M + 1) possible offloading
+decisions. We check each feasible offloading decision of
+task i without changing the offloading decisions of the
+other tasks. For any feasible offloading decision of task
+i, calculate the corresponding utility of this client vehicle.
+If a lower utility is obtained due to the changed offloading
+decision, update the solution xini and exit this iteration.
+If i is equal to N, stop this procedure.
+• Repeat this procedure until xini is converged to a solution.
+Because the number of available options in xini is limited,
+the iteration will converge to a solution eventually.
+V. NUMERICAL RESULTS
+In this section, we implement simulations to demonstrate
+the performance of our proposed offloading scheme MMTO.
+
+
+===== PAGE 11 =====
+11
+The considered simulation scenario is a unidirectional
+straight road. Vehicles are uniformly distributed along this
+road. Let client vehicle be the reference node and located
+in the original point initially with the speed of 90 km/h.
+One-hop vehicles and two-hop vehicles are considered for
+potential service vehicles and their speed follows a uniform
+distribution between 60 km/h to 120 km/h. For simplicity, high
+priority is given to the assigned tasks by the client vehicle
+for each service vehicle with the aim to avoid the queueing
+process. Besides, we mainly focus on the needed average time
+for task processing. On the other hand, the distance-based
+greedy algorithm is used to select the relay node for data
+transmission. Other simulation parameters are listed Table III
+unless specified otherwise.
+TABLE III: SIMULATION PARAMETERS
+Description
+Value
+Transmission range
+100 m
+Transmission power
+200 mW
+Path loss exponent
+4
+Background noise power
+10−9 mW
+CPU speed of client vehicle
+400 MHz
+CPU speed of service vehicles
+800-1600 MHz
+Number of tasks
+6
+Input size of tasks
+0.2 MB-0.3 MB
+Computation cost
+1/bit
+Computation intensity
+1000 cycles/bit
+Wireless channel bandwidth
+5 MHz
+We compare the performance of our proposed offloading
+scheme in terms of delay with the following algorithms:
+• Local Processing Algorithm(APA): All the tasks of
+client vehicle are processed locally;
+• Random Policy Algorithm(RPA): Client vehicle ran-
+domly selects available vehicles for task processing.
+• MMTO O: The tasks are offloaded to only one hop
+vehicles in MMTO.
+• RPA O: The tasks are offloaded randomly to only one
+hop vehicles in RPA.
+Fig. 6 shows the needed delay for processing all tasks when
+the number of tasks is varying among three schemes. It is
+obvious that the increase in the number of tasks enlarges
+the delay. Due to the limitation of client vehicle in terms of
+computation capacity, local processing incurs the biggest delay
+among three schemes. Random policy does better than local
+processing for the reason that surrounding service vehicles
+participate in task processing. The cooperation among vehicles
+enables the delay reduction. However, random policy selects
+vehicles randomly for task implementation. This method fails
+to generate the optimal offloading policy, thereby yielding the
+greater delay than our proposed scheme MMTO. In MMTO,
+besides one-hop vehicles, multi-hop vehicles are also explored
+to implement tasks offloaded by the client vehicle, which
+improves the resource utilization. The optimization problem
+is designed to reduce the delay, thus the obtained offloading
+decisions facilitate the fast processing of tasks.
+Fig. 6: Delay analysis when the number of tasks is varying
+Fig. 7: Delay analysis when the computation intensity is
+varying
+The average delay of three schemes with varying com-
+putation intensity, i.e., CPU cycles/bit, is plotted in Fig. 7.
+From this figure, it can be seen that the delay experienced by
+client vehicle for processing all tasks is increasing with the
+increase of computation intensity, showing the same tendency
+with the result in Fig. 6. The reason behind this result is that
+when the computation intensity is increased, more computa-
+tion resources are needed for computing the tasks, thereby
+contributing to the delay. When changing the computation
+intensity from 1000 cycles/bits to 3000 cycles/bits, local
+processing, random policy and MMTO increase the delay up
+to 13.37 s, 2.65 s and 1.31 s, respectively. It is observed
+that MMTO achieves the best delay compared to the other
+schemes. The is because our proposed scheme allows the
+client vehicle to benefit more from offloading the tasks to
+surrounding one-hop and multi-hop service vehicles. Thus,
+the smallest delay variation is brought in case of increasing
+computation workloads.
+
+
+===== PAGE 12 =====
+12
+The performance of three schemes with respect to the delay
+against varying number of tasks for both one-hop and multi-
+hop offloading strategies is shown in Fig. 8. Without asking
+help from other vehicles, there is no performance difference
+between two cases for local processing. From this figure,
+it is found that the incurred delay by random policy and
+MMTO are smaller than the one experienced by RPA O and
+MMTO O, respectively. This implies that employing two-hop
+vehicles to compute the offloaded tasks allows leveraging more
+computation resources for task processing, which is helpful in
+further shortening the response time. For any case, MMTO
+performs best since it makes offloading decisions to minimize
+the delay.
+Fig. 8: Delay comparison with varying number of tasks for
+different offloading strategies
+Fig. 9: Delay comparison with varying computation intensity
+for different offloading strategies
+The performance of three schemes in terms of the delay
+when the computation intensity is varying for both one-
+hop and multi-hop offloading strategies is illustrated in Fig.
+9. Similar with Fig. 8, local processing exhibits the same
+performance for different cases. On the other hand, more
+vehicles participate in resource sharing for multi-hop offload-
+ing strategy when compared with one-hop offloading strategy,
+which contributes to reducing the precessing delay.
+Fig. 10: Delay analysis with varying weight of paid cost
+Fig. 10 describes the average time needed for computing all
+tasks when varying the client vehicle’s preference to paid cost,
+i.e., λc, from 1∗10−11 to 5∗10−9. Local processing executes
+all tasks locally, therefore generating no cost regardless of
+the variation of λc. In random policy, the stochastic delay
+is caused with varying λc based on the fact that each task
+is offloaded randomly. With increase in λc, the cost paid for
+service vehicles to compute the same size task is increased and
+the importance of paid cost on the system utility is significantly
+improved. In this case, more tasks select local processing
+with the aim to minimize the system utility for MMTO. As
+a consequence, high delay is incurred in MMTO. When λc
+exceeds 5 ∗10−9, most of the tasks are processed locally,
+leading to the rapid increase in the delay.
+VI. CONCLUSION
+In this paper, we focused on the design of vehicle-to-vehicle
+offloading strategy to improve the resource utilization and
+enhance user experience. The problem of exploiting mobility
+task offloading in VEC networks was studied to minimize the
+utility of client vehicles, which was measured by a weighted
+sum of execution time and computation cost. Different from
+existing works, the offloading decisions were made by taking
+into account both the challenge and the opportunity brought
+by the mobility of vehicles. Besides one-hop vehicles, two-
+hop vehicles of client vehicles were employed to facilitate task
+processing when feasible. A semidefinite relaxation approach
+was utilized along with an adaptive adjustment algorithm to
+find a solution for the formulated task offloading problem. The
+simulation results showed that the proposed vehicle-to-vehicle
+offloading scheme significantly improves the response delay
+performance compared to state of the art schemes. blue For
+
+
+===== PAGE 13 =====
+13
+the future work, we will investigate multi-resource on-demand
+management and task allocation scheme by taking into account
+the vehicle-to-vehicle and vehicle-to-infrastructure offloading
+strategies simultaneously for meeting the personalized service
+demands of different users.
+REFERENCES
+[1] K. Yu, L. Lin, M. Alazab, L. Tan, and B. Gu, “Deep learning-based
+traffic safety solution for a mixture of autonomous and manual vehicles
+in a 5g-enabled intelligent transportation system,” IEEE Trans. Intell.
+Transp. Syst., 2020, doi:10.1109/TITS.2020.3042504.
+[2] C. Feng, K. Yu, M. Aloqaily, M. Alazab, Z. Lv, and S. Mumtaz,
+“Attribute-based encryption with parallel outsourced decryption for edge
+intelligent iov,” IEEE Trans. Veh. Technol., vol. 69, no. 11, pp. 13 784–
+13 795, 2020.
+[3] X. Yu, Y. Chu, F. Jiang, Y. Guo, and D. Gong, “Svms classification based
+two-side cross domain collaborative filtering by inferring intrinsic user
+and item features,” Knowl.-Based Syst., vol. 141, pp. 80–91, 2018.
+[4] X. Yu, D. Zhan, L. Liu, H. Lv, L. Xu, and J. Du, “A privacy-preserving
+cross-domain healthcare wearables recommendation algorithm based on
+domain-dependent and domain-independent feature fusion,” IEEE J.
+Biomed. Health Informat., 2021, doi: 10.1109/JBHI.2021.3069629.
+[5] C. Chen, C. Wang, T. Qiu, M. Atiquzzaman, and D. O. Wu, “Caching
+in vehicular named data networking: Architecture, schemes and future
+directions,” IEEE Commun. Surv. Tutor., vol. 22, no. 4, pp. 2378–2407,
+2020.
+[6] L. Zhao, W. Zhao, A. Hawbani, A. Y. Al-Dubai, G. Min, A. Y. Zomaya,
+and C. Gong, “Novel online sequential learning-based adaptive routing
+for edge software-defined vehicular networks,” IEEE Trans. Wireless
+Commun., vol. 20, no. 5, pp. 2991–3004, 2020.
+[7] X. Huang, S. Leng, S. Maharjan, and Y. Zhang, “Multi-agent deep
+reinforcement learning for computation offloading and interference
+coordination in small cell networks,” IEEE Trans. Veh. Technol, vol. 70,
+no. 9, pp. 9282–9293, 2021.
+[8] W. Sun, N. Xu, L. Wangand H. Zhang, and Y. Zhang, “Dynamic digital
+twin and federated learning with incentives for air-ground networks,”
+IEEE Trans. Netw. Sci. Eng., 2020, doi:10.1109/TNSE.2020.3048137.
+[9] K.
+Zhang,
+J.
+Cao,
+and
+Y.
+Zhang,
+“Adaptive
+digital
+twin
+and
+multi-agent
+deep
+reinforcement
+learning
+for
+vehicular
+edge
+computing
+and
+networks,”
+IEEE
+Trans.
+Ind.
+Informat.,
+2021,
+doi:10.1109/TII.2021.3088407.
+[10] L. Zhao, H. Li, N. Lin, M. Lin, C. Fan, and J. Shi, “Intelligent content
+caching strategy in autonomous driving toward 6g,” IEEE Trans. Intell.
+Transp. Syst., 2021, doi: 10.1109/TITS.2021.3114199.
+[11] K. Zhang, S. Leng, Y. He, S. Maharjan, and Y. Zhang, “Mobile edge
+computing and networking for green and low-latency internet of things,”
+IEEE Commun. Mag., vol. 56, no. 5, pp. 39–45, 2018.
+[12] L. Liu, C. Chen, Q. Pei, S. Maharjan, and Y. Zhang, “Vehicular
+edge computing and networking: A survey,” Mobile Netw. Appl., 2020,
+doi:10.1007/s11036-020-01624-1.
+[13] L. Liu, J. Feng, Q. Pei, C. Chen, Y. Ming, B. Shang, and M. Dong,
+“Blockchain-enabled secure data sharing scheme in mobile-edge com-
+puting: An asynchronous advantage actorccritic learning approach,”
+IEEE Internet of Things J., vol. 8, no. 4, pp. 2342–2353, 2021.
+[14] S. Mao, N. Zhang, L. Liu, J. Wu, M. Dong, K. Ota, T. Liu, and
+D. Wu, “Computation rate maximization for intelligent reflecting surface
+enhanced wireless powered mobile edge computing networks,” IEEE
+Trans. Veh. Technol., 2021, doi:10.1109/TVT.2021.3105270.
+[15] J. Du, F. R. Yu, G. Lu, J. Wang, J. Jiang, and X. Chu, “Mec-assisted
+immersive vr video streaming over terahertz wireless networks: A deep
+reinforcement learning approach,” IEEE Internet of Things J., vol. 7,
+no. 10, pp. 9517–9529, 2020.
+[16] J. Feng, F. R. Yu, Q. Pei, X. Chu, J. Du, and L. Zhu, “Cooperative
+computation offloading and resource allocation for blockchain-enabled
+mobile edge computing: A deep reinforcement learning approach,” IEEE
+Internet of Things J., vol. 7, no. 7, pp. 6214–6228, 2019.
+[17] K. Zhang, S. Leng, X. Peng, L. Pan, S. Maharjan, and Y. Zhang,
+“Artificial intelligence inspired transmission scheduling in cognitive
+vehicular communications and networks,” IEEE Internet of Things J.,
+vol. 6, no. 2, pp. 1987–1997, 2018.
+[18] I. Sorkhoh, D. Ebrahimi, R. Atallah, and C. Assi, “Workload scheduling
+in vehicular networks with edge cloud capabilities,” IEEE Trans. Veh.
+Technol., 2019, doi:10.1109/TVT.2019.2927634.
+[19] M. M. K. Tareq, O. Semiari, M. A. Salehi, and W. Saad, “Ultra reliable,
+low latency vehicle-to-infrastructure wireless communications with edge
+computing,” in IEEE GLOBECOM, 2018, pp. 1–7.
+[20] K. Zhang, Y. Mao, S. Leng, Y. He, and Y. Zhang, “Mobile-edge
+computing for vehicular networks: A promising network paradigm with
+predictive off-loading,” IEEE Veh. Technol. Mag., vol. 12, no. 2, pp.
+36–44, Jun., 2017.
+[21] Y. Dai, D. Xu, S. Maharjan, and Y. Zhang, “Joint load balancing and
+offloading in vehicular edge computing and networks,” IEEE Internet of
+Things J., vol. 6, no. 3, pp. 4377–4387, 2018.
+[22] Y. Liu, H. Yu, S. Xie, and Y. Zhang, “Deep reinforcement learning
+for offloading and resource allocation in vehicle edge computing and
+networks,” IEEE Trans. Veh. Technol., vol. 68, no. 11, pp. 11 158–11 168,
+2019.
+[23] J. Du, F. R. Yu, X. Chu, J. Feng, and G. Lu, “Computation offloading
+and resource allocation in vehicular networks based on dual-side cost
+minimization,” IEEE Trans. Veh. Technol., vol. 68, no. 2, pp. 1079–1092,
+2018.
+[24] Y. Wang, P. Lang, D. Tian, J. Zhou, X. Duan, Y. Cao, and D. Zhao,
+“A game-based computation offloading method in vehicular multiaccess
+edge computing networks,” IEEE Internet of Things J., vol. 7, no. 6, pp.
+4987–4996, 2020.
+[25] K. Zhang, Y. Zhu, S. Leng, Y. He, S. Maharjan, and Y. Zhang, “Deep
+learning empowered task offloading for mobile edge computing in urban
+informatics,” IEEE Internet of Things J., vol. 6, no. 5, pp. 7635–7647,
+2019.
+[26] S. A. Kazmi, T. N. Dang, I. Yaqoob, A. Ndikumana, E. Ahmed,
+R. Hussain, and C. S. Hong, “Infotainment enabled smart cars: A joint
+communication, caching, and computation approach,” IEEE Trans. Veh.
+Technol., vol. 68, no. 9, pp. 8408–8420, 2019.
+[27] Y. He, N. Zhao, and H. Yin, “Integrated networking, caching, and com-
+puting for connected vehicles: A deep reinforcement learning approach,”
+IEEE Trans. Veh. Technol., vol. 67, no. 1, pp. 44–55, 2018.
+[28] S. Wang, J. Li, G. Wu, H. Chen, and S. Sun, “Joint optimization of
+task offloading and resource allocation based on differential privacy in
+vehicular edge computing,” IEEE Trans. Computat. Social Syst., pp. 1–
+11, 2021.
+[29] F. Hagenauer, C. Sommer, T. Higuchi, O. Altintas, and F. Dressler,
+“Vehicular micro cloud in action: On gateway selection and gateway
+handovers,” Ad Hoc Netw., vol. 78, pp. 73–83, 2018.
+[30] F. Malandrino, C. Casetti, C.-F. Chiasserini, C. Sommer, and F. Dressler,
+“The role of parked cars in content downloading for vehicular networks,”
+IEEE Trans. Veh. Technol., vol. 63, no. 9, pp. 4606–4617, 2014.
+[31] G. Qiao, S. Leng, K. Zhang, and Y. He, “Collaborative task offloading
+in vehicular edge multi-access networks,” IEEE Commun. Mag., vol. 56,
+no. 8, pp. 48–54, 2018.
+[32] Y. Sun, X. Guo, J. Song, S. Zhou, Z. Jiang, X. Liu, and Z. Niu, “Adaptive
+learning-based task offloading for vehicular edge computing systems,”
+IEEE Trans. Veh. Technol., vol. 68, no. 4, pp. 3061–3074, 2019.
+[33] A. U. Rahman, A. W. Malik, V. Sati, A. Chopra, and S. D. Ra-
+vana, “Context-aware opportunistic computing in vehicle-to-vehicle net-
+works,” Veh. Commun., vol. 24, p. 100236, 2020.
+[34] C.-M. Huang, S.-Y. Lin, and Z.-Y. Wu, “The k-hop-limited v2v2i vanet
+data offloading using the mobile edge computing (mec) mechanism,”
+Veh. Commun., vol. 26, p. 100268, 2020.
+[35] Y. Qi, Y. Zhou, Y.-F. Liu, L. Liu, and Z. Pan, “Traffic-aware task
+offloading based on convergence of communication and sensing in
+vehicular edge computing,” IEEE Internet of Things J., 2021, doi:
+10.1109/JIOT.2021.3083065.
+[36] N. Tamani, B. Brik, N. Lagraa, and Y. Ghamri-Doudane, “On link
+stability metric and fuzzy quantification for service selection in
+mobile vehicular cloud,” IEEE Trans. Intell. Transp. Syst., 2019,
+doi:10.1109/TITS.2019.2911860.
+[37] A. Boukerche and V. Soto, “An efficient mobility-oriented retrieval
+protocol for computation offloading in vehicular edge multi-access
+network,” IEEE Trans. Intell. Transp. Syst., vol. 21, no. 6, pp. 2675–
+2688, 2020.
+[38] C. Yang, Y. Liu, X. Chen, W. Zhong, and S. Xie, “Efficient mobility-
+aware task offloading for vehicular edge computing networks,” IEEE
+Access, vol. 7, pp. 26 652–26 664, 2019.
+[39] V. H. Hoang, T. M. Ho, and L. B. Le, “Mobility-aware computation
+offloading in mec-based vehicular wireless networks,” IEEE Wireless
+Commun. Lett., vol. 24, no. 2, pp. 466–469, 2019.
+[40] C. Zhu, J. Tao, G. Pastor, Y. Xiao, Y. Ji, Q. Zhou, Y. Li, and
+A. Yl¨a-J¨a¨aski, “Folo: Latency and quality optimized task alloca-
+tion in vehicular fog computing,” IEEE Internet of Things J., 2018,
+doi:10.1109/JIOT.2018.2875520.
+
+
+===== PAGE 14 =====
+14
+[41] K. A. Hafeez, L. Zhao, B. Ma, and J. W. Mark, “Performance analysis
+and enhancement of the DSRC for VANET’s safety applications,” IEEE
+Trans. Veh. Technol., vol. 62, no. 7, pp. 3069–3083, Sep., 2013.
+[42] T. Q. Dinh, J. Tang, Q. D. La, and T. Q. Quek, “Offloading in mobile
+edge computing: Task allocation and computational frequency scaling,”
+IEEE Trans. Commun., vol. 65, no. 8, pp. 3571–3584, 2017.
+[43] M.-H. Chen, M. Dong, and B. Liang, “Resource sharing of a com-
+puting access point for multi-user mobile cloud offloading with delay
+constraints,” IEEE Trans. Mobile Comput., vol. 17, no. 12, pp. 2868–
+2881, 2018.

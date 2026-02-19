@@ -1,0 +1,2424 @@
+
+
+===== PAGE 1 =====
+Perception Task Ofﬂoading with Collaborative
+Computation for Autonomous Driving
+Zhu Xiao, Senior Member, IEEE, Jinmei Shu, Hongbo Jiang, Senior Member, IEEE, Geyong Min,
+Hongyang Chen, Senior Member, IEEE, and Zhu Han, Fellow, IEEE
+Abstract—Autonomous driving has so far received numerous
+attention from academia and industry. However, the inevitable
+occlusion is a great menace to safety and reliable driving. Existing
+works have primarily focused on improving the perception ability
+of a single autonomous vehicle (AV), but the safety problem
+brought by occlusions remains unanswered. In this paper, we
+propose a multi-tier perception task ofﬂoading framework with
+a collaborative computing approach, where an AV is able to
+achieve a comprehensive perception of the concerned region-
+of-interest (RoI) by leveraging collaborative computation with
+nearby AVs and road side units (RSUs). Besides, the collaborative
+computation provides ofﬂoading service for computationally
+intensive tasks so as to reduce processing delay. Speciﬁcally,
+we formulate a joint problem of perception task assignment,
+ofﬂoading and resource allocation, by fully considering the
+AV’s mobility, task dependency, and delay requirement. The
+collaborative ofﬂoading is modeled as a mixed-integer nonlinear
+programming (MINLP) problem. We design a two-layer binary
+intelligent ﬁreﬂy (TL-BIFA) algorithm to solve MINLP, with
+the goal of minimizing execution delay. The proposed TL-BIFA
+synthesizes the advantages of heuristic methods and deterministic
+methods. Through extensive simulations, the proposed collabo-
+rative ofﬂoading approach and the TL-BIFA show superiority in
+enhancing the autonomous driving system’s safety, efﬁciency and
+resource utilization.
+Index Terms—Perception task ofﬂoading, collaborative com-
+putation, autonomous driving, vehicle mobility.
+I. INTRODUCTION
+T
+HE boom of autonomous driving in recent years has
+expanded itself to the territories beyond technological
+Manuscript received XX XX 2022.
+This work was supported in part by the National Natural Science Foundation
+of China under Grants 62272152, 62271452 and U20A20181; in part by the
+Key R&D Project of Hunan Province of China under Grant 2022GK2020; in
+part by Hunan Natural Science Foundation of China under Grant 2022JJ30171,
+and in part by the Open Research Fund from Guangdong Laboratory of
+Artiﬁcial Intelligence and Digital Economy (SZ) under Grants GML-KF-
+22-22 and GML-KF-22-23; in part by NSF CNS-2107216, CNS-2128368
+and CMMI-2222810; in part by Shenzhen Science and Technology Program
+under Grant JCYJ20220530160408019; in part by the Funding Projects of
+Zhejiang Lab under Grants 2021LC0AB05 and 2022PI0AC01. (Correspond-
+ing author: H. Jiang.)
+Z. Xiao, J. Shu and H. Jiang are with the College of Computer Science
+and Electronic Engineering, Hunan University, Changsha, 410082, China, and
+also with Shenzhen Research Institute of Hunan University, Shenzhen, 518055
+China. (email: {zhxiao, jinmeishu, hongbojiang}@hnu.edu.cn).
+G. Min is with the Department of Computer Science, University of Exeter,
+Exeter, UK. (email: g.min@exeter.ac.uk).
+H. Chen is with the Research Center for Graph Computing, Zhejiang Lab,
+Hangzhou 311100, China. (email: hongyang@zhejianglab.com).
+Z. Han is with is with the Department of Electrical and Computer
+Engineering at the University of Houston, Houston, TX 77004 USA, and
+also with the Department of Computer Science and Engineering, Kyung Hee
+University, Seoul, South Korea, 446-701. (e-mail: hanzhu22@gmail.com).
+RSU 
+AV
+pedestrians 
+and cyclists
+AV
+occlusion
+truck
+future trajectory
+ of  AV
+building
+Fig. 1.
+Occlusions in autonomous driving. For the AV (marked ‘green’),
+its perceivable range is limited due to various occlusions, i.e., the speeding
+vehicle blinded by the truck, the pedestrians blocked by the vehicle in front,
+the cyclists and the walker between the buildings. Car collision or trafﬁc
+accident would happen if the AV could not acquire real-time knowledge on
+these occlusions.
+achievement [1], [2]. Equipped with cutting-edge sensors such
+as ultrasonic radar, LiDAR and stereo cameras, autonomous
+vehicle (AVs) are provided with varied ﬁelds of view [3].
+Using a combination of artiﬁcial intelligence processing units,
+AVs are able to make decisions in complex driving situations
+without human input [4]. Furthermore, the autonomous driving
+with the Internet-of-Vehicles (IoV) enables information shar-
+ing among connected vehicles, promising a congestion-free,
+non-accident and energy-saving transportation system.
+Although the substantial success of autonomous driving is
+on the way, the limited perceivable range of a single AV tends
+to degrade the automated driving performance. This is largely
+because of the unavoidable occlusions during driving. Even if
+an AV is equipped with a 360◦camera and a high-end LiDAR,
+it is unable to perceive the occlusions caused by dynamic or
+static obstacles (e.g., nearby AVs and buildings). As shown
+in Fig. 1, the AV (marked ’green’) needs to perceive the
+surroundings to realize reliable planning and control before
+any actions are taken. However, the speeding vehicle blinded
+by the truck, together with the pedestrians and cyclists, are
+beyond the AV’s perceivable range, and consequently causes
+occlusions. If the AV intends lane-changing without acquiring
+knowledge of those occlusions, trafﬁc accidents or car colli-
+sion may well happen.
+As a promising solution, leveraging collaborative compu-
+tation empowers the AV to regain the visual information of
+occlusions. By feat of the collaborative computation, the AV
+is able to establish collaboration with road-side units (RSUs)
+and nearby AVs in the automotive environment, whose sensors
+Digital Object Identiﬁer: 10.1109/JSAC.2022.3227027
+1558-0008 c
+⃝2022 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+See http://www.ieee.org/publications
+standards/publications/rights/index.html for more information.
+
+
+===== PAGE 2 =====
+2
+cover the occlusions. For example, in Fig. 1, the AV (the
+‘green’ vehicle ) can be informed of a potential car crash by
+collaborating with the RSU through vehicle-to-infrastructure
+(V2I) link. As for the vision blocked by the vehicle in front,
+it can be recovered by communicating with the vehicle ahead
+via vehicle-to-vehicle (V2V) links. As such, co-perceiving the
+surroundings with nearby AVs and RSUs not only beneﬁts a
+single AV, but also forms a global information network, safe-
+guarding all the AVs and pedestrians. However, collaborative
+computation alone does not promise the absolute safety for the
+autonomous driving, since trafﬁc accidents take place if the
+perceived data is not analysed in a timely manner. Note that
+the process of perception tasks often requires computation-
+intensive machine learning (ML) models, which makes it
+hard for the resource-constrained AVs to react to the trafﬁc
+condition in real-time. To tackle this issue, perception task
+ofﬂoading enables outsourcing the collaborative computation
+workload to RSUs. In this way, perception task ofﬂoading
+with collaborative computation provides the AV with enhanced
+and prompt awareness of its surroundings, and consequently
+improving driving reliability and road safety.
+Existing works have investigated the collaborative computa-
+tion and perception task ofﬂoading. For instance, the authors
+in [5] and [6] focused on extending the AV’s ﬁeld of view
+by means of collaborative computation. In detail, Sridhar
+and Eskandarian [5] turned every nearby AV into a moving
+platform via V2V communication. Guizar et al. [6] adopted
+vehicle-to-everything (V2X) communication to facilitate col-
+laborative perception. A successful collaborative perception
+demands real-time processing. Regarding this, the authors in
+[7] and [8] applied task ofﬂoading strategy to autonomous
+driving systems. Instead of merely focusing on optimizing the
+assignments of computation tasks, the authors in [9] and [10]
+proposed computing resource allocation strategies to boost the
+performance of task ofﬂoading.
+Despite the efforts, several challenging issues remain unre-
+solved in the aforementioned works. i) None of these works
+took AVs’ mobility into consideration when performing col-
+laborative perception tasks. During the movement of the AV,
+its accessible AVs and RSUs change, as well the occlusions.
+The information of occlusions will lost if the AV moves out
+of the communication range in the collaborative computation,
+or if the occlusion is no longer under the sensing range of the
+co-perceivers (e.g., the RSUs and nearby AVs). ii) Existing
+studies neglect the inherent dependency of perception tasks in
+collaborative computation, which is likely to result in infeasi-
+ble solutions. For example, according to recent designs of au-
+tomated autonomous driving systems from both academic [8],
+[11], [12] and industry [13], [14], in the perception stage,
+object tracking can start only when object detection is ﬁnished.
+Task failure will turn out if object tracking is scheduled to
+be executed before detection. iii) Efﬁcient task ofﬂoading
+requires a well-balanced resource allocation strategy. Allotting
+more resources to one task helps to accelerate its execu-
+tion process, while the performance of other ofﬂoaded tasks
+will be degraded, thereby bringing higher delay to complete
+collaborative computation. In other words, an inappropriate
+resource allocation strategy leads to prolonged computation
+delay, degrading ofﬂoading performance and hindering the
+safety of autonomous driving.
+Motivated by the above-mentioned challenges, we propose
+a new perception task ofﬂoading framework with collaborative
+computation to enhance the reliability of autonomous driving.
+Speciﬁcally, to resolve the mobility issue, the AV’s move-
+ment is modeled as a three-phase process. The candidate co-
+perceivers for collaborative computation are identiﬁed accord-
+ing to the position features during each phase. Furthermore,
+task ofﬂoading and resource allocation are enabled for AVs
+with collaborative computation to accelerate task execution.
+To this end, we formulate a joint problem of perception task
+assignment, ofﬂoading and resource allocation, via fully con-
+sidering the AV’s mobility, the task dependency and the delay
+requirement. The ofﬂoading decisions are made under the
+constraints of vehicle mobility and task dependency. Besides,
+the resource allocation issue is tackled for task ofﬂoading,
+so that computing resources are utilized effectively and the
+completion delay of perception task is further reduced.
+The main contributions of this paper are summarized as
+follows.
+• In the multi-tier perception task ofﬂoading framework
+with collaborative computation, we propose to generalize
+the AV’s movement as a three phase-process. To specify,
+we deﬁne the AV’s concerned area as a region of interest
+(RoI) box, and each phase is characterized by the relative
+position of RoI and RSUs. Collaborative computation is
+carried out based on the AV’s current phase.
+• An original and efﬁcient perception task ofﬂoading strat-
+egy is designed to minimize perception delay, under the
+constraint of task dependency. A perception task contains
+three parts, namely localization, detection and tracking.
+Object detection and tracking tasks are scheduled in a
+sequential manner, while localization is performed in
+parallel with these two tasks. In so doing, the dependency
+of perception task is met. Besides, the uploading method
+of background subtraction is utilized for perception task
+ofﬂoading, so as to reduce the uploaded perceived data.
+• A resource allocation mechanism is proposed to im-
+prove the performance of task ofﬂoading. To specify,
+we formulate a joint problem of perception task assign-
+ment, ofﬂoading and resource allocation, with the goal
+of minimizing the task completion delay. The formu-
+lated problem is a mixed-integer nonlinear programming
+(MINLP) problem. A two-layer binary intelligent ﬁreﬂy
+algorithm (TL-BIFA) is proposed to solve this problem.
+In the outer layer, a binary intelligent ﬁreﬂy algorithm
+(BIFA) is designed to search for the optimal ofﬂoading
+solution. With the integer variables ﬁxed, the original
+problem is decomposed into a nonlinear programming
+(NLP) problem. Based on the KKT conditions, the re-
+source allocation strategy is achieved, and hence the NLP
+problem is settled.
+• Experimental results show that our proposed approach
+outperforms others in terms of fast convergence, high re-
+source utilization and complete sensory information. With
+400 TOPS of vehicle’s computing power, the collabora-
+tive computation scheme can reach a minimal perception
+
+
+===== PAGE 3 =====
+3
+delay of 0.14 ms per video frame, which is far less than
+the delay upper bound of 3 ms when the AV is driving
+at a speed of 50 km/h. The resource utilization and the
+information completion are up to 100%, which veriﬁes
+the effectiveness and reliability of the proposed approach.
+The remainder of this paper is organized as follows. In
+Section II, we present an overview of the related works. Sec-
+tion III presents the system model. Problem formulation and
+the corresponding solution are presented in Section IV and
+Section V, respectively. Section VI provides the evaluation and
+result discussion. Finally, Section VII concludes the paper.
+II. RELATED WORKS
+There have been a number of works focusing on the
+occlusion problem in automotive environments. Naumann et
+al. [15] predicted the safety for an AV to pass through a
+potential conﬂict area with occluded vehicles. Schratter et al.
+[16] combined an ofﬂine approach with emergency braking
+system to obtain less conservative driving behavior for a
+pedestrian collision. Zhang et al. [17] predicted the appearance
+probability of phantom objects in occlusion scenarios. Apart
+from the prediction-related approaches, efforts have been de-
+voted to collaborative computation for addressing occlusions
+in automated environments. Collaborative computation refers
+to collaborating with nearby AVs and/or RSUs to perceive the
+surroundings. Ghorai et al. [18] utilized the on-board sensory
+perception capabilities and information obtained through V2X
+connections to enhance driving safety. Hui et al. [19] proposed
+a digital twins based scheme to facilitate the collaborative and
+distributed autonomous driving.
+Perception tasks are computation-intensive, and the delay
+requirement is as stringent as a few milliseconds [20]. To
+shorten the computation delay, the task ofﬂoading method-
+ology has been introduced to autonomous driving systems.
+Liu et al. [21] developed an intelligent vehicle scheduling and
+ofﬂoading algorithm to reduce ofﬂoading latency. Qi et al.
+[22] exploited the sensing ability of AVs for real-time data
+collection, vehicular edge computing was adopted to improve
+the computing capability, and to reduce the transmission
+of massive raw environmental data. An edge learning-based
+ofﬂoading framework for autonomous driving was proposed
+by Yang et al. [23], where the deep learning tasks can be
+ofﬂoaded to the edge server to improve the inference accuracy
+while meeting the latency constraint. Yet, the perceived data
+generated by various sensors are up to 2 GB/s, these data
+requires processing with extremely tight latency constraints
+[24]. To reduce the high transmission delay incurred by
+uploading of an enormous amount of raw sensing data, Qi
+et al. [7] developed a task ofﬂoading mechanism, where the
+vehicle can either use the conventional ofﬂoading method to
+upload the raw perceived data, or it can adopt the instruction
+transmission method. The instruction transmission allowed the
+AV to transmit computation instructions instead of raw sensory
+data, the uploading data are signiﬁcantly decreased.
+To ensure the ofﬂoading performance, many researches have
+been concentrated on working out reasonable resource alloca-
+tion strategies. Note that RSUs and vehicles are both under
+the constraint of computing power. If excessive computing
+resources are squandered on one task, the others’ computing
+delay is prone to be lengthened, and the overall collaborative
+computation process is enlarged. To address this issue, Du
+et al. [25] devised a continuous relaxation and Lagrangian
+dual decomposition based iterative algorithm for joint radio
+resource and power allocation. Feng et al. [26] focused on
+the optimization of task ofﬂoading and resource allocation,
+the original optimization problem was transformed into an
+equivalent weighted-sum problem. A low-complexity greedy
+based efﬁcient searching algorithm was proposed to obtain
+ofﬂoading strategies. Liu et al. [27] proposed a game-based
+distributed computation scheme, where the users compete for
+the edge cloud’s ﬁnite computation resources via a pricing
+approach. Huang et al. [28] aimed at maximizing the ofﬂoaded
+computation data by task partition, transmit power and of-
+ﬂoading time allocation, without consideration of computing
+resource allocation. Dai et al. [29] proposed computation
+ofﬂoading and resource allocation optimization for augmented
+vehicular reality algorithm with hybrid sensing data fusion
+of cooperative perception. The optimal power allocation was
+carried out based on convex optimization theory.
+For collaborative computation, there exists a particular order
+for tasks to be performed. Speciﬁcally, object detection is the
+preceding task of object tracking, the later cannot start until the
+former is completed. Cui et al. [8] considered task dependency
+when ofﬂoading automotive tasks, and proposed a novel ap-
+proach to ofﬂoad computationally intensive autonomous driv-
+ing services. Liu et al. [30] developed an efﬁcient task schedul-
+ing algorithm to prioritize multiple tasks so as to guarantee the
+completion time constraints. Collaborative computation also
+requires tackling the mobility of the AV. The movement of the
+AV brings dynamic to the occlusions and its accessible objects,
+and consequently leads to the variation of its concerned
+area and intermittent connectivity. In [31], Mao et al. pre-
+sented a data-driven capacity planning framework, regarding
+the deployment of stationary and mobile fog nodes. They
+aimed to minimize the installation and operational costs, while
+considering the spatio-temporal variation in both demand and
+supply. In [32], Liu et al. proposed a task ofﬂoading scheme
+by exploiting multi-hop vehicle computation resources based
+on mobility analysis of vehicles. An optimization problem
+was formulated to minimize the weighted sum of execution
+time and computation costs. Nevertheless, these approaches
+concentrated only on the computation part, without addressing
+the AV’s perceptive limitation issue.
+Summarizing, collaborative computation is a promising so-
+lution to expand the AV’s ﬁeld of view, yet it demands the real
+time processing of the computation-intensive tasks. On top of
+that, the limitation on AV’s perceptive range was essentially
+unsolved in the existing works. Perception task ofﬂoading
+accelerates the task execution process, while on the premise
+that vehicle mobility, task dependency and resource allocation
+are considered in a joint way. Inspired by this, we propose the
+perception task ofﬂoading with collaborative computation for
+autonomous driving. The collaborative computation is carried
+out based on the movement of the AV, which is modeled
+as a three-phase process (see Section III-C). During the
+
+
+===== PAGE 4 =====
+4
+task ofﬂoading process, the uploading method of background
+subtraction (see Section III-D1) is exploited to reduce the
+transmission delay. The scheduling of perception tasks follows
+the constraint of task dependency (see Section III-D2), and
+the computing resources are wisely allocated to minimize the
+completion delay (see Section IV).
+III. SYETEM MODEL
+In this section, we present a generic autonomous driving
+scenario where multiple AVs move with several equally spaced
+RSUs along the road. During AV’s movement, it is required
+the environmental perception for the safety driving. When
+occlusions occur, the AV can demand its co-perceivers, i.e.,
+the nearby AVs and RSUs, to help perceiving its RoI. The
+perception tasks can be processed by vehicles themselves or
+ofﬂoaded to the serving RSUs. A central unit (CU), e.g., a base
+station (BS), is in charge of action executions in the multi-tier
+collaborative computation [7]. The CU collects the required
+information in the autonomous driving system, conducts the
+task assignment, makes ofﬂoading and resource allocation
+decisions and informs RSUs and vehicles of the decisions.
+The data transmission and information sharing are supported
+by V2V and V2I communications, through which the Ultra
+Reliable Low Latency Communication (URLCC) can achieve
+low latency with less than 1ms [33].
+The system model of the perception task ofﬂoading with
+collaborative computation is described in the following sub-
+sections. Table I presents the main notations and deﬁnitions
+in this paper.
+Remarks. RSU is willing to help the AV in the computation
+of perceptive tasks, since it is deployed as a stable participant
+in the autonomous driving system to improve the system’s
+safety level. Besides, AVs’ participating in collaborative com-
+putation is not only about helping the single AV, but also
+about the safety of its own and the whole road. Beyond that,
+the intention of perceiving public areas in the automotive
+environment makes collaborative computation exclusive of the
+privacy concern.
+A. Perception Task in Autonomous Driving
+The autonomous driving technology includes two stages,
+i.e., perception and decision [12]. Fig. 2 illustrates the per-
+ception tasks and computing pipeline of a highly automated
+autonomous driving system. The perception stage contains
+environmental data collection, vehicle localization, object de-
+tection and object tracking. In particular, the output of object
+detection is the input of object tracking, infeasible computa-
+tion ofﬂoading solution is caused if the task dependency is
+neglected. Integrating both perceptive information and current
+driving mode (e.g., driver’s interventions), the autonomous
+driving system is able to perform motion planning [34], which
+includes action prediction and obstacle avoidance. In this
+paper, we focus on the perception stage, based on which
+the AV acts to the automotive environment. The performance
+of perception tasks determines the reliability of autonomous
+driving.
+TABLE I
+NOTATIONS AND DEFINITIONS
+Notations
+Deﬁnitions
+fvi
+Computing resource of Vehicle vi
+fuj
+Computing resource of RSU uj
+RRoI
+RoI of v0
+R0
+Perceivable area of v0 in RRoI
+Rf
+Occluded area in front of v0 in RRoI
+Rb
+Occluded area behind v0 in RRoI
+CRoI
+Perception task of v0 in RRoI
+C0
+Perception task of v0 in R0
+Cf
+Perception task of v0 in Rf
+Cb
+Perception task of v0 in Rb
+Vf
+Set of AVs ahead of v0 in RRoI
+Vb
+Set of AVs behind v0 in RRoI
+ρ
+Phase indicator
+x∗
+i
+Task ofﬂoading indicator
+µ∗
+vi
+Resource allocation indicator of vehicle vi
+µ∗
+uj
+Resource allocation indicator of RSU uj
+Ω
+Set of AVs and RSUs that are assigned collaborative perception tasks
+ΩV
+Set of AVs that are assigned collaborative perception tasks
+ΩU
+Set of RSUs that are assigned collaborative perception tasks
+X
+Task ofﬂoading decision for AVs in ΩV
+Dvi
+Completion delay of vi in ΩV
+Duj
+Completion delay of uj in ΩU
+µvi
+Overall fraction of allocated resources to vi in ΩV
+µuj
+Overall fraction of allocated resources to uj in ΩU
+Fig. 2. Perception task in autonomous driving. At the perception stage, the
+captured video is streamed in parallel to i) object detector and tracker, to
+recognize and trace objects; ii) localization engine to locate the AV. At the
+decision stage, object movements, vehicle location and driving information
+are fused and transferred to motion planner for actions.
+The task dependency can be explained as follows. First,
+AV’s visual sensors capture the video of the automotive
+environment and transfer it into the object detector and the
+localization engine concurrently. Then, the detected objects are
+passed to the object tracker to follow the objects’ movement.
+The outputs of AV’s localizer and tracker, i.e., AV’s localiza-
+tion and the tracked objects, are projected into the same 3D
+coordinate space by the fusion machine. After that, the motion
+planner makes operational decision according to the results of
+information fusion. Finally, the motion planner is invoked once
+the AV deviates from its originally planned route, wherein the
+information is delivered to motion planner for a more informed
+operational plan.
+Remarks. Existing studies devoted to task ofﬂoading for
+autonomous driving often schedule these tasks in a sequen-
+tial way, while indeed localization task can be executed at
+the same time with detection and tracking. Besides, object
+detection should be processed before tracking to obtain object
+movement. On this basis, we schedule task ofﬂoading based
+on the inherent dependency of perception tasks.
+
+
+===== PAGE 5 =====
+5
+Fig. 3.
+Perception task ofﬂoading with collaborative computation. R0 is
+the perceivable region of AV v0 (e.g., the green vehicle). Rf and Rb are
+the occlusions in the concerned area
+RRoI (the red solid rectangle). By
+collaborating with AVs and RSUs, the AV acquires a comprehensive under-
+standing for RRoI. Ofﬂoading perception tasks to RSUs further accelerates
+the understanding process.
+B. Perception Task with Collaborative Computation
+Recall the ﬁrst paragraph of Section III, which describes the
+system model of perception task ofﬂoading with collaborative
+computation. For the sake of analytical simplicity, we consider
+a generalized scenario in the autonomous driving environment,
+namely, as illustrated in Fig. 3, a one-directional road compris-
+ing two lanes, and the width of each lane is dl. RSUs equipped
+with visual sensors are localized equidistantly along the road.
+The computing power of an RSU is fuj. The sensing support
+of an RSU is approximated by a rectangular with a length of
+dr and a width of 2dl, which is denoted by RRSU (see the
+blue dashed rectangle in Fig. 3) [35].
+There are N AVs driving on the road, each AV is equipped
+with a front camera. Let V = {v0, . . . , vi, . . . , vN} denote the
+group of AVs. The computing resource of AV vi is denoted
+by fvi, vi ∈V. The ﬁeld of view (FoV) of visual sensor
+is modeled as an isosceles triangle and can be described
+by Fvi = {α, φ} [36], where α is the FoV vertex angle,
+denoting the aperture of the camera. The parameter φ is the
+complementary angle to α/2, which deﬁnes the pose of the
+camera.
+As a running example, let say AV v0 (see the green vehicle
+in Fig. 3) needs to perceive the surrounding environment.
+Following [37], we describe the concerned area as a region
+of interest (RoI) box RRoI, with a length of dRoI and a
+width of 2dl. Note that using road classiﬁcation algorithms
+such as
+[38], the RoI can be identiﬁed in a timely manner
+according to ever-changing surroundings in practical driving
+situations. Owing to the occlusions caused by buildings and
+other vehicles, not all the areas in RoI can be perceived by
+v0. As shown in Fig. 3, the occluded zones of v0 include
+occlusions in front and blind spots behind. RRoI is further
+divided into three parts: R0, Rf and Rb. R0 is the area within
+v0’s sight of view, Rf and Rb are the occlusions in front of
+and behind v0, respectively. Hence, we have
+R0 + Rf + Rb = RRoI.
+(1)
+Potential threat exists in Rf and Rb since there might be
+pedestrians or overtaking cars.
+For seeking solutions, we leverage collaborative computa-
+tion to upgrade the safety level of autonomous driving, where
+the perception tasks are ofﬂoaded and handled by nearby AVs
+and RSUs collaboratively. In this way, the perception tasks
+are computed, and the computing results are sent back to v0
+through V2V or V2I links. In so doing, the occlusions of v0 are
+eliminated, since v0 is able to acquire a complete knowledge
+on its concerned area. Corresponding to (1), RoI perception
+task CRoI is divided into three parts, i.e., C0, Cf and Cb, which
+denote the perception task in R0, Rf and Rb, respectively. The
+reason we partition task C0 is for the convenience of ﬁnding
+co-perceivers to assign collaborative computation tasks among,
+which is based on the knowledge of where the occlusions are.
+Accordingly, we obtain
+C0 + Cf + Cb = CRoI.
+(2)
+Remarks. The generalized model (see in Fig. 3) can be
+applied into various automotive scenarios. The AV broadcasts
+perception request of its RoI when meeting occlusions. Know-
+ing the request, the CU assigns collaborative computation tasks
+among eligible vehicles and RSUs, schedules tasks and allo-
+cates computation resources to help the AV in obtaining real-
+time occlusion information. In other words, regardingless the
+road environments the vehicles drive through, the perception
+task ofﬂoading with collaborative computation is ‘triggered’
+by the occlusions, that is, the nearby vehicles and RSUs, which
+are coordinated by the CU, implement collaborative computa-
+tion for the vehicles once they have RoI perception requests.
+Hence, the practical road environments hardly exert inﬂuence
+on the decision-making process perception task ofﬂoading with
+collaborative computation. In this line, theoretical analysis
+such as in Section III-C and Section III-D, which are derived
+based on the generalized model in Fig. 3, can apply to other
+scenarios in various automotive environments.
+C. Vehicle Movement
+The AV’s movement affects the selection of co-perceivers
+in the autonomous driving system. As the AV moving on the
+road, its occlusions change. For example, in Fig. 3, occlusion
+Rb is no longer in the perceptive range of RSU ul, once AV
+v0 moves into the coverage of RSU uh. In this case, RSU
+ul is not suitable for for being a co-perceiver anymore. In
+addition, the vehicle mobility problem exists in the collab-
+orative computation. For example, if the co-perceiving AV
+accelerates away from the AV’s communication range, the
+perceptive information will be lost because of the disconnected
+V2V link. Vehicular mobility is included in our work to settle
+these problems. Note that there is a CU caching the positional
+information of all AVs. Let Vf denote the AVs ahead of v0 in
+RRoI, and AVs behind v0 in RRoI is represented as Vb. Since
+RRoI is either in or partly in an RSU’s coverage range, we
+consider two neighboring RSUs, namely ul and uh. According
+
+
+===== PAGE 6 =====
+6
+Fig. 4. Three-phase movement of AVs. In phase 1, Rb is about to move in
+uh’s perceivable range, but is still covered by ul. In phase 2, part of Rb is
+perceived by the RSU uh. In phase 3, all the areas in RRoI is under uh’s
+perceivable range.
+to the relative position of v0 and RSUs, the movement of AV
+v0 is described as a three-phase process, as shown in Fig. 4.
+By assigning tasks among AVs and RSUs that are capable of
+perceiving Rf and Rb, we deﬁne the task assignment function
+as y = AS(x), indicating that collaborative task in CRoI is
+allocated to y that can be a nearby AV or RSU. v0 is capable
+of handling task C0 in R0, while the areas blinded by front
+AVs can be assigned to these AVs. The assignments of C0 and
+Cf are expressed as follows
+v0 = AS(C0),
+(3)
+{vi; ∀vi ∈Vf ∩VV 2V } = AS(Cf),
+(4)
+where VV 2V is the set of AVs within v0’s communication
+range.
+Phase 1: Rb remains in ul’s coverage zone. Part of RRoI
+is in the perceptive range of RSU uh, while the dead area Rb
+behind AV v0 stays in RSU ul’s sensing range. RSU ul is
+eligible for task Cb. Besides, any of AVs in Vb is qualiﬁed for
+collaborative task Cb, as long as it is in the communication
+range of v0.
+{vi; ∀vi ∈Vb ∩VV 2V } ∥{ul} = ASρ=1 (Cb) ,
+(5)
+where ρ is the phase indicator, ρ = {1, 2, 3}.
+Phase 2: Rb is partly in ul’s coverage zone. In this phase,
+v0 keeps moving and part of Rb is under the coverage of uh,
+meanwhile the rest remains in ul’s sight of view. Cb can be
+handled by RSUs uh and ul collaboratively, or by the AV in
+Vb ∩VV 2V .
+{vi; ∀vi ∈Vb ∩VV 2V } ∥{ul ∪uh} = ASρ=2 (Cb) .
+(6)
+Phase 3: Rb is in uh’s coverage zone. v0 keeps moving
+and RRoI is completely in the sensing range of uh. uh can
+manage perception task Cb alone, or it can be handled by the
+AV in Vb ∩VV 2V .
+{vi; ∀vi ∈Vb ∩VV 2V } ∥{uh} = ASρ=3 (Cb) .
+(7)
+According to the movement of v0, we choose a set of co-
+perceivers among RSUs and AVs to assist v0 in accomplishing
+perception tasks. Let Ωdenote the set of the selected co-
+perceivers, which satisﬁes
+Ω= AS (C0) ∪AS (Cf) ∪ASρ=1,2,3 (Cb) .
+(8)
+Here Ω= ΩV ∪ΩU, ΩV and ΩU are the set of AVs and
+RSUs assigned collaborative tasks, respectively.
+D. Computation Ofﬂoading
+To inform nearby AVs in ΩV of collaboration, v0 needs
+to transmit an instruction. As for RSUs in ΩU, we assume
+that RSUs are connected with the CU through backbones, and
+thus have the collaborative task assignment decision copied in
+its cache. In this way, the perception task C is activated. The
+sensed data can be pre-processed by coordinate transformation
+engine, so that the perspective differences are eliminated [5].
+The latency of instruction transmission and coordinate trans-
+formation is omitted, since the size of instruction is usually
+several bits and the transformation delay is negligible [7].
+The perception task includes data collecting and computing.
+The perspective image is collected locally by visual sensors
+equipped on AVs and RSUs. We denote the collected data size
+as L. The data collection delay is not considered in our model
+since it is as low as a few milliseconds [28].
+In order to provide comprehensive and accurate information
+for the motion planner, the collected data needs to go through
+localization engine, object detector and tracker for computing.
+To compute these tasks in real-time consumes a signiﬁcant
+amount of computing resources, which may sometimes exceed
+the AV’s computing power. By ofﬂoading tasks to RSUs that
+are equipped with edge servers, the computing delay is cut
+down, and the computing resources in the autonomous driving
+system are efﬁciently utilized.
+1) Data Transmission: To ofﬂoad perception tasks, the
+sensory data ﬁrst needs to be transmitted from the AV’s visual
+sensor to nearby AVs or the RSU. However, the amount of data
+is up to 2 GB/s, which incurs unaffordable transmission delay.
+To address this issue, we introduce the background subtraction
+technique, which separates the dynamic foreground objects
+from the static background of a scene [39]. The background
+is the same in each frame and is cached in RSUs beforehand.
+During the transmission process, only the extracted dynamic
+foreground needs to be transferred. Compared to the raw
+sensory image, the transmitted workload is notably reduced,
+thereby saving uploading time. We denote the ratio of the
+reduced transmission load to the original one as rsep, and
+deﬁne M sep as the CPU cycle requirement of the separation
+technology. Accordingly, the time spent on video separation
+is calculated as
+Dsep
+vi
+= LM sep
+fvi
+, vi ∈ΩV .
+(9)
+Let Dtrans
+vi→uj denote the delay for transmitting data from AV
+vi to RSU uj. Then, we have
+Dtrans
+vi→uj = Lrsep
+Rvi→uj
+, vi ∈ΩV , uj ∈U,
+(10)
+where Lrsep is the reduced data size, U = {ul, uh} is the set
+of RSUs, and Rvi→uj is the transmission rate between AV vi
+
+
+===== PAGE 7 =====
+7
+and RSU uj. As such, we consider a multi-vehicle wireless
+interference model in uplink transmission. The transmission
+rate Rvi→uj is calculated as
+Rvi→uj = B log2
+
+
+1 +
+phij
+σ2
+j +
+P
+vk∈V\vi
+phkj
+
+
+,
+vi ∈ΩV , uj ∈U,
+(11)
+where vk ∈V \ vi is the set of AVs accessed to RSU uj the
+same as AV vi. p, σ2
+j are the transmitting power of AV and
+the noise power, respectively. The term hij = d−α1
+ij
+is the
+channel gain determined by the path-loss exponent −α1 and
+the distance dij between AV vi and RSU uj. dij is calculated
+as
+dij =
+q
+d
+′
+ij
+2 + H2,
+(12)
+where d
+′
+ij is the distance from the current position of AV vi
+to the location of RSU uj, and H is the height of RSU.
+2) Task Computing: The ofﬂoading decision for collabora-
+tive AVs in ΩV is described as
+X =
+
+X1, . . . , Xi, . . . , X|ΩV |
+	
+,
+(13)
+where Xi is the ofﬂoading decision of AV vi, Xi
+=
+
+xloc
+i
+, xdet
+i
+, xtrack
+i
+	
+. The elements in Xi are binary variables
+and represent the AV vi’s ofﬂoading decision for localization,
+object detection and tracking, respectively. Xi = 1 if any of
+the variables in Xi is 1; Xi = 0 indicates the perception tasks
+are computed locally at AV vi. The completion delay of AV
+vi’s perception tasks is calculated as
+Dvi = max
+
+Dloc
+vi , Ddet
+vi + Dtrack
+vi
+	
+(14)
++ XiDtrans
+vi→uj, vi ∈ΩV , uj ∈U,
+where Dloc
+vi , Ddet
+vi
+and Dtrack
+vi
+are the computing delay for
+localization, object detecting and tracking, respectively. Task
+dependency exists between object detecting and object track-
+ing, since the output of the former one is the input of the
+latter. Localization task is computed in parallel with object
+detecting and tracking. Speciﬁcally, the computing delay of
+these perceptive tasks is calculated as
+D∗
+vi = x∗
+i LM ∗
+µ∗vifuj
++ (1 −x∗
+i ) LM ∗
+fvi
+, vi ∈ΩV , uj ∈U,
+(15)
+where D∗
+vi is the computation delay indicator of vi’s percep-
+tion task, D∗
+vi ∈
+
+Dloc
+vi , Ddet
+vi , Dtrack
+vi
+	
+, and x∗
+i is the task of-
+ﬂoading indicator, x∗
+i ∈
+
+xloc
+i
+, xdet
+i
+, xtrack
+i
+	
+. M ∗is computa-
+tion intensity indicator, M ∗∈
+
+M loc, M det, M track	
+, where
+M loc, M det and M track are the computation intensity of local-
+ization, detection and tracking, respectively. µ∗
+vi is the resource
+allocation indicator of vehicle vi, µ∗
+vi ∈
+
+µloc
+vi , µdet
+vi , µtrack
+vi
+	
+,
+where µloc
+vi , µdet
+vi
+and µtrack
+vi
+are the fractions of RSU uj’s
+computing power allocated to AV vi for executing localization,
+detection and tracking tasks, respectively.
+We deﬁne the total fraction of computing resource assigned
+to AV vi as µvi, which can be calculated as
+µvi = µloc
+vi + µdet
+vi + µtrack
+vi
+, vi ∈ΩV .
+(16)
+Meanwhile, for each computing task of AVs in ΩV , the latency
+should not exceed its delay requirement τ
+LM ∗
+x∗
+i µ∗vifuj + (1 −x∗
+i ) fvi
+≤τ , vi ∈ΩV , uj ∈U.
+(17)
+If RSU uj is in ΩU, i.e., it is assigned a perception task, a
+portion of uj’s computing resources should be saved for the
+execution of its own tasks. We denote the overall faction of
+computing resources saved for RSU uj as
+µuj = µloc
+uj + µdet
+uj + µtrack
+uj
+, uj ∈ΩU.
+(18)
+Similar to (14), the completion delay of RSU uj is expressed
+as
+Duj = max
+n
+Dloc
+uj , Ddet
+uj + Dtrack
+uj
+o
+, uj ∈ΩU.
+(19)
+Accordingly, the computing delay of RSU uj’s perception
+tasks is calculated as
+D∗
+uj = LM ∗
+µ∗ujfuj
+, uj ∈ΩU,
+(20)
+where D∗
+uj
+is the computation delay indicator of uj’s
+perception task, D∗
+uj
+∈
+n
+Dloc
+uj , Ddet
+uj , Dtrack
+uj
+o
+, and µ∗
+uj
+is the resource allocation indicator of RSU uj, µ∗
+uj
+∈
+n
+µloc
+uj , µdet
+uj , µtrack
+uj
+o
+.
+Similar to (17), the computing delay of RSU in ΩU follows
+the constraint
+LM ∗
+µ∗ujfuj
+≤τ, uj ∈ΩU,
+(21)
+where µ∗
+uj is the resource allocation indicator of RSU uj,
+µ∗
+uj ∈
+n
+µloc
+uj , µdet
+uj , µtrack
+uj
+o
+. The allocated resource fractions
+satisﬁes
+I (uj ∈ΩU) µj +
+|ΩV j|
+X
+i=1
+µi = 1, uj ∈U, ΩV j ∈ΩV ,
+(22)
+where I (·) is an indicator function, which equals 1 if the event
+is true and 0 the other way. ΩV j is the set of collaborative AVs
+under the coverage of uj. (22) ensures that the fractions of the
+allocated computing resources add up to 1.
+IV. PROBLEM FORMULATION
+In this section, we formulate the joint collaborative task
+assignment, ofﬂoading and resource allocation optimization as
+a MINLP problem, the goal is to minimize the completion
+delay of the collaborative computation task. The problem of
+joint collaborative task assignment, ofﬂoading and resource
+allocation is three-fold. The ﬁrst one is how to assign collabo-
+rative tasks so that v0 can achieve a full RRoI awareness. The
+other two are which tasks to ofﬂoad and how many resources
+to allocate, such that the completion delay is minimized. On
+top of that, the optimization problem is formulated as
+P0 : min
+Ω,X,µ max
+
+Dvi, Duj
+	
+, ∀vi ∈ΩV , uj ∈ΩU
+(23)
+s.t.
+(8), (17), (21), and (22).
+The spatial constraint (8) guarantees that all areas in CRoI
+are perceived. Constraints (17) and (21) indicate the delay
+
+
+===== PAGE 8 =====
+8
+requirements. (22) denotes that the sum of all the allocated
+portions of an RSU’s computing resources is equivalent to 1.
+The properties of problem P0 are expressed in the following
+lemmas.
+Lemma 1: P0 is a mixed-integer nonlinear programming
+problem.
+Proof 1: The task ofﬂoading decision X is binary-valued
+and the variables in the resource allocation strategy µ are
+continuous, P0 is a mixed-integer problem. The objective
+function max
+
+Dvi, Duj
+	
+is a nonlinear function of the de-
+cision variables. Hence, the formulated problem is a mixed-
+integer nonlinear problem. This completes the proof.
+Lemma 2: Problem P0 is non-convex.
+Proof 2: Please refer to Appendix A.
+In addition, Problem P0 is a NP-hard combinatorial prob-
+lem, as it includes MILP [40] and its solution usually requires
+searching enormous search trees or even worse, is undecid-
+able [41]. The existing methodologies for MINLP include
+deterministic algorithms and heuristic methods. Typical deter-
+ministic algorithms include branch and bound (B&B), outer
+approximation (OA), and hybrid techniques, which show their
+advantage in solving convex programming problem. Nonethe-
+less, deterministic algorithm tends to lose its advantage for
+in MINLP problem, as it requires solving the continuous
+relaxation of P0 iteratively, which consequently increases
+the number of non-convex terms and the non-convexity of
+problem P0. Heuristic methodologies include nature-inspired
+algorithms, genetic algorithms, etc. Heuristics are able to
+obtain good feasible solution in real time when the search
+tree has grown too large. However, global optima cannot be
+typically guaranteed.
+To overcome the above-mentioned shortcomings, we design
+an efﬁcient two-layer (TL) algorithm which integrates the mer-
+its of both heuristic algorithm and deterministic algorithm. To
+specify, in the outer layer, a binary intelligent ﬁreﬂy algorithm
+(BIFA) is devised for the optimal integer solutions, i.e., Ω
+and X. Given the known information of integer variables,
+MINLP is reduced to a serial of NLP problems, an NLP solver
+works in the inner layer to calculate the continuous solution,
+i.e., µ. Compared to deterministic algorithm, the proposed
+TL algorithm settles the integer solutions without relying on
+variable relaxation, which would otherwise increase the non-
+convexity of P0. Different from heuristic algorithms, the TL
+algorithm solves the continuous variables efﬁciently with the
+known gradient information.
+V. SOLUTIONS
+In this section, we present the design of the two-layer
+binary intelligent ﬁreﬂy algorithm (TL-BIFA), with the goal
+of solving the MINLP of joint collaborative task assignment,
+ofﬂoading and resource allocation. The proposed TL-BIFA
+works as follows. In the outer layer, an enhanced version of
+ﬁreﬂy algorithm is devised to ﬁnd the best co-perceiver set
+and the feasible ofﬂoading solutions. In particular, concerning
+the nature of easily being trapped in local optima, the idea of
+the survival of the ﬁttest law is applied to the basic ﬁreﬂy
+algorithm, ensuring that a ﬁreﬂy will only evolve towards
+ﬁreﬂies with high brightness. With the integer variables ﬁxed
+in outer layer, the MINLP problem is reduced to a serial of
+NLP problems with the known gradient information, the non-
+convexity is thereby reduced. The NLP problems are resolved
+by applying the Karush-Kuhn-Tucker (KKT) conditions.
+The reason we use FA to settle the integer variables in
+the MINLP problem is threefold. First, the stringent delay
+requirement imposed by collaborative computation task in
+automotive environments entails an outer layer heuristic al-
+gorithm that can approach the global optima efﬁciently. The
+task assignment and ofﬂoading strategies are critical to the
+system’s reliability and real-time performance. FA, as a very
+powerful technique based on global communications among
+the ﬁreﬂies, can solve constrained NP-hard optimization prob-
+lems with high efﬁciency. Second, FA has a simple operation
+and can be easily implemented. In FA, the generations of new
+solutions are updated by random walk and attraction of the
+ﬁreﬂies. Different from Ant Colony Optimization (ACO) and
+many more bio-heuristic algorithms, FA improves solutions
+without relying on complex rules. Third, the BIFA improves
+its efﬁciency in approaching the global optima by applying the
+survival of the ﬁttest law to generation updating, which makes
+it overcome the bio-heuristic algorithms’ common nature of
+being trapped in local optima.
+A. BIFA For Collaborative Task Ofﬂoading
+The task ofﬂoading decision is a (|ΩV |+2)×3 matrix, where
+each row indicates a co-perceiver. Three columns respectively
+represent a perception task, namely, the object localization,
+object detection and object tracking. As such, task ofﬂoading
+decision X is written as
+X =
+
+
+xloc
+1
+xdet
+1
+xtrack
+1
+...
+...
+...
+xloc
+|ΩV |
+xdet
+|ΩV |
+xtrack
+|ΩV |
+I(ul ∈ΩU)
+I(ul ∈ΩU)
+I(ul ∈ΩU)
+I(uh ∈ΩU)
+I(uh ∈ΩU)
+I(uh ∈ΩU)
+
+
+,
+(24)
+where the ﬁrst |ΩV | rows are the ofﬂoading decisions of
+collaborative AVs, each xi is binary-valued. The last two
+rows indicate the RSUs’ collaborative tasks. For example,
+I(uh ∈ΩU) = 1, if RSU uh is assigned with collaborative
+tasks. In this case, uh has to save part of computing resources
+for the three tasks. Otherwise, I(uh ∈ΩU) = 0. In short,
+the co-perceiver set Ωdetermines the number of rows in X
+and the value in the last two rows, which follows the spatial
+constraint (8). Note that there are possibly multiple eligible
+co-perceiver sets. We settle the set with the most computing
+resources as Ωin the outer layer of TL-BIFA, as the co-
+perceivers are able to provide faster computation results for
+v0.
+We deﬁne a population of ﬁreﬂies as
+X = {X1, · · · , Xm, · · · , XM} ,
+(25)
+where M is the number of ﬁreﬂies in the population, Xm
+indicates a collaborative ofﬂoading strategy. The light intensity
+of a ﬁreﬂy depends on the objective function, i.e., task
+completion delay. However, the brightness seen by another
+
+
+===== PAGE 9 =====
+9
+ﬁreﬂy is affected by the distance between the two. A ﬁreﬂy
+tends to be attracted to an adjacent ﬁreﬂy with a strong light.
+We deﬁne the light intensity at the source as
+Lm =
+1
+max
+
+Dvi, Duj
+	, vi ∈ΩV , uj ∈ΩU.
+(26)
+The light intensity Lab of ﬁreﬂy a observed from the perspec-
+tive of ﬁreﬂy b varies according to the inverse square law [42]
+I (dab) = Ia exp
+ −γd2
+ab
+
+,
+(27)
+where dab is the distance between ﬁreﬂies a and b, which is
+calculated as the euclidean distance between Xa and Xb. γ
+is the degree of absorption since the light is also absorbed by
+air. Besides, a ﬁreﬂy’s attractiveness is determined by the light
+intensity seen by neighboring ﬁreﬂies [42], which is expressed
+as
+β (dab) = β0 exp
+ −γd2
+ab
+
+,
+(28)
+where β0 is the attractiveness when dab = 0.
+According to the above metrics, the position of a ﬁreﬂy (i.e.,
+the solution of an ofﬂoading strategy) is updated according to
+Xm = Xm + β (Xq −Xm) + α2ϵ.
+(29)
+The next position Xm of ﬁreﬂy m is related to its last
+position (i.e., the ﬁrst term), the attraction (i.e., the second
+term) and a randomization term α2ϵ. α2 is a randomization
+parameter and ϵ is a random number drawn from a uniform
+distribution [0, 1]. The third term in (29) is introduced to avoid
+being stuck in local optima. Xm is discretized after position
+updating, since a feasible ofﬂoading solution is binary-valued.
+The process of the proposed BIFA algorithm for collabora-
+tive task ofﬂoading is presented in Algorithm 1. Each ofﬂoad-
+ing decision in X is updated according to (29), correspondingly
+the population is changed. Even so, whether the population is
+upgrading or retrograding is hard to guarantee, since there are
+situations where a ﬁreﬂy is attracted to another one, and is
+taken away from the global optimum, merely because it is
+graphically close. We purposely make Modiﬁcations to ﬁreﬂy
+algorithm to avoid such cases, hence an enhanced version of
+ﬁreﬂy algorithm is designed. In BIFA, we rank population X in
+descending order according to Lm before position updating. In
+each generation, a ﬁreﬂy moves only towards top ϕM ﬁreﬂies,
+where ϕ is percentage of the number of elite ﬁreﬂies to the
+population. In so doing, it is ensured that the population is
+upgraded after each iteration.
+B. NLP Solver For Computing Resource Allocation
+With collaborative task ofﬂoading strategy X, together with
+Ω, is ﬁxed in outer layer, integer variables are settled. P0
+thereby contains only a set of continuous variables, i.e., µ ∈
+[0, 1]. The MINLP P0 is reduced to the NLP problem, which
+is denoted by
+P1 : min
+µ max
+
+Dvi, Duj
+	
+, ∀vi ∈ΩV , uj ∈ΩU.
+(30)
+s.t.
+(17), (21), (22).
+There are k1 =
+PP|ΩV |
+i=1 X inequality constraints repre-
+senting the delay requirements of AV’s ofﬂoaded tasks, and
+k2 = PP|ΩV |+2
+|ΩV |+1X inequality constraints indicating the delay
+requirement of RSU’s computing tasks. The total number
+of inequality constraints k3 =
+PP X. Additionally, two
+equality constraints ensures that the sum of each RSU’s
+allocated resource fractions is 1. For clarity, we deﬁne the
+inequality constraints as
+gk =
+LM
+xiµvifuj + (1 −xi) fvi
+−τ , k = 1, · · · , k1.
+(31)
+gk =
+LM
+µujfuj
+−τ, k = 1, · · · , k2.
+(32)
+The equality constraints are expressed as
+hk = I (uj ∈ΩU) µj +
+|ΩV j|
+X
+i=1
+µi −1 , k = 1, 2.
+(33)
+Then we obtain the optimization problem:
+min
+µ f(µ) = max
+
+Dvi, Duj
+	
+,
+(34)
+subject to
+hk = 0, k = 1, 2
+and
+gk ≤0 k = 1, . . . , k3.
+P1 is a non-linear optimization problem with equality and
+inequality constraints. To solve P1, we deﬁne the Lagrangian
+operator as
+L(µ, e, q) = f(µ) + P2
+k=1ekhk + Pk3
+k=1qkgk.
+(35)
+We can ﬁnd a local optimum µ∗if there exists a unique q∗
+satisfying
+▽µ L(µ∗, e∗, q∗) = 0,
+(36)
+q∗
+k ≥0, for k = 1, . . . k3,
+(37)
+q∗
+kgk(µ∗) = 0, for k = 1, . . . k3,
+(38)
+gk(µ∗) ≤0 for k = 1, . . . , k3,
+(39)
+hk(µ∗) = 0 for k = 1, 2,
+(40)
+yt ▽µµ L(µ∗)y ≥0, ∀y orthogonal to ▽µ g(µ∗).
+(41)
+Constraints (36)-(41) are the KKT conditions associated with
+problem P1. (36) and (37) ensure that µ∗is an extreme
+point. (41) makes sure that ▽µµL(µ∗) is a positive semi-
+deﬁnite matrix, and µ∗is a local optimum. Constraints (39)
+and (40) are the original equality and inequality constrains,
+respectively. (38) is the complementary slackness, which indi-
+cates the impact of inequality constraints on the optima. The
+process of NLP Solver is presented in Algorithm 2.
+Lemma 3: Eq. (38) is the prerequisite of an optimum µ∗.
+Proof 3: If we ﬁnd a local optimum µ∗that lies within the
+feasible region, i.e., g(µ∗) ≤0, a constrained local minimum
+is the same for an unconstrained local minimum, and thus q =
+0. If µ∗is out of the feasible region, the inequality constraints
+are effective. Then, we have g(µ∗) ≤0. The optimal solution
+occurs when ▽µf(µ) and ▽µg(µ) are parallel
+−▽µf(µ) = λ ▽µ g(µ).
+(42)
+In other words, if resource allocation µ∗, together with the dual
+parameter pair e∗and q∗, satisﬁes the KKT conditions (36)-
+(41), µ∗is the optimal resource allocation. This completes the
+proof.
+
+
+===== PAGE 10 =====
+10
+Algorithm 1: Outer Layer: BIFA Algorithm
+Input: the AV’s current phase ρ, FoV Fi and RRoI,
+AVs V, RSUs U, RSU’s coverage range RRSU
+and computing resource fuj, the set of AVs
+whithin v0’s communication range, VV 2V , AV’s
+computing power fvi and task characteristics.
+Output: collaborative task assignment Ω, task
+ofﬂoading decision X and RSUs’ resource
+allocation µ.
+1 OUTER LAYER FOR Ω, X
+2 Set the co-perceiver set that satisﬁes (8) and has the
+most computing resources as Ω;
+3 Randomly generate the ﬁrst population of ﬁreﬂies X
+according to Ω;
+4 while z ≤maximum number of generations do
+5
+Rank ﬁreﬂies in descending order according to
+lightness;
+6
+Record the best ﬁreﬂy Xbest and the corresponding
+Ωbest in this population;
+7
+for m = 1 to M do
+8
+for a = 1 to ϕM do
+9
+if La > Lm then
+10
+Calculate the euclidean distance dam
+between Xm and Xa;
+11
+Calculate the attractiveness according to
+(28);
+12
+Update ﬁreﬂy Xm in the z-th
+generation according to (29);
+13
+Normalize ﬁreﬂy Xm to interval [0, 1] ;
+14
+Discretize ﬁreﬂy Xm;
+15
+INNER LAYER FOR µ
+16
+Put k3 inequality constraints and equality
+constraints (17), (21) and (22), and the
+objective function f(µ) into NLP solver;
+17
+Record the optimal resource allocation µ for
+each ﬁreﬂy;
+18
+Update the lightness of ﬁreﬂy m according to
+(26);
+19
+Update the z-th generation of ﬁreﬂies X ;
+20
+Record the best ﬁreﬂy of the z-th generation as
+Xbest ;
+21 Return Ω, X, µ.
+C. Algorithm Complexity Analysis
+In the two-layer binary intelligent ﬁreﬂy algorithm (TL-
+BIFA), the computational complexity of the initialization
+phase is O(N), the position update of a ﬁreﬂy generation
+in the outer layer is O(ϕM). With the integer variables
+settled in the outer layer, problem P0 turns into the resource
+allocation problem P1, which is solved by the NLP solver
+in the inner layer with computational complexity of O(k3).
+Hence, the overall computational complexity of TL-BIFA is
+O(N + ϕZM2 + ZMk3), where Z is the maximum number
+of ﬁreﬂy generations.
+Algorithm 2: Inner Layer: NLP Solver
+Input: collaborative task assignment Ω, ofﬂoading
+decision X.
+Output: RSUs’ resource allocation µ.
+1 Generate matrices Xml and Xmh to store the
+perception tasks assigned to RSU ul and RSU uh,
+respectively;
+2 Initialize Xml and Xmh according to Ω, X ;
+3 calculate the total number of perception tasks that
+RSU ul and RSU uh needs to compute, record the
+numbers as kl, kh, respectively;
+4 for each RSU in U do
+5
+Deﬁne the inequality constraints according to (31)
+and (32);
+6
+Deﬁne the equality constraint according to (33);
+7
+Deﬁne the Lagrangian operator according to (35);
+8
+Find the resource allocation µ according to the
+KKT conditions (36)-(41);
+9 Return Ω, X, µ.
+VI. EVALUATION AND DISCUSSION
+A. Trace-based Simulations
+We consider an unidirectional and two-lane road with a lane
+width of 3.75 m, the distance from the RSU to the centerline
+of the road is 15 m [7]. The sensing radius, as well as V2I
+transmission range, of an RSU is 200 m [43], and hence RSUs
+are deployed at a interval of 200 m to provide a full coverage.
+The height of RSU is 20 m [7]. There are N = 10 AVs
+scattered under the coverage of two neighboring RSUs, each
+AV is armed with a visual sensor. The camera equipped on
+AVs is Leopard Imaging LI-USB30-P031XB, and its FoV is
+D112◦×H89.6◦×V67.2◦[5]. The sensory data size of single
+visual frame is 100 KB with a resolution of 1280×720 pixels
+[29]. The computation intensity of perception tasks follows
+a uniform distribution in [1, 000, 2, 640] cycles/bit [44], [45],
+and the delay requirement τ is 0.1 s [46]. Using dynamic
+foreground and static background separation technique, the
+ratio of reduced workload to the original data size rsep is
+0.85 [39].
+According to Horizon Robotics’ summary, a higher level
+of automated driving requires more orders of magnitude tera
+operations per second (TOPS), namely, 10 TOPS for L2
+autonomy, 30 to 60 TOPS for L3, more than 100 TOPS for
+L4, and around 1, 000 TOPS for L5. Our autonomous driving
+system is based on Huawei MDC 810 computing platform
+and could achieve 400 TOPS of computing power. Due to the
+heterogeneity of AV users’ computing demand, the computing
+resource of AVs is drawn from a random distribution in [3, 5]
+GHz [9], and the computing power of each RSU is 20 GHz
+[47]. Collaborative environment perception are carried out in
+RoI to ensure autonomous driving safety, the length of R is
+100 m [48] and V2V communication range is 70 m [49]. In
+the perception task ofﬂoading system, the bandwidth assigned
+to each collaborative AV is B = 1 GHz, the noise power σ2
+j
+is 10−13 W and the path-loss exponent α1 is 4 [47].
+
+
+===== PAGE 11 =====
+11
+In BIFA, there are 50 generations of ﬁreﬂy population and
+the total number of ﬁreﬂies in each population is 10. The initial
+attractiveness β0 is set as 1. The randomization parameter
+α2 = 1.The parameter γ characterizes the variation of the
+attractiveness, determining the speed of the convergence and
+how the FA algorithm behaves. In our settings, γ is set to be
+varied from 0.1 to 10.
+B. Metrics and Baselines
+We conduct the evaluation based on three metrics, i.e., delay,
+resource utilization and the completion of RoI perception.
+1) Delay: Delay measures the efﬁciency of collaborative
+task, and is related with the safety level of automated driving
+systems [24].
+To evaluate the efﬁciency of TL-BIFA, we compare the
+algorithm with two-layer random search (TL-RS) and two-
+layer ﬁreﬂy algorithm (TL-FA). The reason we choose TL-RS
+for comparison is that, an AV’s RoI is limited, the number of
+the selected co-perceivers are small (e.g., several collaborative
+AVs and RSUs), TL-RS can ﬁnd a relatively good solutions
+in given time. In TL-RS,a guarantee of optimality is sacriﬁced
+for ﬁnding a good ofﬂoading solution quickly. Compared
+to TL-BIFA, TL-FA updates ﬁreﬂies according to distance,
+without considering objective function. Different from TL-FA,
+TL-BIFA upgrade the population by moving ﬁreﬂies towards
+the best ϕM ﬁreﬂies in the population. We investigate the
+impact of parameter ϕ on the convergence of TL-BIFA and
+the benchmark algorithms, by tuning up ϕ from 0.5 to 0.75.
+The results are shown in Fig. 5.
+To investigate the performance of the outer-layer and inner-
+layer algorithms, we compare the proposed FA algorithm
+with two baselines, i.e., the ant colony optimization (ACO)
+algorithm and the whale optimization algorithm (WOA) [50],
+and we compare the NLP-solver with two baselines, i.e., the
+branch and bound (B&B) algorithm [51] and the Markov
+approximation (MA) algorithm [52]. Following the work [26],
+the exhaustive search (ES) algorithm is used to ﬁnd the optimal
+bound. The results are shown in Fig. 6.
+We evaluate the resource allocation performance by com-
+paring the proposed scheme with four baselines, i.e., the online
+dynamic adaptive (ODA) scheduling algorithm [8], the feder-
+ated Q-learning (FQL) algorithm [53], the Attention-weighted
+Recurrent Multi-Agent Actor-Critic (ARMAAC) algorithm
+[54] and the low complexity greedy based efﬁcient searching
+(GES) algorithm [26]. The ODA algorithm optimizes task
+ofﬂoading decisions without considering resource allocation.
+Computing resources of vehicles and RSUs are allocated to
+shorten the response time under the FQL and ARMAAC
+schemes, respectively. GES makes resource allocation strate-
+gies for both vehicles and RSUs in order to meet the stringent
+delay requirement. The results are shown in Fig. 7.
+2) Resource Utilization: Resource utilization refers to the
+proportion of consumed computing resources of the system.
+The higher the resource utilization is, the more computing
+resources are used for processing. We compare our perception
+ofﬂoading method with two baselines, i.e., local computing
+(LOCO) and edge ofﬂoading (EDO), in terms of delay and
+0
+20
+40
+60
+80
+100
+120
+140
+160
+Iterations
+0.1
+0.15
+0.2
+0.25
+0.3
+0.35
+0.4
+0.45
+0.5
+Delay (ms)
+TL-RS
+TL-FA
+TL-BIFA ( =0.75)
+TL-BIFA ( =0.5)
+TL-BIFA ( =0.25)
+Fig. 5. Delay of algorithms with iterations.
+resource utilization. Under the LOCO scheme, the tasks are
+processed by AVs locally without computation ofﬂoading. In
+EDO, sensory data is outsourced to RSUs for processing. The
+results are shown in Fig. 8.
+We assess our data uploading method (see in Section III-D1)
+by comparing our dynamic foreground uploading mechanism
+with background subtraction (w/ BG Sub) to the raw sensory
+data uploading mechanism (w/o BG Sub). The results are
+shown in Fig. 9.
+3) Ofﬂoading Ratio: Ofﬂoading ratio refers to the propor-
+tion of outsourced data to the overall computation workload.
+We investigate the impact of computation intensity on ofﬂoad-
+ing ration under various computing power of AV. The results
+are shown in Fig. 10.
+4) Completion of RoI Perception: We measure the perfor-
+mance of the collaborative computation scheme in terms of
+RoI completion ratio, which indicates the fraction of total
+sensed area to the entire RoI. When the ratio rises up to 1,
+the whole RoI is being perceived and hence the occlusions
+in RRoI are eliminated. The higher the completion ratio of
+RoI is, the more knowledge about more areas in RoI the
+vehicle can obtain. In view of completion ratio, we compare
+the collaborative computation with infrastructure computation
+(INCO) and vehicle computation (VECO). Under the EDCO
+mode, only RSUs are the vehicle’s co-perceivers, while in
+AVCO, only nearby AVs are able to assist AV in perceiving
+the occlusions. The results are shown in Figs. 11 and 12.
+C. Efﬁciency of the Proposed TL-BIFA
+Fig. 5 presents the performance of algorithms, including
+both the convergence speed and the optimal solutions. It can
+be seen that the solutions found by RS are the worst of the
+considered algorithms in the beginning of the iterations, this
+is because TL-RS generate solutions arbitrarily in feasible
+space in the beginning. On the contrary, better solutions are
+rendered by TL-FA and TL-BIFA at the same stage. Compared
+to TL-FA, TL-RS converges faster at around 150 iterations. In
+fact, TL-RS can make relatively good decisions after about 90
+iterations. This is owing to the fact that the feasible space in
+our collaborative task ofﬂoading approach is not large, while
+TL-FA usually requires quite a number of generations and thus
+
+
+===== PAGE 12 =====
+12
+1
+1.5
+2
+2.5
+3
+3.5
+4
+4.5
+5
+Computing Resources (GHz)
+0.5
+1
+1.5
+2
+2.5
+3
+3.5
+Delay (ms)
+Proposed
+ACO+NLP
+WOA+NLP
+FA+B&B
+FA+MA
+ES
+Fig. 6. Algorithm performance with various computing resources.
+has a slow convergence speed. In essence, TL-FA is equivalent
+to TL-BIFA when ϕ is set to 1, in which case the survival-
+of-the-ﬁttest mechanism is not activated. When ϕ is set to
+0.75, the ﬁreﬂies are updated towards the top 75 percent of
+the population, which prompts ﬁreﬂy population’s evolution.
+As ϕ is tuned down to 0.5, the proposed TL-BIFA converges
+quickly at iteration 35, and the optimal delay is 0.14 ms. The
+results of TL-BIFA with ϕ = 0.5 and 0.25 are similar, ϕ
+only has a minor impact on TL-BIFA performance within
+the range of [0.25, 0.5]. However, signiﬁcant improvement of
+convergence speed can be observed when ϕ jumps from 0.75 to
+0.5. According to [20], the total tolerable delay for perception
+is 3 ms when the AV is driving at 50 km/h. This optimal
+delay is far less than the upper bound delay. The reason
+behind is that, with the decrease of ϕ, the screening condition
+becomes more stringent and the number of example solutions
+is cut down by 25%. Above all, the total completion delay of
+perception task is no larger than 0.5 ms. These results validate
+the efﬁciency and reliability of the perception task ofﬂoading
+scheme with collaborative computation.
+Fig. 6 presents the performance of algorithms in the outer
+and inner layers. It can be seen that the delay gap between the
+proposed algorithm and ES is 0.056 ms with 5 GHz computing
+resources, the completion delay achieved by the proposed TL-
+BIFA algorithm is close to the optimal bound (e.g., the ES).
+The ACO+NLP method achieves the delay of 1.874 ms, which
+is greater than TL-BIFA by 386.75%. This is due to the fact
+that the evaporation rate in ACO directly impacts the global
+search ability, which can lead to reduction of global search
+ability and bring the algorithm to local convergence. On the
+contrary, the outer-layer FA has the ability to search for better
+perception task ofﬂoading by means of elite reproduction. The
+delay obtained by FA+B&B is 0.998 ms, which is greater
+than TL-BIFA by 159.22%. This is because, the B&B requires
+more branching computation for a resource allocation strategy,
+which makes it less computationally efﬁcient in compari-
+son with the NLP-solver. Given the delay requirements and
+ofﬂoading strategy, the NLP-solver can return the optimal
+resource allocation strategy in a much less time-consuming
+manner.
+In addition, the outer-layer algorithm has a greater impact
+5
+10
+15
+20
+25
+30
+35
+40
+AVs / 100 m Road Segment
+0.5
+1
+1.5
+2
+Delay (ms)
+Proposed
+ODA
+FQL
+ARMAAC
+GES
+ES
+Fig. 7. Resource allocation scheme performance with vehicle density.
+on the delay than the inner-layer algorithm. For example, when
+the computing resources are 3 GHz, the delay sees a 49.56%
+increase under the FA+MA scheme, which is less than that
+with WOA+NLP scheme by 118.44%. This is because, the
+outer-layer algorithm decides the upper bound of available
+resources for each task, while the inner-layer algorithm further
+improves the delay performance by allocating the computing
+resources among tasks based on ofﬂoading decision made in
+the outer layer.
+D. Perception Task Ofﬂoading
+Fig. 7 illustrates the delay versus the number of vehicles
+in every 100 m road segment among the proposed resource
+allocation scheme and the baselines. As seen from Fig. 7, the
+delay grows as the AV density increases, which veriﬁes the
+fact that more surrounding vehicles cause more occlusions,
+and hence generate more collaborative computation tasks. The
+delay achieved by the proposed algorithm is close to the
+optimal bound (e.g., the ES), and is lower than that under the
+GES scheme by 16.25% when there are 40 vehicles in every
+100 m road segment. This is because, the GES enables reverse
+ofﬂoading, bringing extra transmission delay for the dependent
+perception tasks. The ARMAAC reduces the delay by 19.84%
+compared to the FQL algorithm, since RSUs typically have
+more powerful computing capacity than vehicles, and can pro-
+cess more computation tasks. Reasonable allocation strategy of
+RSUs can speed up the collaborative computation process and
+shorten the completion delay. The ODA scheme incurs much
+higher delay compared to other algorithms, as it schedules
+tasks to reduce the delay without making optimal computing
+resource allocation strategy. Overall, the proposed algorithm
+makes better resource allocation strategies of both RSUs and
+vehicles such that the task completion delay is signiﬁcantly
+reduced.
+Fig. 8 depicts the impact of input workload (e.g., the
+sensory data) on delay and resource utilization under different
+ofﬂoading schemes. With the increase of sensory data, task
+completion delay grows (see the red curves). The LOCO
+obtains the largest delay, as it is prone to be easily affected
+by the input workload. The compromise might be uploading
+
+
+===== PAGE 13 =====
+13
+50
+60
+70
+80
+90
+100
+110
+120
+130
+140
+150
+Sensory Data (MB)
+0
+0.5
+1
+1.5
+2
+2.5
+Delay (ms)
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+Respurce Utilization (%)
+Proposed
+EDO
+LOCO
+Proposed
+EDO
+LOCO
+Fig. 8. Delay and resource utilization under different ofﬂoading schemes.
+all the data to the edge, i.e., EDO, since the edge server is
+equipped with considerable computing power. However, the
+transmission delay of EDO can be intolerable due to the
+huge amount of the perceived data. As shown in Fig. 8, as
+the data size increases, the delay gap between EDO and the
+proposed becomes wider. Note that the EDO and proposed
+ofﬂoading scheme see a sudden increase in terms of delay
+when the sensory data size rises from 80 to 90 MB. This
+is because, the performance of ofﬂoading schemes is studied
+based on the proposed TL-BIFA algorithm, the randomness
+that exists in the outer-layer algorithm does not promise
+the consistency or smoothness between solutions [55]. The
+proposed task ofﬂoading scheme shows its intelligence in
+ﬂexibly choosing co-perceivers among RSUs and AVs, thereby
+reducing completion delay to the lowest level. This is also
+supported by the results of resource utilization (see the blue
+curves in Fig. 8). As the workloads rise, the resource utilization
+grows as well. This is because more computing resources
+are demanded by growing sensory data. It can be seen that
+the utmost utilization of LOCO is around 0.325, and that
+of EDO is 0.675, since the constrained resources of AVs
+and RSUs limit the maximal utilization under LOCO and
+EDO, respectively. The bottleneck of resource utilization is
+overcome by our proposed perception task ofﬂoading scheme,
+which can achieve a maximal utilization of 100%, meaning
+that all computing resources are utilized for processing when
+the computing demand rises to a certain level.
+Fig. 9 illustrates the total latency of the collaborative com-
+putation with respect to input data size, concerning different
+uploading methods and AV’s computing power. The uploading
+methods include dynamic foreground uploading with back-
+ground subtraction (w/ BG Sub, solid line) and raw sensory
+data uploading (w/o BG Sub, dotted line). It can be seen that
+the completion delay of w/ BG Sub is always lower than that
+of w/o BG Sub. This is because the data size of the uploaded
+dynamic foreground is smaller compared to the original image
+after background subtraction technique. The delay gap under
+the two scheme grows with the decrease of AVs’ computing
+power. When the input data is 150 MB, fv = 5 GHz, the delay
+gap reaches up to 0.12 ms. This is because, as AVs’ computing
+resources decline, more and more perception tasks have to
+50
+60
+70
+80
+90
+100
+110
+120
+130
+140
+150
+Sensory Data (MB)
+0
+0.2
+0.4
+0.6
+0.8
+1
+1.2
+1.4
+Delay (ms)
+fv=1,w/o BG Sub
+fv=1,w/ BG Sub
+fv=3,w/o BG Sub
+fv=3,w/ BG Sub
+fv=5,w/o BG Sub
+fv=5,w/ BG Sub
+Fig. 9. Delay under different data uploading mechanisms.
+1000
+1500
+2000
+2500
+3000
+3500
+Computation intensity (cycles/bit)
+0.55
+0.6
+0.65
+0.7
+0.75
+0.8
+0.85
+0.9
+0.95
+Offloading ratio (%)
+fv=1
+fv=3
+fv=5
+Fig. 10. Ofﬂoading ratio of power-varied AVs with computation workload.
+seek computing support from RSUs, meaning that more data
+need to be transmitted. By exploiting background separation
+technique, transmission delay is signiﬁcantly reduced. For ex-
+ample, when input data is 100 MB and fv = 5 GHz, the delay
+is cut down by 22.2%. Besides, the delay is more affected by
+uploading method when fv increases, which veriﬁes the fact
+that fewer tasks need to be ofﬂoaded when AVs have ample
+computing power.
+Fig. 10 depicts the impact of computation intensity on
+ofﬂoading ratio, which is the proportion of ofﬂoaded data size
+to overall data size. The higher ofﬂoading ratio is, the heavier
+workload is ofﬂoaded to the RSU. It can be observed that
+the ofﬂoading ratio rises with the increase of computation
+intensity, as RSUs often have more computing resources.
+Ofﬂoading ratio with fv = 1 GHz stays high above 70%. This
+is because the computing power of AVs is too low to support
+computationally intensive perception tasks. When fv = 5 GHz,
+AVs can deal with more computation workload locally without
+task ofﬂoading.
+E. Collaborative Computation
+Fig. 11 shows the completion of RoI under V2I computation
+(INCO) mode and collaborative (i.e., V2V+V2I) computation
+architecture. In INCO scheme, the AV can only collaborate
+
+
+===== PAGE 14 =====
+14
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0
+0.2
+0.4
+0.6
+0.8
+1
+RoI Completion (%)
+RSU Coverage (%)
+INCO
+Proposed
+Fig. 11. RoI completion under V2I computation scheme.
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+0.002
+0.003
+0.004
+0.005
+0.006
+RoI Completion (%)
+Vehicle Density (AVs/m2)
+VECO
+Proposed
+Fig. 12. RoI completion under V2V computation scheme.
+with RSUs to perform perception task, while in collaborative
+computation, both nearby AVs and RSUs participate in per-
+ception. It can be seen that the RoI completion of collaborative
+computation mechanism is stabilized at 100%, implying that it
+is impervious to the RSU’s coverage ratio in RoI. No matter
+how low the coverage ratio is, the proposed architecture is
+able to explore both V2V and V2I links. Even if RoI is
+visible to none of the RSUs, there are always nearby AVs
+capable of perceiving the environment. Contrarily, in INCO,
+the completion ratio is proportional to the RSU’s sensing area
+in RoI. When the RSU covers the whole RoI, the completion
+ratio rises up to 1. Instead, if all of the RoI is not under the
+coverage range of RSUs, the completion ratio is as low as
+0.586. This is because, there are 58.6% of RoI can still be
+perceived by v0 itself without collaboration, while the rest
+areas (e.g., occlusions) remain unobserved.
+The performance of V2V computation (VECO) system is
+shown in Fig. 12. With 0.002 AV density, the RoI completion
+ratio is as low as 0.6 under the VECO scheme. The reason
+is that, the number of available AVs in the vicinity is small,
+there are seldom AVs to collaborate with. With more AVs
+surrounding v0, the number of accessible co-perceivers grows,
+then more AVs help to perceive RoI, and the completion rate
+increases to an utmost level. However, once the vehicle density
+exceeds a certain value (i.e., around 0.004 AV s/m2 in our
+case), completion rate drops immediately. The reason is that,
+more occlusions on the rear region of the AV’s RoI are caused
+by the increasing AVs, which are unperceivable to the front-
+camera equipped AVs. The performance of VECO relies on
+the sensing range of nearby AVs. When the AVs are densely-
+distributed, the unsupervised occlusions in VECO unveil the
+ﬂaw of this architecture. Opposite to the VECO scheme, the
+completion performance stabilizes at 100%, which ensures the
+reliability of collaborative computation.
+TABLE II
+PERCEPTION TASK OFFLOADING PERFORMANCE UNDER VARIOUS
+COMPUTING PLATFORMS. PLT, CP AND CMPL ARE SHORT FOR
+COMPUTING PLATFORM, COMPUTING POWER AND ROI COMPLETION
+RATIO, RESPECTIVELY.
+PLT
+CP (TOPS)
+FA
+NLP-Solver
+Delay (ms) ↓
+CMPL (%) ↑
+MQ4
+2.5
+×
+×
+16.39
+18.82
+×
+✓
+13.21
+26.48
+✓
+×
+12.26
+29.67
+✓
+✓
+10.28
+35.73
+MQ5
+24
+×
+×
+9.64
+42.59
+×
+✓
+7.13
+49.73
+✓
+×
+6.45
+58.94
+✓
+✓
+5.62
+69.78
+NVDX
+30
+×
+×
+6.74
+60.32
+×
+✓
+5.25
+74.97
+✓
+×
+3.98
+82.57
+✓
+✓
+2.37
+88.32
+TSLHW
+144
+×
+×
+2.18
+95.09
+×
+✓
+1.75
+98.43
+✓
+×
+1.04
+99.47
+✓
+✓
+0.49
+100.00
+HWNDC
+400
+×
+×
+0.35
+100.00
+×
+✓
+0.27
+100.00
+✓
+×
+0.19
+100.00
+✓
+✓
+0.14
+100.00
+F. The Performance under Various Computing Platforms
+Table II presents the completion delay and RoI completion
+ratio (CMPL) under different computing platforms (PLT).
+The level of autonomous driving is inseparable from the
+computing power (CP) of the chip [56]. Mobileye Q4 (MQ4)
+and Q5 (MQ5) provide 2.5 and 24 TOPS of computing power,
+respectively [57], for L1-L2 level automatic driving. NVIDIA
+Xavier processor delivers 30 TOPS for L3 autonomous driving.
+The computer of Tesla HW3.0 provides 144 TOPS computing
+power, aiming at autonomous levels 4 and 5. Huawei MDC
+810 provides a maximum of 400 TOPS, which can support
+L4 autonomous driving. We evaluate the delay and RoI com-
+pletion performance on the computing platforms with FA and
+NLP-solver working separately and jointly. While the FA and
+NLP-solver are not used, they are replaced by random of-
+ﬂoading scheme and proportional resource allocation strategy,
+respectively. The perception delay requirement is set as 3 ms.
+In Table II, as the computing power decreases, the delay
+rises, and the RoI completion ratio drops. For example, the
+delay is increased by 43.03%, and the RoI completion ratio is
+reduced by 17.73% when neither the FA nor the NLP-solver
+is adopted, and the computing power drops from 30 TOPS
+to 24 TOPS. This is because the computation tasks exceeding
+the tolerable perception delay are dropped, the vehicle hence
+does not receive the related occlusion information, and the
+RoI completion performance is degraded. When the computing
+power rises to 144 TOPS, the delay is lower than 0.5 ms, and
+the completion ratio remains at 100% when both of the algo-
+rithms are adopted. This indicates that the computing power of
+vehicle’s onboard computing platform has a signiﬁcant impact
+of task completion delay. Many of the vehicles’ perception
+tasks can be handled locally and efﬁciently without seeking
+task ofﬂoading when the computing power grows. When the
+computing power increases to 400 TOPS, the delay is reduced
+to 0.14 ms under the proposed scheme. Compared to the
+resource allocation scheme, the task ofﬂoading algorithm has
+a larger impact on system performance. For example, FA
+
+
+===== PAGE 15 =====
+15
+brings a 45.71% delay reduction when used alone, which
+is greater than that brought by NLP-solver by 22.85%. The
+reason is that, the outer-layer algorithm schedules where the
+tasks are executed, and hence determines the maximum value
+of available resources each task can obtain, while the inner-
+algorithm further improves the delay performance on the basis
+of ofﬂoading strategy made by the outer-layer algorithm.
+VII. CONCLUSION
+In this paper, we have developed a new framework of
+perception task ofﬂoading framework with collaborative com-
+putation for autonomous driving. By fully considering the
+vehicle mobility and task dependency, we formulate a joint
+problem of collaborative task assignment, ofﬂoading and
+resource allocation for minimizing task completion delay.
+The joint problem is formulated as MINLP, and a two-layer
+optimization method is presented. In the outer layer, BIFA
+is used to choose co-perceivers among RSUs and AVs and to
+ofﬂoad collaborative tasks for AVs. In the inner layer, the NLP
+solver is applied to ﬁnd the best resource allocation decision
+for RSUs. Experimental results demonstrate the superiority
+of our proposed method in raising the autonomous driving
+system’s efﬁciency, safety and reliability.
+In the future, we will devote our efforts in adapting collab-
+orative task ofﬂoading system to more complex trafﬁc roads
+like intersections and ramps. Besides, we will evaluate its
+performance by building prototypes in real-world automotive
+environments.
+APPENDIX
+A. Proof of Lemma 2
+According to [41], if either the objective function or any
+inequality constraint in P0 is non-convex, then we say that
+P0 is a non-convex MINLP. Here we take the inequality in
+constraint (17) and prove its non-convexity. For the conve-
+nience of expression, we deﬁne function
+c(µvi) =
+LM
+xiµvifuj + (1 −xi) fvi
+−τ,
+(43)
+so that constraint (17) can be written as c(µvi) ≤0. Assume
+the binary viable xi is known, the ﬁrst order derivative of
+c(µvi) is calculated as
+c′ (µvi) =
+−LMxiµvifuj
+
+xiµvifuj + (1 −xi) fvi
+2 ,
+(44)
+and the second derivative is
+C′′ (µvi) = LMxi
+
+xiµvifuj + (1 −xi) fvi
+
+×
+2xif 2
+uj −xiµvifuj + (xi −1) fvi
+
+xiµvifuj + (1 −xi) fvi
+4
+.
+(45)
+When xi is set as 1, we have
+C′′ (µvi)|xi=1 =
+−LMµvifuj
+
+2f 2
+uj −1
+
+µvif 4uj
+.
+(46)
+It can be seen that C′′ (µvi)|xi=1 is less than 0 when 2f 2
+uj −
+1 > 0, i.e., fuj > 0.71. The non-convex property of the
+inequality constraint (17) is proved, and hence problem P0
+is a non-convex MINLP. This completes the proof.
+REFERENCES
+[1] S. Feng, X. Yan, H. Sun, Y. Feng, and H. X. Liu, “Intelligent driving
+intelligence test for autonomous vehicles with naturalistic and adversar-
+ial environment,” Nature Communications, vol. 12, no. 1, p. 748, Feb.
+2021.
+[2] D. Wang, W. Fu, Q. Song, and J. Zhou, “Potential risk assessment for
+safe driving of autonomous vehicles under occluded vision,” Scientiﬁc
+Reports, vol. 12, no. 1, p. 4981, Mar. 2022.
+[3] L. Claussmann, M. Revilloud, D. Gruyer, and S. Glaser, “A review of
+motion planning for highway autonomous driving,” IEEE Transactions
+on Intelligent Transportation Systems, vol. 21, no. 5, pp. 1826–1848,
+May 2020.
+[4] D. Omeiza, H. Webb, M. Jirotka, and L. Kunze, “Explanations in
+autonomous driving: A survey,” IEEE Transactions on Intelligent Trans-
+portation Systems, vol. 23, no. 8, pp. 10 142–10 162, Aug. 2022.
+[5] S. Sridhar and A. Eskandarian, “Cooperative perception in autonomous
+ground vehicles using a mobile-robot testbed,” IET Intelligent Transport
+Systems, vol. 13, no. 10, pp. 1545–1556, July 2019.
+[6] A. Guizar, V. Mannoni, F. Poli, B. Denis, and V. Berg, “Lte-v2x perfor-
+mance evaluation for cooperative collision avoidance (coca) systems,”
+in IEEE 92nd Vehicular Technology Conference (VTC), Victoria, BC,
+Canada, Nov. 2020.
+[7] Y. Qi, Y. Zhou, Y.-F. Liu, L. Liu, and Z. Pan, “Trafﬁc-aware task
+ofﬂoading based on convergence of communication and sensing in
+vehicular edge computing,” IEEE Internet of Things Journal, vol. 8,
+no. 24, pp. 17 762–17 777, May 2021.
+[8] M. Cui, S. Zhong, B. Li, X. Chen, and K. Huang, “Ofﬂoading au-
+tonomous driving services via edge computing,” IEEE Internet of Things
+Journal, vol. 7, no. 10, pp. 10 535–10 547, Oct. 2020.
+[9] H. Du, S. Leng, K. Zhang, and L. Zhou, “Cooperative sensing and
+task ofﬂoading for autonomous platoons,” in GLOBECOM-IEEE Global
+Communications Conference, Taipei, Taiwan, China, Jan. 2020.
+[10] B. Yang, X. Cao, K. Xiong, C. Yuen, Y. L. Guan, S. Leng, L. Qian, and
+Z. Han, “Edge intelligence for autonomous driving in 6g wireless sys-
+tem: Design challenges and solutions,” IEEE Wireless Communications,
+vol. 28, no. 2, pp. 40–47, Apr. 2021.
+[11] S. Kato, E. Takeuchi, Y. Ishiguro, Y. Ninomiya, K. Takeda, and
+T. Hamada, “An open approach to autonomous vehicles,” IEEE Micro,
+vol. 35, no. 6, pp. 60–68, Dec. 2015.
+[12] S.-C. Lin, Y. Zhang, C.-H. Hsu, M. Skach, M. E. Haque, L. Tang,
+and J. Mars, “The architectural implications of autonomous driving:
+Constraints and acceleration,” SIGPLAN Not., vol. 53, no. 2, p. 751–766,
+Mar. 2018.
+[13] Mobileye, “Enabling Autonomous,” 2017, htp://www.mobileye.com/
+future-of-mobility/mobileye-enabling-autonomous.
+[14] Udacity, “An Open Source Self-Driving Car,” 2017, htps://www.udacity.
+com/self-driving-car.
+[15] M. Naumann, H. Konigshof, M. Lauer, and C. Stiller, “Safe but
+not overcautious motion planning under occlusions and limited sensor
+range,” in IEEE Intelligent Vehicles Symposium (IV), Paris, France, Jun.
+2019.
+[16] M. Schratter, M. Bouton, M. J. Kochenderfer, and D. Watzenig, “Pedes-
+trian collision avoidance system for scenarios with occlusions,” in IEEE
+Intelligent Vehicles Symposium (IV), Paris, France, Jun. 2019.
+[17] C. Zhang, F. Steinhauser, G. Hinz, and A. Knoll, “Improved occlusion
+scenario coverage with a pomdp-based behavior planner for autonomous
+urban driving,” in IEEE International Intelligent Transportation Systems
+Conference (ITSC), Indianapolis, IN, Sep. 2021.
+[18] P. Ghorai, A. Eskandarian, Y.-K. Kim, and G. Mehr, “State estimation
+and motion prediction of vehicles and vulnerable road users for cooper-
+ative autonomous driving: A survey,” IEEE Transactions on Intelligent
+Transportation Systems, pp. 1–20, Apr. 2022.
+[19] Y. Hui, X. Ma, Z. Su, N. Cheng, Z. Yin, T. H. Luan, and Y. Chen,
+“Collaboration as a service: Digital twins enabled collaborative and
+distributed autonomous driving,” IEEE Internet of Things Journal, pp.
+1–13, Mar. 2022.
+[20] Z. Ning, P. Dong, M. Wen, X. Wang, L. Guo, R. Y. K. Kwok, and H. V.
+Poor, “5g-enabled uav-to-community ofﬂoading: Joint trajectory design
+and task scheduling,” IEEE Journal on Selected Areas in Communica-
+tions, vol. 39, no. 11, pp. 3306–3320, Jun. 2021.
+[21] Q. Liu, T. Han, J. L. Xie, and B. Kim, “Livemap: Real-time dynamic
+map in automotive edge computing,” in INFOCOM - IEEE Conference
+on Computer Communications, Vancouver, BC, Canada, May 2021.
+[22] Y. Qi, Y. Zhou, Z. Pan, L. Liu, and J. Shi, “Crowd-sensing assisted
+vehicular distributed computing for hd map update,” in ICC - IEEE
+
+
+===== PAGE 16 =====
+16
+International Conference on Communications, Montreal, QC, Canada,
+Jun. 2021.
+[23] B. Yang, X. Cao, X. Li, C. Yuen, and L. Qian, “Lessons learned
+from accident of autonomous vehicle testing: An edge learning-aided
+ofﬂoading framework,” IEEE Wireless Communications Letters, vol. 9,
+no. 8, pp. 1182–1186, Aug. 2020.
+[24] S. Liu, L. Liu, J. Tang, B. Yu, Y. Wang, and W. Shi, “Edge computing
+for autonomous driving: Opportunities and challenges,” Proceedings of
+the IEEE, vol. 107, no. 8, pp. 1697–1716, Jun. 2019.
+[25] J. Du, F. R. Yu, X. Chu, J. Feng, and G. Lu, “Computation ofﬂoading
+and resource allocation in vehicular networks based on dual-side cost
+minimization,” IEEE Transactions on Vehicular Technology, vol. 68,
+no. 2, pp. 1079–1092, 2019.
+[26] W. Feng, N. Zhang, S. Li, S. Lin, R. Ning, S. Yang, and Y. Gao, “Latency
+minimization of reverse ofﬂoading in vehicular edge computing,” IEEE
+Transactions on Vehicular Technology, vol. 71, no. 5, pp. 5343–5357,
+May 2022.
+[27] M. Liu and Y. Liu, “Price-Based Distributed Ofﬂoading for Mobile-Edge
+Computing With Computation Capacity Constraints,” IEEE Wireless
+Communications Letters, vol. 7, no. 3, pp. 420–423, Jun. 2018.
+[28] Y. Huang, Y. Liu, and F. Chen, “NOMA-Aided Mobile Edge Computing
+via User Cooperation,” IEEE Transactions on Communications, vol. 68,
+no. 4, pp. 2221–2235, Apr. 2020.
+[29] B. Dai, F. Xu, Y. Cao, and Y. Xu, “Hybrid sensing data fusion of co-
+operative perception for autonomous driving with augmented vehicular
+reality,” IEEE Systems Journal, vol. 15, no. 1, pp. 1413–1422, Mar.
+2021.
+[30] Y. Liu, S. Wang, Q. Zhao, S. Du, A. Zhou, X. Ma, and F. Yang,
+“Dependency-aware task scheduling in vehicular edge computing,” IEEE
+Internet of Things Journal, vol. 7, no. 6, pp. 4961–4971, 2020.
+[31] W. Mao, O. U. Akgul, A. Mehrabi, B. Cho, Y. Xiao, and A. Yl¨a-J¨a¨aski,
+“Data-Driven Capacity Planning for Vehicular Fog Computing,” IEEE
+Internet of Things Journal, vol. 9, no. 15, pp. 13 179–13 194, Aug. 2022.
+[32] L. Liu, M. Zhao, M. Yu, M. A. Jan, D. Lan, and A. Taherkordi,
+“Mobility-aware multi-hop task ofﬂoading for autonomous driving in
+vehicular edge computing and networks,” IEEE Transactions on Intelli-
+gent Transportation Systems, pp. 1–14, Jan. 2022.
+[33] T. S. Etsi, “Systems (its); vehicular communications; basic set of
+applications; part 2: Speciﬁcation of cooperative awareness basic
+service, v1.4.1, document etsi en 302 637- 2, nat. highway trafﬁc
+safety
+admin.,
+washington,
+dc,
+usa,”
+2019.
+[Online].
+Available:
+https://www.etsi.org/deliver/etsi en/302600
+[34] K. Sung, K. Min, and J. Choi, “Driving information logger with in-
+vehicle communication for autonomous vehicle research,” in 20th Inter-
+national Conference on Advanced Communication Technology (ICACT),
+Chuncheon, Korea (South), Feb. 2018.
+[35] Y. Wang, G. de Veciana, T. Shimizu, and H. Lu, “Deployment and
+performance of infrastructure to assist vehicular collaborative sensing,”
+in IEEE 87th Vehicular Technology Conference (VTC Spring), Porto,
+Portugal, Jun. 2018.
+[36] H. A. Ignatious, Hesham-El-Sayed, and M. Khan, “An overview of
+sensors in autonomous vehicles,” Procedia Computer Science, vol. 198,
+pp. 736–741, Dec. 2021.
+[37] H. Hu, Z. Liu, S. Chitlangia, A. Agnihotri, and D. Zhao, “Investigating
+the impact of multi-lidar placement on object detection for autonomous
+driving,” in Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition (CVPR), June 2022, pp. 2550–2559.
+[38] F. Bounini, D. Gingras, V. Lapointe, and H. Pollart, “Autonomous
+vehicle and real time road lanes detection and tracking,” in IEEE Vehicle
+Power and Propulsion Conference (VPPC), Montreal, QC, Canada, Oct.
+2015.
+[39] S. Markowitz, C. Snyder, Y. C. Eldar, and M. N. Do, “Multimodal
+unrolled robust pca for background foreground separation,” Aug. 2021.
+[40] C. H. Papadimitriou, “On the complexity of integer programming,” J.
+ACM, vol. 28, no. 4, p. 765–768, Oct. 1981.
+[41] P. Belotti, C. Kirches, S. Leyffer, J. Linderoth, J. Luedtke, and A. Ma-
+hajan, “Mixed-integer nonlinear optimization,” Acta Numerica, vol. 22,
+pp. 2–3, May 2013.
+[42] X.-S. Yang, Cuckoo Search and Fireﬂy Algorithm: Overview and
+Analysis, Cham, 01 2014, vol. 516, pp. 1–26. [Online]. Available:
+https://doi.org/10.1007/978-3-319-02141-6 1
+[43] E. Zadobrischi, M. Dimian, and M. Negru, “The utility of dsrc and
+v2x in road safety applications and intelligent parking: Similarities,
+differences, and the future of vehicular communication,” Sensors (Basel,
+Switzerland), vol. 21, no. 21, pp. 1–38, Oct. 2021.
+[44] K. Wang, Y. Zhou, Z. Liu, Z. Shao, X. Luo, and Y. Yang, “Online task
+scheduling and resource allocation for intelligent noma-based industrial
+internet of things,” IEEE Journal on Selected Areas in Communications,
+vol. 38, no. 5, pp. 803–815, Mar. 2020.
+[45] N. Cheng, F. Lyu, W. Quan, C. Zhou, H. He, W. Shi, and X. Shen,
+“Space/aerial-assisted computing ofﬂoading for iot applications: A
+learning-based approach,” IEEE Journal on Selected Areas in Commu-
+nications, vol. 37, no. 5, pp. 1117–1129, Mar. 2019.
+[46] Y. Luo, “Time constraints and fault tolerance in autonomous driving
+systems,” Master’s thesis, EECS Department, University of California,
+Berkeley, May 2019.
+[47] T. Cai, Z. Yang, Y. Chen, W. Chen, Z. Zheng, Y. Yu, and H.-N.
+Dai, “Cooperative data sensing and computation ofﬂoading in uav-
+assisted crowdsensing with multi-agent deep reinforcement learning,”
+IEEE Transactions on Network Science and Engineering, pp. 1–15, Oct.
+2021.
+[48] M. Hofbauer, C. B. Kuhn, J. Meng, G. Petrovic, and E. Steinbach,
+“Multi-view region of interest prediction for autonomous driving using
+semi-supervised labeling,” in IEEE 23rd International Conference on
+Intelligent Transportation Systems (ITSC), Rhodes, Greece, Sep. 2020.
+[49] T.-H. Wang, S. Manivasagam, M. Liang, B. Yang, W. Zeng, and R. Urta-
+sun, “V2vnet: Vehicle-to-vehicle communication for joint perception and
+prediction,” in Computer Vision – ECCV 2020, A. Vedaldi, H. Bischof,
+T. Brox, and J.-M. Frahm, Eds.
+Cham: Springer International Publish-
+ing, Aug. 2020, pp. 605–621.
+[50] A. Abbas, A. Raza, F. Aadil, and M. Maqsood, “Meta-heuristic-based
+ofﬂoading task optimization in mobile edge computing,” International
+Journal of Distributed Sensor Networks, vol. 17, no. 6, pp. 1–11, Jun.
+2021.
+[51] Z. Wang and R. Hou, “Joint caching and computing resource allocation
+for task ofﬂoading in vehicular networks,” IET Communications, vol. 14,
+no. 21, pp. 3820–3827, Oct. 2020.
+[52] W. Zhou, W. Fang, Y. Li, B. Yuan, Y. Li, and T. Wang, “Markov
+approximation for task ofﬂoading and computation scaling in mobile
+edge computing,” Mobile Information Systems, vol. 2019, pp. 1–12, Jan.
+2019.
+[53] K. Xiong, S. Leng, C. Huang, C. Yuen, and Y. L. Guan, “Intelligent task
+ofﬂoading for heterogeneous v2x communications,” IEEE Transactions
+on Intelligent Transportation Systems, vol. 22, no. 4, pp. 2226–2238,
+2021.
+[54] Z. Gao, L. Yang, and Y. Dai, “Large-scale computation ofﬂoading using
+a multi-agent reinforcement learning in heterogeneous multi-access edge
+computing,” IEEE Transactions on Mobile Computing, pp. 1–18, Jan.
+2022.
+[55] O. Zedadra, A. Guerrieri, and H. Seridi, “Lfa: A leacute;vy walk and
+ﬁreﬂy-based search algorithm: Application to multi-target search and
+multi-robot foraging,” Big Data and Cognitive Computing, vol. 6, no. 1,
+pp. 1–15, Feb. 2022.
+[56] H. Ibn-Khedher, M. Laroui, M. B. Mabrouk, H. Moungla, H. Aﬁﬁ, A. N.
+Oleari, and A. E. Kamal, “Edge computing assisted autonomous driving
+using artiﬁcial intelligence,” in International Wireless Communications
+and Mobile Computing (IWCMC), Harbin City, China, Jul. 2021, pp.
+254–259.
+[57] R. Castellano, “Intel’s Mobileye: Strong Headwinds From Competitor
+SoCs, Particularly In China,” 2021, https://seekingalpha.com/article/
+4474916-intel-mobileye-strong-headwinds-china-soc-competitors.
+Zhu Xiao (M’12-SM’19) received the M.S. and
+Ph.D. degrees in communication and information
+systems from Xidian University, China, in 2007 and
+2009, respectively. From 2010 to 2012, he was a
+Research Fellow with the Department of Computer
+Science and Technology, University of Bedfordshire,
+U.K.
+He is currently an Associate Professor with the
+College of Computer Science and Electronic En-
+gineering, Hunan University, China. His research
+interests include wireless localization, Internet of
+Vehicles and intelligent transportation systems. He is a senior member of the
+IEEE and serving as an Associated Editor for IEEE Transactions on Intelligent
+Transportation Systems.
+
+
+===== PAGE 17 =====
+17
+Jinmei Shu received her BS degree in communi-
+cation engineering from Jishou University, Jishou,
+China, in 2021. She is currently working toward
+the MS degree in information and communication
+engineering at Hunan University, Changsha, China.
+Her current research interests include connected and
+autonomous vehicles and mobile edge computing.
+Hongbo Jiang (Senior Member, IEEE) received the
+Ph.D. degree from Case Western Reserve University
+in 2008. He is currently a Full Professor with the
+College of Computer Science and Electronic En-
+gineering, Hunan University. He ever was a Pro-
+fessor with the Huazhong University of Science
+and Technology. His research concerns computer
+networking, especially algorithms and protocols for
+wireless and mobile networks. He was the Editor
+of IEEE/ACM TRANSACTIONS ON NETWORK-
+ING, the Associate Editor for IEEE TRANSAC-
+TIONS ON MOBILE COMPUTING, and the Associate Technical Editor for
+IEEE Communications Magazine. He is an Elected Member of Academia
+Europaea, Fellow of IET, Fellow of BCS, and Fellow of AAIA.
+Geyong Min is a Professor of High Performance
+Computing and Networking in the Department of
+Computer Science within the College of Engineer-
+ing, Mathematics and Physical Sciences at the Uni-
+versity of Exeter, United Kingdom. He received the
+PhD degree in Computing Science from the Univer-
+sity of Glasgow, United Kingdom, in 2003, and the
+B.Sc. degree in Computer Science from Huazhong
+University of Science and Technology, China, in
+1995. His research interests include Future Inter-
+net, Computer Networks, Wireless Communications,
+Multimedia Systems, Information Security, High Performance Computing,
+Ubiquitous Computing, Modelling and Performance Engineering.
+Hongyang
+Chen
+(M’10-SM’16)
+received
+the
+B.S. degree from Southwest Jiaotong University,
+Chengdu, China, in 2003, the M.S, degree from
+the Institute of Mobile Communications, Southwest
+Jiaotong University, Chengdu, China, in 2006, and
+the Ph.D. degree from the University of Tokyo,
+in 2011. From 2004 to 2006, he was a Research
+Assistant with the Institute of Computing Technol-
+ogy, Chinese Academy of Science. In 2009, he
+was a Visiting Researcher with the UCLA Adaptive
+Systems Laboratory, University of California Los
+Angeles. From April 2011 to June 2020, He worked as a Researcher with
+Fujitsu Ltd, Japan.
+He is currently a Principal Investigator/Senior Research Scientist with
+Zhejiang Lab, China. He has authored or coauthored more than 80 referred
+journal and conference papers. He has granted/ﬁlled more than 50 PCT
+patents. He was the Editor for IEEE TRANSACTION ON WIRELESS COM-
+MUNICATIONS, and the Associate Editor for IEEE COMMUNICATIONS
+LETTERS. His research interests include data-driven intelligent networking
+and system, machine learning, localization and location based big data, B5G,
+statistical signal processing.
+Zhu Han (S’01-M’04-SM’09-F’14) received the
+B.S. degree in electronic engineering from Tsinghua
+University, in 1997, and the M.S. and Ph.D. degrees
+in electrical and computer engineering from the
+University of Maryland, College Park, in 1999 and
+2003, respectively.
+From 2000 to 2002, he was an R&D Engineer of
+JDSU, Germantown, Maryland. From 2003 to 2006,
+he was a Research Associate at the University of
+Maryland. From 2006 to 2008, he was an assistant
+professor at Boise State University, Idaho. Currently,
+he is a John and Rebecca Moores Professor in the Electrical and Computer
+Engineering Department as well as in the Computer Science Department at the
+University of Houston, Texas. His research interests include wireless resource
+allocation and management, wireless communications and networking, game
+theory, big data analysis, security, and smart grid. Dr. Han received an
+NSF Career Award in 2010, the Fred W. Ellersick Prize of the IEEE
+Communication Society in 2011, the EURASIP Best Paper Award for the
+Journal on Advances in Signal Processing in 2015, IEEE Leonard G. Abraham
+Prize in the ﬁeld of Communications Systems (best paper award in IEEE
+JSAC) in 2016, and several best paper awards in IEEE conferences. Dr. Han
+was an IEEE Communications Society Distinguished Lecturer from 2015-
+2018, AAAS fellow since 2019, and ACM distinguished Member since 2019.
+Dr. Han is a 1% highly cited researcher since 2017 according to Web of
+Science. Dr. Han is also the winner of the 2021 IEEE Kiyo Tomiyasu
+Award, for outstanding early to mid-career contributions to technologies
+holding the promise of innovative applications, with the following citation:
+“for contributions to game theory and distributed management of autonomous
+communication networks.”
