@@ -10,7 +10,7 @@
 
 ## What is MARGO?
 
-**MARGO** is a meta-reinforcement learning framework for deciding where to run each task in an app that’s modeled as a DAG. Think of a host vehicle (e.g. in V2X or autonomous driving) that can run tasks locally, send them to a roadside MEC server, or offload to a nearby V2V helper. MARGO learns one meta-policy that adapts quickly when conditions change (different task graphs, channel quality, or load) using only a few gradient steps. It picks local, MEC, or V2V per task and optimizes both latency and energy. Under the hood it uses a graph neural encoder (with multi-layer attention and a triple readout) plus an LSTM decoder, so task dependencies are respected and the agent gets strong gains in latency and energy (e.g. around 18–20% lower latency and 29–32% lower energy than greedy in the paper).
+**MARGO** is a meta-reinforcement learning framework for **DAG task offloading** in V2V-assisted Mobile Edge Computing. The setting is a host vehicle (e.g. in V2X or autonomous driving) that can execute tasks locally, offload them to a roadside MEC server, or offload to a nearby V2V helper. MARGO learns a single meta-policy for task offloading that adapts quickly when conditions change (task graphs, channel quality, or load) with only a few gradient steps. The policy assigns each task to local, MEC, or V2V execution and optimizes a joint latency–energy objective. It uses a graph neural encoder (multi-layer attention and triple readout) plus an LSTM decoder so that task dependencies are explicitly respected, and achieves substantial gains in both latency and energy (e.g. around 18–20% lower latency and 29–32% lower energy than greedy in the paper).
 
 ---
 
