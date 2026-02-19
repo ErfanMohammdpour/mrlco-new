@@ -18,7 +18,7 @@
 
 MARGO has four main building blocks: **(1)** a **Graph2Seq encoder** that turns the DAG and 20-D task features into node embeddings, **(2)** a **triple readout** (attention + mean + max pooling) for a graph-level representation, **(3)** an **LSTM decoder** with Luong attention that outputs one action per task, and **(4)** **Reptile-style meta-learning** with PPO as the inner optimizer.
 
-![MARGO architecture: DAG → Graph2Seq encoder → triple readout → LSTM decoder → Local/MEC/V2V actions; meta-learning with PPO inner loop and Reptile outer loop.](result/architecture.png)
+![MARGO architecture: DAG → Graph2Seq encoder → triple readout → LSTM decoder → Local/MEC/V2V actions; meta-learning with PPO inner loop and Reptile outer loop.](assets/architecture.png)
 
 | Component | Description |
 |-----------|-------------|
@@ -72,15 +72,19 @@ MARGO is evaluated with explicit meta-train/meta-test splits. After meta-trainin
 
 Ablations in the paper show: the GNN encoder improves over sequential encoding (latency and energy); V2V adds a significant energy gain; and \(\alpha=0.5\) gives a good latency–energy trade-off.
 
-**Three figures** (place these in the `result/` folder so they appear below):
+**Task 1 results (distribution 1).** Below, comparison with MRLCO (latency and energy), then comparison with the greedy baseline (latency and energy).
 
-1. **Architecture** — `result/architecture.png` (included; see above)
-2. **Training curves** — e.g. `result/task1-average-latency.jpg` (average latency over iterations)
-3. **Comparison vs greedy** — e.g. `result/task1-latency-with-greedy.jpg` or `result/task1-energy-with-greedy.jpg`
+*Comparison with MRLCO (latency and energy):*
 
-![Training: average latency over iterations](result/task1-average-latency.jpg)
+![Task 1 latency: MARGO vs MRLCO](results/mrlco-compare/1/task1-latency.jpg)
 
-![Comparison: latency vs greedy baseline](result/task1-latency-with-greedy.jpg)
+![Task 1 energy: MARGO vs MRLCO](results/mrlco-compare/1/task1-energy.jpg)
+
+*Comparison with greedy baseline (latency and energy):*
+
+![Task 1 latency: MARGO vs greedy baseline](results/mrlco-compare/1/task1-latency-with-greedy.jpg)
+
+![Task 1 energy: MARGO vs greedy baseline](results/mrlco-compare/1/task1-energy-with-greedy.jpg)
 
 ---
 
@@ -90,6 +94,8 @@ Ablations in the paper show: the GNN encoder improves over sequential encoding (
 |------|------|
 | `meta_trainer.py` | Main entry: build env, policy, meta-algorithm, sampler; run meta-training. |
 | `meta_evaluator.py` | Load meta-model; fine-tune and evaluate on a chosen task distribution. |
+| `assets/` | README figures (e.g. architecture). Add images here to display on Git. |
+| `results/` | Experiment figures: `mrlco-compare/1/` and `2/` (Task 1 & 2 vs MRLCO and vs greedy). Used in README Results section. |
 | `policies/` | `meta_seq2seq_policy.py`, `graph2seq_encoder.py`, `graph2seq_modules/` (encoder + decoder). |
 | `meta_algos/` | Reptile + PPO meta-RL algorithm. |
 | `env/mec_offloaing_envs/` | MEC/V2V environment, DAG parsing (`.gv`), resources, energy config. |
