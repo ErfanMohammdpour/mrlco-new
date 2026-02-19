@@ -1,0 +1,8 @@
+# Result figures used in README (not tracked so they do not push to Git / may not display on Git hosts)
+result/architecture.png
+result/task1-average-latency.jpg
+result/task1-latency-with-greedy.jpg
+result/task1-energy-with-greedy.jpg
+result/*.png
+result/*.jpg
+result/*.jpeg

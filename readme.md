@@ -10,11 +10,11 @@
 
 ## What is MARGO?
 
-**MARGO** is a meta-reinforcement learning framework for **DAG task offloading** in **V2V-assisted Mobile Edge Computing (MEC)**. Given an application modeled as a Directed Acyclic Graph (DAG) of tasks, MARGO learns a **meta-policy** that quickly adapts to new task and network conditions and decides, for each task, whether to run it **locally**, on the **MEC server**, or on a **V2V helper vehicle**. It optimizes a **joint latency–energy** objective and uses a **graph neural encoder** so that dependency structure is explicitly modeled.
+**MARGO** is a **meta-reinforcement learning (meta-RL)** framework for DAG task offloading in **V2V-assisted Mobile Edge Computing (MEC)**—a setting central to **V2X (Vehicle-to-Everything)** and **autonomous driving**: a host vehicle (e.g. running perception or planning) can run tasks **locally**, offload them to the **MEC server** at the roadside, or offload to a **V2V helper vehicle** nearby. Given an application modeled as a **Directed Acyclic Graph (DAG)** of tasks, MARGO learns a **meta-policy** that, thanks to meta-learning, **adapts quickly under widely varying conditions**—different task graphs, channel states, and network loads—with only a few gradient steps. For each task it chooses where to run it (local / MEC / V2V), optimizing a **joint latency–energy** objective so that both **end-to-end latency** and **energy consumption** are improved. The policy uses a **graph neural encoder** (graph-to-sequence with DAG-aware structure) so that task dependencies are explicitly modeled; it combines an **encoder** (with **multi-layer attention** and triple readout: attention, mean, and max pooling) and an LSTM decoder to produce offloading decisions. In short: **meta-RL** enables fast adaptation in highly diverse scenarios, while the **encoder–decoder** design and **multi-layer attention** help the agent reason over the DAG and achieve strong **latency** and **energy** gains (e.g. ~17.8–20.3% latency and ~28.9–32.0% energy reduction over greedy in the paper).
 
 - **Problem:** DAG-constrained offloading is NP-hard; solutions must adapt as task graphs and channel conditions change.
-- **Approach:** Graph2Seq encoder (DAG-aware) + LSTM decoder with Luong attention → ternary actions (Local / MEC / V2V) → Reptile meta-learning with PPO inner loop.
-- **Outcome:** One trained meta-model that, after a few gradient steps on a new task distribution, achieves large gains in both latency and energy over greedy scheduling (e.g. ~17.8–20.3% latency reduction, ~28.9–32.0% energy reduction in the paper).
+- **Approach:** Graph2Seq encoder (DAG-aware, multi-layer attention / triple readout) + LSTM decoder with Luong attention → ternary actions (Local / MEC / V2V) → Reptile meta-learning with PPO inner loop.
+- **Outcome:** One meta-trained model that adapts quickly to new task distributions and achieves large gains in both **latency** and **energy** over greedy scheduling.
 
 ---
 
