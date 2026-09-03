@@ -1,6 +1,6 @@
 # Scheduling Semantics
 
-Status: Draft for Phase 0  
+Status: Frozen (`MARGO-SPEC-v0.1`); Phase 1 production scheduler implemented  
 Related ADRs:
 
 - `ADR-002-data-residency.md`

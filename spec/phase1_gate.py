@@ -6,7 +6,6 @@ Exit 0 only when every required check PASSes. Does NOT create a git tag.
 
 from __future__ import annotations
 
-import ast
 import math
 import re
 import subprocess
@@ -205,14 +204,13 @@ def check_reward_batch_shape(reasons: list[str]) -> None:
         block(reasons, "reward batch shape is not (batch, 20)")
 
 
-def check_status_doc(reasons: list[str], gate_pass: bool) -> None:
+def check_status_doc(reasons: list[str]) -> None:
     text = STATUS_MD.read_text()
-    if gate_pass:
-        if not re.search(r"^Status:\s*CLOSED\b", text, re.M):
-            block(reasons, "PHASE1_STATUS.md must say Status: CLOSED after gate PASS")
-    else:
-        # While blocked, status may still say IN PROGRESS — OK.
-        pass
+    if not re.search(r"^Status:\s*CLOSED\b", text, re.M):
+        block(reasons, "PHASE1_STATUS.md must say Status: CLOSED")
+    needle = "Phase 1 closure does not imply encoder/PPO/evaluation readiness"
+    if needle not in text:
+        block(reasons, f"PHASE1_STATUS.md must contain: {needle}")
 
 
 def main() -> int:
@@ -225,23 +223,16 @@ def main() -> int:
     check_architecture(reasons)
     check_publication_weights(reasons)
     check_reward_batch_shape(reasons)
-
-    gate_pass = not reasons
-    # Status file is updated by the human/agent commit after a green gate; verify when PASS.
-    if gate_pass:
-        # Soft expectation: if already CLOSED, good; if still IN PROGRESS, remind but
-        # do not fail the computational gate — caller updates status in same commit.
-        text = STATUS_MD.read_text()
-        if "Status: CLOSED" not in text and "Status: IN PROGRESS" in text:
-            print("NOTE: set PHASE1_STATUS.md to CLOSED in the closure commit.")
+    check_status_doc(reasons)
 
     print("\nGATE SNAPSHOT")
     print(f"Phase 0 gate:                 {'PASS' if not any('Phase 0' in r for r in reasons) else 'FAIL'}")
-    print(f"Scheduler tests:              checked")
-    print(f"Production oracles:           checked")
-    print(f"Architecture / reward wiring: checked")
-    print(f"Publication weights 0.5/0.5:  checked")
-    print(f"Reward shape (batch, 20):     checked")
+    print("Scheduler tests:              checked")
+    print("Production oracles:           checked")
+    print("Architecture / reward wiring: checked")
+    print("Publication weights 0.5/0.5:  checked")
+    print("Reward shape (batch, 20):     checked")
+    print("PHASE1_STATUS.md:             checked")
 
     if reasons:
         print("\nPhase 1 closure: BLOCKED")

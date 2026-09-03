@@ -1,6 +1,6 @@
 # MARGO System Specification
 
-Status: Draft for Phase 0  
+Status: Frozen (`MARGO-SPEC-v0.1`); Phase 1 production scheduler implemented  
 Specification ID: `MARGO-SPEC-v0.1`  
 Scope: `MARGO_BASELINE/mrlco-new` only
 

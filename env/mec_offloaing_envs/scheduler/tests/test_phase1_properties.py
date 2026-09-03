@@ -106,15 +106,20 @@ class TestPhase1Properties(unittest.TestCase):
         for order, actions in self.plans:
             result = schedule(self.dag, order, actions, self.cfg)
             for e in self.dag.edges:
-                # Dependency data must arrive before dst starts (transfer end <= dst start
-                # when transfer exists; else src finish <= dst start for same-location).
+                src = result.tasks[e.src_task_id]
+                dst = result.tasks[e.dst_task_id]
+                hop_ends = [
+                    t.end
+                    for t in result.transfers
+                    if t.src_task_id == e.src_task_id and t.dst_task_id == e.dst_task_id
+                ]
+                # Same-location / zero-byte: payload already at dst after src.finish.
+                arrival = max([src.finish] + hop_ends)
                 self.assertLessEqual(
-                    result.tasks[e.src_task_id].finish,
-                    result.tasks[e.dst_task_id].finish + 1e-9,
-                )
-                self.assertLessEqual(
-                    result.tasks[e.src_task_id].start,
-                    result.tasks[e.dst_task_id].start + 1e-9,
+                    arrival,
+                    dst.start + 1e-9,
+                    f"edge {e.src_task_id}->{e.dst_task_id} actions={actions}: "
+                    f"arrival={arrival} dst.start={dst.start}",
                 )
 
     def test_terminal_return_in_makespan(self):

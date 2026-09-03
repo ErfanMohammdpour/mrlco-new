@@ -35,7 +35,10 @@ Architecture (`2×256` LSTM etc.) remains MARGO-specific; freeze in Phase 2.
 
 ## 4. Next steps
 
-1. Tag `phase0-freeze-v0.1`
-2. Phase 1: simulator repair against oracles
-3. Phase 2+: encoder / learning-loop repair
-4. Multi-seed evaluation of the fixed config (evaluation, not tuning)
+1. DONE: tag `phase0-freeze-v0.1`
+2. DONE: Phase 1 simulator / energy / reward (`db3b36a` + closeout)
+3. Phase 2: encoder (DAG adjacency, pred/succ, canonical features)
+4. Phase 3: trainer split, PPO clip, outer mean-pseudogradient, evaluation protocol
+5. Multi-seed evaluation of the fixed config (evaluation, not tuning)
+
+Phase 1 closure does not imply encoder/PPO/evaluation readiness.

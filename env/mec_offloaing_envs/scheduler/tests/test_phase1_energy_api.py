@@ -121,6 +121,21 @@ class TestEnergyComponents(unittest.TestCase):
         by_task = attribute_energy_by_task(result, self.cfg)
         self.assertAlmostEqual(sum(by_task.values()), result.total_mobile_joules, places=9)
 
+    def test_all_mec_internal_task_present(self):
+        dag = CanonicalDAG.from_records(
+            [
+                CanonicalTask(0, 1_048_576, 458_752, 1_048_576),
+                CanonicalTask(1, 1_048_576, 458_752, 0),
+                CanonicalTask(2, 1_048_576, 458_752, 0),
+            ],
+            [(0, 1, 458_752), (1, 2, 458_752)],
+        )
+        result = schedule(dag, [0, 1, 2], [1, 1, 1], self.cfg)
+        by_task = attribute_energy_by_task(result, self.cfg)
+        self.assertEqual(set(by_task), set(result.tasks))
+        self.assertEqual(by_task[1], 0.0)
+        self.assertAlmostEqual(sum(by_task.values()), result.total_mobile_joules, places=9)
+
 
 class TestReferenceRanges(unittest.TestCase):
     def setUp(self):

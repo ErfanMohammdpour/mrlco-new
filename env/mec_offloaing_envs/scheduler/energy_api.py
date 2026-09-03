@@ -6,7 +6,6 @@ Reward telescoping (§6) lives in `reward.py`.
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -226,7 +225,8 @@ def attribute_energy_components_by_task(
     Owner rule matches scalar attribution: compute → executor; transfer → dst if
     present else src (sink return). Component-wise sum equals episode breakdown.
     """
-    out: dict[int, EnergyBreakdown] = defaultdict(EnergyBreakdown)
+    # Every scheduled task gets a breakdown, including zero-mobile (e.g. internal MEC).
+    out: dict[int, EnergyBreakdown] = {tid: EnergyBreakdown() for tid in result.tasks}
     for tid, rec in result.tasks.items():
         dur = rec.finish - rec.start
         if rec.location == Location.UE:
@@ -242,7 +242,7 @@ def attribute_energy_components_by_task(
         if owner is None:
             continue
         _add_transfer_components(out[owner], t.hop, t.end - t.start, t.src_location, resources)
-    return dict(out)
+    return out
 
 
 def attribute_energy_by_task(

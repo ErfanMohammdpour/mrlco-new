@@ -1,6 +1,6 @@
 # Objective And Energy Contract
 
-Status: Draft for Phase 0  
+Status: Frozen (`MARGO-SPEC-v0.1`); Phase 1 scheduler / energy / reward implemented  
 Related ADR: `ADR-001-energy-scope.md`
 
 ## 1. Energy scope decision
