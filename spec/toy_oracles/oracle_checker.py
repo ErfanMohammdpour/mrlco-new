@@ -353,9 +353,106 @@ def expected_from_schedule(got: dict) -> dict:
     }
 
 
+def schedule_production(oracle: dict) -> dict:
+    """Run the same oracle YAML through the production engine (oracle consumes engine)."""
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+
+    from env.mec_offloaing_envs.scheduler import (
+        CanonicalDAG,
+        CanonicalTask,
+        ResourceConfig,
+        schedule as production_schedule,
+    )
+
+    tasks = [
+        CanonicalTask(
+            task_id=int(n["task_id"]),
+            compute_workload_bytes=int(n["compute_workload_bytes"]),
+            task_output_bytes=int(n["task_output_bytes"]),
+            external_input_bytes=int(n.get("external_input_bytes", 0)),
+        )
+        for n in oracle["nodes"]
+    ]
+    raw_edges = [
+        (int(e["src_task_id"]), int(e["dst_task_id"]), int(e["edge_output_bytes"]))
+        for e in oracle.get("edges", [])
+    ]
+    dag = CanonicalDAG.from_records(tasks, raw_edges)
+    order = sorted(dag.tasks)
+    actions = [LOC[a] for a in oracle["actions"]]
+    result = production_schedule(dag, order, actions, ResourceConfig.from_frozen_yaml())
+
+    transfers = []
+    for t in result.transfers:
+        transfers.append(
+            {
+                "hop": t.hop,
+                "hop_index": t.hop_index,
+                "bytes": t.bytes,
+                "start": t.start,
+                "end": t.end,
+                "src_location": t.src_location.value,
+                "dst_location": t.dst_location.value,
+                "src_task_id": t.src_task_id,
+                "dst_task_id": t.dst_task_id,
+            }
+        )
+    resource_intervals = []
+    for iv in result.resource_intervals:
+        item = {"resource": iv.resource, "start": iv.start, "end": iv.end}
+        if iv.task_id is not None:
+            item["task_id"] = iv.task_id
+        if iv.hop is not None:
+            item["hop"] = iv.hop
+        resource_intervals.append(item)
+
+    energy = {
+        k: v
+        for k, v in result.energy.as_dict().items()
+        if k
+        not in {
+            "total_ue_joules",
+            "total_helper_joules",
+            "total_mobile_joules",
+        }
+    }
+    return {
+        "makespan_seconds": result.makespan_seconds,
+        "total_mobile_joules": result.total_mobile_joules,
+        "total_ue_joules": result.energy.total_ue_joules,
+        "total_helper_joules": result.energy.total_helper_joules,
+        "terminal_return_time": result.terminal_return_time,
+        "task_intervals": {
+            str(tid): {
+                "start": rec.start,
+                "finish": rec.finish,
+                "location": rec.output_location.value,
+            }
+            for tid, rec in result.tasks.items()
+        },
+        "transfers": transfers,
+        "resource_intervals": resource_intervals,
+        "energy_components": energy,
+        "topo_order": result.topo_order,
+        "output_residency": {
+            str(tid): rec.output_location.value for tid, rec in result.tasks.items()
+        },
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--oracle-dir", default=str(Path(__file__).parent))
+    ap.add_argument(
+        "--engine",
+        choices=["reference", "production"],
+        default="reference",
+        help="reference = toy checker scheduler; production = env/.../scheduler engine",
+    )
     ap.add_argument(
         "--write-expected",
         action="store_true",
@@ -372,8 +469,13 @@ def main() -> int:
             continue
         doc = load_yaml(path)
         actions = [LOC[a] for a in doc["actions"]]
-        got = schedule(doc, rates, power, actions)
+        if args.engine == "production":
+            got = schedule_production(doc)
+        else:
+            got = schedule(doc, rates, power, actions)
         if args.write_expected:
+            if args.engine != "reference":
+                raise SystemExit("--write-expected only allowed with --engine reference")
             doc["expected"] = expected_from_schedule(got)
             path.write_text(yaml.safe_dump(doc, sort_keys=False, default_flow_style=False))
             print(f"WROTE {path.name}")
@@ -388,7 +490,10 @@ def main() -> int:
         status = "PASS" if ok else "FAIL"
         if not ok:
             failed += 1
-        print(f"{status} {path.name} makespan={got['makespan_seconds']:.9g} E={got['total_mobile_joules']:.9g}")
+        print(
+            f"{status} {path.name} engine={args.engine} "
+            f"makespan={got['makespan_seconds']:.9g} E={got['total_mobile_joules']:.9g}"
+        )
         for m in msgs:
             print("  ", m)
     if args.write_expected:
@@ -396,7 +501,7 @@ def main() -> int:
         return 0
     if failed:
         raise SystemExit(failed)
-    print("ALL toy oracles PASS (required expected fields)")
+    print(f"ALL toy oracles PASS (engine={args.engine})")
     return 0
 
 
