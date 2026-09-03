@@ -1,74 +1,81 @@
-# ADR-006: Validation-Only Hyperparameter Selection
+# ADR-006: Fixed Literature-Derived Learning Hyperparameters
 
-Status: Accepted  
+Status: Accepted
 Decision date: 2026-09-03
 
 ## Decision
 
-Do not copy legacy `inner_lr` / `outer_lr` / `num_inner_grad_steps` into the v0.1 protocol as if they were already correct.
+Freeze MARGO v0.1 learning hyperparameters as **fixed literature-derived defaults** from MR-LCO Table 2 ([arXiv:2008.02033v5](https://arxiv.org/abs/2008.02033)), not as values claimed to be optimal for MARGO.
 
-Legacy defects that MUST NOT be frozen as semantics:
+Frozen numeric values:
 
-- `outer_lr=5e-4` drove sequential Adam on the core, not Reptile interpolation `theta + eps * mean_delta`
-- `num_inner_grad_steps=1` counted outer loops over minibatches, not one optimizer apply
-- `batch_size=10` mixed trajectory, graph, and decoder-position units
+| Parameter | Symbol | Value |
+| --- | --- | ---: |
+| Inner learning rate | `α` | `5.0e-4` |
+| Outer Adam learning rate | `β` | `5.0e-4` |
+| Inner optimizer steps | `k_steps` / `m` | `3` |
+| Discount | `γ` | `0.99` |
+| GAE | `λ` | `0.95` |
+| PPO clip | `ε` | `0.2` |
+| Value-loss coefficient | `c1` / `vf_coef` | `0.5` |
+| Entropy coefficient | — | `0.0` |
+| Trajectories per meta-task | — | `20` |
+| Meta-batch size (25-dist topology) | `B` | `10` |
+| Inner / outer optimizer | — | Adam (`β1=0.9`, `β2=0.999`, `ε=1e-8`) |
 
-v0.1 therefore freezes:
+Claims:
 
-1. Optimizer *form* and clip/entropy/GAE constants
-2. Unit names (`trajectories`, `distributions`, `optimizer_steps`)
-3. A closed candidate grid and a validation-only selection rule
+- `optimization_claim: false`
+- `validation_tuning_performed: false`
+- meta-test MUST remain untouched for hyperparameter choice (none is performed)
 
-Final numeric `inner_learning_rate`, `outer_step_size`, and `k_steps` are recorded after selection on `validation_support` / `validation_query` only.
+## Outer update (NOT Reptile)
 
-## Selection protocol (normative)
+MR-LCO `β` is an **outer Adam learning rate**, not a Reptile interpolation coefficient.
 
-```yaml
-data_role: validation_support_and_query_only
-meta_test_use_for_selection: false
-selection_metric: validation_query_composite_objective   # J_report; MUST minimize
-metric_direction: minimize
-tie_tolerance_abs: 1.0e-6
+Canonical v0.1 outer method: `mrlco_first_order_mean_pseudogradient`
 
-seeds: [0, 1, 2]
-n_seeds: 3
-weight_initialization:
-  shared_across_candidates: true
-  init_seed: 0
-rollout_seed_policy: per_run_seed_from_seeds_list
+```text
+theta0 = core parameters
 
-aggregation:
-  # equal weight per validation_query graph (5 dists × 80 = 400 graphs)
-  within_seed: mean_over_validation_query_graphs(J_report)
-  across_seeds: mean_over_seeds(within_seed)
-  # NOT used for v0.1: mean_over_distributions(mean_over_graphs)
+for each meta-task i in meta_batch:
+    theta_i = copy(theta0)
+    theta_i = adapt(
+        theta_i,
+        inner_optimizer=Adam(alpha=5e-4),
+        optimizer_steps=3,
+        fresh_optimizer_state=true
+    )
 
-checkpoint_selection:
-  within_run: best validation_query_composite_objective over validation_interval checks
-  fixed_budget_outer_iterations: 3500
-  early_stopping: none_in_v0.1_fixed_budget
-
-meta_train_distribution_sampling:
-  within_meta_batch: without_replacement   # sample 5 distinct meta_train dists
-  across_outer_iterations: with_replacement_reshuffle
-
-candidate_grid:
-  inner_learning_rate: [1.0e-4, 3.0e-4, 5.0e-4, 1.0e-3]
-  outer_step_size: [0.05, 0.1, 0.25, 0.5]
-  k_steps: [1, 5, 10]
-
-tie_break_order:
-  1. lower selection_metric (after seed aggregation), within tie_tolerance_abs
-  2. lower compute_budget = k_steps * support_graphs_per_meta_task * trajectories_per_support_graph
-  3. lower inner_learning_rate
-  4. lower outer_step_size
-  5. lower k_steps
+# minimization / apply_gradients convention:
+mean_pseudogradient = mean( (theta0 - theta_i) / (alpha * k_steps) )
+theta = outer_adam.apply(mean_pseudogradient)   # lr = beta = 5e-4
 ```
 
-Evidence artifact after selection MUST record the winning triple, seed-wise metrics, and the exact checkpoint outer-iteration index.
+Equivalent ascent form uses `(theta_i - theta0) / (alpha * k_steps)`.
+
+Required properties:
+
+- one outer Adam application per meta-batch
+- outer Adam state persistent across outer iterations
+- all tasks start from the same `theta0`
+- task-order invariant up to numerical tolerance
+- no sequential per-task outer Adam on the core
+- no Reptile `theta <- theta + eps * mean(theta_i - theta)`
+
+## What is intentionally NOT copied from MR-LCO
+
+Encoder/decoder architecture sizes (`2×256` LSTM, LayerNorm, Tanh) are **not** frozen here.
+MARGO uses a graph encoder, three actions, and a latency-energy objective; architecture remains MARGO-specific and is deferred to Phase 2.
+
+## Supersedes
+
+This ADR supersedes the previous “validation-only candidate grid” decision for v0.1.
+No `inner_learning_rate_candidates` / `outer_step_size_candidates` / `k_steps_candidates` grid is used.
+No `hyperparameter_selection_evidence.json` artifact is required for Phase 0 closure.
 
 ## Why
 
-Hyperparameters chosen on meta-test would invalidate the frozen split.
-Blind legacy copy would freeze a known-wrong outer update.
-Incomplete tie-break / aggregation rules would allow two labs to pick different winners from the same grid.
+Running a validation grid on a broken simulator/encoder/learning loop would freeze wrong numbers under a false “selection” claim.
+Literature-derived fixed defaults are publication-safe when provenance and non-optimality are explicit.
+Using Reptile `outer_step_size=5e-4` would misrepresent MR-LCO’s outer Adam update.

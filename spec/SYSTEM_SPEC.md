@@ -162,10 +162,12 @@ Reward shaping and final reporting objective MUST both be logged and traceable.
 ## 12. Learning protocol summary
 
 - PPO inner adaptation semantics are defined in `LEARNING_PROTOCOL.md`.
-- Reptile-style outer update MUST use one order-invariant mean displacement from a common starting core parameter set.
-- Optimizer-state lifecycle MUST be explicit and testable.
+- Outer update MUST be `mrlco_first_order_mean_pseudogradient`: one order-invariant outer Adam step on the mean first-order pseudo-gradient from a common `theta0`.
+- Outer `β` is Adam learning rate, NOT Reptile `outer_step_size`.
+- Optimizer-state lifecycle MUST be explicit and testable (fresh inner Adam per meta-task; persistent outer Adam across outer iterations).
 - `MARGO-SPEC-v0.1` freezes `ppo_inner_optimizer = adam`
 - `entropy_coefficient = 0.0`
+- learning rates / `k_steps` are fixed literature-derived defaults (`ADR-006`); no optimality claim
 - `entropy claim in manuscript = forbidden unless spec version changes`
 
 ## 13. Terminal result semantics
@@ -197,7 +199,7 @@ The implementation MUST satisfy all of the following:
 2. No single-capacity resource has overlapping reserved intervals.
 3. Same-location dependencies incur zero communication delay unless explicitly overridden by a future spec.
 4. Two graphs with identical node features but different edges MUST produce different encoder adjacency structures.
-5. Reptile outer update MUST be invariant to meta-task ordering up to numerical tolerance.
+5. Outer MR-LCO-style Adam update on mean pseudogradient MUST be invariant to meta-task ordering up to numerical tolerance.
 6. Sink outputs are not counted complete until required terminal results are available at `UE`.
 
 ## 16. Traceability requirement

@@ -93,4 +93,5 @@ acceptance_evidence:
 ## Phase 0 gate
 
 Data/Split decision is frozen.
-Phase 0 overall remains `IN PROGRESS` until numeric learning contract and toy oracle suite close.
+Learning hyperparameters are fixed literature-derived defaults (`ADR-006`); no validation grid.
+Phase 0 closure is determined by `spec/phase0_gate.py`.

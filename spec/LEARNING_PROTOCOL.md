@@ -1,6 +1,6 @@
 # Learning Protocol
 
-Status: Frozen form + closed selection grid (`ADR-006`)  
+Status: Frozen (`ADR-006` fixed literature-derived defaults)
 Related ADR: `ADR-006-hyperparameter-selection.md`
 
 ## 1. Environment-learning interface
@@ -23,18 +23,20 @@ Inner adaptation MUST define all of the following explicitly:
 - `trajectories_per_support_graph`
 - `inner_optimizer`
 - `inner_learning_rate`
-- exact meaning of `K`
+- exact meaning of `K` / `k_steps`
 - `ppo_batch_size_trajectories`
 - batch shuffling policy
 - value clipping equation
 - entropy coefficient or explicit absence of entropy term
 
-For v0.1 form (frozen now):
+For v0.1 (frozen):
 
-- `K` MUST mean count of Adam optimizer apply steps, not a legacy epoch label and not a minibatch-pass counter
+- `k_steps = 3` MUST mean count of Adam optimizer apply steps, not a legacy epoch label and not a minibatch-pass counter
 - `ppo_inner_optimizer = adam` with `beta1=0.9`, `beta2=0.999`, `epsilon=1.0e-8`
+- `inner_learning_rate = 5.0e-4`
 - `policy_clip_epsilon = 0.2`
 - `value_clip_epsilon = 0.2`
+- `vf_coef = 0.5`
 - `entropy_coefficient = 0.0` (`entropy_claim_allowed: false`)
 - clipped value target MUST be:
   `v_old + clip(v_new - v_old, -eps, eps)`
@@ -47,30 +49,29 @@ For v0.1 form (frozen now):
 
 Batch unit: `ppo_batch_size_trajectories` is a count of full-plan trajectories, not decoder positions.
 
-## 3. Reptile-style outer update contract
+## 3. Outer update contract (`mrlco_first_order_mean_pseudogradient`)
 
 All meta-task adaptations in one meta-batch MUST start from the same `theta0`.
 
-Canonical update:
+Canonical update (minimization / `apply_gradients` convention):
 
 ```text
-theta0 = core weights
-for task in meta_batch:
-    task_weights = copy(theta0)
-    task_weights = adapt(task_weights, support_data, exact_K_steps, fresh_optimizer_state)
-mean_delta = mean(task_weights - theta0)
-core_weights = theta0 + outer_step_size * mean_delta
+theta0 = core parameters
+for task i in meta_batch:
+    theta_i = copy(theta0)
+    theta_i = adapt(theta_i, Adam(alpha=5e-4), optimizer_steps=3, fresh_optimizer_state=true)
+mean_pseudogradient = mean( (theta0 - theta_i) / (alpha * k_steps) )
+theta = outer_adam.apply(mean_pseudogradient)   # beta = 5e-4; state persistent
 ```
 
 Required properties:
 
 - order invariance up to numerical tolerance
-- one outer application per meta-batch
-- no sequential Adam on the core in place of interpolation
-- no scaling by number of mini-batches unless justified by derivation and tests
-
-`outer_step_size` is the interpolation coefficient `eps` in the formula above.
-It is NOT the legacy `outer_optimizer` Adam learning rate.
+- exactly one outer Adam application per meta-batch
+- outer Adam optimizer state persistent across outer iterations
+- no sequential per-task outer Adam on the core
+- no Reptile interpolation `theta <- theta + eps * mean(theta_i - theta)`
+- `beta` MUST NOT be written as `outer_step_size`
 
 ## 4. Policy synchronization contract
 
@@ -83,59 +84,43 @@ It is NOT the legacy `outer_optimizer` Adam learning rate.
 - support and query sets MUST be disjoint
 - adaptation uses support only
 - reported metrics use query only
-- zero-shot (`K=0`) and selected `K` MUST both be reported
+- zero-shot (`k_steps=0`) and frozen `k_steps=3` MUST both be reported
 - meta-test MUST NOT be used to choose hyperparameters
+- multi-seed runs after Phase 1–3 repair are **evaluation**, not tuning
 
 ## 6. Frozen structural budgets
 
-- `meta_batch_size_distributions = 5` (sampled from `meta_train` only)
+- `meta_batch_size_distributions = 10` (sampled from `meta_train` only; MR-LCO 25-dist topology setting)
 - `support_graphs_per_meta_task = 20`
-- `trajectories_per_support_graph = 1`
+- `trajectories_per_support_graph = 1` → `20` trajectories per meta-task (MR-LCO Table 2)
 - `ppo_batch_size_trajectories = 20`
 - `outer_iterations = 3500` (fixed compute budget, not a convergence claim)
 - `validation_interval = 50`
-- `checkpoint_selection_metric = validation_query_composite_objective`
+- `checkpoint_selection_metric = validation_query_composite_objective` (for logging / checkpointing only; not for hyperparameter search)
 - `early_stopping_rule = none_in_v0.1_fixed_budget`
 
-`total_optimizer_steps_per_meta_task = k_steps` after selection.
+`total_optimizer_steps_per_meta_task = k_steps = 3`.
 
-## 7. Numeric values selected later
-
-These remain in a closed grid. They are not pending-undefined; they are pending-evidence:
-
-- `inner_learning_rate`
-- `outer_step_size`
-- `k_steps`
-
-Grid and full selection protocol: `frozen_experiment.yaml` → `hyperparameter_selection` and `ADR-006`.
-
-Mandatory protocol elements (summary):
-
-- 3 seeds `{0,1,2}`; shared weight init (`init_seed=0`) across candidates
-- metric = mean over seeds of mean over all `validation_query` graphs of `J_report` (**minimize**)
-- within-run checkpoint = best validation check under fixed `outer_iterations=3500`
-- meta-batch: 5 distinct `meta_train` distributions without replacement; reshuffle across outer iterations
-- tie order: metric → compute budget → `inner_learning_rate` → `outer_step_size` → `k_steps`
-- `tie_tolerance_abs = 1e-6`
-
-## 8. Legacy reference (NOT v0.1 semantics)
+## 7. Hyperparameter provenance
 
 ```yaml
-legacy_reference:
-  inner_learning_rate: 5.0e-4
-  legacy_outer_adam_learning_rate: 5.0e-4
-  declared_inner_grad_steps: 1
-  ppo_batch_size: 10
-  meta_batch_size: 10
-  training_iterations: 3500
-  discount: 0.99
-  gae_lambda: 0.95
-  policy_clip_epsilon: 0.2
-  value_clip_epsilon: 0.2
+hyperparameter_provenance:
+  policy: fixed_literature_derived_defaults
+  source: MR-LCO Table 2
+  source_arxiv: "2008.02033v5"
+  optimization_claim: false
+  validation_tuning_performed: false
 ```
 
-Do not treat `declared_inner_grad_steps: 1` as one optimizer step.
-Do not treat `legacy_outer_adam_learning_rate` as Reptile `outer_step_size`.
+Manuscript / logs MUST NOT claim these values are optimized or best for MARGO.
+
+Architecture sizes (MR-LCO `2×256` LSTM etc.) are **not** part of this freeze; deferred to Phase 2.
+
+## 8. Legacy pitfalls (NOT v0.1)
+
+Do not treat repository `declared_inner_grad_steps: 1` as one optimizer step.
+Do not treat outer `β=5e-4` as Reptile `outer_step_size`.
+Do not run sequential outer Adam once per task inside a meta-batch.
 
 ## 9. Minimum logged fields per run
 
@@ -144,14 +129,15 @@ Do not treat `legacy_outer_adam_learning_rate` as Reptile `outer_step_size`.
 - support graph count
 - support trajectory count
 - query graph count
-- inner optimizer step count (`k_steps`)
+- `k_steps`
 - outer update count
 - entropy coefficient or `0`
 - value clip epsilon
 - `ppo_batch_size_trajectories`
 - `meta_batch_size_distributions`
-- selected `inner_learning_rate` and `outer_step_size`
-- whether values came from the frozen validation grid
+- `inner_learning_rate`, outer Adam `learning_rate`
+- `outer_update_method`
+- `hyperparameter_provenance.policy`
 
 ## 10. Prohibited ambiguity
 
@@ -162,5 +148,6 @@ The following phrases MUST NOT appear without exact numeric definition:
 - "K=1"
 - "few-shot adaptation"
 - "stable convergence"
+- "optimized hyperparameters" / "best hyperparameters" (forbidden for v0.1 defaults)
 
 Each MUST map to a concrete optimizer-step budget and dataset role.
