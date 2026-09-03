@@ -181,6 +181,29 @@ class EnergyBreakdown:
     # Optional accounting only — NOT in total_mobile_joules (ADR-001 / OBJECTIVE §1).
     mec_compute_joules_optional: float = 0.0
 
+    COMPONENT_FIELDS = (
+        "ue_local_cpu_joules",
+        "ue_mec_uplink_joules",
+        "ue_mec_downlink_joules",
+        "ue_v2v_tx_joules",
+        "ue_v2v_rx_joules",
+        "helper_compute_joules",
+        "helper_v2v_tx_joules",
+        "helper_v2v_rx_joules",
+        "mec_compute_joules_optional",
+    )
+
+    def add_inplace(self, other: "EnergyBreakdown") -> None:
+        for name in self.COMPONENT_FIELDS:
+            setattr(self, name, getattr(self, name) + getattr(other, name))
+
+    @classmethod
+    def sum_many(cls, parts: Iterable["EnergyBreakdown"]) -> "EnergyBreakdown":
+        total = cls()
+        for part in parts:
+            total.add_inplace(part)
+        return total
+
     @property
     def total_ue_joules(self) -> float:
         return (

@@ -443,71 +443,46 @@ class OffloadingEnvironment(MetaEnv):
 
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):
+        """Post-hoc telescoping rewards (OBJECTIVE §6); max/min batch args unused."""
+        from env.mec_offloaing_envs.scheduler.reward import telescoping_token_rewards
+
         target_batch = []
         task_finish_time_batch = []
-        energy_batch = []  # NEW: Energy batch for logging
-        
-        for i in range(len(action_sequence_batch)):
-            max_running_time = max_running_time_batch[i]
-            min_running_time = min_running_time_batch[i]
+        energy_batch = []
+        include_energy = bool(self.resource_cluster.use_energy)
 
+        for i in range(len(action_sequence_batch)):
             task_graph = task_graph_batch[i]
             self.resource_cluster.reset()
             plan = action_sequence_batch[i]
-            
-            # Get latency and optionally energy
-            if self.resource_cluster.use_energy:
-                cost, task_finish_time, energy = self.get_scheduling_cost_step_by_step(plan, task_graph)
-                
-                # Compute energy bounds for normalization
-                max_energy, min_energy = self._compute_energy_bounds(
-                    task_graph, max_running_time, min_running_time)
-                
-                # Sum energy to get total energy consumption
-                total_energy = np.sum(energy) if isinstance(energy, (list, np.ndarray)) else energy
-                
-                # Normalize energy (handle edge case where max == min)
-                if max_energy > min_energy:
-                    total_energy_score = self.score_func(total_energy, max_energy, min_energy)
-                    # Distribute energy score proportionally across steps
-                    if len(energy) > 0 and total_energy > 0:
-                        energy_proportions = np.array(energy) / total_energy
-                        energy_score = total_energy_score * energy_proportions
-                    elif len(energy) > 0:
-                        # If total_energy is 0, distribute score equally
-                        energy_score = np.full_like(energy, total_energy_score / len(energy), dtype=float)
-                    else:
-                        energy_score = np.array([total_energy_score])
-                else:
-                    # If no variation, set to zero
-                    energy_score = np.zeros_like(energy)
-                
-                # Normalize latency - cost is incremental latencies, normalize element-wise
-                latency_score = self.score_func(cost, max_running_time, min_running_time)
-                
-                # Combine rewards
-                combined_score = (self.resource_cluster.latency_weight * latency_score + 
-                                self.resource_cluster.energy_weight * energy_score)
-                
-                target_batch.append(combined_score)
-                energy_batch.append(energy)
-            else:
-                # Original behavior - backward compatible
-                cost, task_finish_time = self.get_scheduling_cost_step_by_step(plan, task_graph)
-                latency = self.score_func(cost, max_running_time, min_running_time)
-                score = np.array(latency)
-                target_batch.append(score)
-                energy_batch.append([])  # Empty for backward compatibility
-            
-            task_finish_time_batch.append(task_finish_time)
 
-        target_batch = np.array(target_batch)
-        
-        # Return based on energy flag for backward compatibility
-        if self.resource_cluster.use_energy:
+            out = telescoping_token_rewards(
+                task_graph,
+                plan,
+                self.scheduler_resources,
+                include_energy=include_energy,
+                latency_weight=float(getattr(self.resource_cluster, "latency_weight", 0.5)),
+                energy_weight=float(getattr(self.resource_cluster, "energy_weight", 0.5))
+                if include_energy
+                else 0.0,
+            )
+            target_batch.append(np.asarray(out.rewards, dtype=float))
+            task_finish_time_batch.append(out.final_makespan)
+            if include_energy:
+                energy_batch.append(out.final_per_task_energy)
+            else:
+                energy_batch.append([])
+
+        target_batch = np.array(target_batch, dtype=object)
+        # Prefer numeric ndarray when all sequences share length.
+        try:
+            target_batch = np.asarray(target_batch.tolist(), dtype=float)
+        except Exception:
+            pass
+
+        if include_energy:
             return target_batch, task_finish_time_batch, energy_batch
-        else:
-            return target_batch, task_finish_time_batch
+        return target_batch, task_finish_time_batch
 
     def greedy_solution(self):
         """Greedy plan search; each candidate is scored by the canonical engine."""

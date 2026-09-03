@@ -1,6 +1,6 @@
 """Canonical energy / reporting API (OBJECTIVE_AND_ENERGY.md §§2–5).
 
-Reward telescoping (§6) is a separate Phase 1 commit.
+Reward telescoping (§6) lives in `reward.py`.
 """
 
 from __future__ import annotations
@@ -11,8 +11,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .model import Location, ScheduleResult
+from .model import EnergyBreakdown, Location, ScheduleResult
 from .resources import ResourceConfig
+from .validate import require_finite
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,15 @@ class ReferenceRanges:
     unit_latency: str = "seconds"
     unit_energy: str = "joules"
     out_of_range: str = OUT_OF_RANGE
+
+    def __post_init__(self) -> None:
+        for name in ("L_ue", "L_mec", "L_helper", "E_ue", "E_mec", "E_helper"):
+            require_finite(name, getattr(self, name))
+        # Derived extrema are always ordered; still assert finite scales usable.
+        require_finite("L_ref_min", self.L_ref_min)
+        require_finite("L_ref_max", self.L_ref_max)
+        require_finite("E_ref_min", self.E_ref_min)
+        require_finite("E_ref_max", self.E_ref_max)
 
     @property
     def L_ref_min(self) -> float:
@@ -73,7 +83,6 @@ def compute_reference_ranges(
     resources: ResourceConfig,
 ) -> ReferenceRanges:
     """Schedule three pure-location plans; derive L/E ref min/max."""
-    # Lazy import avoids circular import with adapter → energy_api.
     from .adapter import schedule_via_adapter, validate_plan
 
     order = [int(tid) for tid in task_graph.prioritize_sequence]
@@ -105,10 +114,15 @@ def normalize(
     out_of_range: str = OUT_OF_RANGE,
 ) -> float:
     """Map value into [0,1] using reference range; v0.1 out-of-range = clip_and_log."""
-    scale = max(vmax - vmin, EPS)
-    raw = (value - vmin) / scale
+    value = require_finite(name, value)
+    vmin = require_finite(f"{name}_vmin", vmin)
+    vmax = require_finite(f"{name}_vmax", vmax)
+    if vmax < vmin:
+        raise ValueError(f"{name}: vmax ({vmax}) must be >= vmin ({vmin})")
     if out_of_range != OUT_OF_RANGE:
         raise ValueError(f"unsupported out_of_range policy: {out_of_range}")
+    scale = max(vmax - vmin, EPS)
+    raw = (value - vmin) / scale
     if raw < 0.0 or raw > 1.0:
         logger.warning(
             "clip_and_log: %s raw=%s outside [0,1] (value=%s, vmin=%s, vmax=%s)",
@@ -122,7 +136,7 @@ def normalize(
 
 
 def j_report(makespan_seconds: float, total_mobile_joules: float, refs: ReferenceRanges) -> float:
-    """Scientific composite: 0.5 * L_norm + 0.5 * E_norm."""
+    """Scientific composite: 0.5 * L_norm + 0.5 * E_norm (clipped)."""
     l_norm = normalize(
         makespan_seconds, refs.L_ref_min, refs.L_ref_max, name="L", out_of_range=refs.out_of_range
     )
@@ -136,36 +150,62 @@ def j_report(makespan_seconds: float, total_mobile_joules: float, refs: Referenc
     return LATENCY_WEIGHT * l_norm + ENERGY_WEIGHT * e_norm
 
 
-def attribute_energy_by_task(
+def _add_transfer_components(
+    bd: EnergyBreakdown,
+    hop: str,
+    duration: float,
+    src_loc: Location,
+    resources: ResourceConfig,
+) -> None:
+    if hop == "MEC_UL":
+        bd.ue_mec_uplink_joules += duration * resources.ptx_mec_w
+    elif hop == "MEC_DL":
+        bd.ue_mec_downlink_joules += duration * resources.prx_mec_w
+    elif hop == "V2V":
+        if src_loc == Location.HELPER:
+            bd.helper_v2v_tx_joules += duration * resources.ptx_v2v_w
+            bd.ue_v2v_rx_joules += duration * resources.prx_v2v_w
+        else:
+            # UE→HELPER, or post-MEC_DL staging at UE toward HELPER
+            bd.ue_v2v_tx_joules += duration * resources.ptx_v2v_w
+            bd.helper_v2v_rx_joules += duration * resources.prx_v2v_w
+
+
+def attribute_energy_components_by_task(
     result: ScheduleResult,
     resources: ResourceConfig,
-) -> dict[int, float]:
-    """Per-task mobile energy attribution; sum equals total_mobile_joules.
+) -> dict[int, EnergyBreakdown]:
+    """Per-task energy component breakdown (OBJECTIVE §2).
 
-    Compute → executing task. Transfer joules (UE+helper radio for that hop) →
-    destination task when present, else source (sink return).
+    Owner rule matches scalar attribution: compute → executor; transfer → dst if
+    present else src (sink return). Component-wise sum equals episode breakdown.
     """
-    out: dict[int, float] = defaultdict(float)
+    out: dict[int, EnergyBreakdown] = defaultdict(EnergyBreakdown)
     for tid, rec in result.tasks.items():
         dur = rec.finish - rec.start
         if rec.location == Location.UE:
-            out[tid] += dur * resources.rho_ue * (resources.f_l**resources.zeta)
+            out[tid].ue_local_cpu_joules += dur * resources.rho_ue * (resources.f_l**resources.zeta)
         elif rec.location == Location.HELPER:
-            out[tid] += dur * resources.rho_helper * (resources.f_v2v**resources.zeta)
-        # MEC compute is optional accounting only — not attributed to mobile objective.
+            out[tid].helper_compute_joules += (
+                dur * resources.rho_helper * (resources.f_v2v**resources.zeta)
+            )
+        # MEC compute optional remains episode-level only (v0.1 value 0).
 
     for t in result.transfers:
         owner = t.dst_task_id if t.dst_task_id is not None else t.src_task_id
         if owner is None:
             continue
-        dur = t.end - t.start
-        if t.hop == "MEC_UL":
-            out[owner] += dur * resources.ptx_mec_w
-        elif t.hop == "MEC_DL":
-            out[owner] += dur * resources.prx_mec_w
-        elif t.hop == "V2V":
-            out[owner] += dur * (resources.ptx_v2v_w + resources.prx_v2v_w)
+        _add_transfer_components(out[owner], t.hop, t.end - t.start, t.src_location, resources)
     return dict(out)
+
+
+def attribute_energy_by_task(
+    result: ScheduleResult,
+    resources: ResourceConfig,
+) -> dict[int, float]:
+    """Per-task mobile energy scalar; sum equals total_mobile_joules."""
+    comps = attribute_energy_components_by_task(result, resources)
+    return {tid: bd.total_mobile_joules for tid, bd in comps.items()}
 
 
 def transfers_for_task(result: ScheduleResult, task_id: int) -> list:

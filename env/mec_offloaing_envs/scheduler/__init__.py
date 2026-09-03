@@ -25,10 +25,17 @@ from .greedy import greedy_plan
 from .energy_api import (
     ReferenceRanges,
     attribute_energy_by_task,
+    attribute_energy_components_by_task,
     compute_reference_ranges,
     j_report,
     normalize,
     pure_location_plan,
+)
+from .reward import (
+    TelescopingRewardResult,
+    expected_episode_return,
+    provisional_plan,
+    telescoping_token_rewards,
 )
 
 __all__ = [
@@ -46,18 +53,23 @@ __all__ = [
     "ROUTE_TABLE",
     "ScheduleResult",
     "TaskExecutionRecord",
+    "TelescopingRewardResult",
     "TransferRecord",
     "attribute_energy_by_task",
+    "attribute_energy_components_by_task",
     "compute_reference_ranges",
+    "expected_episode_return",
     "greedy_plan",
     "j_report",
     "make_calendars",
     "normalize",
+    "provisional_plan",
     "pure_location_plan",
     "resource_config_from_cluster",
     "route",
     "schedule",
     "schedule_via_adapter",
+    "telescoping_token_rewards",
     "to_canonical_dag",
     "validate_plan",
 ]
