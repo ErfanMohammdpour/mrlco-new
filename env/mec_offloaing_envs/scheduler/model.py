@@ -178,6 +178,8 @@ class EnergyBreakdown:
     helper_compute_joules: float = 0.0
     helper_v2v_tx_joules: float = 0.0
     helper_v2v_rx_joules: float = 0.0
+    # Optional accounting only — NOT in total_mobile_joules (ADR-001 / OBJECTIVE §1).
+    mec_compute_joules_optional: float = 0.0
 
     @property
     def total_ue_joules(self) -> float:
@@ -201,6 +203,10 @@ class EnergyBreakdown:
     def total_mobile_joules(self) -> float:
         return self.total_ue_joules + self.total_helper_joules
 
+    @property
+    def total_system_joules_optional(self) -> float:
+        return self.total_mobile_joules + self.mec_compute_joules_optional
+
     def as_dict(self) -> dict[str, float]:
         return {
             "ue_local_cpu_joules": self.ue_local_cpu_joules,
@@ -211,9 +217,11 @@ class EnergyBreakdown:
             "helper_compute_joules": self.helper_compute_joules,
             "helper_v2v_tx_joules": self.helper_v2v_tx_joules,
             "helper_v2v_rx_joules": self.helper_v2v_rx_joules,
+            "mec_compute_joules_optional": self.mec_compute_joules_optional,
             "total_ue_joules": self.total_ue_joules,
             "total_helper_joules": self.total_helper_joules,
             "total_mobile_joules": self.total_mobile_joules,
+            "total_system_joules_optional": self.total_system_joules_optional,
         }
 
 

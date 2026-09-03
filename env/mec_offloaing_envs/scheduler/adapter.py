@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Sequence
 from typing import Any
 
 from .engine import schedule
-from .model import CanonicalDAG, CanonicalTask, Location, ScheduleResult
+from .energy_api import attribute_energy_by_task
+from .model import CanonicalDAG, CanonicalTask, ScheduleResult
 from .resources import ResourceConfig
 
 
@@ -91,28 +91,6 @@ def resource_config_from_cluster(resource_cluster: Any) -> ResourceConfig:
     )
 
 
-def _per_task_energy(result: ScheduleResult, resources: ResourceConfig) -> dict[int, float]:
-    out: dict[int, float] = defaultdict(float)
-    for tid, rec in result.tasks.items():
-        dur = rec.finish - rec.start
-        if rec.location == Location.UE:
-            out[tid] += dur * resources.rho_ue * (resources.f_l**resources.zeta)
-        elif rec.location == Location.HELPER:
-            out[tid] += dur * resources.rho_helper * (resources.f_v2v**resources.zeta)
-    for t in result.transfers:
-        owner = t.dst_task_id if t.dst_task_id is not None else t.src_task_id
-        if owner is None:
-            continue
-        dur = t.end - t.start
-        if t.hop == "MEC_UL":
-            out[owner] += dur * resources.ptx_mec_w
-        elif t.hop == "MEC_DL":
-            out[owner] += dur * resources.prx_mec_w
-        elif t.hop == "V2V":
-            out[owner] += dur * (resources.ptx_v2v_w + resources.prx_v2v_w)
-    return dict(out)
-
-
 def shaped_latency_deltas(result: ScheduleResult, decoder_order: Sequence[int]) -> list[float]:
     """Compatibility deltas along decoder order; sum equals makespan_seconds."""
     current = 0.0
@@ -141,6 +119,6 @@ def schedule_via_adapter(
     dag = to_canonical_dag(task_graph)
     result = schedule(dag, decoder_order, actions, resources)
     deltas = shaped_latency_deltas(result, decoder_order)
-    energy_map = _per_task_energy(result, resources)
+    energy_map = attribute_energy_by_task(result, resources)
     energy_list = [float(energy_map.get(tid, 0.0)) for tid in decoder_order]
     return result, deltas, energy_list

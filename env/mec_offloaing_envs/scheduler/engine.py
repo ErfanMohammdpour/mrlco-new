@@ -188,6 +188,8 @@ def schedule(
             energy.helper_compute_joules += (
                 dur * resources.rho_helper * (resources.f_v2v**resources.zeta)
             )
+        # Location.MEC: mec_compute_joules_optional stays 0 in v0.1 — no frozen
+        # MEC compute power coefficient (field present for API completeness).
 
     result_at_ue = 0.0
     for tid in sorted(graph.sinks(), key=lambda x: (decoder_rank[x], x)):

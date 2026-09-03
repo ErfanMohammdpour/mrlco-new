@@ -442,6 +442,8 @@ def schedule_production(oracle: dict) -> dict:
             "total_ue_joules",
             "total_helper_joules",
             "total_mobile_joules",
+            "mec_compute_joules_optional",
+            "total_system_joules_optional",
         }
     }
     return {

@@ -427,35 +427,19 @@ class OffloadingEnvironment(MetaEnv):
         return -(cost - min_time) / (max_time - min_time)
     
     def _compute_energy_bounds(self, task_graph, max_time, min_time):
-        """Compute theoretical min/max energy consumption for normalization
-        
-        Args:
-            task_graph: Task graph object
-            max_time: Maximum running time (for reference)
-            min_time: Minimum running time (for reference)
-            
-        Returns:
-            tuple: (max_energy, min_energy) or (0.0, 0.0) if energy disabled
-        """
+        """Pure-location E_ref_max / E_ref_min (OBJECTIVE_AND_ENERGY.md §5)."""
         if not self.resource_cluster.use_energy:
             return 0.0, 0.0
-        
-        # Max energy: All tasks executed locally
-        max_energy = sum([
-            self.resource_cluster.compute_local_energy(
-                task.processing_data_size / self.resource_cluster.mobile_process_capable
-            ) for task in task_graph.task_list
-        ])
-        
-        # Min energy: All tasks offloaded (minimal transmission)
-        min_energy = sum([
-            self.resource_cluster.compute_transmission_energy(
-                self.resource_cluster.up_transmission_cost(task.processing_data_size),
-                self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
-            ) for task in task_graph.task_list
-        ])
-        
-        return max_energy, min_energy
+        from env.mec_offloaing_envs.scheduler.energy_api import compute_reference_ranges
+
+        refs = compute_reference_ranges(task_graph, self.scheduler_resources)
+        return refs.E_ref_max, refs.E_ref_min
+
+    def get_reference_ranges(self, task_graph):
+        """Episode-local L/E ranges from all_UE / all_MEC / all_HELPER schedules."""
+        from env.mec_offloaing_envs.scheduler.energy_api import compute_reference_ranges
+
+        return compute_reference_ranges(task_graph, self.scheduler_resources)
 
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):

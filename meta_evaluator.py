@@ -466,6 +466,11 @@ class Trainer():
     def _get_detailed_scheduling_info(self, plan, task_graph):
         """Node-level details from the canonical engine (no legacy calendar)."""
         from env.mec_offloaing_envs.scheduler import schedule_via_adapter
+        from env.mec_offloaing_envs.scheduler.energy_api import (
+            split_v2v_times,
+            transfers_for_task,
+        )
+        from env.mec_offloaing_envs.scheduler.model import Location
 
         env = self.env
         result, deltas, energy_list = schedule_via_adapter(
@@ -476,10 +481,10 @@ class Trainer():
             rec = result.tasks.get(int(node_id))
             if rec is None:
                 continue
-            hops = [t for t in result.transfers if t.dst_task_id == int(node_id) or t.src_task_id == int(node_id)]
+            hops = transfers_for_task(result, int(node_id))
             ul = sum(t.end - t.start for t in hops if t.hop == "MEC_UL")
             dl = sum(t.end - t.start for t in hops if t.hop == "MEC_DL")
-            v2v = sum(t.end - t.start for t in hops if t.hop == "V2V")
+            v2v_up, v2v_down = split_v2v_times(hops)
             node_info = {
                 "node_id": int(node_id),
                 "action": action,
@@ -491,9 +496,10 @@ class Trainer():
                 "execution_time": rec.finish - rec.start,
                 "uplink_time": ul,
                 "downlink_time": dl,
-                "v2v_uplink_time": v2v,
-                "v2v_downlink_time": 0.0,
+                "v2v_uplink_time": v2v_up,
+                "v2v_downlink_time": v2v_down,
                 "incremental_makespan": deltas[action_idx] if action_idx < len(deltas) else 0.0,
+                "location": rec.location.value if isinstance(rec.location, Location) else str(rec.location),
             }
             detailed_info.append(node_info)
         return detailed_info
