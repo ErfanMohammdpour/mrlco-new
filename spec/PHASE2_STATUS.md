@@ -20,8 +20,9 @@ In:
 - `edge_output_bytes` in node payload features
 - drop legacy scheduler time features from the observation
 - real neighbor padding + node mask
-- z-score from `spec/encoder_feature_stats.json` fit on `role=meta_train` only; file pins SHA-256 of `dataset_manifest.jsonl` and `split_policy.json` plus feature name order
-- topology-sensitivity and permutation-consistency tests
+- z-score from `spec/encoder_feature_stats.json` fit on `role=meta_train` only; SHA-256 pins use canonical LF
+- predecessor AND successor aggregators, summed; encoder dropout frozen at 0.0
+- topology-sensitivity and permutation-consistency tests (numpy + TF smoke)
 - degree>6, duplicate-edge, non-contiguous task-id tests
 
 Out:
@@ -36,7 +37,8 @@ Out:
 
 - Decoder **order** still comes from HEFT `prioritize_tasks` (legacy times). That is ranking, not encoder features.
 - Packed observation dim = `FEATURE_DIM + 2*MAX_NEIGH + 1` (`PACKED_DIM`). Neighbor capacity comes from spec `task_count`, not meta-train degree stats.
-- `MeanAggregator` uses masked mean over `neigh_len`; adapter dropout is passed through.
+- Architecture freeze: `neighborhood=predecessor_and_successor`, `gnn_layers=2`, `aggregator=masked_mean`, `direction_combine=sum`, `dropout=0.0`.
+- `MeanAggregator` uses masked mean over `neigh_len`.
 - Phase 1 gate discovers only `test_phase1*.py` so encoder tests do not enter the frozen Phase 1 suite.
 
 ## Gate

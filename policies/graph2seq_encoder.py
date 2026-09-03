@@ -3,10 +3,19 @@ Graph2Seq encoder over canonical DAG adjacency packed into observations.
 
 Neighbor indices live in the observation tail so the sampler stays a single
 ndarray. Node-feature channels are embedded; adjacency indices are not.
+
+Frozen v0.1: predecessor AND successor aggregators, summed; dropout 0.
 """
 import tensorflow as tf
 
-from env.mec_offloaing_envs.scheduler.encoder_obs import FEATURE_DIM, MAX_NEIGH, PACKED_DIM
+from env.mec_offloaing_envs.scheduler.encoder_obs import (
+    DIRECTION_COMBINE,
+    ENCODER_DROPOUT,
+    FEATURE_DIM,
+    GNN_LAYERS,
+    MAX_NEIGH,
+    PACKED_DIM,
+)
 from .graph2seq_modules.neigh_samplers import UniformNeighborSampler
 from .graph2seq_modules.aggregators import MeanAggregator
 
@@ -15,21 +24,22 @@ class Graph2SeqEncoderAdapter:
     """
     Adapter class that wraps Graph2Seq encoder to be compatible with metarl-offloading.
     Converts packed observations to DAG adjacency + node embeddings.
+    Always consumes both successor (fw) and predecessor (bw) tables.
     """
 
-    def __init__(self, input_dim, hidden_dim, num_layers=2, bidirectional=False, mode='train'):
+    def __init__(self, input_dim, hidden_dim, num_layers=2, bidirectional=True, mode='eval'):
         if input_dim is not None and int(input_dim) != PACKED_DIM:
             raise ValueError(f"encoder packed dim {input_dim} != {PACKED_DIM}")
+        if DIRECTION_COMBINE != "sum":
+            raise ValueError(f"unsupported direction_combine: {DIRECTION_COMBINE}")
         self.input_dim = PACKED_DIM
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
-        self.bidirectional = bidirectional
+        self.bidirectional = True
         self.mode = mode
-
-        self.sample_layer_size = 2
+        self.sample_layer_size = GNN_LAYERS
         self.concat = True
-        self.dropout = 0.0 if mode != 'train' else 0.1
-
+        self.dropout = ENCODER_DROPOUT
         self.fw_aggregators = []
         self.bw_aggregators = []
 
@@ -62,6 +72,25 @@ class Graph2SeqEncoderAdapter:
         batch_nodes = tf.reshape(tf.range(total_nodes), [batch_size, seq_len])
         return fw_adj_info, bw_adj_info, feature_slice, batch_nodes, fw_len, bw_len, node_mask
 
+    def _run_direction(self, hidden, sampled_neighbors, sampled_len, embedded_node_rep, aggregators):
+        for layer in range(self.sample_layer_size):
+            dim_mul = 1 if layer == 0 else 2
+            aggregator = MeanAggregator(
+                dim_mul * self.hidden_dim,
+                self.hidden_dim,
+                concat=self.concat,
+                mode=self.mode,
+                dropout=self.dropout,
+            )
+            aggregators.append(aggregator)
+            if layer == 0:
+                neigh_vec_hidden = tf.nn.embedding_lookup(embedded_node_rep, sampled_neighbors)
+            else:
+                padded_hidden = tf.concat([hidden, tf.zeros([1, dim_mul * self.hidden_dim])], 0)
+                neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, sampled_neighbors)
+            hidden = aggregator((hidden, neigh_vec_hidden, sampled_len))
+        return hidden
+
     def encode(self, encoder_inputs):
         """
         Main encoding function that maintains compatibility with metarl-offloading.
@@ -86,71 +115,23 @@ class Graph2SeqEncoderAdapter:
         embedded_node_rep = tf.concat([feature_info, tf.zeros([1, self.hidden_dim])], 0)
 
         fw_sampler = UniformNeighborSampler(fw_adj_info)
-        if self.bidirectional:
-            bw_sampler = UniformNeighborSampler(bw_adj_info)
-
+        bw_sampler = UniformNeighborSampler(bw_adj_info)
         nodes = tf.reshape(batch_nodes, [-1])
         fw_hidden = tf.nn.embedding_lookup(embedded_node_rep, nodes)
-        if self.bidirectional:
-            bw_hidden = tf.nn.embedding_lookup(embedded_node_rep, nodes)
-
+        bw_hidden = tf.nn.embedding_lookup(embedded_node_rep, nodes)
         fw_sampled_neighbors = fw_sampler((nodes, sample_size_per_layer))
-        if self.bidirectional:
-            bw_sampled_neighbors = bw_sampler((nodes, sample_size_per_layer))
+        bw_sampled_neighbors = bw_sampler((nodes, sample_size_per_layer))
 
-        fw_sampled_neighbors_len = fw_len
-        if self.bidirectional:
-            bw_sampled_neighbors_len = bw_len
-
-        for layer in range(self.sample_layer_size):
-            if layer == 0:
-                dim_mul = 1
-            else:
-                dim_mul = 2
-
-            fw_aggregator = MeanAggregator(
-                dim_mul * self.hidden_dim,
-                self.hidden_dim,
-                concat=self.concat,
-                mode=self.mode,
-                dropout=self.dropout,
-            )
-            self.fw_aggregators.append(fw_aggregator)
-
-            if layer == 0:
-                neigh_vec_hidden = tf.nn.embedding_lookup(embedded_node_rep, fw_sampled_neighbors)
-            else:
-                padded_hidden = tf.concat([fw_hidden, tf.zeros([1, dim_mul * self.hidden_dim])], 0)
-                neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, fw_sampled_neighbors)
-
-            fw_hidden = fw_aggregator((fw_hidden, neigh_vec_hidden, fw_sampled_neighbors_len))
-
-            if self.bidirectional:
-                bw_aggregator = MeanAggregator(
-                    dim_mul * self.hidden_dim,
-                    self.hidden_dim,
-                    concat=self.concat,
-                    mode=self.mode,
-                    dropout=self.dropout,
-                )
-                self.bw_aggregators.append(bw_aggregator)
-
-                if layer == 0:
-                    neigh_vec_hidden = tf.nn.embedding_lookup(embedded_node_rep, bw_sampled_neighbors)
-                else:
-                    padded_hidden = tf.concat([bw_hidden, tf.zeros([1, dim_mul * self.hidden_dim])], 0)
-                    neigh_vec_hidden = tf.nn.embedding_lookup(padded_hidden, bw_sampled_neighbors)
-
-                bw_hidden = bw_aggregator((bw_hidden, neigh_vec_hidden, bw_sampled_neighbors_len))
+        fw_hidden = self._run_direction(
+            fw_hidden, fw_sampled_neighbors, fw_len, embedded_node_rep, self.fw_aggregators
+        )
+        bw_hidden = self._run_direction(
+            bw_hidden, bw_sampled_neighbors, bw_len, embedded_node_rep, self.bw_aggregators
+        )
 
         fw_hidden = tf.reshape(fw_hidden, [batch_size, seq_len, 2 * self.hidden_dim])
-
-        if self.bidirectional:
-            bw_hidden = tf.reshape(bw_hidden, [batch_size, seq_len, 2 * self.hidden_dim])
-            encoder_outputs = tf.concat([fw_hidden, bw_hidden], axis=2)
-        else:
-            encoder_outputs = fw_hidden
-
+        bw_hidden = tf.reshape(bw_hidden, [batch_size, seq_len, 2 * self.hidden_dim])
+        encoder_outputs = fw_hidden + bw_hidden
         encoder_outputs = tf.nn.relu(encoder_outputs)
 
         mask = tf.expand_dims(node_mask, axis=-1)
@@ -163,15 +144,11 @@ class Graph2SeqEncoderAdapter:
         max_pool = tf.reduce_max(encoder_outputs + neg_inf, axis=1)
         final_state = tf.layers.dense(
             tf.concat([mean_pool, max_pool, attn_pool], axis=-1),
-            units=(4 * self.hidden_dim) if self.bidirectional else (2 * self.hidden_dim),
+            units=2 * self.hidden_dim,
             activation=tf.tanh,
             name="readout_proj"
         )
-        if self.bidirectional:
-            state_size = 4 * self.hidden_dim
-        else:
-            state_size = 2 * self.hidden_dim
-
+        state_size = 2 * self.hidden_dim
         if state_size > self.hidden_dim:
             with tf.variable_scope("state_projection"):
                 final_state_proj = tf.layers.dense(final_state, self.hidden_dim,
@@ -194,17 +171,19 @@ class Graph2SeqEncoderAdapter:
 def create_graph2seq_encoder(encoder_inputs, encoder_units, num_layers, is_bidirectional, mode, scope_name="encoder"):
     """
     Factory function to create Graph2Seq encoder matching the original interface.
+
+    `is_bidirectional` and `mode` are ignored for neighborhood/dropout: v0.1 always
+    aggregates predecessors and successors and freezes encoder dropout to 0.
     """
+    del is_bidirectional, mode
     with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
         input_dim = encoder_inputs.get_shape()[-1].value
         encoder_adapter = Graph2SeqEncoderAdapter(
             input_dim=input_dim,
             hidden_dim=encoder_units,
             num_layers=num_layers,
-            bidirectional=is_bidirectional,
-            mode=mode
+            bidirectional=True,
+            mode="eval",
         )
-
         encoder_outputs, encoder_state = encoder_adapter.encode(encoder_inputs)
-
     return encoder_outputs, encoder_state

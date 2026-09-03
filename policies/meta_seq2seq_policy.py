@@ -14,7 +14,10 @@ from policies.distributions.categorical_pd import CategoricalPd
 import utils as U
 from utils.utils import zipsame
 
-tf.get_logger().setLevel('WARNING')
+try:
+    tf.get_logger().setLevel('WARNING')
+except AttributeError:
+    pass
 
 class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddingHelper):
     def __init__(self, sequence_length, embedding, start_tokens, end_token, softmax_temperature=None, seed=None):

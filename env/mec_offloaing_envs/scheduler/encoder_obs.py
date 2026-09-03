@@ -26,6 +26,12 @@ MAX_TASKS = 20
 MAX_NEIGH = MAX_TASKS - 1
 PAD_INDEX = -1
 STD_EPS = 1e-12
+ENCODER_DROPOUT = 0.0
+GNN_LAYERS = 2
+NEIGHBORHOOD = "predecessor_and_successor"
+DIRECTION_COMBINE = "sum"
+AGGREGATOR = "masked_mean"
+SELF_NEIGHBOR_CONCAT = True
 
 FEATURE_NAMES: tuple[str, ...] = (
     "compute_workload_bytes",
@@ -82,6 +88,8 @@ class FeatureStats:
             raise EncoderGraphError("encoder stats role must be meta_train")
         if np.any(self.std[list(_standardize_indices())] < STD_EPS):
             raise EncoderGraphError("standardize std below STD_EPS")
+        if not np.all(np.isfinite(self.mean)) or not np.all(np.isfinite(self.std)):
+            raise EncoderGraphError("encoder stats mean/std must be finite")
         if self.n_graphs > 0 and (
             len(self.dataset_manifest_sha256) != 64 or len(self.split_policy_sha256) != 64
         ):
@@ -122,6 +130,7 @@ class FeatureStats:
             "max_neigh": MAX_NEIGH,
             "packed_dim": PACKED_DIM,
             "std_eps": STD_EPS,
+            "hash_normalization": "canonical_lf",
             "dataset_manifest_sha256": self.dataset_manifest_sha256,
             "split_policy_sha256": self.split_policy_sha256,
         }
@@ -131,13 +140,21 @@ def _standardize_indices() -> list[int]:
     return [i for i, name in enumerate(FEATURE_NAMES) if name in STANDARDIZE_FEATURES]
 
 
+def sha256_canonical_text(path: str | Path) -> str:
+    """SHA-256 after CRLF/CR → LF. Working-copy line endings must not change the pin."""
+    data = Path(path).read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(data).hexdigest()
+
+
 def sha256_file(path: str | Path) -> str:
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    return sha256_canonical_text(path)
 
 
 def spec_source_hashes(root: Path | None = None) -> tuple[str, str]:
     base = Path(root) if root is not None else _DEFAULT_STATS_PATH.parent
-    return sha256_file(base / "dataset_manifest.jsonl"), sha256_file(base / "split_policy.json")
+    return sha256_canonical_text(base / "dataset_manifest.jsonl"), sha256_canonical_text(
+        base / "split_policy.json"
+    )
 
 
 def require_neighbor_capacity(count: int, label: str) -> None:
@@ -146,6 +163,27 @@ def require_neighbor_capacity(count: int, label: str) -> None:
             f"{label} degree {count} exceeds MAX_NEIGH={MAX_NEIGH} "
             f"(MAX_TASKS={MAX_TASKS}); silent truncation forbidden"
         )
+
+
+def require_spec_task_count(n: int) -> None:
+    if int(n) != MAX_TASKS:
+        raise EncoderGraphError(
+            f"encoder graph has {n} tasks; spec model.task_count / MAX_TASKS={MAX_TASKS}"
+        )
+
+
+def validate_neighbor_indices(fw: np.ndarray, bw: np.ndarray, n: int) -> None:
+    for name, arr in (("fw", fw), ("bw", bw)):
+        a = np.asarray(arr, dtype=np.int32)
+        if a.ndim != 2 or a.shape[1] != MAX_NEIGH:
+            raise EncoderGraphError(f"{name} must be [N, MAX_NEIGH]")
+        if a.shape[0] != n:
+            raise EncoderGraphError(f"{name} rows {a.shape[0]} != seq_len {n}")
+        valid = a != PAD_INDEX
+        if np.any(a[valid] < 0) or np.any(a[valid] >= n):
+            raise EncoderGraphError(
+                f"{name} neighbor index outside [0, {n}); silent wrap into TF forbidden"
+            )
 
 
 def load_feature_stats(path: str | Path | None = None) -> FeatureStats:
@@ -159,6 +197,8 @@ def load_feature_stats(path: str | Path | None = None) -> FeatureStats:
         raise EncoderGraphError("encoder stats max_tasks must equal MAX_TASKS")
     if int(data.get("max_neigh", -1)) != MAX_NEIGH:
         raise EncoderGraphError("encoder stats max_neigh must equal MAX_NEIGH")
+    if data.get("hash_normalization") != "canonical_lf":
+        raise EncoderGraphError("encoder stats hash_normalization must be canonical_lf")
     manifest_hash, split_hash = spec_source_hashes(stats_path.parent)
     if data.get("dataset_manifest_sha256") != manifest_hash:
         raise EncoderGraphError("encoder stats dataset_manifest_sha256 stale")
@@ -279,6 +319,7 @@ def neighbor_index_tables(
             fw[pos, : len(fw_ids)] = fw_ids
         if bw_ids:
             bw[pos, : len(bw_ids)] = bw_ids
+    validate_neighbor_indices(fw, bw, n)
     return fw, bw, fw_len, bw_len
 
 
@@ -293,6 +334,9 @@ def pack_observation(
         mask = np.ones((n, 1), dtype=np.float32)
     else:
         mask = np.asarray(node_mask, dtype=np.float32).reshape(n, 1)
+    fw = np.asarray(fw, dtype=np.int32)
+    bw = np.asarray(bw, dtype=np.int32)
+    validate_neighbor_indices(fw, bw, n)
     packed = np.concatenate(
         [
             np.asarray(features, dtype=np.float32),
@@ -358,12 +402,16 @@ def encode_canonical_dag(
     dag: CanonicalDAG,
     decoder_order: Sequence[Any],
     stats: FeatureStats | None = None,
+    enforce_task_count: bool = False,
 ) -> np.ndarray:
+    order = _decoder_ids(decoder_order)
+    if enforce_task_count:
+        require_spec_task_count(len(order))
     if stats is None:
         stats = default_feature_stats()
-    raw = raw_node_features(dag, decoder_order)
+    raw = raw_node_features(dag, order)
     features = stats.standardize(raw)
-    fw, bw, _, _ = neighbor_index_tables(dag, decoder_order)
+    fw, bw, _, _ = neighbor_index_tables(dag, order)
     return pack_observation(features, fw, bw)
 
 
@@ -372,7 +420,12 @@ def encode_task_graph(
     decoder_order: Sequence[Any],
     stats: FeatureStats | None = None,
 ) -> np.ndarray:
-    return encode_canonical_dag(to_canonical_dag(task_graph), decoder_order, stats=stats)
+    return encode_canonical_dag(
+        to_canonical_dag(task_graph),
+        decoder_order,
+        stats=stats,
+        enforce_task_count=True,
+    )
 
 
 def fit_feature_stats(

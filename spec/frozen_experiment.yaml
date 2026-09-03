@@ -14,8 +14,17 @@ model:
     1: MEC
     2: HELPER
   task_count: 20
-  # Architecture (encoder width etc.) is MARGO-specific; NOT copied from MR-LCO 2x256 LSTM.
-  # Exact architecture freeze deferred to Phase 2.
+  encoder:
+    type: graph2seq_canonical_dag
+    neighborhood: predecessor_and_successor
+    gnn_layers: 2
+    aggregator: masked_mean
+    self_neighbor_concat: true
+    direction_combine: sum
+    dropout: 0.0
+    max_neigh: 19
+    packed_dim: 50
+  # Encoder architecture freeze is Phase 2. Not copied from MR-LCO 2x256 LSTM.
 
 energy:
   primary_scope: total_mobile_joules

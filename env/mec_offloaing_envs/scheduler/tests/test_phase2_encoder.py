@@ -30,6 +30,7 @@ from env.mec_offloaing_envs.scheduler.encoder_obs import (  # noqa: E402
     neighbor_index_tables,
     packed_edge_set,
     raw_node_features,
+    sha256_canonical_text,
     spec_source_hashes,
     unpack_observation,
 )
@@ -268,6 +269,64 @@ class TestMetaTrainStats(unittest.TestCase):
         self.assertLessEqual(stats.max_indegree_unique, MAX_NEIGH)
         self.assertLessEqual(stats.max_outdegree_unique, MAX_NEIGH)
         self.assertEqual(data["packed_dim"], PACKED_DIM)
+        self.assertEqual(data["hash_normalization"], "canonical_lf")
+        self.assertEqual(
+            data["split_policy_sha256"],
+            "1ae009a3ad30b0780e58c1b3e85d47406b538b80de8a5ff4ae013fd4e71957ba",
+        )
+
+    def test_hash_is_lf_canonical(self):
+        import hashlib
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            lf = Path(tmp) / "lf.json"
+            crlf = Path(tmp) / "crlf.json"
+            lf.write_bytes(b'{"k": 1}\n')
+            crlf.write_bytes(b'{"k": 1}\r\n')
+            self.assertEqual(sha256_canonical_text(lf), sha256_canonical_text(crlf))
+            self.assertNotEqual(
+                hashlib.sha256(lf.read_bytes()).hexdigest(),
+                hashlib.sha256(crlf.read_bytes()).hexdigest(),
+            )
+
+    def test_nan_mean_rejected(self):
+        mean = np.zeros(FEATURE_DIM)
+        mean[0] = np.nan
+        with self.assertRaises(EncoderGraphError):
+            FeatureStats(
+                feature_names=FEATURE_NAMES,
+                mean=mean,
+                std=np.ones(FEATURE_DIM),
+                n_graphs=1,
+                n_nodes=2,
+                dataset_manifest_sha256="a" * 64,
+                split_policy_sha256="b" * 64,
+            )
+
+    def test_neighbor_index_out_of_range_rejected(self):
+        dag = _chain([0, 1, 2])
+        features = np.zeros((3, FEATURE_DIM), dtype=np.float32)
+        fw = np.full((3, MAX_NEIGH), PAD_INDEX, dtype=np.int32)
+        bw = np.full((3, MAX_NEIGH), PAD_INDEX, dtype=np.int32)
+        fw[0, 0] = 99
+        from env.mec_offloaing_envs.scheduler.encoder_obs import pack_observation
+
+        with self.assertRaises(EncoderGraphError):
+            pack_observation(features, fw, bw)
+
+    def test_spec_task_count_enforced_on_production_path(self):
+        ids = list(range(MAX_TASKS + 1))
+        tasks = _tasks(*ids, external=1)
+        dag = CanonicalDAG.from_records(tasks, [(0, 1, 1)])
+        with self.assertRaises(EncoderGraphError):
+            encode_canonical_dag(
+                dag, ids, stats=FeatureStats.identity(), enforce_task_count=True
+            )
+        packed = encode_canonical_dag(
+            dag, ids, stats=FeatureStats.identity(), enforce_task_count=False
+        )
+        self.assertEqual(packed.shape[0], MAX_TASKS + 1)
 
 
 class TestTaskGraphEncodePath(unittest.TestCase):
