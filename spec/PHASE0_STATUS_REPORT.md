@@ -1,6 +1,6 @@
 # Phase 0 Status Report
 
-Status: `CLOSED` (pending tag `phase0-freeze-v0.1`)
+Status: `CLOSED` (tag `phase0-freeze-v0.1`)
 Specification ID: `MARGO-SPEC-v0.1`
 Date: `2026-09-03`
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .model import Location
+from .validate import require_nonneg_float, require_positive_rate
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,23 @@ class ResourceConfig:
     prx_v2v_w: float
     rho_helper: float
     f_v2v: float
+
+    def __post_init__(self) -> None:
+        require_positive_rate("ue_cpu_bytes_per_second", self.ue_cpu_bytes_per_second)
+        require_positive_rate("mec_cpu_bytes_per_second", self.mec_cpu_bytes_per_second)
+        require_positive_rate("helper_cpu_bytes_per_second", self.helper_cpu_bytes_per_second)
+        require_positive_rate("mec_uplink_bytes_per_second", self.mec_uplink_bytes_per_second)
+        require_positive_rate("mec_downlink_bytes_per_second", self.mec_downlink_bytes_per_second)
+        require_positive_rate("v2v_bytes_per_second", self.v2v_bytes_per_second)
+        require_nonneg_float("rho_ue", self.rho_ue)
+        require_nonneg_float("f_l", self.f_l)
+        require_nonneg_float("zeta", self.zeta)
+        require_nonneg_float("ptx_mec_w", self.ptx_mec_w)
+        require_nonneg_float("prx_mec_w", self.prx_mec_w)
+        require_nonneg_float("ptx_v2v_w", self.ptx_v2v_w)
+        require_nonneg_float("prx_v2v_w", self.prx_v2v_w)
+        require_nonneg_float("rho_helper", self.rho_helper)
+        require_nonneg_float("f_v2v", self.f_v2v)
 
     def cpu_rate(self, loc: Location) -> float:
         return {

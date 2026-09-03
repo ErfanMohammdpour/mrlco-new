@@ -109,30 +109,34 @@ def schedule(
         edge_src: int | None,
         edge_dst: int | None,
     ) -> float:
+        if not hops or nbytes == 0:
+            return earliest
         t = earliest
         cur = src_loc
         for hop_i, hop in enumerate(hops):
             dur = nbytes / resources.hop_rate(hop)
             res_name = HOP_TO_RESOURCE[hop]
             s, e = cals[res_name].reserve(dur, t)
-            intervals.append(
-                ResourceInterval(resource=res_name, start=s, end=e, hop=hop)
-            )
             dst = hop_destination(cur, hop)
-            add_energy_hop(hop, dur, cur)
-            transfers.append(
-                TransferRecord(
-                    hop=hop,
-                    hop_index=hop_i,
-                    bytes=nbytes,
-                    start=s,
-                    end=e,
-                    src_location=cur,
-                    dst_location=dst,
-                    src_task_id=edge_src,
-                    dst_task_id=edge_dst,
+            # Zero-duration hops do not occupy capacity; do not emit intervals/transfers.
+            if dur > 0.0:
+                intervals.append(
+                    ResourceInterval(resource=res_name, start=s, end=e, hop=hop)
                 )
-            )
+                add_energy_hop(hop, dur, cur)
+                transfers.append(
+                    TransferRecord(
+                        hop=hop,
+                        hop_index=hop_i,
+                        bytes=nbytes,
+                        start=s,
+                        end=e,
+                        src_location=cur,
+                        dst_location=dst,
+                        src_task_id=edge_src,
+                        dst_task_id=edge_dst,
+                    )
+                )
             t = e
             cur = dst
         return t
@@ -168,9 +172,10 @@ def schedule(
         dur = task.compute_workload_bytes / resources.cpu_rate(loc)
         res_name = _cpu_resource(loc)
         s, e = cals[res_name].reserve(dur, ready)
-        intervals.append(
-            ResourceInterval(resource=res_name, start=s, end=e, task_id=tid)
-        )
+        if dur > 0.0:
+            intervals.append(
+                ResourceInterval(resource=res_name, start=s, end=e, task_id=tid)
+            )
         start[tid] = s
         finish[tid] = e
         loc_out[tid] = loc

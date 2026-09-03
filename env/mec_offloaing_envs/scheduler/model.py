@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable
 
+from .validate import require_nonneg_int
+
 
 class Location(str, Enum):
     UE = "UE"
@@ -35,12 +37,25 @@ class CanonicalTask:
     task_output_bytes: int
     external_input_bytes: int = 0
 
+    def __post_init__(self) -> None:
+        require_nonneg_int("task_id", self.task_id)
+        require_nonneg_int("compute_workload_bytes", self.compute_workload_bytes)
+        require_nonneg_int("task_output_bytes", self.task_output_bytes)
+        require_nonneg_int("external_input_bytes", self.external_input_bytes)
+
 
 @dataclass(frozen=True)
 class CanonicalEdge:
     src_task_id: int
     dst_task_id: int
     edge_output_bytes: int
+
+    def __post_init__(self) -> None:
+        require_nonneg_int("src_task_id", self.src_task_id)
+        require_nonneg_int("dst_task_id", self.dst_task_id)
+        require_nonneg_int("edge_output_bytes", self.edge_output_bytes)
+        if self.src_task_id == self.dst_task_id:
+            raise ValueError(f"self-edge forbidden: {self.src_task_id}->{self.dst_task_id}")
 
 
 @dataclass
@@ -64,7 +79,14 @@ class CanonicalDAG:
         if not task_map:
             raise ValueError("empty task set")
 
-        records = [(int(s), int(d), int(n)) for s, d, n in raw_edges]
+        records = []
+        for s, d, n in raw_edges:
+            src = require_nonneg_int("src_task_id", s)
+            dst = require_nonneg_int("dst_task_id", d)
+            nbytes = require_nonneg_int("edge_output_bytes", n)
+            if src == dst:
+                raise ValueError(f"self-edge forbidden: {src}->{dst}")
+            records.append((src, dst, nbytes))
         by_pair: dict[tuple[int, int], set[int]] = {}
         for src, dst, nbytes in records:
             if src not in task_map or dst not in task_map:

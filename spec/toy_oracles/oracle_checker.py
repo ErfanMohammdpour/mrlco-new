@@ -15,10 +15,15 @@ LOC = {0: UE, 1: MEC, 2: HELPER, "UE": UE, "MEC": MEC, "HELPER": HELPER}
 REQUIRED_EXPECTED = {
     "makespan_seconds",
     "total_mobile_joules",
+    "total_ue_joules",
+    "total_helper_joules",
+    "terminal_return_time",
     "task_intervals",
     "transfers",
     "resource_intervals",
     "energy_components",
+    "topo_order",
+    "output_residency",
 }
 
 # Ready-queue / topo-ready tie-break (normative for v0.1 toy oracles):
@@ -295,6 +300,22 @@ def compare_expected(got: dict, exp: dict) -> list[str]:
         msgs.append(f"makespan got={got['makespan_seconds']} expected={exp['makespan_seconds']}")
     if not almost(got["total_mobile_joules"], exp["total_mobile_joules"]):
         msgs.append(f"energy got={got['total_mobile_joules']} expected={exp['total_mobile_joules']}")
+    if not almost(got["total_ue_joules"], exp["total_ue_joules"]):
+        msgs.append(f"total_ue_joules got={got['total_ue_joules']} expected={exp['total_ue_joules']}")
+    if not almost(got["total_helper_joules"], exp["total_helper_joules"]):
+        msgs.append(f"total_helper_joules got={got['total_helper_joules']} expected={exp['total_helper_joules']}")
+    if not almost(got["terminal_return_time"], exp["terminal_return_time"]):
+        msgs.append(
+            f"terminal_return_time got={got['terminal_return_time']} expected={exp['terminal_return_time']}"
+        )
+
+    if list(got.get("topo_order", [])) != list(exp["topo_order"]):
+        msgs.append(f"topo_order got={got.get('topo_order')} expected={exp['topo_order']}")
+
+    for tid, loc in exp["output_residency"].items():
+        g = (got.get("output_residency") or {}).get(str(tid))
+        if g != loc:
+            msgs.append(f"output_residency[{tid}] got={g} expected={loc}")
 
     for tid, iv in exp["task_intervals"].items():
         g = got["task_intervals"].get(str(tid))
@@ -310,7 +331,7 @@ def compare_expected(got: dict, exp: dict) -> list[str]:
         msgs.append(f"transfer count got={len(got['transfers'])} expected={len(exp['transfers'])}")
     else:
         for i, (g, e) in enumerate(zip(got["transfers"], exp["transfers"])):
-            for k in ("hop", "bytes", "src_location", "dst_location"):
+            for k in ("hop", "bytes", "src_location", "dst_location", "hop_index", "src_task_id", "dst_task_id"):
                 if k in e and g.get(k) != e.get(k):
                     msgs.append(f"transfers[{i}].{k} got={g.get(k)} expected={e.get(k)}")
             for k in ("start", "end"):
@@ -328,6 +349,9 @@ def compare_expected(got: dict, exp: dict) -> list[str]:
             for k in ("start", "end"):
                 if not almost(g[k], e[k]):
                     msgs.append(f"resource_intervals[{i}].{k} got={g[k]} expected={e[k]}")
+            for k in ("task_id", "hop"):
+                if k in e and g.get(k) != e.get(k):
+                    msgs.append(f"resource_intervals[{i}].{k} got={g.get(k)} expected={e.get(k)}")
 
     for k, v in exp["energy_components"].items():
         if k not in got["energy_components"] or not almost(got["energy_components"][k], v):

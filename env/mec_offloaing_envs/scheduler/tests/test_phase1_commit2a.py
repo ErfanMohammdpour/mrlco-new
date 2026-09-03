@@ -12,13 +12,24 @@ ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Stub heavy optional deps so adapter tests run without gym/graphviz installed.
+def _stub_optional(name: str) -> None:
+    if name in sys.modules:
+        return
+    try:
+        __import__(name)
+    except Exception:
+        sys.modules[name] = types.ModuleType(name)
+
+
 for name in ("gym", "gym.core", "graphviz", "pydotplus", "pydotplus.graphviz"):
-    if name not in sys.modules:
-        mod = types.ModuleType(name)
-        sys.modules[name] = mod
-sys.modules["gym.core"].Env = type("Env", (), {})
-sys.modules["graphviz"].Digraph = type("Digraph", (), {})
+    _stub_optional(name)
+if not hasattr(sys.modules.get("gym.core", types.ModuleType("gym.core")), "Env"):
+    sys.modules.setdefault("gym", types.ModuleType("gym"))
+    sys.modules.setdefault("gym.core", types.ModuleType("gym.core"))
+    sys.modules["gym.core"].Env = type("Env", (), {})
+if not hasattr(sys.modules.get("graphviz", types.ModuleType("graphviz")), "Digraph"):
+    sys.modules.setdefault("graphviz", types.ModuleType("graphviz"))
+    sys.modules["graphviz"].Digraph = type("Digraph", (), {})
 
 
 class _FakeTask:

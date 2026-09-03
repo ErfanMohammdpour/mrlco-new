@@ -21,6 +21,7 @@ from .model import (
 )
 from .resources import ResourceConfig
 from .routes import ROUTE_TABLE, route
+from .greedy import greedy_plan
 
 __all__ = [
     "AdapterValidationError",
@@ -37,6 +38,7 @@ __all__ = [
     "ScheduleResult",
     "TaskExecutionRecord",
     "TransferRecord",
+    "greedy_plan",
     "make_calendars",
     "resource_config_from_cluster",
     "route",

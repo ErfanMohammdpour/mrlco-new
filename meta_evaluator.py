@@ -235,122 +235,36 @@ class Trainer():
             for idx, action in enumerate(action_seq):
                 if idx < len(task_graph.prioritize_sequence):
                     task_id = task_graph.prioritize_sequence[idx]
-                    plan.append((task_id, int(action)))
-            
-            # Calculate energy using environment's scheduling cost method
-            # We'll simulate the scheduling to get execution times
-            energy_sum = 0.0
-            
-            for task_id, action in plan:
-                if task_id < len(task_graph.task_list):
-                    task = task_graph.task_list[task_id]
-                    
-                    if action == 0:  # Local execution
-                        # Calculate local execution time
-                        T_l = env.resource_cluster.locally_execution_cost(task.processing_data_size)
-                        # Energy: T_l * rho * (f_l ^ zeta)
-                        energy = T_l * energy_config['rho'] * (energy_config['f_l'] ** energy_config['zeta'])
-                    elif action == 1:  # MEC offloading
-                        # Calculate transmission times
-                        T_ul = env.resource_cluster.up_transmission_cost(task.processing_data_size)
-                        T_dl = env.resource_cluster.dl_transmission_cost(task.transmission_data_size)
-                        # Energy: T_ul * ptx + T_dl * prx
-                        energy = T_ul * energy_config['ptx'] + T_dl * energy_config['prx']
-                    elif action == 2:  # V2V offloading
-                        # Calculate V2V transmission times
-                        T_v2v_ul = env.resource_cluster.v2v_transmission_cost(task.processing_data_size)
-                        T_v2v_dl = env.resource_cluster.v2v_transmission_cost(task.transmission_data_size)
-                        # V2V execution time on helper vehicle
-                        T_v2v_exec = env.resource_cluster.v2v_execution_cost(task.processing_data_size)
-                        
-                        # V2V transmission energy (uses V2V-specific parameters)
-                        ptx_v2v = energy_config.get('ptx_v2v', energy_config['ptx'] * 0.6)
-                        prx_v2v = energy_config.get('prx_v2v', energy_config['prx'] * 0.6)
-                        transmission_energy = T_v2v_ul * ptx_v2v + T_v2v_dl * prx_v2v
-                        
-                        # V2V computation energy (less than local)
-                        rho_v2v = energy_config.get('rho_v2v', energy_config['rho'] * 0.7)
-                        f_v2v = energy_config.get('f_v2v', energy_config['f_l'])
-                        computation_energy = T_v2v_exec * rho_v2v * (f_v2v ** energy_config['zeta'])
-                        
-                        # Total V2V energy
-                        energy = transmission_energy + computation_energy
-                    else:
-                        energy = 0.0
-                    
-                    energy_sum += energy
-            
-            total_energy += energy_sum
+                    plan.append((int(task_id), int(action)))
+            from env.mec_offloaing_envs.scheduler import schedule_via_adapter
+
+            result, _, _ = schedule_via_adapter(task_graph, plan, env.scheduler_resources)
+            total_energy += result.total_mobile_joules
         
         return total_energy / len(finish_times) if len(finish_times) > 0 else 0.0
     
     def _calculate_greedy_energy(self, greedy_action, energy_config):
-        """
-        Calculate energy consumption for greedy solution.
-        Uses the same energy model as mrlco-new project:
-        - Local execution: T_l * rho * (f_l ^ zeta)
-        - Offloading (MEC/V2V): T_ul * ptx + T_dl * prx
-        """
+        """Energy for greedy plans via the canonical scheduler (not the legacy per-task formula)."""
         if not greedy_action or len(greedy_action) == 0:
             return 0.0
-        
+
+        from env.mec_offloaing_envs.scheduler import schedule_via_adapter
+
         total_energy = 0.0
         env = self.env
-        
-        # Process each task graph batch
+        total_plans = 0
         for batch_idx, task_batch in enumerate(greedy_action):
-            if batch_idx < len(env.task_graphs_batchs):
-                task_graphs = env.task_graphs_batchs[batch_idx]
-                
-                for plan_idx, plan in enumerate(task_batch):
-                    if plan_idx < len(task_graphs):
-                        task_graph = task_graphs[plan_idx]
-                        energy_sum = 0.0
-                        
-                        # plan is a list of (task_id, action) tuples
-                        for task_id, action in plan:
-                            if task_id < len(task_graph.task_list):
-                                task = task_graph.task_list[task_id]
-                                
-                                if action == 0:  # Local execution
-                                    # Calculate local execution time
-                                    T_l = env.resource_cluster.locally_execution_cost(task.processing_data_size)
-                                    # Energy: T_l * rho * (f_l ^ zeta)
-                                    energy = T_l * energy_config['rho'] * (energy_config['f_l'] ** energy_config['zeta'])
-                                elif action == 1:  # MEC offloading
-                                    # Calculate transmission times
-                                    T_ul = env.resource_cluster.up_transmission_cost(task.processing_data_size)
-                                    T_dl = env.resource_cluster.dl_transmission_cost(task.transmission_data_size)
-                                    # Energy: T_ul * ptx + T_dl * prx
-                                    energy = T_ul * energy_config['ptx'] + T_dl * energy_config['prx']
-                                elif action == 2:  # V2V offloading
-                                    # Calculate V2V transmission times
-                                    T_v2v_ul = env.resource_cluster.v2v_transmission_cost(task.processing_data_size)
-                                    T_v2v_dl = env.resource_cluster.v2v_transmission_cost(task.transmission_data_size)
-                                    # V2V execution time on helper vehicle
-                                    T_v2v_exec = env.resource_cluster.v2v_execution_cost(task.processing_data_size)
-                                    
-                                    # V2V transmission energy (uses V2V-specific parameters)
-                                    ptx_v2v = energy_config.get('ptx_v2v', energy_config['ptx'] * 0.6)
-                                    prx_v2v = energy_config.get('prx_v2v', energy_config['prx'] * 0.6)
-                                    transmission_energy = T_v2v_ul * ptx_v2v + T_v2v_dl * prx_v2v
-                                    
-                                    # V2V computation energy (less than local)
-                                    rho_v2v = energy_config.get('rho_v2v', energy_config['rho'] * 0.7)
-                                    f_v2v = energy_config.get('f_v2v', energy_config['f_l'])
-                                    computation_energy = T_v2v_exec * rho_v2v * (f_v2v ** energy_config['zeta'])
-                                    
-                                    # Total V2V energy
-                                    energy = transmission_energy + computation_energy
-                                else:
-                                    energy = 0.0
-                                
-                                energy_sum += energy
-                        
-                        total_energy += energy_sum
-        
-        # Average across all task graphs
-        total_plans = sum(len(batch) for batch in greedy_action)
+            if batch_idx >= len(env.task_graphs_batchs):
+                continue
+            task_graphs = env.task_graphs_batchs[batch_idx]
+            for plan_idx, plan in enumerate(task_batch):
+                if plan_idx >= len(task_graphs):
+                    continue
+                result, _, _ = schedule_via_adapter(
+                    task_graphs[plan_idx], plan, env.scheduler_resources
+                )
+                total_energy += result.total_mobile_joules
+                total_plans += 1
         return total_energy / total_plans if total_plans > 0 else 0.0
     
     def _save_iteration_excel(self, iteration, samples_data, output_dir):
@@ -550,181 +464,38 @@ class Trainer():
             raise
     
     def _get_detailed_scheduling_info(self, plan, task_graph):
-        """
-        Get detailed scheduling information for each node in the plan.
-        Returns a list of dictionaries with node-level details.
-        """
+        """Node-level details from the canonical engine (no legacy calendar)."""
+        from env.mec_offloaing_envs.scheduler import schedule_via_adapter
+
         env = self.env
+        result, deltas, energy_list = schedule_via_adapter(
+            task_graph, plan, env.scheduler_resources
+        )
         detailed_info = []
-        
-        # Reset resources
-        env.resource_cluster.reset()
-        
-        cloud_avaliable_time = 0.0
-        ws_avaliable_time = 0.0
-        local_avaliable_time = 0.0
-        v2v_available_time = 0.0
-        v2v_channel_available_time = 0.0
-        
-        # Finish time arrays
-        FT_cloud = [0] * task_graph.task_number
-        FT_ws = [0] * task_graph.task_number
-        FT_locally = [0] * task_graph.task_number
-        FT_wr = [0] * task_graph.task_number
-        FT_v2v_ul = [0] * task_graph.task_number
-        FT_v2v_exec = [0] * task_graph.task_number
-        FT_v2v_dl = [0] * task_graph.task_number
-        
-        current_FT = 0.0
-        
         for action_idx, (node_id, action) in enumerate(plan):
-            if node_id >= len(task_graph.task_list):
+            rec = result.tasks.get(int(node_id))
+            if rec is None:
                 continue
-                
-            task = task_graph.task_list[node_id]
+            hops = [t for t in result.transfers if t.dst_task_id == int(node_id) or t.src_task_id == int(node_id)]
+            ul = sum(t.end - t.start for t in hops if t.hop == "MEC_UL")
+            dl = sum(t.end - t.start for t in hops if t.hop == "MEC_DL")
+            v2v = sum(t.end - t.start for t in hops if t.hop == "V2V")
             node_info = {
-                'node_id': node_id,
-                'action': action,
-                'action_idx': action_idx,
-                'latency': 0.0,
-                'energy': 0.0,
-                'finish_time': 0.0,
-                'start_time': 0.0,
-                'execution_time': 0.0,
-                'uplink_time': 0.0,
-                'downlink_time': 0.0,
-                'v2v_uplink_time': 0.0,
-                'v2v_downlink_time': 0.0
+                "node_id": int(node_id),
+                "action": action,
+                "action_idx": action_idx,
+                "latency": rec.finish - rec.start,
+                "energy": float(energy_list[action_idx]) if action_idx < len(energy_list) else 0.0,
+                "finish_time": rec.finish,
+                "start_time": rec.start,
+                "execution_time": rec.finish - rec.start,
+                "uplink_time": ul,
+                "downlink_time": dl,
+                "v2v_uplink_time": v2v,
+                "v2v_downlink_time": 0.0,
+                "incremental_makespan": deltas[action_idx] if action_idx < len(deltas) else 0.0,
             }
-            
-            if action == 0:  # Local execution
-                if len(task_graph.pre_task_sets[node_id]) != 0:
-                    start_time = max(local_avaliable_time,
-                                     max([max(FT_locally[j], FT_wr[j], FT_v2v_dl[j]) 
-                                          for j in task_graph.pre_task_sets[node_id]]))
-                else:
-                    start_time = local_avaliable_time
-                
-                T_l = env.resource_cluster.locally_execution_cost(task.processing_data_size)
-                FT_locally[node_id] = start_time + T_l
-                local_avaliable_time = FT_locally[node_id]
-                task_finish_time = FT_locally[node_id]
-                
-                node_info['start_time'] = start_time
-                node_info['execution_time'] = T_l
-                node_info['finish_time'] = task_finish_time
-                
-                if env.resource_cluster.use_energy:
-                    node_info['energy'] = env.resource_cluster.compute_local_energy(T_l)
-                
-            elif action == 1:  # MEC offloading
-                if len(task_graph.pre_task_sets[node_id]) != 0:
-                    ws_start_time = max(ws_avaliable_time,
-                                        max([max(FT_locally[j], FT_ws[j]) 
-                                             for j in task_graph.pre_task_sets[node_id]]))
-                else:
-                    ws_start_time = ws_avaliable_time
-                
-                T_ul = env.resource_cluster.up_transmission_cost(task.processing_data_size)
-                ws_finish_time = ws_start_time + T_ul
-                FT_ws[node_id] = ws_finish_time
-                ws_avaliable_time = ws_finish_time
-                
-                cloud_start_time = max(cloud_avaliable_time,
-                                       max([max(FT_ws[node_id], FT_cloud[j]) 
-                                            for j in task_graph.pre_task_sets[node_id]]) 
-                                       if len(task_graph.pre_task_sets[node_id]) != 0 else FT_ws[node_id])
-                exec_time = env.resource_cluster.mec_execution_cost(task.processing_data_size)
-                cloud_finish_time = cloud_start_time + exec_time
-                FT_cloud[node_id] = cloud_finish_time
-                cloud_avaliable_time = cloud_finish_time
-                
-                wr_start_time = FT_cloud[node_id]
-                T_dl = env.resource_cluster.dl_transmission_cost(task.transmission_data_size)
-                wr_finish_time = wr_start_time + T_dl
-                FT_wr[node_id] = wr_finish_time
-                task_finish_time = wr_finish_time
-                
-                node_info['start_time'] = ws_start_time
-                node_info['uplink_time'] = T_ul
-                node_info['execution_time'] = exec_time
-                node_info['downlink_time'] = T_dl
-                node_info['finish_time'] = task_finish_time
-                
-                if env.resource_cluster.use_energy:
-                    node_info['energy'] = env.resource_cluster.compute_transmission_energy(T_ul, T_dl)
-                
-            elif action == 2:  # V2V offloading
-                if len(task_graph.pre_task_sets[node_id]) != 0:
-                    v2v_ul_start_time = max(v2v_channel_available_time,
-                                             max([max(FT_locally[j], FT_wr[j], FT_v2v_dl[j]) 
-                                                  for j in task_graph.pre_task_sets[node_id]]))
-                else:
-                    v2v_ul_start_time = v2v_channel_available_time
-                
-                T_v2v_ul = env.resource_cluster.v2v_transmission_cost(task.processing_data_size)
-                v2v_ul_finish_time = v2v_ul_start_time + T_v2v_ul
-                FT_v2v_ul[node_id] = v2v_ul_finish_time
-                v2v_channel_available_time = v2v_ul_finish_time
-                
-                v2v_exec_start_time = max(v2v_available_time, FT_v2v_ul[node_id])
-                if len(task_graph.pre_task_sets[node_id]) != 0:
-                    v2v_exec_start_time = max(v2v_exec_start_time,
-                                              max([max(FT_locally[j], FT_wr[j], FT_v2v_exec[j]) 
-                                                   for j in task_graph.pre_task_sets[node_id]]))
-                
-                exec_time = env.resource_cluster.v2v_execution_cost(task.processing_data_size)
-                v2v_exec_finish_time = v2v_exec_start_time + exec_time
-                FT_v2v_exec[node_id] = v2v_exec_finish_time
-                v2v_available_time = v2v_exec_finish_time
-                
-                v2v_dl_start_time = max(v2v_exec_finish_time, v2v_channel_available_time)
-                T_v2v_dl = env.resource_cluster.v2v_transmission_cost(task.transmission_data_size)
-                v2v_dl_finish_time = v2v_dl_start_time + T_v2v_dl
-                FT_v2v_dl[node_id] = v2v_dl_finish_time
-                v2v_channel_available_time = v2v_dl_finish_time
-                task_finish_time = v2v_dl_finish_time
-                
-                node_info['start_time'] = v2v_ul_start_time
-                node_info['v2v_uplink_time'] = T_v2v_ul
-                node_info['execution_time'] = exec_time
-                node_info['v2v_downlink_time'] = T_v2v_dl
-                node_info['finish_time'] = task_finish_time
-                
-                if env.resource_cluster.use_energy:
-                    transmission_energy = env.resource_cluster.compute_v2v_transmission_energy(T_v2v_ul, T_v2v_dl)
-                    computation_energy = env.resource_cluster.compute_v2v_energy(exec_time)
-                    node_info['energy'] = transmission_energy + computation_energy
-            
-            # Calculate latency as the actual time taken for this node
-            # Use sum of time components to avoid precision issues with finish_time - start_time
-            if action == 0:  # Local
-                # Latency = execution time only
-                node_latency = node_info.get('execution_time', 0.0)
-            elif action == 1:  # MEC
-                # Latency = uplink + execution + downlink
-                node_latency = (node_info.get('uplink_time', 0.0) + 
-                               node_info.get('execution_time', 0.0) + 
-                               node_info.get('downlink_time', 0.0))
-            elif action == 2:  # V2V
-                # Latency = uplink + execution + downlink (channel waiting is included in start_time calculation)
-                node_latency = (node_info.get('v2v_uplink_time', 0.0) + 
-                               node_info.get('execution_time', 0.0) + 
-                               node_info.get('v2v_downlink_time', 0.0))
-            else:
-                # Fallback: use finish_time - start_time
-                start_time = node_info.get('start_time', 0.0)
-                node_latency = max(0.0, task_finish_time - start_time)
-            
-            node_info['latency'] = node_latency
-            
-            # Also track incremental makespan for reference (but use actual latency for reporting)
-            delta_makespan = max(task_finish_time, current_FT) - current_FT
-            current_FT = max(task_finish_time, current_FT)
-            node_info['incremental_makespan'] = delta_makespan
-            
             detailed_info.append(node_info)
-        
         return detailed_info
 
 if __name__ == "__main__":
