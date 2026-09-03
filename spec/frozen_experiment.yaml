@@ -1,0 +1,147 @@
+spec_version: MARGO-SPEC-v0.1
+status: form_frozen_selection_pending_evidence
+
+units:
+  time: seconds
+  energy: joules
+  data: bytes
+  communication_rate: bytes_per_second
+
+model:
+  planner_type: macro_action_autoregressive
+  action_space:
+    0: UE
+    1: MEC
+    2: HELPER
+  task_count: 20
+
+energy:
+  primary_scope: total_mobile_joules
+  log_optional_mec_compute: true
+  objective_weights:
+    latency_weight: 0.5
+    energy_weight: 0.5
+  normalization:
+    method: pure_location_reference_range
+    out_of_range: clip_and_log
+
+task_data_model:
+  compute_workload_unit: bytes
+  task_output_unit: bytes
+  external_input_unit: bytes
+  root_external_input_location: UE
+  dependency_transfer_basis: edge_output_bytes
+  non_root_external_input_default_bytes: 0
+
+terminal_results:
+  required_location: UE
+  include_return_transfer_in_makespan: true
+  transfer_bytes: task_output_bytes
+
+resources:
+  ue_cpu: { capacity: 1, preemptive: false }
+  mec_ul: { capacity: 1, preemptive: false }
+  mec_cpu: { capacity: 1, preemptive: false }
+  mec_dl: { capacity: 1, preemptive: false }
+  helper_cpu: { capacity: 1, preemptive: false }
+  v2v_channel: { capacity: 1, duplex: half, preemptive: false }
+
+resource_rates:
+  # Legacy config stored Mbps as Mebibits/s. Conversion MUST stay:
+  # bytes_per_second = declared_mbps * 1024 * 1024 / 8
+  declared_bandwidth_unit: mebibits_per_second
+  ue_cpu_bytes_per_second: 1048576        # 1.0 * 1024 * 1024
+  helper_cpu_bytes_per_second: 1048576
+  mec_cpu_bytes_per_second: 10485760      # 10.0 * 1024 * 1024
+  mec_uplink_mbps: 7.0
+  mec_downlink_mbps: 7.0
+  v2v_mbps: 5.0
+  mec_uplink_bytes_per_second: 917504     # 7 * 1024 * 1024 / 8
+  mec_downlink_bytes_per_second: 917504
+  v2v_bytes_per_second: 655360            # 5 * 1024 * 1024 / 8
+
+power:
+  rho_ue: 1.0
+  f_l: 1.0
+  zeta: 2.0
+  ptx_mec_w: 0.1
+  prx_mec_w: 0.05
+  ptx_v2v_w: 0.06
+  prx_v2v_w: 0.03
+  rho_helper: 0.7
+  f_v2v: 1.0
+  # E_local = t * rho_ue * f_l^zeta
+  # E_helper_cpu = t * rho_helper * f_v2v^zeta
+  # E_mec_ul = t * ptx_mec_w (UE payer)
+  # E_mec_dl = t * prx_mec_w (UE payer)
+  # V2V: sender pays ptx_v2v_w * t, receiver pays prx_v2v_w * t
+
+split:
+  policy_version: MARGO-SPLIT-v1
+  policy_file: spec/split_policy.json
+  preferred_distribution_counts:
+    meta_train: 15
+    validation: 5
+    meta_test: 5
+  support_graphs_per_distribution: 20
+  query_graphs_per_distribution: 80
+  distribution_assignment_rule: latin_grid_holdout_v1
+  graph_assignment_rule: stratified_sha256_rank_v1
+  seed: 7ccf0bc4773713d76be07a79f5c82857009fec7d624f84fdce5e75ee93ea2a5d
+
+learning:
+  inner_optimizer:
+    name: adam
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 1.0e-8
+  inner_learning_rate: selected_by_validation_protocol
+  outer_step_size: selected_by_validation_protocol
+  k_steps: selected_by_validation_protocol
+  exact_k_semantics: optimizer_steps
+  ppo_batch_size_trajectories: 20
+  meta_batch_size_distributions: 5
+  support_graphs_per_meta_task: 20
+  trajectories_per_support_graph: 1
+  total_optimizer_steps_per_meta_task: k_steps
+  policy_clip_epsilon: 0.2
+  value_clip_epsilon: 0.2
+  entropy_coefficient: 0.0
+  entropy_claim_allowed: false
+  discount_gamma: 0.99
+  gae_lambda: 0.95
+  advantage_normalization: true
+  gradient_clip_norm: 0.5
+  vf_coef: 0.5
+  inner_optimizer_state: fresh_per_meta_task
+  batch_shuffle: true
+  reptile_outer_update: mean_displacement_single_apply
+  outer_iterations: 3500
+  validation_interval: 50
+  checkpoint_selection_metric: validation_query_composite_objective
+  early_stopping_rule: none_in_v0.1_fixed_budget
+
+hyperparameter_selection:
+  data_role: validation_support_and_query_only
+  meta_test_use_for_selection: false
+  inner_learning_rate_candidates: [1.0e-4, 3.0e-4, 5.0e-4, 1.0e-3]
+  outer_step_size_candidates: [0.05, 0.1, 0.25, 0.5]
+  k_steps_candidates: [1, 5, 10]
+  selection_metric: validation_query_composite_objective
+  tie_break: lower_compute_budget
+
+legacy_reference:
+  inner_learning_rate: 5.0e-4
+  legacy_outer_adam_learning_rate: 5.0e-4
+  declared_inner_grad_steps: 1
+  ppo_batch_size: 10
+  meta_batch_size: 10
+  training_iterations: 3500
+  discount: 0.99
+  gae_lambda: 0.95
+  policy_clip_epsilon: 0.2
+  value_clip_epsilon: 0.2
+  note: >
+    legacy outer_lr is sequential Adam, not Reptile eps.
+    declared_inner_grad_steps=1 is not one optimizer apply.
+    batch_size=10 unit was undefined. Do not copy as v0.1 semantics.

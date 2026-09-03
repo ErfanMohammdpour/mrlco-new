@@ -1,0 +1,20 @@
+oracle_id: '15'
+name: sink-return-in-makespan
+nodes:
+- task_id: 1
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 1048576
+edges: []
+actions:
+- MEC
+expected:
+  makespan_seconds: 1.7428571428571429
+  total_mobile_joules: 0.1392857142857143
+  total_ue_joules: 0.1392857142857143
+  total_helper_joules: 0.0
+  terminal_return_time: 1.7428571428571429
+  task_finish_seconds:
+    '1': 1.2428571428571429
+  task_start_seconds:
+    '1': 1.1428571428571428

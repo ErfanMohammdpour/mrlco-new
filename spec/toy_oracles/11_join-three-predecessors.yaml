@@ -1,0 +1,50 @@
+oracle_id: '11'
+name: join-three-predecessors
+nodes:
+- task_id: 1
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 1048576
+- task_id: 2
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 1048576
+- task_id: 3
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 1048576
+- task_id: 4
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 0
+edges:
+- src_task_id: 1
+  dst_task_id: 4
+  edge_output_bytes: 458752
+- src_task_id: 2
+  dst_task_id: 4
+  edge_output_bytes: 458752
+- src_task_id: 3
+  dst_task_id: 4
+  edge_output_bytes: 458752
+actions:
+- UE
+- UE
+- UE
+- UE
+expected:
+  makespan_seconds: 4.0
+  total_mobile_joules: 4.0
+  total_ue_joules: 4.0
+  total_helper_joules: 0.0
+  terminal_return_time: 4.0
+  task_finish_seconds:
+    '3': 1.0
+    '2': 2.0
+    '1': 3.0
+    '4': 4.0
+  task_start_seconds:
+    '3': 0.0
+    '2': 1.0
+    '1': 2.0
+    '4': 3.0

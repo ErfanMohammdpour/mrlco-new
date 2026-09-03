@@ -1,0 +1,30 @@
+oracle_id: '07'
+name: mec-to-helper
+nodes:
+- task_id: 1
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 1048576
+- task_id: 2
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 0
+edges:
+- src_task_id: 1
+  dst_task_id: 2
+  edge_output_bytes: 458752
+actions:
+- MEC
+- HELPER
+expected:
+  makespan_seconds: 4.142857142857143
+  total_mobile_joules: 0.9652857142857143
+  total_ue_joules: 0.20228571428571426
+  total_helper_joules: 0.763
+  terminal_return_time: 4.142857142857143
+  task_finish_seconds:
+    '1': 1.2428571428571429
+    '2': 3.442857142857143
+  task_start_seconds:
+    '1': 1.1428571428571428
+    '2': 2.442857142857143

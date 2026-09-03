@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MARGO Dataset Manifest Row",
+  "type": "object",
+  "required": [
+    "graph_id",
+    "relative_path",
+    "raw_sha256",
+    "canonical_graph_sha256",
+    "distribution_id",
+    "role",
+    "node_count",
+    "edge_record_count",
+    "unique_edge_count",
+    "duplicate_edge_record_count",
+    "is_dag",
+    "max_indegree_unique",
+    "max_outdegree_unique",
+    "generator_ccr",
+    "generator_fat",
+    "generator_density",
+    "generator_regular",
+    "generator_min_data_bytes",
+    "generator_max_data_bytes",
+    "spec_version",
+    "manifest_version",
+    "split_version"
+  ],
+  "properties": {
+    "graph_id": { "type": "string" },
+    "relative_path": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.).+$" },
+    "raw_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "canonical_graph_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "distribution_id": { "type": "integer", "minimum": 0 },
+    "role": {
+      "type": "string",
+      "enum": [
+        "meta_train",
+        "validation_support",
+        "validation_query",
+        "meta_test_support",
+        "meta_test_query",
+        "excluded"
+      ]
+    },
+    "node_count": { "type": "integer", "minimum": 1 },
+    "edge_record_count": { "type": "integer", "minimum": 0 },
+    "unique_edge_count": { "type": "integer", "minimum": 0 },
+    "duplicate_edge_record_count": { "type": "integer", "minimum": 0 },
+    "is_dag": { "type": "boolean" },
+    "max_indegree_unique": { "type": "integer", "minimum": 0 },
+    "max_outdegree_unique": { "type": "integer", "minimum": 0 },
+    "generator_ccr": { "type": "number" },
+    "generator_fat": { "type": "number" },
+    "generator_density": { "type": "number" },
+    "generator_regular": { "type": "number" },
+    "generator_min_data_bytes": { "type": "integer", "minimum": 0 },
+    "generator_max_data_bytes": { "type": "integer", "minimum": 0 },
+    "spec_version": { "type": "string" },
+    "manifest_version": { "type": "string" },
+    "split_version": { "type": "string" },
+    "exclusion_reason": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "role": { "const": "excluded" } },
+        "required": ["role"]
+      },
+      "then": { "required": ["exclusion_reason"] }
+    },
+    {
+      "if": {
+        "properties": { "role": { "enum": ["meta_train", "validation_support", "validation_query", "meta_test_support", "meta_test_query"] } },
+        "required": ["role"]
+      },
+      "then": {
+        "properties": {
+          "node_count": { "const": 20 }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

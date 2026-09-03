@@ -1,0 +1,40 @@
+oracle_id: '03'
+name: all-helper-chain-terminal-return
+nodes:
+- task_id: 1
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 1048576
+- task_id: 2
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 0
+- task_id: 3
+  compute_workload_bytes: 1048576
+  task_output_bytes: 458752
+  external_input_bytes: 0
+edges:
+- src_task_id: 1
+  dst_task_id: 2
+  edge_output_bytes: 458752
+- src_task_id: 2
+  dst_task_id: 3
+  edge_output_bytes: 458752
+actions:
+- HELPER
+- HELPER
+- HELPER
+expected:
+  makespan_seconds: 5.3
+  total_mobile_joules: 2.3069999999999995
+  total_ue_joules: 0.11699999999999999
+  total_helper_joules: 2.1899999999999995
+  terminal_return_time: 5.3
+  task_finish_seconds:
+    '1': 2.6
+    '2': 3.6
+    '3': 4.6
+  task_start_seconds:
+    '1': 1.6
+    '2': 2.6
+    '3': 3.6

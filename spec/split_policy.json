@@ -1,0 +1,12 @@
+{
+  "split_version": "MARGO-SPLIT-v1",
+  "distribution_rule": "latin_grid_holdout_v1",
+  "graph_rule": "stratified_sha256_rank_v1",
+  "split_seed": "7ccf0bc4773713d76be07a79f5c82857009fec7d624f84fdce5e75ee93ea2a5d",
+  "support_count": 20,
+  "query_count": 80,
+  "validation_distribution_ids": [2, 6, 10, 16, 17],
+  "meta_test_distribution_ids": [7, 12, 14, 20, 23],
+  "meta_train_distribution_ids": [1, 3, 4, 5, 8, 9, 11, 13, 15, 18, 19, 21, 22, 24, 25]
+}
+
