@@ -9,9 +9,11 @@ Related ADR: `ADR-006-hyperparameter-selection.md`
 
 - decoder emits one action token per task
 - environment consumes whole action plan after decoding
-- one environment call returns whole-schedule metrics and shaped rewards
+- one environment call returns whole-schedule metrics
+- token-level shaped rewards are computed **post-hoc** by telescoping provisional schedules with completion policy `all_UE` (see `OBJECTIVE_AND_ENERGY.md` §6)
 
 The implementation MUST NOT claim online observation of updated resource state after each decoder token.
+The implementation MUST NOT invent a different `delta_latency_t` / `delta_energy_t` definition without a new spec version.
 
 ## 2. PPO contract
 
@@ -105,7 +107,16 @@ These remain in a closed grid. They are not pending-undefined; they are pending-
 - `outer_step_size`
 - `k_steps`
 
-Grid and rule: `frozen_experiment.yaml` → `hyperparameter_selection`.
+Grid and full selection protocol: `frozen_experiment.yaml` → `hyperparameter_selection` and `ADR-006`.
+
+Mandatory protocol elements (summary):
+
+- 3 seeds `{0,1,2}`; shared weight init (`init_seed=0`) across candidates
+- metric = mean over seeds of mean over all `validation_query` graphs of `J_report` (**minimize**)
+- within-run checkpoint = best validation check under fixed `outer_iterations=3500`
+- meta-batch: 5 distinct `meta_train` distributions without replacement; reshuffle across outer iterations
+- tie order: metric → compute budget → `inner_learning_rate` → `outer_step_size` → `k_steps`
+- `tie_tolerance_abs = 1e-6`
 
 ## 8. Legacy reference (NOT v0.1 semantics)
 

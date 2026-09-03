@@ -111,10 +111,21 @@ For v0.1, task output of MEC execution stays at `MEC`. Downlink to `UE` occurs o
 
 ## 8. Oracle examples required
 
-Toy examples in `spec/toy_graphs/` MUST include:
+Canonical toy suite path: `spec/toy_oracles/*.yaml` (not `toy_graphs/`).
 
-- `chain_local_mec_helper`
-- `fork_helper_and_mec`
-- `join_mixed_locations`
+Checker: `spec/toy_oracles/oracle_checker.py`.
 
-Expected intervals and finish times MUST be recorded in `toy_expected_results.json`.
+Each oracle YAML MUST include a non-empty `expected` block with at least:
+
+- `makespan_seconds`
+- `total_mobile_joules`
+- `task_intervals`
+- `transfers`
+- `resource_intervals`
+- `energy_components`
+
+Ready-queue / topo-ready tie-break for v0.1:
+
+`ready_time → decoder_order → task_id`
+
+(`decoder_order` = index in the fixed action plan; for current toys, action plan aligns to ascending `task_id`.)

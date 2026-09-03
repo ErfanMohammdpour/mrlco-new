@@ -144,17 +144,18 @@ Where:
 - reference range is computed from three pure-location plans: all-`UE`, all-`MEC`, all-`HELPER`
 - out-of-range behavior = `clip_and_log`
 
-Training reward for position `t` is:
+Training reward for position `t` is post-hoc telescoping with completion policy `all_UE` (see `OBJECTIVE_AND_ENERGY.md` §6):
 
 `r_t = -(0.5 * delta_latency_t / L_scale + 0.5 * delta_energy_t / E_scale)`
 
 Where:
 
-- `delta_latency_t` is incremental makespan increase caused by token `t`
-- `delta_energy_t` is incremental mobile-energy increase caused by token `t`
+- `P_t = decoded prefix a_1..a_t` plus undecided suffix filled as all-`UE`
+- `delta_latency_t = L(P_t) - L(P_{t-1})`
+- `delta_energy_t = E(P_t) - E(P_{t-1})`
 - `L_scale = max(L_ref_max - L_ref_min, epsilon)`
 - `E_scale = max(E_ref_max - E_ref_min, epsilon)`
-- `epsilon` MUST be a positive documented constant
+- `epsilon` MUST be a positive documented constant (`1e-12` in v0.1)
 
 Reward shaping and final reporting objective MUST both be logged and traceable.
 

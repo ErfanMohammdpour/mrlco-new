@@ -89,6 +89,12 @@ split:
   graph_assignment_rule: stratified_sha256_rank_v1
   seed: 7ccf0bc4773713d76be07a79f5c82857009fec7d624f84fdce5e75ee93ea2a5d
 
+reward_attribution:
+  method: post_hoc_telescoping
+  completion_policy: all_UE
+  formula: r_t = -(0.5 * (L_t - L_{t-1}) / L_scale + 0.5 * (E_t - E_{t-1}) / E_scale)
+  reference: OBJECTIVE_AND_ENERGY.md#6
+
 learning:
   inner_optimizer:
     name: adam
@@ -124,11 +130,37 @@ learning:
 hyperparameter_selection:
   data_role: validation_support_and_query_only
   meta_test_use_for_selection: false
+  selection_metric: validation_query_composite_objective
+  metric_direction: minimize
+  tie_tolerance_abs: 1.0e-6
+  seeds: [0, 1, 2]
+  n_seeds: 3
+  weight_initialization:
+    shared_across_candidates: true
+    init_seed: 0
+  rollout_seed_policy: per_run_seed_from_seeds_list
+  aggregation:
+    within_seed: mean_over_validation_query_graphs
+    across_seeds: mean_over_seeds
+  checkpoint_selection:
+    within_run: best_validation_query_composite_objective
+    fixed_budget_outer_iterations: 3500
+    early_stopping: none_in_v0.1_fixed_budget
+  meta_train_distribution_sampling:
+    within_meta_batch: without_replacement
+    across_outer_iterations: with_replacement_reshuffle
   inner_learning_rate_candidates: [1.0e-4, 3.0e-4, 5.0e-4, 1.0e-3]
   outer_step_size_candidates: [0.05, 0.1, 0.25, 0.5]
   k_steps_candidates: [1, 5, 10]
-  selection_metric: validation_query_composite_objective
-  tie_break: lower_compute_budget
+  tie_break_order:
+    - lower_selection_metric
+    - lower_compute_budget
+    - lower_inner_learning_rate
+    - lower_outer_step_size
+    - lower_k_steps
+  compute_budget_formula: k_steps * support_graphs_per_meta_task * trajectories_per_support_graph
+  # legacy alias kept for readability; normative order is tie_break_order
+  tie_break: lower_compute_budget_then_lower_lr_then_lower_outer_step_then_lower_k
 
 legacy_reference:
   inner_learning_rate: 5.0e-4

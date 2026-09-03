@@ -1,9 +1,9 @@
 # ADR-005: Edge Canonicalization for Dataset Semantics
 
-Status: Proposed  
+Status: Accepted
 Decision date: 2026-09-03
 
-## Proposed decision
+## Decision
 
 Duplicate edge records in the raw `.gv` graph files MUST be canonicalized before any topology-derived statistics are computed (degrees, indegree/outdegree maxima, canonical graph hash, `is_dag`, and any encoder input remapping).
 
@@ -23,16 +23,17 @@ Canonicalization rules:
    - edges ordered by `(src_task_id, dst_task_id, edge_output_bytes)`
    - stable JSON serialization (sorted keys; stable separators)
 
+## Adoption scope
+
+Accepted **now** for dataset/manifest/validator semantics.
+
+Simulator scheduling and encoder adjacency consumption of the canonical edge set are **acceptance criteria for Phase 1 (simulator) and Phase 2 (encoder)**. They do not delay accepting this ADR.
+
 ## Why
 
-Raw `.gv` files contain exact duplicate edge records in a subset of graphs. If degrees and derived topology stats are computed on raw edge records, then `distribution_manifest.draft.json` and downstream split/reward/encoder semantics can silently drift from the intended graph structure.
+Raw `.gv` files contain exact duplicate edge records in a subset of graphs. If degrees and derived topology stats are computed on raw edge records, then distribution manifests and downstream split/reward/encoder semantics can silently drift from the intended graph structure.
 
-## Phase 0 gate impact
+## Phase 0 evidence
 
-Phase 0 MUST NOT treat `distribution_manifest.draft.json` / final manifest semantics as final until:
-
-- canonicalization policy is implemented in the manifest generator/validator
-- scheduling/encoder inputs consume the canonical edge set (not raw records)
-
-This ADR remains `Proposed` until validator + canonical consumption are fully integrated into the end-to-end Phase 0 pipeline.
-
+- Manifest validator recomputes `canonical_graph_sha256` and unique-degree/`is_dag` fields from the canonical edge set.
+- Toy oracle `12_duplicate-edge-canonicalization.yaml` collapses exact duplicates before scheduling.

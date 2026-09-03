@@ -22,9 +22,61 @@ expected:
   total_ue_joules: 1.075
   total_helper_joules: 0.0
   terminal_return_time: 2.1
-  task_finish_seconds:
-    '1': 1.0
-    '2': 1.6
-  task_start_seconds:
-    '1': 0.0
-    '2': 1.5
+  task_intervals:
+    '1':
+      start: 0.0
+      finish: 1.0
+      location: UE
+    '2':
+      start: 1.5
+      finish: 1.6
+      location: MEC
+  transfers:
+  - hop: MEC_UL
+    hop_index: 0
+    bytes: 458752
+    start: 1.0
+    end: 1.5
+    src_location: UE
+    dst_location: MEC
+    src_task_id: 1
+    dst_task_id: 2
+  - hop: MEC_DL
+    hop_index: 0
+    bytes: 458752
+    start: 1.6
+    end: 2.1
+    src_location: MEC
+    dst_location: UE
+    src_task_id: 2
+    dst_task_id: null
+  resource_intervals:
+  - resource: UE_CPU
+    start: 0.0
+    end: 1.0
+    task_id: 1
+  - resource: MEC_UL
+    start: 1.0
+    end: 1.5
+  - resource: MEC_CPU
+    start: 1.5
+    end: 1.6
+    task_id: 2
+  - resource: MEC_DL
+    start: 1.6
+    end: 2.1
+  energy_components:
+    ue_local_cpu_joules: 1.0
+    ue_mec_uplink_joules: 0.05
+    ue_mec_downlink_joules: 0.025
+    ue_v2v_tx_joules: 0.0
+    ue_v2v_rx_joules: 0.0
+    helper_compute_joules: 0.0
+    helper_v2v_tx_joules: 0.0
+    helper_v2v_rx_joules: 0.0
+  topo_order:
+  - 1
+  - 2
+  output_residency:
+    '1': UE
+    '2': MEC

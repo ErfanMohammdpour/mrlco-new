@@ -101,18 +101,31 @@ Out-of-range behavior for v0.1: `clip_and_log`.
 
 ## 6. Training reward contract
 
-Training reward for decoder position `t` in v0.1:
+Environment model is macro-action: decoder emits full plan `a_1..a_N`, then one schedule call returns episode metrics.
 
-`r_t = -(0.5 * delta_latency_t / L_scale + 0.5 * delta_energy_t / E_scale)`
+Token-level training reward for v0.1 MUST use **post-hoc telescoping with completion policy `all_UE`**:
 
-Where:
+1. Let `fill(a_{t+1}..a_N) = UE` for every undecided task.
+2. Define provisional plan `P_t = (a_1..a_t) + fill(a_{t+1}..a_N)` for `t = 0..N`.
+   - `P_0` is the all-`UE` plan.
+3. Schedule each `P_t` once under frozen scheduling semantics → `(L_t, E_t)` where `L` is makespan and `E` is `total_mobile_joules`.
+4. Reference scales from pure-location plans on the same graph:
+   - `L_scale = max(L_ref_max - L_ref_min, 1e-12)`
+   - `E_scale = max(E_ref_max - E_ref_min, 1e-12)`
+5. Incremental terms:
+   - `delta_latency_t = L_t - L_{t-1}`
+   - `delta_energy_t = E_t - E_{t-1}`
+6. Token reward:
+   - `r_t = -(0.5 * delta_latency_t / L_scale + 0.5 * delta_energy_t / E_scale)` for `t = 1..N`
 
-- `delta_latency_t >= 0`
-- `delta_energy_t >= 0`
-- `L_scale = max(L_ref_max - L_ref_min, 1e-12)`
-- `E_scale = max(E_ref_max - E_ref_min, 1e-12)`
+Properties:
 
-Training reward is shaped and token-level. `J_report` is episode-level and scientific. They MUST both be logged.
+- telescoping: `sum_t delta_latency_t = L_N - L_0` and likewise for energy
+- `delta_*` MAY be negative (a token can improve the provisional plan vs all-UE fill)
+- no online env step after each decoder token
+- `J_report` remains episode-level scientific metric on the final plan `P_N`
+
+Forbidden without a new spec version: terminal-only reward claiming to implement this `r_t` formula; prefix schedule without the declared `all_UE` fill.
 
 ## 7. Current repository defects this contract addresses
 

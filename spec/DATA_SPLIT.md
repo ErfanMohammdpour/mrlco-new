@@ -33,7 +33,6 @@ This specification freezes the rule before any rerun.
 The split generator MUST log:
 
 - `split_version`
-- `split_seed`
 - `split_seed` = `7ccf0bc4773713d76be07a79f5c82857009fec7d624f84fdce5e75ee93ea2a5d`
 - distribution selection rule: `latin_grid_holdout_v1`
 - support selection rule: `stratified_sha256_rank_v1`
@@ -55,7 +54,7 @@ Manifest generation MUST follow accepted `ADR-004` / `spec/split_policy.json`.
 
 ## 6. Distribution policy for v0.1
 
-Phase 0 draft choice:
+Frozen choice (`ADR-004` Accepted):
 
 - tracked corpus size = 25 distributions, 2500 graphs total
 - no silent omission is allowed
@@ -99,15 +98,17 @@ Within a held-out distribution:
 
 1. Strata by `generator_ccr ∈ {0.3,0.4,0.5}`.
 2. Let `n_c` be number of graphs in stratum `c`.
-3. Proportional support quota: `q_c = 20 * n_c / 100`.
+3. Proportional support quota: `q_c = support_count * n_c / (support_count + query_count)`.
 4. Integer support allocation:
    - assign `floor(q_c)` first
    - distribute remaining slots by largest remainder
-   - tie-break with deterministic `assignment_hash`
+   - quota remainder tie-break: `ascending_ccr` (smaller CCR first)
 5. Deterministic pick inside each stratum:
    - `assignment_hash = SHA256(split_version + "\0" + split_seed + "\0" + distribution_id + "\0" + relative_path + "\0" + raw_sha256)`
    - sort ascending by `assignment_hash`
    - first `support_count_c` → support, rest → query
+
+Normative parameters live in `spec/split_policy.json`.
 
 ## 8. Manifest row requirements
 
@@ -163,4 +164,4 @@ Validator MUST fail if:
 
 ## 10. Phase 0 deliverable
 
-Phase 0 is not complete until `dataset_manifest.jsonl` and `dataset_manifest.sha256` exist and validator passes on the frozen dataset tree.
+Phase 0 Data/Split gate is closed when `dataset_manifest.jsonl` and sidecar `dataset_manifest.jsonl.sha256` exist and validator passes `--mode final` on the frozen dataset tree.

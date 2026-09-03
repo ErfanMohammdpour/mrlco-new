@@ -312,10 +312,12 @@ def main():
         split_summary_path = Path(args.split_summary).resolve()
     else:
         split_summary_path = (spec_dir / "split_summary.json").resolve()
-        if not split_summary_path.exists():
+        if args.mode != "final" and not split_summary_path.exists():
             split_summary_path = (spec_dir / "split_summary.draft.json").resolve()
     if not split_summary_path.exists():
         raise FileNotFoundError(f"split_summary not found: {split_summary_path}")
+    if args.mode == "final" and split_summary_path.name.endswith(".draft.json"):
+        raise ValueError("final mode forbids draft split_summary")
     split_summary = json.loads(split_summary_path.read_text())
 
     heldout_support_counts = defaultdict(int)

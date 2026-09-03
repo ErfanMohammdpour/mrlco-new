@@ -22,9 +22,61 @@ expected:
   total_ue_joules: 1.063
   total_helper_joules: 0.763
   terminal_return_time: 3.4000000000000004
-  task_finish_seconds:
-    '1': 1.0
-    '2': 2.7
-  task_start_seconds:
-    '1': 0.0
-    '2': 1.7
+  task_intervals:
+    '1':
+      start: 0.0
+      finish: 1.0
+      location: UE
+    '2':
+      start: 1.7
+      finish: 2.7
+      location: HELPER
+  transfers:
+  - hop: V2V
+    hop_index: 0
+    bytes: 458752
+    start: 1.0
+    end: 1.7
+    src_location: UE
+    dst_location: HELPER
+    src_task_id: 1
+    dst_task_id: 2
+  - hop: V2V
+    hop_index: 0
+    bytes: 458752
+    start: 2.7
+    end: 3.4000000000000004
+    src_location: HELPER
+    dst_location: UE
+    src_task_id: 2
+    dst_task_id: null
+  resource_intervals:
+  - resource: UE_CPU
+    start: 0.0
+    end: 1.0
+    task_id: 1
+  - resource: V2V_CHANNEL
+    start: 1.0
+    end: 1.7
+  - resource: HELPER_CPU
+    start: 1.7
+    end: 2.7
+    task_id: 2
+  - resource: V2V_CHANNEL
+    start: 2.7
+    end: 3.4000000000000004
+  energy_components:
+    ue_local_cpu_joules: 1.0
+    ue_mec_uplink_joules: 0.0
+    ue_mec_downlink_joules: 0.0
+    ue_v2v_tx_joules: 0.041999999999999996
+    ue_v2v_rx_joules: 0.020999999999999998
+    helper_compute_joules: 0.7
+    helper_v2v_tx_joules: 0.041999999999999996
+    helper_v2v_rx_joules: 0.020999999999999998
+  topo_order:
+  - 1
+  - 2
+  output_residency:
+    '1': UE
+    '2': HELPER

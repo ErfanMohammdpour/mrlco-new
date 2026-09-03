@@ -55,7 +55,7 @@ def main() -> None:
     base_rows = load_manifest_lines()
     assert len(base_rows) == 2500
 
-    base_rc, base_out = run_validator(MANIFEST)
+    base_rc, base_out = run_validator(MANIFEST, extra_args=["--mode", "final"])
     if base_rc != 0:
         raise RuntimeError("Base manifest failed before mutation tests:\n" + base_out)
 
