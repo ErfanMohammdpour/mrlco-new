@@ -102,13 +102,6 @@ class Seq2SeqNetwork():
                  self.encoder_hidden_unit],
                 -1.0, 1.0), dtype=tf.float32)
 
-            # using a fully connected layer as embeddings
-            self.encoder_embeddings = tf.contrib.layers.fully_connected(self.encoder_inputs,
-                                                                        self.encoder_hidden_unit,
-                                                                        activation_fn = None,
-                                                                        scope="encoder_embeddings",
-                                                                        reuse=tf.compat.v1.AUTO_REUSE)
-
             self.decoder_embeddings = tf.nn.embedding_lookup(self.embeddings,
                                                              self.decoder_inputs)
 
@@ -118,9 +111,9 @@ class Seq2SeqNetwork():
 
             self.output_layer = tf.compat.v1.layers.Dense(self.n_features, use_bias=False, name="output_projection")
 
-            # Use Graph2Seq encoder instead of original encoder
+            # Packed obs already carries DAG adj; embed node features inside Graph2Seq.
             self.encoder_outputs, self.encoder_state = create_graph2seq_encoder(
-                encoder_inputs=self.encoder_embeddings,
+                encoder_inputs=self.encoder_inputs,
                 encoder_units=self.encoder_hidden_unit,
                 num_layers=self.num_layers,
                 is_bidirectional=self.is_bidencoder,

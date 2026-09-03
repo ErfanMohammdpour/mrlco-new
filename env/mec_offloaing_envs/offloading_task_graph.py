@@ -1,5 +1,4 @@
 import numpy as np
-from graphviz import Digraph
 import json
 import pydotplus
 
@@ -176,98 +175,27 @@ class OffloadingTaskGraph(object):
         self.edge_set.append(edge)
 
     def encode_point_sequence(self):
-        point_sequence = []
-        for i in range(self.task_number):
-            norm_processing_data_size = self.norm_feature(self.task_list[i].processing_data_size)
-            norm_transmission_data_size = self.norm_feature(self.task_list[i].transmission_data_size)
-            norm_data_size_list = [norm_processing_data_size, norm_transmission_data_size]
-            # heft_score = [self.task_list[i].heft_score]
-
-            pre_task_index_set = []
-            succs_task_index_set = []
-
-            for pre_task_index in range(0, i):
-                if self.dependency[pre_task_index][i] > 0.1:
-                    pre_task_index_set.append(pre_task_index)
-
-            while (len(pre_task_index_set) < 6):
-                pre_task_index_set.append(-1.0)
-
-            for succs_task_index in range(i + 1, self.task_number):
-                if self.dependency[i][succs_task_index] > 0.1:
-                    succs_task_index_set.append(succs_task_index)
-
-            while (len(succs_task_index_set) < 6):
-                succs_task_index_set.append(-1.0)
-
-            succs_task_index_set = succs_task_index_set[0:6]
-            pre_task_index_set = pre_task_index_set[0:6]
-
-            point_vector = norm_data_size_list + pre_task_index_set + succs_task_index_set
-            point_sequence.append(point_vector)
-
-        return point_sequence
+        raise RuntimeError(
+            "legacy encode_point_sequence truncated neighbors; use encode_point_sequence_with_ranking_and_cost"
+        )
 
     def encode_point_sequence_with_ranking(self, sorted_task):
-        point_sequence = self.encode_point_sequence()
-
-        prioritize_point_sequence = []
-        for task_id in sorted_task:
-            prioritize_point_sequence.append(point_sequence[task_id])
-
-        return prioritize_point_sequence
+        raise RuntimeError(
+            "legacy encode_point_sequence_with_ranking truncated neighbors; "
+            "use encode_point_sequence_with_ranking_and_cost"
+        )
 
     def encode_point_sequence_with_cost(self, resource_cluster):
-        point_sequence = []
-        for i in range(self.task_number):
-            task = self.task_list[i]
-            local_process_cost = task.processing_data_size / resource_cluster.mobile_process_capable
-            up_link_cost = resource_cluster.up_transmission_cost(task.processing_data_size)
-            mec_process_cost = task.processing_data_size / resource_cluster.mec_process_capable
-            down_link_cost = resource_cluster.dl_transmission_cost(task.transmission_data_size)
-            
-            # V2V costs (Phase 1: same model as MEC, no distance factor)
-            v2v_ul_cost = resource_cluster.v2v_transmission_cost(task.processing_data_size)
-            v2v_helper_cost = task.processing_data_size / resource_cluster.v2v_process_capable
-            v2v_dl_cost = resource_cluster.v2v_transmission_cost(task.transmission_data_size)
-
-            task_embeding_vector = [i, local_process_cost, up_link_cost,
-                                    mec_process_cost, down_link_cost,
-                                    v2v_ul_cost, v2v_helper_cost, v2v_dl_cost]
-
-            pre_task_index_set = []
-            succs_task_index_set = []
-
-            for pre_task_index in range(0, i):
-                if self.dependency[pre_task_index][i] > 0.1:
-                    pre_task_index_set.append(pre_task_index)
-
-            while (len(pre_task_index_set) < 6):
-                pre_task_index_set.append(-1.0)
-
-            for succs_task_index in range(i + 1, self.task_number):
-                if self.dependency[i][succs_task_index] > 0.1:
-                    succs_task_index_set.append(succs_task_index)
-
-            while (len(succs_task_index_set) < 6):
-                succs_task_index_set.append(-1.0)
-
-            succs_task_index_set = succs_task_index_set[0:6]
-            pre_task_index_set = pre_task_index_set[0:6]
-
-            point_vector = task_embeding_vector + pre_task_index_set + succs_task_index_set
-            point_sequence.append(point_vector)
-
-        return point_sequence
+        raise RuntimeError(
+            "legacy encode_point_sequence_with_cost used scheduler times and truncated neighbors; "
+            "use encode_point_sequence_with_ranking_and_cost"
+        )
 
     def encode_point_sequence_with_ranking_and_cost(self, sorted_task, resource_cluster):
-        point_sequence = self.encode_point_sequence_with_cost(resource_cluster)
+        from .scheduler.encoder_obs import encode_task_graph
 
-        prioritize_point_sequence = []
-        for task_id in sorted_task:
-            prioritize_point_sequence.append(point_sequence[task_id])
-
-        return prioritize_point_sequence
+        del resource_cluster  # decoder order is HEFT; features come from CanonicalDAG
+        return encode_task_graph(self, decoder_order=sorted_task)
 
     def encode_edge_sequence(self):
         edge_array = []
@@ -332,6 +260,8 @@ class OffloadingTaskGraph(object):
         return sort
 
     def render(self, path):
+        from graphviz import Digraph
+
         dot = Digraph(comment='DAG')
 
         # str(self.task_list[i].running_time)

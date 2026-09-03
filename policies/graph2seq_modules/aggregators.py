@@ -112,9 +112,11 @@ class MeanAggregator(Layer):
             neigh_vecs = tf.nn.dropout(neigh_vecs, 1-self.dropout)
             self_vecs = tf.nn.dropout(self_vecs, 1-self.dropout)
 
-        # reduce_mean performs better than mean_pool
-        neigh_means = tf.reduce_mean(neigh_vecs, axis=1)
-        # neigh_means = mean_pool(neigh_vecs, neigh_len)
+        neigh_mask = tf.sequence_mask(neigh_len, maxlen=tf.shape(neigh_vecs)[1])
+        neigh_mask = tf.expand_dims(tf.cast(neigh_mask, tf.float32), -1)
+        neigh_sum = tf.reduce_sum(neigh_vecs * neigh_mask, axis=1)
+        denom = tf.maximum(tf.cast(tf.expand_dims(neigh_len, -1), tf.float32), 1.0)
+        neigh_means = neigh_sum / denom
 
         # [nodes] x [out_dim]
         from_neighs = tf.matmul(neigh_means, self.vars['neigh_weights'])

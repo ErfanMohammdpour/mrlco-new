@@ -287,7 +287,7 @@ if __name__ == "__main__":
 
     baseline = ValueFunctionBaseline()
 
-    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=20, encoder_units=128, decoder_units=128,
+    meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=env.input_dim, encoder_units=128, decoder_units=128,
                                     vocab_size=3)
 
     sampler = Seq2SeqMetaSampler(

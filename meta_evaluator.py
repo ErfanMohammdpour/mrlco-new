@@ -593,7 +593,7 @@ if __name__ == "__main__":
     finish_time = env.get_all_v2v_execute_time()
     print("avg all V2V solution: ", np.mean(finish_time))
 
-    policy = Seq2SeqPolicy(obs_dim=20,
+    policy = Seq2SeqPolicy(obs_dim=env.input_dim,
                            encoder_units=128,
                            decoder_units=128,
                            vocab_size=3,

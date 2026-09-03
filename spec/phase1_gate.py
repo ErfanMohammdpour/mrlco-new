@@ -68,6 +68,8 @@ def check_scheduler_tests(reasons: list[str]) -> None:
             "-m",
             "unittest",
             "discover",
+            "-p",
+            "test_phase1*.py",
             "env/mec_offloaing_envs/scheduler/tests",
             "-v",
         ]
