@@ -46,6 +46,7 @@ from env.mec_offloaing_envs.scheduler.energy_api import (  # noqa: E402
     ReferenceRanges,
     attribute_energy_components_by_task,
     normalize,
+    require_publication_weights,
 )
 from env.mec_offloaing_envs.scheduler.reward import (  # noqa: E402
     expected_episode_return,
@@ -156,20 +157,43 @@ class TestTelescopingReward(unittest.TestCase):
         self.assertTrue(all(abs(r) < 1e-12 for r in out.rewards))
 
     def test_rewards_may_be_signed(self):
-        # Mixed plan vs all_UE fill can improve or worsen provisional metrics.
-        plan = [(0, 1), (1, 1), (2, 1)]
-        out = telescoping_token_rewards(self.tg, plan, self.cfg)
-        self.assertEqual(len(out.rewards), 3)
-        # At least one nonzero delta expected for all-MEC vs all-UE baseline.
-        self.assertTrue(any(abs(r) > 1e-12 for r in out.rewards))
+        # Positive token reward: provisional improves vs all_UE (lower L/E).
+        pos_plan = [(0, 1), (1, 1), (2, 1)]  # all MEC often beats all UE on makespan
+        pos = telescoping_token_rewards(self.tg, pos_plan, self.cfg)
+        # Negative token reward: force HELPER early vs all_UE fill (often worse).
+        neg_plan = [(0, 2), (1, 2), (2, 2)]
+        neg = telescoping_token_rewards(self.tg, neg_plan, self.cfg)
+        self.assertTrue(
+            any(r > 0 for r in pos.rewards) or any(r > 0 for r in neg.rewards),
+            "expected at least one positive token reward across plans",
+        )
+        self.assertTrue(
+            any(r < 0 for r in pos.rewards) or any(r < 0 for r in neg.rewards),
+            "expected at least one negative token reward across plans",
+        )
+        # Stronger: both signs must appear in the union of the two plans.
+        union = list(pos.rewards) + list(neg.rewards)
+        self.assertTrue(any(r > 1e-12 for r in union))
+        self.assertTrue(any(r < -1e-12 for r in union))
 
-    def test_j_report_separate_from_training_sum(self):
+    def test_j_report_opt_in_and_separate(self):
         plan = [(0, 1), (1, 2), (2, 1)]
-        out = telescoping_token_rewards(self.tg, plan, self.cfg)
-        # J_report is clipped [0,1] scientific metric — not equal to -sum(r) in general.
-        self.assertGreaterEqual(out.j_report_value, 0.0)
-        self.assertLessEqual(out.j_report_value, 1.0)
-        self.assertNotAlmostEqual(out.j_report_value, -sum(out.rewards), places=6)
+        train = telescoping_token_rewards(self.tg, plan, self.cfg, compute_j_report=False)
+        self.assertIsNone(train.j_report_value)
+        eval_out = telescoping_token_rewards(self.tg, plan, self.cfg, compute_j_report=True)
+        self.assertIsNotNone(eval_out.j_report_value)
+        self.assertGreaterEqual(eval_out.j_report_value, 0.0)
+        self.assertLessEqual(eval_out.j_report_value, 1.0)
+        self.assertNotAlmostEqual(eval_out.j_report_value, -sum(eval_out.rewards), places=6)
+
+    def test_weight_override_rejected(self):
+        plan = [(0, 0), (1, 0), (2, 0)]
+        with self.assertRaises(ValueError):
+            telescoping_token_rewards(
+                self.tg, plan, self.cfg, latency_weight=0.7, energy_weight=0.3
+            )
+        with self.assertRaises(ValueError):
+            require_publication_weights(0.2, 0.8)
 
     def test_final_matches_direct_schedule(self):
         plan = [(0, 2), (1, 1), (2, 0)]

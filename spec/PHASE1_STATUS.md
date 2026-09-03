@@ -1,6 +1,6 @@
 # Phase 1 — Production Scheduler
 
-Status: IN PROGRESS
+Status: CLOSED
 
 ## Commits
 
@@ -8,18 +8,20 @@ Status: IN PROGRESS
 - Commit 2A (`b49b60f`): adapter + env wrapper — DONE
 - Commit 2B (`5c3029e`): greedy + callers via `schedule()` — DONE
 - Energy API (`7058b88`): pure-location refs + attribution — DONE
-- Reward: post-hoc telescoping + normalize hardenings — this change
+- Reward (`f2453b7`): post-hoc telescoping — DONE
+- Closure: weight freeze + gate — this change
 
-## Reward (this commit)
+## Frozen contracts
 
-- Method: post-hoc telescoping, completion fill `all_UE`
-- `r_t = -(0.5 * ΔL_t / L_scale + 0.5 * ΔE_t / E_scale)` (unclipped deltas)
-- `sum(r_t) == -(0.5*(L_N-L_0)/L_scale + 0.5*(E_N-E_0)/E_scale)`
-- `J_report` clipped scientific metric stays separate
-- `normalize` fail-fast on NaN/Inf and inverted ranges
-- `attribute_energy_components_by_task()` → `dict[int, EnergyBreakdown]`
+- Objective weights: exactly `0.5 / 0.5` (publication fail-fast)
+- Reward: post-hoc telescoping, fill `all_UE`, unclipped deltas
+- `J_report`: evaluation-only (`compute_j_report=True`); training path skips it
+- P0 metrics reused from pure-location refs (no extra schedule)
 
-## Still open for Phase 1 gate
+## Gate
 
-- Phase 1 closure gate script / tag (not this commit)
-- Clean-clone deps (`pydotplus` / `jsonschema`) — Phase 5
+```bash
+python3 spec/phase1_gate.py
+```
+
+Must print `Phase 1 closure: PASS`. Tag only after that (separate step).

@@ -46,14 +46,16 @@ class Resources(object):
             energy_config = self._default_energy_config()
         self.energy_config = energy_config
         
-        # Store energy weights if enabled
+        # Store energy weights if enabled — v0.1 publication freeze is 0.5/0.5.
         if self.use_energy:
-            self.latency_weight = energy_config.get('latency_weight', 0.5)
-            self.energy_weight = energy_config.get('energy_weight', 0.5)
+            from env.mec_offloaing_envs.scheduler.energy_api import require_publication_weights
+
+            lw = float(energy_config.get("latency_weight", 0.5))
+            ew = float(energy_config.get("energy_weight", 0.5))
+            self.latency_weight, self.energy_weight = require_publication_weights(lw, ew)
         else:
             self.latency_weight = 1.0
             self.energy_weight = 0.0
-
     def up_transmission_cost(self, data):
         rate = self.bandwidth_up * (1024.0 * 1024.0 / 8.0)
 
@@ -426,15 +428,6 @@ class OffloadingEnvironment(MetaEnv):
         cost = np.asarray(cost)
         return -(cost - min_time) / (max_time - min_time)
     
-    def _compute_energy_bounds(self, task_graph, max_time, min_time):
-        """Pure-location E_ref_max / E_ref_min (OBJECTIVE_AND_ENERGY.md §5)."""
-        if not self.resource_cluster.use_energy:
-            return 0.0, 0.0
-        from env.mec_offloaing_envs.scheduler.energy_api import compute_reference_ranges
-
-        refs = compute_reference_ranges(task_graph, self.scheduler_resources)
-        return refs.E_ref_max, refs.E_ref_min
-
     def get_reference_ranges(self, task_graph):
         """Episode-local L/E ranges from all_UE / all_MEC / all_HELPER schedules."""
         from env.mec_offloaing_envs.scheduler.energy_api import compute_reference_ranges
@@ -461,10 +454,7 @@ class OffloadingEnvironment(MetaEnv):
                 plan,
                 self.scheduler_resources,
                 include_energy=include_energy,
-                latency_weight=float(getattr(self.resource_cluster, "latency_weight", 0.5)),
-                energy_weight=float(getattr(self.resource_cluster, "energy_weight", 0.5))
-                if include_energy
-                else 0.0,
+                compute_j_report=False,
             )
             target_batch.append(np.asarray(out.rewards, dtype=float))
             task_finish_time_batch.append(out.final_makespan)

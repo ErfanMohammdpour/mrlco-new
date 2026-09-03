@@ -19,8 +19,54 @@ logger = logging.getLogger(__name__)
 
 EPS = 1e-12
 OUT_OF_RANGE = "clip_and_log"
+# MARGO-SPEC-v0.1 publication freeze (OBJECTIVE_AND_ENERGY.md §4 / frozen_experiment.yaml).
 LATENCY_WEIGHT = 0.5
 ENERGY_WEIGHT = 0.5
+WEIGHT_SUM = 1.0
+
+
+def _almost_eq(a: float, b: float, tol: float = 1e-12) -> bool:
+    return abs(float(a) - float(b)) <= tol * max(1.0, abs(float(b)))
+
+
+def frozen_objective_weights(path: Any | None = None) -> tuple[float, float]:
+    """Load and validate publication objective weights (must be 0.5/0.5 for v0.1)."""
+    from pathlib import Path
+
+    import yaml
+
+    if path is None:
+        path = Path(__file__).resolve().parents[3] / "spec" / "frozen_experiment.yaml"
+    doc = yaml.safe_load(Path(path).read_text())
+    weights = (doc.get("energy") or {}).get("objective_weights") or {}
+    lw = require_finite("latency_weight", weights.get("latency_weight", LATENCY_WEIGHT))
+    ew = require_finite("energy_weight", weights.get("energy_weight", ENERGY_WEIGHT))
+    if lw < 0.0 or ew < 0.0:
+        raise ValueError(f"objective weights must be non-negative, got lw={lw}, ew={ew}")
+    if not _almost_eq(lw + ew, WEIGHT_SUM):
+        raise ValueError(f"objective weights must sum to 1.0, got {lw + ew}")
+    if not _almost_eq(lw, LATENCY_WEIGHT) or not _almost_eq(ew, ENERGY_WEIGHT):
+        raise ValueError(
+            f"MARGO-SPEC-v0.1 freezes latency/energy weights at "
+            f"{LATENCY_WEIGHT}/{ENERGY_WEIGHT}, got {lw}/{ew}"
+        )
+    return float(lw), float(ew)
+
+
+def require_publication_weights(latency_weight: float, energy_weight: float) -> tuple[float, float]:
+    """Fail any override of frozen 0.5/0.5 publication weights."""
+    lw = require_finite("latency_weight", latency_weight)
+    ew = require_finite("energy_weight", energy_weight)
+    if lw < 0.0 or ew < 0.0:
+        raise ValueError(f"objective weights must be non-negative, got lw={lw}, ew={ew}")
+    if not _almost_eq(lw + ew, WEIGHT_SUM):
+        raise ValueError(f"objective weights must sum to 1.0, got {lw + ew}")
+    frozen_lw, frozen_ew = frozen_objective_weights()
+    if not _almost_eq(lw, frozen_lw) or not _almost_eq(ew, frozen_ew):
+        raise ValueError(
+            f"publication weights must be {frozen_lw}/{frozen_ew}, got {lw}/{ew}"
+        )
+    return frozen_lw, frozen_ew
 
 
 @dataclass(frozen=True)
