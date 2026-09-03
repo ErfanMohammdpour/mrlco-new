@@ -1,5 +1,10 @@
-"""Production scheduling engine package (Phase 1)."""
-
+from .adapter import (
+    AdapterValidationError,
+    resource_config_from_cluster,
+    schedule_via_adapter,
+    to_canonical_dag,
+    validate_plan,
+)
 from .calendar import ResourceCalendar, make_calendars
 from .engine import schedule
 from .model import (
@@ -18,6 +23,7 @@ from .resources import ResourceConfig
 from .routes import ROUTE_TABLE, route
 
 __all__ = [
+    "AdapterValidationError",
     "CanonicalDAG",
     "CanonicalEdge",
     "CanonicalTask",
@@ -32,6 +38,10 @@ __all__ = [
     "TaskExecutionRecord",
     "TransferRecord",
     "make_calendars",
+    "resource_config_from_cluster",
     "route",
     "schedule",
+    "schedule_via_adapter",
+    "to_canonical_dag",
+    "validate_plan",
 ]

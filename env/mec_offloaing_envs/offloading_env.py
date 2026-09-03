@@ -183,6 +183,9 @@ class OffloadingEnvironment(MetaEnv):
                  graph_number,
                  graph_file_paths, time_major):
         self.resource_cluster = resource_cluster
+        from env.mec_offloaing_envs.scheduler import resource_config_from_cluster
+
+        self.scheduler_resources = resource_config_from_cluster(resource_cluster)
         self.task_graphs_batchs = []
         self.encoder_batchs = []
         self.encoder_lengths = []
@@ -403,198 +406,17 @@ class OffloadingEnvironment(MetaEnv):
         return max_time, min_time
 
     def get_scheduling_cost_step_by_step(self, plan, task_graph):
-        cloud_avaliable_time = 0.0
-        ws_avaliable_time =0.0
-        local_avaliable_time = 0.0
-        # V2V availability (separate from MEC)
-        v2v_available_time = 0.0
-        v2v_channel_available_time = 0.0
+        """Legacy entrypoint: delegates all scheduling math to the canonical engine."""
+        from env.mec_offloaing_envs.scheduler import schedule_via_adapter
 
-        # running time on local processor
-        T_l = [0] * task_graph.task_number
-        # running time on sending channel
-        T_ul = [0] * task_graph.task_number
-        #running time on receiving channel
-        T_dl = [0] * task_graph.task_number
-        # V2V transmission times
-        T_v2v_ul = [0] * task_graph.task_number
-        T_v2v_dl = [0] * task_graph.task_number
-
-        # finish time on cloud for each task
-        FT_cloud = [0] * task_graph.task_number
-        # finish time on sending channel for each task
-        FT_ws = [0] * task_graph.task_number
-        # finish time locally for each task
-        FT_locally = [0] * task_graph.task_number
-        # finish time recieving channel for each task
-        FT_wr = [0] * task_graph.task_number
-        # V2V finish times
-        FT_v2v_ul = [0] * task_graph.task_number
-        FT_v2v_exec = [0] * task_graph.task_number
-        FT_v2v_dl = [0] * task_graph.task_number
-        current_FT = 0.0
-        return_latency = []
-        return_energy = []
-
-        for item in plan:
-            i = item[0]
-            task = task_graph.task_list[i]
-            x = item[1]
-
-            # locally scheduling
-            if x == 0:
-                if len(task_graph.pre_task_sets[i]) != 0:
-                    start_time = max(local_avaliable_time,
-                                     max([max(FT_locally[j], FT_wr[j], FT_v2v_dl[j]) for j in task_graph.pre_task_sets[i]]))
-                else:
-                    start_time = local_avaliable_time
-
-                T_l[i] = self.resource_cluster.locally_execution_cost(task.processing_data_size)
-                FT_locally[i] = start_time + T_l[i]
-                local_avaliable_time = FT_locally[i]
-
-                task_finish_time = FT_locally[i]
-
-                # calculate the energy consumption
-                if self.resource_cluster.use_energy:
-                    energy_consumption = self.resource_cluster.compute_local_energy(T_l[i])
-                    return_energy.append(energy_consumption)
-                else:
-                    return_energy.append(0.0)
-            # MEC scheduling
-            elif x == 1:
-                if len(task_graph.pre_task_sets[i]) != 0:
-                    ws_start_time = max(ws_avaliable_time,
-                                        max([max(FT_locally[j], FT_ws[j])  for j in task_graph.pre_task_sets[i]]))
-
-                    T_ul[i] = self.resource_cluster.up_transmission_cost(task.processing_data_size)
-                    ws_finish_time = ws_start_time + T_ul[i]
-                    FT_ws[i] = ws_finish_time
-                    ws_avaliable_time = ws_finish_time
-
-                    cloud_start_time = max( cloud_avaliable_time,
-                                            max([max(FT_ws[i], FT_cloud[j]) for j in task_graph.pre_task_sets[i]]))
-                    cloud_finish_time = cloud_start_time + self.resource_cluster.mec_execution_cost(task.processing_data_size)
-                    FT_cloud[i] = cloud_finish_time
-                    # print("task {}, Cloud finish time {}".format(i, FT_cloud[i]))
-                    cloud_avaliable_time = cloud_finish_time
-
-                    wr_start_time = FT_cloud[i]
-                    T_dl[i] = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
-                    wr_finish_time = wr_start_time + T_dl[i]
-                    FT_wr[i] = wr_finish_time
-
-                    # calculate the energy consumption
-                    if self.resource_cluster.use_energy:
-                        energy_consumption = self.resource_cluster.compute_transmission_energy(T_ul[i], T_dl[i])
-                        return_energy.append(energy_consumption)
-                    else:
-                        return_energy.append(0.0)
-
-                else:
-                    ws_start_time = ws_avaliable_time
-                    T_ul[i] = self.resource_cluster.up_transmission_cost(task.processing_data_size)
-                    ws_finish_time = ws_start_time + T_ul[i]
-                    FT_ws[i] = ws_finish_time
-
-                    cloud_start_time = max(cloud_avaliable_time, FT_ws[i])
-                    cloud_finish_time = cloud_start_time + self.resource_cluster.mec_execution_cost(task.processing_data_size)
-                    FT_cloud[i] = cloud_finish_time
-                    cloud_avaliable_time = cloud_finish_time
-
-                    wr_start_time = FT_cloud[i]
-                    T_dl[i] = self.resource_cluster.dl_transmission_cost(task.transmission_data_size)
-                    wr_finish_time = wr_start_time + T_dl[i]
-                    FT_wr[i] = wr_finish_time
-
-                    # calculate the energy consumption
-                    if self.resource_cluster.use_energy:
-                        energy_consumption = self.resource_cluster.compute_transmission_energy(T_ul[i], T_dl[i])
-                        return_energy.append(energy_consumption)
-                    else:
-                        return_energy.append(0.0)
-
-                task_finish_time = wr_finish_time
-            # V2V scheduling
-            elif x == 2:
-                # V2V uses a shared half-duplex channel: uplink and downlink cannot occur simultaneously
-                # Channel must be free before starting uplink, and free again before starting downlink
-                
-                # Step 1: Determine when V2V uplink can start
-                # Must wait for: (a) channel availability, (b) predecessor task completions
-                if len(task_graph.pre_task_sets[i]) != 0:
-                    # Predecessors can finish on local (FT_locally), MEC (FT_wr), or V2V (FT_v2v_dl)
-                    # Note: For V2V predecessors, we use FT_v2v_dl (downlink completion) because
-                    # results must be received back at the source vehicle before next task can start
-                    v2v_ul_start_time = max(v2v_channel_available_time,
-                                            max([max(FT_locally[j], FT_wr[j], FT_v2v_dl[j]) 
-                                                 for j in task_graph.pre_task_sets[i]]))
-                else:
-                    v2v_ul_start_time = v2v_channel_available_time
-
-                # Step 2: V2V uplink transmission (uses shared channel)
-                T_v2v_ul[i] = self.resource_cluster.v2v_transmission_cost(task.processing_data_size)
-                v2v_ul_finish_time = v2v_ul_start_time + T_v2v_ul[i]
-                FT_v2v_ul[i] = v2v_ul_finish_time
-                # Channel becomes available after uplink completes
-                v2v_channel_available_time = v2v_ul_finish_time
-
-                # Step 3: V2V execution (on helper vehicle, independent of channel)
-                # Must wait for: (a) helper vehicle availability, (b) uplink completion, (c) predecessor dependencies
-                if len(task_graph.pre_task_sets[i]) != 0:
-                    # Predecessors can finish locally (FT_locally), on MEC (FT_wr), or on V2V (FT_v2v_exec)
-                    # Note: For execution, we use FT_v2v_exec (not FT_v2v_dl) because execution
-                    # can start as soon as the task finishes processing, before results are transmitted back
-                    v2v_exec_start_time = max(v2v_available_time, FT_v2v_ul[i],
-                                              max([max(FT_locally[j], FT_wr[j], FT_v2v_exec[j]) 
-                                                   for j in task_graph.pre_task_sets[i]]))
-                else:
-                    v2v_exec_start_time = max(v2v_available_time, FT_v2v_ul[i])
-                
-                exec_time = self.resource_cluster.v2v_execution_cost(task.processing_data_size)
-                v2v_exec_finish_time = v2v_exec_start_time + exec_time
-                FT_v2v_exec[i] = v2v_exec_finish_time
-                v2v_available_time = v2v_exec_finish_time
-
-                # Step 4: V2V downlink transmission (uses shared channel, must wait for channel availability)
-                # Channel may have been used by other tasks' uplinks/downlinks since uplink completed
-                # Downlink can start when: (a) execution completes, (b) channel is free
-                v2v_dl_start_time = max(v2v_exec_finish_time, v2v_channel_available_time)
-                T_v2v_dl[i] = self.resource_cluster.v2v_transmission_cost(task.transmission_data_size)
-                v2v_dl_finish_time = v2v_dl_start_time + T_v2v_dl[i]
-                FT_v2v_dl[i] = v2v_dl_finish_time
-                # Channel becomes available after downlink completes
-                v2v_channel_available_time = v2v_dl_finish_time
-
-                task_finish_time = v2v_dl_finish_time
-
-                # calculate the energy consumption for V2V (transmission + computation)
-                if self.resource_cluster.use_energy:
-                    # Transmission energy (uplink + downlink) - uses V2V-specific parameters
-                    transmission_energy = self.resource_cluster.compute_v2v_transmission_energy(T_v2v_ul[i], T_v2v_dl[i])
-                    
-                    # Computation energy on helper vehicle (less than local)
-                    computation_energy = self.resource_cluster.compute_v2v_energy(exec_time)
-                    
-                    # Total V2V energy
-                    energy_consumption = transmission_energy + computation_energy
-                    return_energy.append(energy_consumption)
-                else:
-                    return_energy.append(0.0)
-            else:
-                # Invalid action value
-                raise ValueError(f"Invalid action value: {x}. Expected 0 (local), 1 (MEC), or 2 (V2V)")
-
-            # print("task  {} finish time is {}".format(i , task_finish_time))
-            delta_make_span = max(task_finish_time, current_FT) - current_FT
-            current_FT = max(task_finish_time, current_FT)
-            return_latency.append(delta_make_span)
-
-        # Return based on energy flag for backward compatibility
+        result, latency_deltas, energy_list = schedule_via_adapter(
+            task_graph=task_graph,
+            plan=plan,
+            resources=self.scheduler_resources,
+        )
         if self.resource_cluster.use_energy:
-            return return_latency, current_FT, return_energy
-        else:
-            return return_latency, current_FT
+            return latency_deltas, result.makespan_seconds, energy_list
+        return latency_deltas, result.makespan_seconds
 
     def score_func(self, cost, max_time, min_time):
         """Score function that handles both scalars and lists/arrays.
