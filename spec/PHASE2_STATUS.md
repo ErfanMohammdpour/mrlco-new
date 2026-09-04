@@ -1,45 +1,52 @@
 # Phase 2 — Graph Encoder
 
-Status: IN PROGRESS
+Status: CLOSED
 
-Branch: `phase2-graph-encoder` from tag `phase1-freeze-v0.1` (`b611f7047b1c28e3aa6f0026683e87a3ae249b34`).
+Technical closure commit: this commit  
+Tested encoder SHA: `06b97e9d556fe9daa3b0d35c452c7ac0114e58d4`  
+Same-SHA TF evidence commit: `4625f697af046e90ea4f54658357f947b80eff80`
 
-**Do not move or rewrite `phase1-freeze-v0.1`.**
+**Do not move or rewrite `phase1-freeze-v0.1`.**  
+Tag `phase2-freeze-v0.1` MUST point at this closure commit. Do not rewrite it.
 
-Phase 2 does **not** imply PPO correctness, outer meta-update, trainer split compliance, GPU training, or paper figures.
+**Phase 2 closure does not imply PPO / outer-update / trainer-split / evaluation readiness.**
 
-Until Phase 2 **and** Phase 3 close: no scientific GPU training and no new paper figures. Unit tests and CPU smoke tests are allowed.
+Until Phase 3 closes: no scientific GPU training and no new paper figures. Unit tests and CPU smoke tests are allowed.
 
-## Scope
+## Provenance
 
-In:
+```text
+phase1-freeze-v0.1  b611f7047b1c28e3aa6f0026683e87a3ae249b34
+  └── c0cbecc  feat(encoder): implement canonical DAG observations
+        └── 367c10e  fix(encoder): harden phase 2 runtime and reproducibility
+              └── 06b97e9  docs(encoder): record Python 3.7 + TF 1.15 CPU smoke evidence
+                    └── 4625f69  docs(encoder): record same-SHA TF 1.15 evidence for 06b97e9
+                          └── this commit  Phase 2 CLOSED
+```
 
-- canonical DAG adjacency (not clique)
-- full task-id → HEFT/decoder-index remap
-- no 6-neighbor truncation; `MAX_NEIGH = MAX_TASKS - 1` (19). Degree overflow fail-fast.
-- `edge_output_bytes` in node payload features
-- drop legacy scheduler time features from the observation
-- real neighbor padding + node mask
-- z-score from `spec/encoder_feature_stats.json` fit on `role=meta_train` only; SHA-256 pins use canonical LF
-- predecessor AND successor aggregators, summed; encoder dropout frozen at 0.0
-- topology-sensitivity and permutation-consistency tests (numpy + TF smoke)
-- degree>6, duplicate-edge, non-contiguous task-id tests
+Execution evidence is for `06b97e9` (clean tree, `git_status=0 dirty_paths`). `4625f69` changed only `spec/phase2_tf_smoke_evidence.txt`.
 
-Out:
+## Frozen contracts
 
-- graph encoder as a paper-ready claim until this status is CLOSED
-- PPO / value clip / outer mean-pseudogradient
-- trainer split wiring
-- evaluation support/query
-- GPU training / new figures
+- Canonical DAG adjacency, not clique
+- Packed obs: `FEATURE_DIM + 2*MAX_NEIGH + 1` = 50; `MAX_NEIGH = MAX_TASKS - 1` = 19
+- Neighbor indices are decoder-order positions, not raw task IDs
+- Neighborhood: predecessor AND successor; combine by sum
+- 2-layer masked mean; self∥neigh concat; encoder dropout 0.0
+- Degree overflow fail-fast; no silent 6-neighbor truncation
+- Features: workload, output, external, incoming/outgoing `edge_output_bytes`, degree, decoder index, depth, root/sink
+- No legacy scheduler times (`T_loc` / `T_up` / …) in the observation
+- Z-score from `spec/encoder_feature_stats.json`, `role=meta_train` only (1500 graphs / 30000 nodes); canonical-LF hash pins
+- Neighbor sampler is fixed-capacity padded adjacency with masked aggregation, not stochastic uniform sampling
+- Production `obs_dim=env.input_dim`
 
-## Notes
+## Evidence (CPU)
 
-- Decoder **order** still comes from HEFT `prioritize_tasks` (legacy times). That is ranking, not encoder features.
-- Packed observation dim = `FEATURE_DIM + 2*MAX_NEIGH + 1` (`PACKED_DIM`). Neighbor capacity comes from spec `task_count`, not meta-train degree stats.
-- Architecture freeze: `neighborhood=predecessor_and_successor`, `gnn_layers=2`, `aggregator=masked_mean`, `direction_combine=sum`, `dropout=0.0`.
-- `MeanAggregator` uses masked mean over `neigh_len`.
-- Phase 1 gate discovers only `test_phase1*.py` so encoder tests do not enter the frozen Phase 1 suite.
+- Python 3.7.17
+- TensorFlow 1.15.5 with `tf.contrib`
+- linux/amd64 Docker
+- 26/26 tests including 5/5 TF smoke
+- `Phase 2 encoder: PASS`
 
 ## Gate
 
@@ -47,4 +54,4 @@ Out:
 python3 spec/phase2_gate.py
 ```
 
-Must print `Phase 2 encoder: PASS` for the encoder contract. This is **not** Phase 2 closure.
+Must print `Phase 2 closure: PASS`.

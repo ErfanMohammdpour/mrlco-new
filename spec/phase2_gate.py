@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Phase 2 encoder contract gate.
+"""Phase 2 encoder closure gate.
 
-Exit 0 when encoder tests + wiring checks PASS.
-Does NOT close Phase 2. Does NOT create a tag. Does NOT train.
+Exit 0 when encoder tests + wiring checks PASS and PHASE2_STATUS.md is CLOSED.
+Does NOT create a tag. Does NOT train.
 """
 
 from __future__ import annotations
@@ -40,12 +40,21 @@ def run_capture(cmd: list[str]) -> subprocess.CompletedProcess:
 
 def check_status_doc(reasons: list[str]) -> None:
     text = STATUS_MD.read_text()
-    if not re.search(r"^Status:\s*IN PROGRESS\b", text, re.M):
-        block(reasons, "PHASE2_STATUS.md must say Status: IN PROGRESS until Phase 2 closes")
+    if not re.search(r"^Status:\s*CLOSED\b", text, re.M):
+        block(reasons, "PHASE2_STATUS.md must say Status: CLOSED")
+    needle = "Phase 2 closure does not imply PPO / outer-update / trainer-split / evaluation readiness"
+    if needle not in text:
+        block(reasons, f"PHASE2_STATUS.md must contain: {needle}")
     if "phase1-freeze-v0.1" not in text:
         block(reasons, "PHASE2_STATUS.md must name phase1-freeze-v0.1")
     if "Do not move or rewrite" not in text:
         block(reasons, "PHASE2_STATUS.md must forbid rewriting the Phase 1 tag")
+    if "06b97e9d556fe9daa3b0d35c452c7ac0114e58d4" not in text:
+        block(reasons, "PHASE2_STATUS.md must pin tested encoder SHA 06b97e9")
+    if "4625f697af046e90ea4f54658357f947b80eff80" not in text:
+        block(reasons, "PHASE2_STATUS.md must pin same-SHA evidence commit 4625f69")
+    if "no scientific GPU training" not in text:
+        block(reasons, "PHASE2_STATUS.md must keep GPU training forbidden until Phase 3")
 
 
 def check_no_clique(reasons: list[str]) -> None:
@@ -244,7 +253,7 @@ def check_encoder_tests(reasons: list[str]) -> None:
 
 def main() -> int:
     reasons: list[str] = []
-    print("=== Phase 2 encoder gate ===")
+    print("=== Phase 2 closure gate ===")
     check_status_doc(reasons)
     check_no_clique(reasons)
     check_masked_mean(reasons)
@@ -273,7 +282,7 @@ def main() -> int:
         return 1
 
     print("\nPhase 2 encoder: PASS")
-    print("Phase 2 closure: NOT CLAIMED")
+    print("Phase 2 closure: PASS")
     return 0
 
 
