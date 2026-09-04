@@ -115,7 +115,7 @@ The current tree needs **Python 3.7.x** (`dataclasses`, `from __future__ import 
 - **OS:** Ubuntu 16.04+ or compatible. CPU is enough for gates and encoder smoke.
 - **Python:** 3.7.x (e.g. via Conda).
 - **TensorFlow:** 1.15.x **with `tf.contrib`** (CPU). Do not use TensorFlow 2.
-- **GPU training:** forbidden until Phase 2 **and** Phase 3 close. No scientific GPU runs and no new paper figures until then.
+- **GPU training:** forbidden until Phase 3 closes. After `phase3-freeze-v0.1`, scientific GPU runs belong to Phase 4 evaluation. No paper figures until those artifacts exist.
 
 ```bash
 # System

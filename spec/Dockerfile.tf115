@@ -1,5 +1,5 @@
-# Phase 2 encoder smoke: Python 3.7 + TensorFlow 1.15.x with tf.contrib (CPU).
-# Scientific GPU training remains forbidden until Phase 2 and Phase 3 close.
+# Phase 2 encoder / Phase 3 learning smoke: Python 3.7 + TensorFlow 1.15.x with tf.contrib (CPU).
+# Scientific GPU training is Phase 4, after phase3-freeze-v0.1.
 #
 #   docker build --platform linux/amd64 -f spec/Dockerfile.tf115 -t margo-phase2-tf115 spec
 #   docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work margo-phase2-tf115 \

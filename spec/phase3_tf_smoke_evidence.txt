@@ -1,0 +1,69 @@
+=== Phase 3 TensorFlow 1.15 same-SHA smoke evidence ===
+captured_at_utc=2026-09-04T13:40:00Z
+host=Mohamads-Mac-Studio.local
+uname=Darwin 25.6.0 arm64
+tested_sha=f17d264b49d0886b3f0e9f438d203af8ab0ef9af
+git_status=0 dirty_source_paths
+docker_platform=linux/amd64
+image=margo-phase2-tf115
+
+=== runtime ===
+container_uname=Linux-6.12.76-linuxkit-x86_64-with-debian-11.7
+Python 3.7.17
+1.15.5
+True
+
+=== python spec/phase3_gate.py ===
+=== Phase 3 learning gate ===
+test_every_meta_test_dist_is_20_80_disjoint (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestHeldOutScenarios) ... ok
+test_every_validation_dist_is_20_80_disjoint (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestHeldOutScenarios) ... ok
+test_latin_grid_ids_match_policy (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestHeldOutScenarios) ... ok
+test_query_metrics_energy_and_latency (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestHeldOutScenarios) ... ok
+test_zero_shot_log_fields (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestHeldOutScenarios) ... ok
+test_evaluator_no_query_leak (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMRLCOSourceContract) ... ok
+test_fresh_inner_optimizer (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMRLCOSourceContract) ... ok
+test_outer_update_is_single_apply (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMRLCOSourceContract) ... ok
+test_ppo_matches_inner_contract (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMRLCOSourceContract) ... ok
+test_sources_compile (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMRLCOSourceContract) ... ok
+test_trainer_uses_frozen_split_and_k_steps (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMRLCOSourceContract) ... ok
+test_value_clip_source (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMRLCOSourceContract) ... ok
+test_denominator_is_alpha_times_k_not_batch (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMeanPseudogradient) ... ok
+test_order_invariant (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestMeanPseudogradient) ... ok
+test_required_fields_present (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestProtocolLogs) ... ok
+test_sliced_task_rejects_integer_leak (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestProtocolLogs) ... ok
+test_composite_is_mean_trajectory_return (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleAndObjective) ... ok
+test_k_steps_apply_count_full_batch (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleAndObjective) ... ok
+test_select_support_rows_rejects_short (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleAndObjective) ... ok
+test_shuffled_epoch_covers_all (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleAndObjective) ... ok
+test_held_out_train_prefix_rejected (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleLeftoverAndRejects) ... ok
+test_mean_pg_rejects_k_zero (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleLeftoverAndRejects) ... ok
+test_select_support_exact_n_is_identity (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleLeftoverAndRejects) ... ok
+test_two_minibatches_cover_unique_indices (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestShuffleLeftoverAndRejects) ... ok
+test_held_out_support_query_counts (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestSplitWiring) ... ok
+test_legacy_19_path_list_is_rejected (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestSplitWiring) ... ok
+test_meta_test_support_query_tasks (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestSplitWiring) ... ok
+test_meta_train_is_15_and_disjoint (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestSplitWiring) ... ok
+test_support_query_tasks_reject_train_dist (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestSplitWiring) ... ok
+test_train_prefixes_pass (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestSplitWiring) ... ok
+test_validation_prefixes_are_held_out (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestSplitWiring) ... ok
+test_clip_uses_v_old_plus_clipped_delta (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestValueClip) ... ok
+test_wrong_legacy_formula_is_different (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning.TestValueClip) ... ok
+test_assign_trainable_copies_core (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+test_inner_three_applies_then_one_outer (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+test_ppo_three_applies_and_fresh_adam (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+test_ppo_zero_shot_is_noop (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+test_sync_copies_core_to_task_slots (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+test_tf_contrib_present (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+test_value_clip_tf_matches_numpy (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+test_wrong_inner_batch_is_rejected (env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf.TestLearningTFSmoke) ... ok
+Ran 41 tests in 53.881s
+OK
+
+GATE SNAPSHOT
+PHASE3_STATUS.md:   checked
+Source contracts:   checked
+Phase 3 unit tests: checked
+Phase 3 TF smoke:   checked
+
+Phase 3 learning: PASS
+Phase 3 closure: NOT CLAIMED

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Phase 3 learning contract gate.
+"""Phase 3 learning closure gate.
 
-Does NOT close Phase 3. Does NOT train. Does NOT use GPU.
+Exit 0 when learning tests + wiring checks PASS and PHASE3_STATUS.md is CLOSED.
+Does NOT create a tag. Does NOT train. Does NOT use GPU.
 """
 
 from __future__ import annotations
@@ -14,6 +15,8 @@ from pathlib import Path
 SPEC = Path(__file__).parent.resolve()
 ROOT = SPEC.parent.resolve()
 STATUS = SPEC / "PHASE3_STATUS.md"
+EVIDENCE = SPEC / "phase3_tf_smoke_evidence.txt"
+TESTED_SHA = "f17d264b49d0886b3f0e9f438d203af8ab0ef9af"
 MRLCO = ROOT / "meta_algos" / "MRLCO.py"
 PPO = ROOT / "meta_algos" / "ppo_offloading.py"
 TRAINER = ROOT / "meta_trainer.py"
@@ -27,14 +30,30 @@ def block(reasons: list[str], msg: str) -> None:
 
 def check_status(reasons: list[str]) -> None:
     text = STATUS.read_text()
-    if not re.search(r"^Status:\s*IN PROGRESS\b", text, re.M):
-        block(reasons, "PHASE3_STATUS.md must say Status: IN PROGRESS until Phase 3 closes")
+    if not re.search(r"^Status:\s*CLOSED\b", text, re.M):
+        block(reasons, "PHASE3_STATUS.md must say Status: CLOSED")
     if "phase2-freeze-v0.1" not in text:
         block(reasons, "PHASE3_STATUS.md must name phase2-freeze-v0.1")
     if "Do not move or rewrite" not in text:
         block(reasons, "PHASE3_STATUS.md must forbid rewriting Phase 1/2 tags")
-    if "no scientific GPU training" not in text:
-        block(reasons, "PHASE3_STATUS.md must forbid GPU training")
+    if TESTED_SHA not in text:
+        block(reasons, "PHASE3_STATUS.md must pin tested SHA " + TESTED_SHA)
+    if "Phase 3 closure does not imply paper results" not in text:
+        block(reasons, "PHASE3_STATUS.md must state Phase 3 is not a paper-result claim")
+    if not EVIDENCE.is_file():
+        block(reasons, "spec/phase3_tf_smoke_evidence.txt missing")
+        return
+    evidence = EVIDENCE.read_text()
+    if TESTED_SHA not in evidence:
+        block(reasons, "smoke evidence must record tested_sha=" + TESTED_SHA)
+    if "Python 3.7.17" not in evidence:
+        block(reasons, "smoke evidence must record Python 3.7.17")
+    if "1.15.5" not in evidence:
+        block(reasons, "smoke evidence must record TensorFlow 1.15.5")
+    if "Ran 41 tests" not in evidence:
+        block(reasons, "smoke evidence must record 41/41 tests")
+    if "Phase 3 learning: PASS" not in evidence:
+        block(reasons, "smoke evidence must record Phase 3 learning: PASS")
 
 
 def check_sources(reasons: list[str]) -> None:
@@ -141,7 +160,7 @@ def main() -> int:
             print(f"  - {item}")
         return 1
     print("\nPhase 3 learning: PASS")
-    print("Phase 3 closure: NOT CLAIMED")
+    print("Phase 3 closure: PASS")
     return 0
 
 
