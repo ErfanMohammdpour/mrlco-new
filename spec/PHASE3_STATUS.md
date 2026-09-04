@@ -22,13 +22,18 @@ In:
 - `ppo_batch_size_trajectories = 20`, `support_graphs_per_meta_task = 20`
 - trainer loads exactly the 15 `meta_train` distributions from `spec/split_loader.py`
 - evaluator adapts on held-out **support** (20) and reports **query** (80)
+- evaluator reports zero-shot `k_steps=0` then independent `k_steps=3` from the loaded core
+- trainer syncs task slots from core at the **start** of every outer iteration
+- validation every 50 outer iters: copy core → scratch policy, adapt on `validation_support`, metric on `validation_query`, never mutate core
+- checkpoint metric = `validation_query_composite_objective` (mean query return; higher is better)
+- LEARNING_PROTOCOL §9 log fields
 - default `CUDA_VISIBLE_DEVICES=""` unless `MARGO_ALLOW_GPU=1` after Phase 3 close
 
 Out until this status is CLOSED:
 
 - scientific GPU training / paper figures
 - claiming optimized hyperparameters
-- zero-shot (`k_steps=0`) as a completed reported protocol in logs
+- TF 1.15 CPU smoke of the full inner/outer learning loop
 - multi-seed evaluation campaign
 
 ## Notes
@@ -36,6 +41,7 @@ Out until this status is CLOSED:
 - Phase 2 encoder remains frozen. Do not reopen DAG packing or stats.
 - Outer `β=5e-4` is Adam lr, not Reptile `outer_step_size`.
 - Training still loads 100 graphs per train dist into memory, then samples 20 graph indices per meta-task.
+- Integer `env.set_task(n)` clears `graph_indices` and leaks the full 100-graph pool. Held-out code must pass `{dist_index, graph_indices}`.
 
 ## Gate
 

@@ -14,14 +14,27 @@ import sys
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from spec.learning_ops import clipped_value_prediction, mean_pseudogradient
+from spec.learning_ops import (
+    clipped_value_prediction,
+    composite_query_objective,
+    expected_adam_apply_count,
+    mean_pseudogradient,
+    select_support_rows,
+    shuffled_minibatch_slices,
+)
+from spec.eval_protocol import REQUIRED_LOG_FIELDS, protocol_log_kvs, require_sliced_task
 from spec.split_loader import (
+    assert_held_out_prefixes,
     assert_train_prefixes,
     graph_indices_for_role,
     meta_test_distribution_ids,
+    meta_test_graph_prefixes,
     meta_train_distribution_ids,
     meta_train_graph_prefixes,
+    split_version,
+    support_query_tasks,
     validation_distribution_ids,
+    validation_graph_prefixes,
 )
 
 
@@ -90,6 +103,60 @@ class TestSplitWiring(unittest.TestCase):
         self.assertEqual(len(query), 80)
         self.assertFalse(set(support) & set(query))
 
+    def test_validation_prefixes_are_held_out(self):
+        assert_held_out_prefixes(validation_graph_prefixes(), "validation")
+        assert_held_out_prefixes(meta_test_graph_prefixes(), "meta_test")
+
+    def test_support_query_tasks_reject_train_dist(self):
+        with self.assertRaises(ValueError):
+            support_query_tasks(0, meta_train_distribution_ids()[0])
+
+    def test_meta_test_support_query_tasks(self):
+        support, query = support_query_tasks(0, 12)
+        self.assertEqual(support["dist_index"], 0)
+        self.assertEqual(len(support["graph_indices"]), 20)
+        self.assertEqual(len(query["graph_indices"]), 80)
+        self.assertFalse(set(support["graph_indices"]) & set(query["graph_indices"]))
+
+
+class TestShuffleAndObjective(unittest.TestCase):
+    def test_k_steps_apply_count_full_batch(self):
+        self.assertEqual(expected_adam_apply_count(20, 20, 3), 3)
+        self.assertEqual(expected_adam_apply_count(20, 20, 0), 0)
+        self.assertEqual(expected_adam_apply_count(20, 10, 3), 6)
+
+    def test_shuffled_epoch_covers_all(self):
+        rng = np.random.RandomState(0)
+        seen = []
+        for idx in shuffled_minibatch_slices(20, 20, rng):
+            seen.extend(idx.tolist())
+        self.assertEqual(sorted(seen), list(range(20)))
+
+    def test_select_support_rows_rejects_short(self):
+        with self.assertRaises(ValueError):
+            select_support_rows(10, 20, np.random.RandomState(0))
+
+    def test_composite_is_mean_trajectory_return(self):
+        rewards = np.array([[1.0, 2.0], [3.0, 0.0]])
+        self.assertAlmostEqual(composite_query_objective(rewards), 3.0)
+
+
+class TestProtocolLogs(unittest.TestCase):
+    def test_required_fields_present(self):
+        kvs = protocol_log_kvs(seed=0, k_steps=3, outer_update_count=1)
+        for field in REQUIRED_LOG_FIELDS:
+            self.assertIn(field, kvs)
+        self.assertEqual(kvs["split_version"], split_version())
+        self.assertEqual(kvs["entropy_coefficient"], 0.0)
+        self.assertEqual(kvs["k_steps"], 3)
+        self.assertEqual(kvs["outer_update_method"], "mrlco_first_order_mean_pseudogradient")
+        self.assertEqual(kvs["hyperparameter_provenance.policy"], "fixed_literature_derived_defaults")
+
+    def test_sliced_task_rejects_integer_leak(self):
+        with self.assertRaises(ValueError):
+            require_sliced_task(0)
+        require_sliced_task({"dist_index": 0, "graph_indices": list(range(20))})
+
 
 class TestMRLCOSourceContract(unittest.TestCase):
     def test_value_clip_source(self):
@@ -117,7 +184,51 @@ class TestMRLCOSourceContract(unittest.TestCase):
         self.assertIn("PPO_BATCH_SIZE = 20", text)
         self.assertNotIn("num_inner_grad_steps=1", text)
         self.assertNotIn("inner_batch_size=10", text)
+        self.assertNotIn("inner_batch_size = 500", text)
+        self.assertNotIn("inner_batch_size=500", text)
         self.assertIn("CUDA_VISIBLE_DEVICES", text)
+        self.assertIn("sync_task_policies_from_core", text)
+        self.assertIn("validation_interval", text)
+        self.assertIn("held_out_evaluator", text)
+        self.assertIn("protocol_log_kvs", text)
+        self.assertIn("HeldOutQueryEvaluator", text)
+        self.assertIn("validation_graph_prefixes", text)
+
+    def test_sources_compile(self):
+        import py_compile
+
+        for rel in (
+            "meta_trainer.py",
+            "meta_evaluator.py",
+            "meta_algos/ppo_offloading.py",
+            "meta_algos/MRLCO.py",
+            "spec/split_loader.py",
+            "spec/eval_protocol.py",
+            "spec/learning_ops.py",
+        ):
+            py_compile.compile(str(ROOT / rel), doraise=True)
+
+    def test_evaluator_no_query_leak(self):
+        text = (ROOT / "meta_evaluator.py").read_text()
+        self.assertNotIn("set_task(0)", text)
+        self.assertIn("greedy_solution_for_current_task", text)
+        self.assertIn("k_steps=0", text)
+        self.assertIn("restore_trainable", text)
+        self.assertIn("require_sliced_task", text)
+        self.assertNotIn("repilte", text)
+
+    def test_ppo_matches_inner_contract(self):
+        text = (ROOT / "meta_algos" / "ppo_offloading.py").read_text()
+        self.assertNotIn("mpi4py", text)
+        self.assertNotIn("MpiAdamOptimizer", text)
+        self.assertNotIn("lr=1e-4", text)
+        self.assertNotIn("epsilon=1e-5", text)
+        self.assertNotIn("num_inner_grad_steps=4", text)
+        self.assertNotIn("batch_size=50", text)
+        self.assertIn("lr=5e-4", text)
+        self.assertIn("def reset_inner_optimizer", text)
+        self.assertIn("shuffled_minibatch_slices", text)
+        self.assertIn("old_v + tf.clip_by_value", text)
 
 
 if __name__ == "__main__":

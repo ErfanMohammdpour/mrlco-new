@@ -218,6 +218,9 @@ class OffloadingEnvironment(MetaEnv):
 
         # set the file paht of task graphs.
         self.graph_file_paths = graph_file_paths
+        from spec.split_loader import parse_distribution_id
+
+        self.distribution_ids = [parse_distribution_id(path) for path in graph_file_paths]
         self.graph_number = graph_number
 
 

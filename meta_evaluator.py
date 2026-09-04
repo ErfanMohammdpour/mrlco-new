@@ -4,6 +4,8 @@ import time
 import os
 from utils import logger
 from automated_reporting import create_training_report
+from spec.eval_protocol import protocol_log_kvs, query_metrics_from_samples, require_sliced_task
+from meta_algos.variable_io import restore_trainable, snapshot_trainable
 
 # Try to import openpyxl for Excel export
 try:
@@ -28,7 +30,12 @@ class Trainer():
                 start_itr=0,
                 num_inner_grad_steps=3,
                 support_task=None,
-                query_task=None):
+                query_task=None,
+                seed=0):
+        if int(batch_size) != 20:
+            raise ValueError("v0.1 ppo_batch_size_trajectories must be 20")
+        if int(num_inner_grad_steps) not in (0, 3):
+            raise ValueError("v0.1 k_steps must be 0 or 3")
         self.algo = algo
         self.env = env
         self.sampler = sampler
@@ -36,31 +43,58 @@ class Trainer():
         self.policy = policy
         self.n_itr = n_itr
         self.start_itr = start_itr
-        self.num_inner_grad_steps = num_inner_grad_steps
-        self.batch_size = batch_size
-        self.support_task = support_task
-        self.query_task = query_task
+        self.num_inner_grad_steps = int(num_inner_grad_steps)
+        self.batch_size = int(batch_size)
+        self.support_task = require_sliced_task(support_task)
+        self.query_task = require_sliced_task(query_task)
+        if len(self.support_task["graph_indices"]) != 20:
+            raise ValueError("support must contain 20 graphs")
+        if len(self.query_task["graph_indices"]) != 80:
+            raise ValueError("query must contain 80 graphs")
+        if set(np.asarray(self.support_task["graph_indices"]).tolist()) & set(
+            np.asarray(self.query_task["graph_indices"]).tolist()
+        ):
+            raise ValueError("support and query graph indices overlap")
+        self.seed = int(seed)
+
+    def _activate(self, task):
+        self.env.set_task(require_sliced_task(task))
+
+    def _query_rollout(self):
+        self._activate(self.query_task)
+        query_paths = self.sampler.obtain_samples(log=False, log_prefix='query_')
+        samples_data = self.sampler_processor.process_samples(query_paths, log='all', log_prefix='query_')
+        greedy_result = self.env.greedy_solution_for_current_task()
+        self._activate(self.support_task)
+        return samples_data, greedy_result
+
+    def _log_protocol(self, k_steps, outer_update_count):
+        for key, value in protocol_log_kvs(
+            seed=self.seed,
+            k_steps=k_steps,
+            outer_update_count=outer_update_count,
+            meta_batch_size_distributions=1,
+            outer_update_method="eval_no_outer",
+            outer_learning_rate=0.0,
+        ).items():
+            logger.logkv(key, value)
 
     def train(self):
-        """
-        Implement the repilte algorithm for ppo reinforcement learning
-        """
+        """Few-shot eval: k=0 query, then independent k=3 adapts from the loaded core."""
         start_time = time.time()
         avg_ret = []
         avg_pg_loss = []
         avg_vf_loss = []
 
         avg_latencies = []
-        avg_greedy_latencies = []  # Track greedy solution latencies
-        avg_greedy_energies = []   # Track greedy solution energies (if enabled)
-        avg_energies = []          # Track policy energies (if enabled)
+        avg_greedy_latencies = []
+        avg_greedy_energies = []
+        avg_energies = []
         
-        # Create directory for detailed Excel exports
         excel_output_dir = "./meta_evaluate_ppo_log/detailed_iterations"
         try:
             os.makedirs(excel_output_dir, exist_ok=True)
             print(f"[DEBUG] Excel output directory created/verified: {excel_output_dir}")
-            # Test if directory is writable
             test_file = os.path.join(excel_output_dir, ".test_write")
             try:
                 with open(test_file, 'w') as f:
@@ -73,7 +107,6 @@ class Trainer():
             print(f"ERROR: Failed to create Excel output directory: {str(e)}")
             excel_output_dir = None
         
-        # Energy configuration (same as in your project)
         ENERGY_CONFIG = {
             'rho': 1.0,
             'f_l': 1.0,
@@ -84,86 +117,83 @@ class Trainer():
             'energy_weight': 0.5,
             'normalize_energy': True,
         }
+
+        core_snapshot = snapshot_trainable(self.policy)
+        self._activate(self.support_task)
+
+        logger.log("\n ---------------- Zero-shot k_steps=0 query ----------------")
+        restore_trainable(self.policy, core_snapshot)
+        zero_data, zero_greedy = self._query_rollout()
+        zero_metrics = query_metrics_from_samples(zero_data)
+        logger.logkv('Itr', -1)
+        logger.logkv('Average reward, ', zero_metrics["query_mean_return"])
+        logger.logkv('Average latency,', zero_metrics["query_mean_latency"])
+        logger.logkv('validation_query_composite_objective', zero_metrics["validation_query_composite_objective"])
+        self._log_protocol(k_steps=0, outer_update_count=0)
+        logger.dumpkvs()
         
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
-            logger.log("Sampling set of tasks/goals for this meta-batch...")
+            restore_trainable(self.policy, core_snapshot)
+            self._activate(self.support_task)
+            logger.log("Sampling support trajectories...")
 
             paths = self.sampler.obtain_samples(log=True, log_prefix='')
 
-            """ ----------------- Processing Samples ---------------------"""
             logger.log("Processing samples...")
             samples_data = self.sampler_processor.process_samples(paths, log='all', log_prefix='')
 
-            """ ------------------- Inner Policy Update --------------------"""
-            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, batch_size=self.batch_size)
+            policy_losses, value_losses = self.algo.UpdatePPOTarget(
+                samples_data, batch_size=self.batch_size, k_steps=self.num_inner_grad_steps
+            )
 
-            #print("task losses: ", losses)
             print("average policy losses: ", np.mean(policy_losses))
             avg_pg_loss.append(np.mean(policy_losses))
 
             print("average value losses: ", np.mean(value_losses))
             avg_vf_loss.append(np.mean(value_losses))
 
-            if self.query_task is not None:
-                self.env.set_task(self.query_task)
-                query_paths = self.sampler.obtain_samples(log=False, log_prefix='query_')
-                samples_data = self.sampler_processor.process_samples(query_paths, log='all', log_prefix='query_')
-                if self.support_task is not None:
-                    self.env.set_task(self.support_task)
+            samples_data, greedy_result = self._query_rollout()
 
-            """ ------------------- Compute Greedy Solution --------------------"""
-            # Compute greedy solution for comparison
-            self.env.set_task(0)  # Ensure we're evaluating the correct task
-            greedy_result = self.env.greedy_solution()
-            
             if self.env.resource_cluster.use_energy:
                 greedy_action, greedy_finish_time, greedy_energy = greedy_result
-                # Flatten finish times and energy for averaging
-                flat_greedy_finish_times = [item for sublist in greedy_finish_time for item in sublist]
-                flat_greedy_energy = [item for sublist in greedy_energy for item in sublist]
-                avg_greedy_latency = np.mean(flat_greedy_finish_times)
-                avg_greedy_energy = np.mean(flat_greedy_energy)
+                avg_greedy_latency = np.mean(greedy_finish_time)
+                avg_greedy_energy = np.mean(greedy_energy)
                 avg_greedy_latencies.append(avg_greedy_latency)
                 avg_greedy_energies.append(avg_greedy_energy)
             else:
                 greedy_action, greedy_finish_time = greedy_result
-                # Flatten finish times for averaging
-                flat_greedy_finish_times = [item for sublist in greedy_finish_time for item in sublist]
-                avg_greedy_latency = np.mean(flat_greedy_finish_times)
+                avg_greedy_latency = np.mean(greedy_finish_time)
                 avg_greedy_latencies.append(avg_greedy_latency)
-                # Calculate greedy energy using method (for consistency)
-                avg_greedy_energy = self._calculate_greedy_energy(greedy_action, ENERGY_CONFIG)
+                avg_greedy_energy = self._calculate_greedy_energy([greedy_action], ENERGY_CONFIG)
                 avg_greedy_energies.append(avg_greedy_energy)
 
-            """ ------------------- Logging Stuff --------------------------"""
-
-            ret = np.sum(samples_data['rewards'], axis=-1)
-            avg_reward = np.mean(ret)
-
-            latency = samples_data['finish_time']
-            avg_latency = np.mean(latency)
+            query_metrics = query_metrics_from_samples(samples_data)
+            avg_reward = query_metrics["query_mean_return"]
+            avg_latency = query_metrics["query_mean_latency"]
             avg_latencies.append(avg_latency)
 
-            # Calculate policy energy consumption
             if self.env.resource_cluster.use_energy:
-                avg_energy = self._calculate_policy_energy(samples_data, ENERGY_CONFIG)
+                avg_energy = query_metrics.get("query_mean_energy")
+                if avg_energy is None:
+                    avg_energy = self._calculate_policy_energy(samples_data, ENERGY_CONFIG)
                 avg_energies.append(avg_energy)
             else:
+                avg_energy = None
                 avg_energies.append(None)
 
             logger.logkv('Itr', itr)
             logger.logkv('Average reward, ', avg_reward)
             logger.logkv('Average latency,', avg_latency)
             logger.logkv('Greedy latency,', avg_greedy_latency)
+            logger.logkv('validation_query_composite_objective', query_metrics["validation_query_composite_objective"])
+            self._log_protocol(k_steps=self.num_inner_grad_steps, outer_update_count=0)
             
-            # Log energy if enabled
             if self.env.resource_cluster.use_energy:
                 logger.logkv('Average energy,', avg_energy)
                 logger.logkv('Greedy energy,', avg_greedy_energy)
                 
-                # Print energy report after each epoch
                 print(f"\n========== EPOCH {itr} ENERGY REPORT ==========")
                 print(f"Policy Average Energy: {avg_energy:.6f} Joules")
                 print(f"Greedy Average Energy: {avg_greedy_energy:.6f} Joules")
@@ -175,7 +205,6 @@ class Trainer():
             logger.dumpkvs()
             avg_ret.append(avg_reward)
             
-            # Save detailed Excel file for this iteration
             if excel_output_dir is not None:
                 try:
                     print(f"\n[DEBUG] Attempting to save Excel for iteration {itr}...")
@@ -192,7 +221,6 @@ class Trainer():
             else:
                 print(f"WARNING: Skipping Excel export for iteration {itr} - output directory not available")
 
-        # Generate comprehensive report
         try:
             print("\n==================== GENERATING AUTOMATED REPORT ====================")
             additional_metrics = {
@@ -239,7 +267,8 @@ class Trainer():
             finish_time = finish_times[i]
             
             # Get the task graph for this trajectory
-            task_graph = env.task_graphs_batchs[env.task_id][i % len(env.task_graphs_batchs[env.task_id])]
+            task_graphs = env._slice_current(env.task_graphs_batchs)
+            task_graph = task_graphs[i % len(task_graphs)]
             
             # Build plan from actions
             plan = []
@@ -555,17 +584,12 @@ if __name__ == "__main__":
                                  use_energy=True,  # Enable energy optimization
                                  energy_config=ENERGY_CONFIG)
 
-    from spec.split_loader import graph_indices_for_role, meta_test_distribution_ids
+    from spec.split_loader import graph_indices_for_role, meta_test_distribution_ids, support_query_tasks
 
     eval_dist = 12
     if eval_dist not in set(meta_test_distribution_ids()):
         raise ValueError("evaluator default dist 12 must be a meta_test distribution")
-    support_idx = np.asarray(graph_indices_for_role(eval_dist, "meta_test_support"), dtype=np.int32)
-    query_idx = np.asarray(graph_indices_for_role(eval_dist, "meta_test_query"), dtype=np.int32)
-    if len(support_idx) != 20 or len(query_idx) != 80:
-        raise ValueError("held-out support/query counts must be 20/80")
-    support_task = {"dist_index": 0, "graph_indices": support_idx}
-    query_task = {"dist_index": 0, "graph_indices": query_idx}
+    support_task, query_task = support_query_tasks(0, eval_dist)
 
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
@@ -574,31 +598,25 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20."
                                     ],
                                 time_major=False)
-    env.set_task(support_task)
+    env.set_task(query_task)
 
     print("calculate baseline solution======")
 
-    env.set_task(0)
-    # Get greedy solution (with energy if enabled)
-    greedy_result = env.greedy_solution()
+    greedy_result = env.greedy_solution_for_current_task()
     if env.resource_cluster.use_energy:
         action, finish_time, greedy_energy = greedy_result
-        # Flatten finish times and energy for averaging
-        flat_finish_times = [item for sublist in finish_time for item in sublist]
-        flat_energy = [item for sublist in greedy_energy for item in sublist]
-        print("avg greedy solution latency: ", np.mean(flat_finish_times))
-        print("avg greedy solution energy: ", np.mean(flat_energy))
+        print("avg greedy solution latency: ", np.mean(finish_time))
+        print("avg greedy solution energy: ", np.mean(greedy_energy))
     else:
         action, finish_time = greedy_result
-        # Flatten finish times for averaging
-        flat_finish_times = [item for sublist in finish_time for item in sublist]
-        print("avg greedy solution: ", np.mean(flat_finish_times))
+        print("avg greedy solution: ", np.mean(finish_time))
     
-    # Get reward batch (with energy if enabled)
-    reward_result = env.get_reward_batch_step_by_step(action[env.task_id],
-                                          env.task_graphs_batchs[env.task_id],
-                                          env.max_running_time_batchs[env.task_id],
-                                          env.min_running_time_batchs[env.task_id])
+    reward_result = env.get_reward_batch_step_by_step(
+        action,
+        env._slice_current(env.task_graphs_batchs),
+        env._slice_current(env.max_running_time_batchs),
+        env._slice_current(env.min_running_time_batchs),
+    )
     if env.resource_cluster.use_energy:
         target_batch, task_finish_time_batch, energy_batch = reward_result
     else:
@@ -644,23 +662,26 @@ if __name__ == "__main__":
     algo = PPO(policy=policy,
                meta_sampler=sampler,
                meta_sampler_process=sample_processor,
-               lr=1e-4,
+               lr=5e-4,
                num_inner_grad_steps=3,
                clip_value=0.2,
-               max_grad_norm=None)
+               max_grad_norm=0.5,
+               rng=np.random.RandomState(0))
 
-    # define the trainer of ppo to evaluate the performance of the trained meta policy for new tasks.
+    env.set_task(support_task)
+
     trainer = Trainer(algo=algo,
                       env=env,
                       sampler=sampler,
                       sample_processor=sample_processor,
                       policy=policy,
-                      n_itr=101,
+                      n_itr=1,
                       start_itr=0,
                       batch_size=20,
                       num_inner_grad_steps=3,
                       support_task=support_task,
-                      query_task=query_task)
+                      query_task=query_task,
+                      seed=0)
 
     with tf.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())

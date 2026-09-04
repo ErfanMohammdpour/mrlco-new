@@ -5,7 +5,12 @@ from __future__ import annotations
 import numpy as np
 import tensorflow as tf
 
-from spec.learning_ops import clipped_value_prediction, mean_pseudogradient
+from spec.learning_ops import (
+    clipped_value_prediction,
+    mean_pseudogradient,
+    select_support_rows,
+    shuffled_minibatch_slices,
+)
 
 
 class MRLCO:
@@ -197,13 +202,7 @@ class MRLCO:
     def UpdatePPOTargetPerTask(self, task_samples, task_id, batch_size=20):
         self.reset_inner_optimizer(task_id)
         observations = np.asarray(task_samples["observations"])
-        n = observations.shape[0]
-        if n < self.support_trajectories:
-            raise ValueError("need %d trajectories, got %d" % (self.support_trajectories, n))
-        if n > self.support_trajectories:
-            pick = self.rng.choice(n, self.support_trajectories, replace=False)
-        else:
-            pick = np.arange(n)
+        pick = select_support_rows(observations.shape[0], self.support_trajectories, self.rng)
         actions = np.asarray(task_samples["actions"])[pick]
         observations = observations[pick]
         logits = np.asarray(task_samples["logits"], dtype=np.float32)[pick]
@@ -219,28 +218,20 @@ class MRLCO:
         value_losses = []
         apply_count = 0
         for _epoch in range(self.num_inner_grad_steps):
-            order = self.rng.permutation(self.support_trajectories)
-            obs_e = observations[order]
-            act_e = actions[order]
-            shift_e = shift_actions[order]
-            old_logits_e = logits[order]
-            adv_e = advantages[order]
-            old_v_e = values[order]
-            ret_e = returns[order]
-            start = 0
-            while start < self.support_trajectories:
-                end = min(start + batch_size, self.support_trajectories)
-                obs_b = obs_e[start:end]
+            for idx in shuffled_minibatch_slices(
+                self.support_trajectories, batch_size, self.rng
+            ):
+                obs_b = observations[idx]
                 decoder_full_length = np.array([obs_b.shape[1]] * obs_b.shape[0], dtype=np.int32)
                 feed_dict = {
-                    self.old_logits[task_id]: old_logits_e[start:end],
-                    self.old_v[task_id]: old_v_e[start:end],
+                    self.old_logits[task_id]: logits[idx],
+                    self.old_v[task_id]: values[idx],
                     self.obs[task_id]: obs_b,
-                    self.actions[task_id]: act_e[start:end],
-                    self.decoder_inputs[task_id]: shift_e[start:end],
+                    self.actions[task_id]: actions[idx],
+                    self.decoder_inputs[task_id]: shift_actions[idx],
                     self.decoder_full_length[task_id]: decoder_full_length,
-                    self.advs[task_id]: adv_e[start:end],
-                    self.r[task_id]: ret_e[start:end],
+                    self.advs[task_id]: advantages[idx],
+                    self.r[task_id]: returns[idx],
                 }
                 _, value_loss, policy_loss = sess.run(
                     [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id]],
@@ -249,7 +240,6 @@ class MRLCO:
                 apply_count += 1
                 value_losses.append(value_loss)
                 policy_losses.append(policy_loss)
-                start = end
         if apply_count != self.num_inner_grad_steps:
             raise RuntimeError(
                 "k_steps=%d but recorded %d Adam apply calls" % (self.num_inner_grad_steps, apply_count)

@@ -15,6 +15,7 @@ SPEC = Path(__file__).parent.resolve()
 ROOT = SPEC.parent.resolve()
 STATUS = SPEC / "PHASE3_STATUS.md"
 MRLCO = ROOT / "meta_algos" / "MRLCO.py"
+PPO = ROOT / "meta_algos" / "ppo_offloading.py"
 TRAINER = ROOT / "meta_trainer.py"
 EVAL = ROOT / "meta_evaluator.py"
 FROZEN = SPEC / "frozen_experiment.yaml"
@@ -38,6 +39,7 @@ def check_status(reasons: list[str]) -> None:
 
 def check_sources(reasons: list[str]) -> None:
     mrlco = MRLCO.read_text()
+    ppo = PPO.read_text()
     trainer = TRAINER.read_text()
     evaluator = EVAL.read_text()
     frozen = FROZEN.read_text()
@@ -59,14 +61,36 @@ def check_sources(reasons: list[str]) -> None:
         block(reasons, "meta_trainer.py still declares k_steps=1")
     if "inner_batch_size=10" in trainer:
         block(reasons, "meta_trainer.py still uses batch_size=10")
+    if "inner_batch_size = 500" in trainer or "inner_batch_size=500" in trainer:
+        block(reasons, "meta_trainer.py still defaults inner_batch_size=500")
     if "one-step update" in trainer:
         block(reasons, "forbidden phrase 'one-step update' in trainer")
     if "CUDA_VISIBLE_DEVICES" not in trainer:
         block(reasons, "trainer must default-disable GPU until Phase 3 closes")
-    if "meta_test_support" not in evaluator or "meta_test_query" not in evaluator:
-        block(reasons, "evaluator must wire support/query from the manifest")
+    if "sync_task_policies_from_core" not in trainer:
+        block(reasons, "trainer must sync task policies from core each outer iter")
+    if "validation_interval" not in trainer or "HeldOutQueryEvaluator" not in trainer:
+        block(reasons, "trainer must wire validation_interval held-out query eval")
+    if "protocol_log_kvs" not in trainer:
+        block(reasons, "trainer must log LEARNING_PROTOCOL §9 fields")
+    if "support_query_tasks" not in evaluator:
+        block(reasons, "evaluator must wire support/query from split_loader")
     if "batch_size=500" in evaluator:
         block(reasons, "evaluator still uses batch_size=500")
+    if "set_task(0)" in evaluator:
+        block(reasons, "evaluator set_task(0) leaks the full 100-graph pool")
+    if "greedy_solution_for_current_task" not in evaluator:
+        block(reasons, "evaluator greedy must stay on the current query slice")
+    if "k_steps=0" not in evaluator:
+        block(reasons, "evaluator must report zero-shot k_steps=0")
+    if "mpi4py" in ppo or "MpiAdamOptimizer" in ppo:
+        block(reasons, "ppo_offloading.py still imports mpi4py / MpiAdamOptimizer")
+    if "lr=1e-4" in ppo or "epsilon=1e-5" in ppo:
+        block(reasons, "ppo_offloading.py still uses legacy lr/epsilon")
+    if "def reset_inner_optimizer" not in ppo:
+        block(reasons, "PPO must reset inner Adam per adapt")
+    if "shuffled_minibatch_slices" not in ppo:
+        block(reasons, "PPO must shuffle minibatches each inner epoch")
 
 
 def check_tests(reasons: list[str]) -> None:
