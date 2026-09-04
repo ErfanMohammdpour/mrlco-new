@@ -1,18 +1,23 @@
-# Phase 4 GPU runtime: Python 3.7 + tensorflow-gpu 1.15.5 + CUDA 10.0 / cuDNN 7.
-# Host: NVIDIA driver that can run CUDA 10 apps (tested on driver 580 / CUDA 13).
+# Phase 4 GPU runtime on NVIDIA hosts.
+# Base is the last official TF 1.15 GPU image (Ubuntu 18.04, CUDA 10).
+# We add Python 3.7 because MARGO spec uses `from __future__ import annotations`.
 #
 #   docker build -f spec/Dockerfile.tf115-gpu -t margo-phase4-tf115-gpu spec
 #   docker run --rm --gpus all -e MARGO_ALLOW_GPU=1 \
 #     -v "$PWD":/work -w /work margo-phase4-tf115-gpu \
 #     python spec/phase4_campaign.py --gpu-smoke --seed 0 --i-allow-gpu
-FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+FROM tensorflow/tensorflow:1.15.5-gpu-py3
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
-ENV TF_FORCE_GPU_ALLOW_GROWTH=1
+ENV TF_FORCE_GPU_ALLOW_GROWTH=true
 ENV TF_CPP_MIN_LOG_LEVEL=2
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN rm -f /etc/apt/sources.list.d/cuda*.list \
+          /etc/apt/sources.list.d/nvidia*.list \
+          /etc/apt/sources.list.d/*cuda* \
+          /etc/apt/sources.list.d/*nvidia* \
+ && apt-get update && apt-get install -y --no-install-recommends \
       python3.7 \
       python3.7-dev \
       python3.7-distutils \
@@ -21,12 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       git \
       graphviz \
       libgomp1 \
-      gcc \
-      g++ \
     && rm -rf /var/lib/apt/lists/*
-
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1 \
- && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
 
 RUN curl -sS https://bootstrap.pypa.io/pip/3.7/get-pip.py | python3.7 \
  && python3.7 -m pip install --no-cache-dir "pip==20.3.4" "setuptools==59.6.0" "wheel==0.37.1" \
@@ -41,5 +41,8 @@ RUN curl -sS https://bootstrap.pypa.io/pip/3.7/get-pip.py | python3.7 \
       "joblib==0.17.0" \
       "scipy==1.5.4" \
       "pyprind==2.11.3"
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 2 \
+ && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 2
 
 WORKDIR /work
