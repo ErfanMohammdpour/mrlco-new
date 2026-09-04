@@ -1,3 +1,4 @@
+import os
 import tensorflow as tf
 import numpy as np
 import time
@@ -26,7 +27,9 @@ class Trainer(object):
                 action_print_interval=10,
                 seed=0,
                 validation_interval=50,
-                held_out_evaluator=None):
+                held_out_evaluator=None,
+                ckpt_dir="./meta_model_inner_step1",
+                write_training_report=False):
         if int(inner_batch_size) != FROZEN_PPO_BATCH:
             raise ValueError("v0.1 inner_batch_size / ppo_batch_size_trajectories must be 20")
         if int(validation_interval) != FROZEN_VALIDATION_INTERVAL:
@@ -49,6 +52,12 @@ class Trainer(object):
         self.validation_interval = int(validation_interval)
         self.held_out_evaluator = held_out_evaluator
         self.best_val_composite = None
+        self.ckpt_dir = ckpt_dir
+        self.write_training_report = bool(write_training_report)
+        os.makedirs(self.ckpt_dir, exist_ok=True)
+
+    def _ckpt_path(self, name):
+        return os.path.join(self.ckpt_dir, name)
 
     def _log_protocol_fields(self, itr, k_steps):
         for key, value in protocol_log_kvs(
@@ -72,7 +81,7 @@ class Trainer(object):
         if self.best_val_composite is None or composite > self.best_val_composite:
             self.best_val_composite = composite
             self.policy.core_policy.save_variables(
-                save_path="./meta_model_inner_step1/meta_model_best_val.ckpt"
+                save_path=self._ckpt_path("meta_model_best_val.ckpt")
             )
             logger.logkv("checkpoint_is_best_val", 1)
         else:
@@ -194,40 +203,46 @@ class Trainer(object):
             avg_ret.append(avg_reward)
 
             if itr % self.save_interval == 0:
-                self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_"+str(itr)+".ckpt")
+                self.policy.core_policy.save_variables(
+                    save_path=self._ckpt_path("meta_model_" + str(itr) + ".ckpt")
+                )
 
-        self.policy.core_policy.save_variables(save_path="./meta_model_inner_step1/meta_model_final.ckpt")
+        self.policy.core_policy.save_variables(
+            save_path=self._ckpt_path("meta_model_final.ckpt")
+        )
 
-        try:
-            print("\n==================== GENERATING AUTOMATED REPORT ====================")
-            additional_metrics = {
-                'policy_losses': policy_losses_all,
-                'value_losses': value_losses_all,
-                'greedy_latencies': greedy_latencies_all
-            }
-            
-            if self.env.resource_cluster.use_energy and len(avg_energies) > 0:
-                energy_values = [e for e in avg_energies if e is not None]
-                if len(energy_values) > 0:
-                    additional_metrics['average_energy'] = energy_values
-                    print(f"Added energy metrics to report ({len(energy_values)} iterations)")
-            
-            report_dir = create_training_report(
-                avg_ret=avg_ret,
-                avg_loss=avg_loss,
-                avg_latencies=avg_latencies,
-                additional_metrics=additional_metrics
-            )
-            print(f"Report generated successfully at: {report_dir}")
-            print("=====================================================================\n")
-        except Exception as e:
-            print(f"WARNING: Failed to generate automated report: {str(e)}")
-            print("Training completed successfully but report generation failed.")
+        if self.write_training_report:
+            try:
+                print("\n==================== GENERATING AUTOMATED REPORT ====================")
+                additional_metrics = {
+                    'policy_losses': policy_losses_all,
+                    'value_losses': value_losses_all,
+                    'greedy_latencies': greedy_latencies_all
+                }
+
+                if self.env.resource_cluster.use_energy and len(avg_energies) > 0:
+                    energy_values = [e for e in avg_energies if e is not None]
+                    if len(energy_values) > 0:
+                        additional_metrics['average_energy'] = energy_values
+                        print(f"Added energy metrics to report ({len(energy_values)} iterations)")
+
+                report_dir = create_training_report(
+                    avg_ret=avg_ret,
+                    avg_loss=avg_loss,
+                    avg_latencies=avg_latencies,
+                    additional_metrics=additional_metrics
+                )
+                print(f"Report generated successfully at: {report_dir}")
+                print("=====================================================================\n")
+            except Exception as e:
+                print(f"WARNING: Failed to generate automated report: {str(e)}")
+                print("Training completed successfully but report generation failed.")
 
         return avg_ret, avg_loss, avg_latencies
 
 
-if __name__ == "__main__":
+def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_step1"):
+    """Frozen v0.1 train+val stack. Caller must set CUDA_VISIBLE_DEVICES before importing TF."""
     from env.mec_offloaing_envs.offloading_env import Resources
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
     from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy
@@ -235,27 +250,21 @@ if __name__ == "__main__":
     from samplers.seq2seq_meta_sampler_process import Seq2SeqMetaSamplerProcessor
     from baselines.vf_baseline import ValueFunctionBaseline
     from meta_algos.MRLCO import MRLCO
-
-    import os
-    if os.environ.get("MARGO_ALLOW_GPU") != "1":
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
     from spec.split_loader import (
         assert_held_out_prefixes,
         assert_train_prefixes,
         meta_train_graph_prefixes,
         validation_graph_prefixes,
     )
-    from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy, Seq2SeqPolicy
+    from policies.meta_seq2seq_policy import Seq2SeqPolicy
     from samplers.seq2seq_sampler import Seq2SeqSampler
     from samplers.seq2seq_sampler_process import Seq2SeSamplerProcessor
     from meta_algos.ppo_offloading import PPO
     from meta_algos.held_out_eval import HeldOutQueryEvaluator
 
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-    logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
-
-    SEED = 0
+    SEED = int(seed)
+    import random
+    random.seed(SEED)
     np.random.seed(SEED)
     tf.compat.v1.set_random_seed(SEED)
 
@@ -264,38 +273,31 @@ if __name__ == "__main__":
     PPO_BATCH_SIZE = 20
     SUPPORT_GRAPHS = 20
     VALIDATION_INTERVAL = 50
-    
-    # Control flags for printing
-    PRINT_ACTION_CHOICES = True  # Set to True to print action choices (0=local, 1=MEC, 2=V2V)
-    ACTION_PRINT_INTERVAL = 0   # Print action choices every N iterations (0 = every iteration)
-
-    # ========== ENERGY CONFIGURATION ==========
-    # Set to True to enable energy optimization alongside latency
+    PRINT_ACTION_CHOICES = False
+    ACTION_PRINT_INTERVAL = 0
     USE_ENERGY = True
-    
+
     ENERGY_CONFIG = {
         'use_energy': USE_ENERGY,
-        'energy_weight': 0.5,      # Weight for energy in combined reward
-        'latency_weight': 0.5,     # Weight for latency in combined reward
-        'rho': 1.0,                # Computation energy coefficient
-        'f_l': 1.0,                # Local CPU frequency (normalized)
-        'zeta': 2.0,               # CPU frequency exponent
-        'ptx': 0.1,                # Transmission power (Watts)
-        'prx': 0.05,               # Reception power (Watts)
-        # V2V-specific parameters
-        'ptx_v2v': 0.06,           # V2V transmission power (Watts, typically < ptx)
-        'prx_v2v': 0.03,           # V2V reception power (Watts, typically < prx)
-        'rho_v2v': 0.7,            # V2V computation energy coefficient (70% of local)
-        'f_v2v': 1.0,              # V2V CPU frequency (normalized, same as local)
-        'normalize_energy': True,   # Whether to normalize energy rewards
+        'energy_weight': 0.5,
+        'latency_weight': 0.5,
+        'rho': 1.0,
+        'f_l': 1.0,
+        'zeta': 2.0,
+        'ptx': 0.1,
+        'prx': 0.05,
+        'ptx_v2v': 0.06,
+        'prx_v2v': 0.03,
+        'rho_v2v': 0.7,
+        'f_v2v': 1.0,
+        'normalize_energy': True,
     }
-    # ==========================================
-    
+
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0,
-                                 v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
-                                 v2v_bandwidth=5.0,  # Lower than MEC
+                                 v2v_process_capable=(1.0 * 1024 * 1024),
+                                 v2v_bandwidth=5.0,
                                  use_energy=USE_ENERGY,
                                  energy_config=ENERGY_CONFIG)
 
@@ -309,45 +311,23 @@ if __name__ == "__main__":
                                 time_major=False)
     env.support_graphs_per_task = SUPPORT_GRAPHS
 
-    # Get greedy solution (with energy if enabled)
     greedy_result = env.greedy_solution()
     if env.resource_cluster.use_energy:
         action, greedy_finish_time, greedy_energy = greedy_result
-        # Flatten finish times and energy for averaging
-        flat_finish_times = [item for sublist in greedy_finish_time for item in sublist]
-        flat_energy = [item for sublist in greedy_energy for item in sublist]
-        print("avg greedy solution latency: ", np.mean(flat_finish_times))
-        print("avg greedy solution energy: ", np.mean(flat_energy))
     else:
         action, greedy_finish_time = greedy_result
-        # Flatten finish times for averaging
-        flat_finish_times = [item for sublist in greedy_finish_time for item in sublist]
-        print("avg greedy solution: ", np.mean(flat_finish_times))
-    print()
-    finish_time = env.get_all_mec_execute_time()
-    print("avg all remote solution: ", np.mean(finish_time))
-    print()
-    finish_time = env.get_all_locally_execute_time()
-    print("avg all local solution: ", np.mean(finish_time))
-    print()
-    finish_time = env.get_all_v2v_execute_time()
-    print("avg all V2V solution: ", np.mean(finish_time))
-    print()
 
     baseline = ValueFunctionBaseline()
-
     meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=env.input_dim, encoder_units=128, decoder_units=128,
                                     vocab_size=3)
-
     sampler = Seq2SeqMetaSampler(
         env=env,
         policy=meta_policy,
-        rollouts_per_meta_task=1,  # This batch_size is confusing
+        rollouts_per_meta_task=1,
         meta_batch_size=META_BATCH_SIZE,
         max_path_length=20000,
         parallel=False,
     )
-
     sample_processor = Seq2SeqMetaSamplerProcessor(baseline=baseline,
                                                    discount=0.99,
                                                    gae_lambda=0.95,
@@ -406,25 +386,37 @@ if __name__ == "__main__":
         source_policy=meta_policy.core_policy,
         ppo_batch_size=PPO_BATCH_SIZE,
     )
-
-    trainer = Trainer(algo = algo,
+    trainer = Trainer(algo=algo,
                         env=env,
                         sampler=sampler,
                         sample_processor=sample_processor,
                         policy=meta_policy,
-                        n_itr=3500,
-                        greedy_finish_time= greedy_finish_time,
+                        n_itr=int(n_itr),
+                        greedy_finish_time=greedy_finish_time,
                         start_itr=0,
                         inner_batch_size=PPO_BATCH_SIZE,
                         print_action_choices=PRINT_ACTION_CHOICES,
                         action_print_interval=ACTION_PRINT_INTERVAL,
                         seed=SEED,
                         validation_interval=VALIDATION_INTERVAL,
-                        held_out_evaluator=held_out)
+                        held_out_evaluator=held_out,
+                        ckpt_dir=ckpt_dir)
+    return trainer, algo
 
+
+if __name__ == "__main__":
+    # Legacy CPU entry. Phase 4 GPU train goes through spec/phase4_campaign.py only.
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
+    trainer, algo = build_frozen_primary_stack(
+        seed=0,
+        n_itr=3500,
+        ckpt_dir="./meta_model_inner_step1",
+    )
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
         algo.sync_task_policies_from_core()
-        avg_ret, avg_loss, avg_latencies = trainer.train()
+        trainer.train()
 
 

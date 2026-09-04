@@ -1,0 +1,59 @@
+spec_version: MARGO-SPEC-v0.1
+phase: 4
+status: in_progress
+method_id: margo_v0.1_primary
+parent_freeze: phase3-freeze-v0.1
+optimization_claim: false
+validation_tuning_performed: false
+
+# Evaluation only. Do not retune LEARNING_PROTOCOL / frozen_experiment.yaml.
+
+gpu:
+  default: forbidden
+  require_env: MARGO_ALLOW_GPU=1
+  require_cli_flag: --i-allow-gpu
+  # Agent / operator must also give explicit chat approval before launching train.
+
+primary_run:
+  outer_iterations: 3500
+  k_steps: 3
+  k_report: [0, 3]
+  seeds: [0, 1, 2, 3, 4]
+  objective_weights: {latency_weight: 0.5, energy_weight: 0.5}
+  action_space: [UE, MEC, HELPER]
+  v2v: on
+  task_count: 20
+  checkpoint_selection_metric: validation_query_composite_objective
+  early_stopping_rule: none_in_v0.1_fixed_budget
+
+split:
+  meta_train: [1, 3, 4, 5, 8, 9, 11, 13, 15, 18, 19, 21, 22, 24, 25]
+  validation: [2, 6, 10, 16, 17]
+  meta_test: [7, 12, 14, 20, 23]
+  support_graphs: 20
+  query_graphs: 80
+
+artifacts:
+  root: runs/phase4
+  per_seed:
+    - provenance.json
+    - config.resolved.json
+    - logs/
+    - ckpt/meta_model_best_val.ckpt
+    - ckpt/meta_model_final.ckpt
+    - eval/meta_test/dist_{id}_k{0,3}.json
+
+baselines_planned:
+  - greedy_query
+  - all_local_query
+  - all_mec_query
+  - all_helper_query
+  - mrlco_faithful_lstm_binary_latency  # later; same split; energy post-hoc
+  - ppo_from_scratch                     # later; same encoder/env
+
+forbidden:
+  - hyperparameter_search
+  - meta_test_for_model_selection
+  - publication_weights_other_than_0.5_0.5
+  - claiming_paper_results_from_one_seed
+  - launching_gpu_without_human_approval
