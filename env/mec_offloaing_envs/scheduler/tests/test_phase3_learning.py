@@ -155,7 +155,71 @@ class TestProtocolLogs(unittest.TestCase):
     def test_sliced_task_rejects_integer_leak(self):
         with self.assertRaises(ValueError):
             require_sliced_task(0)
+        with self.assertRaises(ValueError):
+            require_sliced_task({"dist_index": 0})
         require_sliced_task({"dist_index": 0, "graph_indices": list(range(20))})
+
+
+class TestHeldOutScenarios(unittest.TestCase):
+    def test_every_validation_dist_is_20_80_disjoint(self):
+        for dist_id in validation_distribution_ids():
+            support, query = support_query_tasks(0, dist_id)
+            self.assertEqual(len(support["graph_indices"]), 20, msg="val dist %s" % dist_id)
+            self.assertEqual(len(query["graph_indices"]), 80, msg="val dist %s" % dist_id)
+            self.assertFalse(set(support["graph_indices"]) & set(query["graph_indices"]))
+
+    def test_every_meta_test_dist_is_20_80_disjoint(self):
+        for dist_id in meta_test_distribution_ids():
+            support, query = support_query_tasks(0, dist_id)
+            self.assertEqual(len(support["graph_indices"]), 20, msg="test dist %s" % dist_id)
+            self.assertEqual(len(query["graph_indices"]), 80, msg="test dist %s" % dist_id)
+            self.assertFalse(set(support["graph_indices"]) & set(query["graph_indices"]))
+
+    def test_latin_grid_ids_match_policy(self):
+        self.assertEqual(validation_distribution_ids(), [2, 6, 10, 16, 17])
+        self.assertEqual(meta_test_distribution_ids(), [7, 12, 14, 20, 23])
+
+    def test_zero_shot_log_fields(self):
+        kvs = protocol_log_kvs(seed=7, k_steps=0, outer_update_count=0)
+        self.assertEqual(kvs["k_steps"], 0)
+        self.assertEqual(kvs["outer_update_count"], 0)
+        self.assertEqual(kvs["query_graph_count"], 80)
+
+    def test_query_metrics_energy_and_latency(self):
+        from spec.eval_protocol import query_metrics_from_samples
+
+        samples = {
+            "rewards": np.array([[-1.0, -1.0], [-2.0, 0.0]]),
+            "finish_time": np.array([4.0, 6.0]),
+            "energy": np.array([[0.5, 0.5], [1.0, 1.0]]),
+        }
+        metrics = query_metrics_from_samples(samples)
+        self.assertAlmostEqual(metrics["query_mean_return"], -2.0)
+        self.assertAlmostEqual(metrics["query_mean_latency"], 5.0)
+        self.assertAlmostEqual(metrics["query_mean_energy"], 1.5)
+        self.assertAlmostEqual(metrics["validation_query_composite_objective"], -2.0)
+
+
+class TestShuffleLeftoverAndRejects(unittest.TestCase):
+    def test_two_minibatches_cover_unique_indices(self):
+        rng = np.random.RandomState(1)
+        seen = []
+        for idx in shuffled_minibatch_slices(20, 10, rng):
+            seen.extend(idx.tolist())
+        self.assertEqual(sorted(seen), list(range(20)))
+        self.assertEqual(len(seen), 20)
+
+    def test_select_support_exact_n_is_identity(self):
+        idx = select_support_rows(20, 20, np.random.RandomState(0))
+        np.testing.assert_array_equal(idx, np.arange(20))
+
+    def test_mean_pg_rejects_k_zero(self):
+        with self.assertRaises(ValueError):
+            mean_pseudogradient([np.array([1.0])], [[np.array([0.0])]], alpha=5e-4, k_steps=0)
+
+    def test_held_out_train_prefix_rejected(self):
+        with self.assertRaises(ValueError):
+            assert_held_out_prefixes(meta_train_graph_prefixes()[:5], "validation")
 
 
 class TestMRLCOSourceContract(unittest.TestCase):

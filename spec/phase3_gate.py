@@ -91,6 +91,11 @@ def check_sources(reasons: list[str]) -> None:
         block(reasons, "PPO must reset inner Adam per adapt")
     if "shuffled_minibatch_slices" not in ppo:
         block(reasons, "PPO must shuffle minibatches each inner epoch")
+    tf_test = ROOT / "env" / "mec_offloaing_envs" / "scheduler" / "tests" / "test_phase3_learning_tf.py"
+    if not tf_test.is_file():
+        block(reasons, "test_phase3_learning_tf.py missing")
+    if "Phase 3 learning smoke requires TensorFlow 1.15" not in tf_test.read_text():
+        block(reasons, "TF smoke must fail when TensorFlow is missing")
 
 
 def check_tests(reasons: list[str]) -> None:
@@ -100,6 +105,7 @@ def check_tests(reasons: list[str]) -> None:
             "-m",
             "unittest",
             "env.mec_offloaing_envs.scheduler.tests.test_phase3_learning",
+            "env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf",
             "-v",
         ],
         cwd=str(ROOT),
@@ -110,7 +116,7 @@ def check_tests(reasons: list[str]) -> None:
     for line in out.splitlines():
         if line.startswith(("test_", "OK", "FAILED", "ERROR", "Ran ", "=")):
             print(line)
-        if re.search(r"\bSKIP(?:PED)?\b", line):
+        if re.search(r"\bSKIP(?:PED)?\b", line) or " ... skipped" in line.lower():
             block(reasons, f"phase 3 test skipped: {line.strip()}")
     if proc.returncode != 0:
         sys.stdout.write(proc.stdout)
@@ -128,6 +134,7 @@ def main() -> int:
     print("PHASE3_STATUS.md:   checked")
     print("Source contracts:   checked")
     print("Phase 3 unit tests: checked")
+    print("Phase 3 TF smoke:   checked")
     if reasons:
         print("\nPhase 3 learning: BLOCKED")
         for item in reasons:

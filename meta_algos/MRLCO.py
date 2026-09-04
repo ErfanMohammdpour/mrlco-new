@@ -40,6 +40,12 @@ class MRLCO:
             raise ValueError("v0.1 ppo_batch_size_trajectories must be 20")
         if int(support_trajectories) != 20:
             raise ValueError("v0.1 support trajectories per meta-task must be 20")
+        if int(meta_batch_size) != 10:
+            raise ValueError("v0.1 meta_batch_size_distributions must be 10")
+        if abs(float(inner_lr) - 5e-4) > 1e-12:
+            raise ValueError("v0.1 inner_learning_rate must be 5e-4")
+        if abs(float(outer_lr) - 5e-4) > 1e-12:
+            raise ValueError("v0.1 outer Adam learning_rate must be 5e-4")
         self.outer_lr = float(outer_lr)
         self.inner_lr = float(inner_lr)
         self.num_inner_grad_steps = int(num_inner_grad_steps)
