@@ -45,24 +45,32 @@ def require_gpu_permission(allow_gpu_flag, environ=None):
 
 
 def git_head_sha(root=ROOT):
-    proc = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=str(root),
-        text=True,
-        capture_output=True,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(root),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError:
+        return "unknown"
     if proc.returncode != 0:
         return "unknown"
     return proc.stdout.strip()
 
 
 def git_dirty(root=ROOT):
-    proc = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=str(root),
-        text=True,
-        capture_output=True,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(root),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError:
+        return True
     if proc.returncode != 0:
         return True
     return bool(proc.stdout.strip())
