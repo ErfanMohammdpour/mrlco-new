@@ -1,15 +1,16 @@
-=== Phase 2 TensorFlow 1.15 smoke evidence ===
-captured_at_utc=2026-09-04T00:05:23Z
+=== Phase 2 TensorFlow 1.15 same-SHA smoke evidence ===
+captured_at_utc=2026-09-04T00:29:43Z
 host=Mohamads-Mac-Studio.local
 uname=Darwin 25.6.0 arm64
-base_sha=367c10eac347a0eb4d0b0120685c30b453c6820b
+tested_sha=06b97e9d556fe9daa3b0d35c452c7ac0114e58d4
+git_status=0 dirty_paths
 docker_platform=linux/amd64
 
 === docker build ===
-(image margo-phase2-tf115 linux/amd64; layer cache + scipy==1.5.4)
+(image margo-phase2-tf115 linux/amd64, cache hit on 06b97e9 tree)
 
 === runtime ===
-Linux 6.12.76-linuxkit x86_64
+container_uname=Linux 6.12.76-linuxkit x86_64
 Python 3.7.17
 1.15.5
 True
@@ -44,7 +45,7 @@ test_predecessor_wiring_changes_sink_embedding (env.mec_offloaing_envs.scheduler
 test_real_gv_forward_finite_shapes (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
 test_task_id_relabel_preserves_aligned_embeddings (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
 test_topology_changes_embeddings (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
-Ran 26 tests in 2.990s
+Ran 26 tests in 3.223s
 OK
 
 GATE SNAPSHOT
