@@ -50,7 +50,7 @@ class Trainer(object):
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
             logger.log("Sampling set of tasks/goals for this meta-batch...")
 
-            task_ids = self.sampler.update_tasks()
+            task_specs = self.sampler.update_tasks()
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
 
             #print("sampled path length is: ", len(paths[0]))
@@ -81,7 +81,10 @@ class Trainer(object):
                         percentage = (count / total * 100) if total > 0 else 0
                         print(f"  {action_name}: {count} ({percentage:.1f}%)")
 
-            greedy_run_time = [self.greedy_finish_time[x] for x in task_ids]
+            greedy_run_time = []
+            for spec in task_specs:
+                dist_index = spec["dist_index"] if isinstance(spec, dict) else spec
+                greedy_run_time.append(self.greedy_finish_time[dist_index])
             logger.logkv('Average greedy latency,', np.mean(greedy_run_time))
             greedy_latencies_all.append(np.mean(greedy_run_time))
 
@@ -101,7 +104,7 @@ class Trainer(object):
             value_losses_all.append(np.mean(value_losses))
 
             """ ------------------ Resample from updated sub-task policy ------------"""
-            print("Evaluate the one-step update for sub-task policy")
+            logger.log("Evaluating adapted task policies on a fresh support sample")
             new_paths = self.sampler.obtain_samples(log=True, log_prefix='')
             new_samples_data = self.sampler_processor.process_samples(new_paths, log="all", log_prefix='')
 
@@ -112,13 +115,13 @@ class Trainer(object):
             """ ------------------- Logging Stuff --------------------------"""
 
             ret = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
 
             avg_reward = np.mean(ret)
 
             latency = np.array([])
-            for i in range(5):
+            for i in range(len(new_samples_data)):
                 latency = np.concatenate((latency, new_samples_data[i]['finish_time']), axis=-1)
 
             avg_latency = np.mean(latency)
@@ -127,7 +130,7 @@ class Trainer(object):
             # Log and track energy if enabled
             if self.env.resource_cluster.use_energy:
                 energy = np.array([])
-                for i in range(5):
+                    for i in range(len(new_samples_data)):
                     if 'energy' in new_samples_data[i]:
                         energy = np.concatenate((energy, np.sum(new_samples_data[i]['energy'], axis=-1)), axis=-1)
                 if len(energy) > 0:
@@ -195,10 +198,19 @@ if __name__ == "__main__":
     from baselines.vf_baseline import ValueFunctionBaseline
     from meta_algos.MRLCO import MRLCO
 
+    import os
+    if os.environ.get("MARGO_ALLOW_GPU") != "1":
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+    from spec.split_loader import assert_train_prefixes, meta_train_graph_prefixes
+
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
 
     META_BATCH_SIZE = 10
+    K_STEPS = 3
+    PPO_BATCH_SIZE = 20
+    SUPPORT_GRAPHS = 20
     
     # Control flags for printing
     PRINT_ACTION_CHOICES = True  # Set to True to print action choices (0=local, 1=MEC, 2=V2V)
@@ -234,31 +246,15 @@ if __name__ == "__main__":
                                  use_energy=USE_ENERGY,
                                  energy_config=ENERGY_CONFIG)
 
+    train_paths = meta_train_graph_prefixes()
+    assert_train_prefixes(train_paths)
+
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
                                 graph_number=100,
-                                graph_file_paths=[
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_10/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_5/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_6/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_7/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_11/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_9/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_13/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_14/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_15/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_17/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_18/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_19/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_21/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_22/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_23/random.20.",
-                                    "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_25/random.20.",
-                                ],
+                                graph_file_paths=train_paths,
                                 time_major=False)
+    env.support_graphs_per_task = SUPPORT_GRAPHS
 
     # Get greedy solution (with energy if enabled)
     greedy_result = env.greedy_solution()
@@ -307,11 +303,14 @@ if __name__ == "__main__":
     algo = MRLCO(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
-                         inner_lr=5e-4,  # Increased from 5e-4 to improve learning
-                         outer_lr=5e-4,  # Increased from 5e-4 to improve learning
+                         inner_lr=5e-4,
+                         outer_lr=5e-4,
                          meta_batch_size=META_BATCH_SIZE,
-                         num_inner_grad_steps=1,
-                         clip_value = 0.2)
+                         num_inner_grad_steps=K_STEPS,
+                         clip_value=0.2,
+                         value_clip_epsilon=0.2,
+                         support_trajectories=SUPPORT_GRAPHS,
+                         ppo_batch_size_trajectories=PPO_BATCH_SIZE)
 
     trainer = Trainer(algo = algo,
                         env=env,
@@ -321,12 +320,13 @@ if __name__ == "__main__":
                         n_itr=3500,
                         greedy_finish_time= greedy_finish_time,
                         start_itr=0,
-                        inner_batch_size=10,
+                        inner_batch_size=PPO_BATCH_SIZE,
                         print_action_choices=PRINT_ACTION_CHOICES,
                         action_print_interval=ACTION_PRINT_INTERVAL)
 
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
+        algo.sync_task_policies_from_core()
         avg_ret, avg_loss, avg_latencies = trainer.train()
 
 

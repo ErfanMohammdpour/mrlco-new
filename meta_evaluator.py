@@ -24,9 +24,11 @@ class Trainer():
                 sample_processor,
                 policy,
                 n_itr,
-                batch_size=500,
+                batch_size=20,
                 start_itr=0,
-                num_inner_grad_steps=3):
+                num_inner_grad_steps=3,
+                support_task=None,
+                query_task=None):
         self.algo = algo
         self.env = env
         self.sampler = sampler
@@ -36,6 +38,8 @@ class Trainer():
         self.start_itr = start_itr
         self.num_inner_grad_steps = num_inner_grad_steps
         self.batch_size = batch_size
+        self.support_task = support_task
+        self.query_task = query_task
 
     def train(self):
         """
@@ -101,6 +105,13 @@ class Trainer():
 
             print("average value losses: ", np.mean(value_losses))
             avg_vf_loss.append(np.mean(value_losses))
+
+            if self.query_task is not None:
+                self.env.set_task(self.query_task)
+                query_paths = self.sampler.obtain_samples(log=False, log_prefix='query_')
+                samples_data = self.sampler_processor.process_samples(query_paths, log='all', log_prefix='query_')
+                if self.support_task is not None:
+                    self.env.set_task(self.support_task)
 
             """ ------------------- Compute Greedy Solution --------------------"""
             # Compute greedy solution for comparison
@@ -516,6 +527,10 @@ if __name__ == "__main__":
 
     logger.configure(dir="./meta_evaluate_ppo_log/task_offloading", format_strs=['stdout', 'log', 'csv'])
 
+    import os
+    if os.environ.get("MARGO_ALLOW_GPU") != "1":
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
     # Energy configuration - enable energy optimization
     ENERGY_CONFIG = {
         'rho': 1.0,           # Local computation energy coefficient
@@ -540,6 +555,18 @@ if __name__ == "__main__":
                                  use_energy=True,  # Enable energy optimization
                                  energy_config=ENERGY_CONFIG)
 
+    from spec.split_loader import graph_indices_for_role, meta_test_distribution_ids
+
+    eval_dist = 12
+    if eval_dist not in set(meta_test_distribution_ids()):
+        raise ValueError("evaluator default dist 12 must be a meta_test distribution")
+    support_idx = np.asarray(graph_indices_for_role(eval_dist, "meta_test_support"), dtype=np.int32)
+    query_idx = np.asarray(graph_indices_for_role(eval_dist, "meta_test_query"), dtype=np.int32)
+    if len(support_idx) != 20 or len(query_idx) != 80:
+        raise ValueError("held-out support/query counts must be 20/80")
+    support_task = {"dist_index": 0, "graph_indices": support_idx}
+    query_task = {"dist_index": 0, "graph_indices": query_idx}
+
     env = OffloadingEnvironment(resource_cluster=resource_cluster,
                                 batch_size=100,
                                 graph_number=100,
@@ -547,6 +574,7 @@ if __name__ == "__main__":
                                     "./env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_12/random.20."
                                     ],
                                 time_major=False)
+    env.set_task(support_task)
 
     print("calculate baseline solution======")
 
@@ -629,8 +657,10 @@ if __name__ == "__main__":
                       policy=policy,
                       n_itr=101,
                       start_itr=0,
-                      batch_size=500,
-                      num_inner_grad_steps=3)
+                      batch_size=20,
+                      num_inner_grad_steps=3,
+                      support_task=support_task,
+                      query_task=query_task)
 
     with tf.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())

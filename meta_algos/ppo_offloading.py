@@ -57,7 +57,7 @@ class PPO():
                                                       1.0 + self.clip_value) * self.advs)
             self.surr_obj = -tf.reduce_mean(clipped_obj)
 
-            vpredclipped = self.vpred + tf.clip_by_value(self.vpred - self.old_v, -self.clip_value, self.clip_value)
+            vpredclipped = self.old_v + tf.clip_by_value(self.vpred - self.old_v, -self.clip_value, self.clip_value)
             vf_losses1 = tf.square(self.vpred - self.r)
             vf_losses2 = tf.square(vpredclipped - self.r)
 

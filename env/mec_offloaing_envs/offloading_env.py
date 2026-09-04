@@ -211,6 +211,8 @@ class OffloadingEnvironment(MetaEnv):
         self.total_task = len(self.encoder_batchs)
         self.optimal_solution = -1
         self.task_id = -1
+        self.graph_indices = None
+        self.support_graphs_per_task = 20
         self.time_major = time_major
         self.input_dim = np.array(encoder_batchs[0]).shape[-1]
 
@@ -230,9 +232,28 @@ class OffloadingEnvironment(MetaEnv):
             n_tasks (int) : number of different meta-tasks needed
 
         Returns:
-            tasks (list) : an (n_tasks) length list of tasks
+            tasks (list) : an (n_tasks) length list of {dist_index, graph_indices}
         """
-        return np.random.choice(np.arange(self.total_task), n_tasks, replace=False)
+        dist_ids = np.random.choice(np.arange(self.total_task), n_tasks, replace=False)
+        tasks = []
+        for dist_id in dist_ids:
+            n_graphs = len(self.task_graphs_batchs[int(dist_id)])
+            k = min(int(self.support_graphs_per_task), n_graphs)
+            if k < n_graphs:
+                graph_indices = np.random.choice(n_graphs, k, replace=False)
+            else:
+                graph_indices = np.arange(n_graphs)
+            tasks.append({"dist_index": int(dist_id), "graph_indices": np.asarray(graph_indices, dtype=np.int32)})
+        return tasks
+
+    def _slice_current(self, batch):
+        item = batch[self.task_id]
+        if self.graph_indices is None:
+            return item
+        idx = np.asarray(self.graph_indices, dtype=np.int32)
+        if isinstance(item, np.ndarray):
+            return item[idx]
+        return [item[int(i)] for i in idx]
 
     def merge_graphs(self):
         encoder_batchs = []
@@ -268,7 +289,12 @@ class OffloadingEnvironment(MetaEnv):
         Args:
             task: task of the meta-learning environment
         """
-        self.task_id = task
+        if isinstance(task, dict):
+            self.task_id = int(task["dist_index"])
+            self.graph_indices = np.asarray(task["graph_indices"], dtype=np.int32)
+        else:
+            self.task_id = int(task)
+            self.graph_indices = None
 
     def get_task(self):
         """
@@ -296,9 +322,9 @@ class OffloadingEnvironment(MetaEnv):
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning)
         """
         plan_batch = []
-        task_graph_batch = self.task_graphs_batchs[self.task_id]
-        max_running_time_batch = self.max_running_time_batchs[self.task_id]
-        min_running_time_batch = self.min_running_time_batchs[self.task_id]
+        task_graph_batch = self._slice_current(self.task_graphs_batchs)
+        max_running_time_batch = self._slice_current(self.max_running_time_batchs)
+        min_running_time_batch = self._slice_current(self.min_running_time_batchs)
 
         for action_sequence, task_graph in zip(action, task_graph_batch):
             plan_sequence = []
@@ -323,7 +349,7 @@ class OffloadingEnvironment(MetaEnv):
             info = task_finish_time
 
         done = True
-        observation = np.array(self.encoder_batchs[self.task_id])
+        observation = np.array(self._slice_current(self.encoder_batchs))
 
         return observation, reward_batch, done, info
 
@@ -336,7 +362,7 @@ class OffloadingEnvironment(MetaEnv):
         # reset the resource environment.
         self.resource_cluster.reset()
 
-        return np.array(self.encoder_batchs[self.task_id])
+        return np.array(self._slice_current(self.encoder_batchs))
 
     def render(self, mode='human'):
         pass
@@ -622,10 +648,10 @@ class OffloadingEnvironment(MetaEnv):
         
         if self.resource_cluster.use_energy:
             result_plan, finish_time_batchs, energy_batchs = greedy_result
-            return result_plan[self.task_id], finish_time_batchs[self.task_id], energy_batchs[self.task_id]
+            return self._slice_current(result_plan), self._slice_current(finish_time_batchs), self._slice_current(energy_batchs)
         else:
             result_plan, finish_time_batchs = greedy_result
-            return result_plan[self.task_id], finish_time_batchs[self.task_id]
+            return self._slice_current(result_plan), self._slice_current(finish_time_batchs)
 
 
 
