@@ -1,0 +1,62 @@
+=== Phase 2 TensorFlow 1.15 smoke evidence ===
+captured_at_utc=2026-09-04T00:05:23Z
+host=Mohamads-Mac-Studio.local
+uname=Darwin 25.6.0 arm64
+base_sha=367c10eac347a0eb4d0b0120685c30b453c6820b
+docker_platform=linux/amd64
+
+=== docker build ===
+(image margo-phase2-tf115 linux/amd64; layer cache + scipy==1.5.4)
+
+=== runtime ===
+Linux 6.12.76-linuxkit x86_64
+Python 3.7.17
+1.15.5
+True
+
+=== python spec/phase2_gate.py ===
+=== Phase 2 encoder gate ===
++ regenerate encoder stats from meta_train and compare
++ /usr/local/bin/python -m unittest env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf -v
+test_chain_is_not_clique (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_degree_19_star_is_full_capacity (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_degree_above_max_neigh_raises (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_duplicate_edges_collapse_to_one_neighbor (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_global_neighbor_indices_dummy_pad (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_no_legacy_scheduler_cost_slots (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_no_six_neighbor_truncation (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_noncontiguous_task_ids (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_padding_mask_and_pad_index (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_remap_task_id_to_decoder_index (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_uses_edge_output_bytes (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestEncoderPacking) ... ok
+test_fit_from_rows_only (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestMetaTrainStats) ... ok
+test_frozen_stats_are_meta_train_only (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestMetaTrainStats) ... ok
+test_hash_is_lf_canonical (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestMetaTrainStats) ... ok
+test_nan_mean_rejected (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestMetaTrainStats) ... ok
+test_neighbor_index_out_of_range_rejected (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestMetaTrainStats) ... ok
+test_spec_task_count_enforced_on_production_path (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestMetaTrainStats) ... ok
+test_standardize_uses_injected_stats (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestMetaTrainStats) ... ok
+test_ranking_and_cost_uses_canonical_pack (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestTaskGraphEncodePath) ... ok
+test_permutation_consistency (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestTopologyAndPermutation) ... ok
+test_topology_sensitivity_same_nodes_different_edges (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder.TestTopologyAndPermutation) ... ok
+test_dropout_off_is_deterministic (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
+test_predecessor_wiring_changes_sink_embedding (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
+test_real_gv_forward_finite_shapes (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
+test_task_id_relabel_preserves_aligned_embeddings (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
+test_topology_changes_embeddings (env.mec_offloaing_envs.scheduler.tests.test_phase2_encoder_tf.TestEncoderTFSmoke) ... ok
+Ran 26 tests in 2.990s
+OK
+
+GATE SNAPSHOT
+PHASE2_STATUS.md:     checked
+No clique adj:        checked
+Masked mean:          checked
+Neighbor capacity:    checked
+Frozen architecture:  checked
+Encode / obs_dim:     checked
+meta_train stats:     checked
+Stats regeneration:   checked
+Encoder unit tests:   checked
+
+Phase 2 encoder: PASS
+Phase 2 closure: NOT CLAIMED

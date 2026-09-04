@@ -110,23 +110,44 @@ Ablations in the paper show: the GNN encoder improves over sequential encoding (
 
 ### Environment
 
-- **OS:** Ubuntu 16.04 or compatible.
-- **Python:** 3.6 (e.g. via Anaconda).
-- **TensorFlow:** 1.15 (GPU or CPU).
+The current tree needs **Python 3.7.x** (`dataclasses`, `from __future__ import annotations`). Python 3.6 is not sufficient.
+
+- **OS:** Ubuntu 16.04+ or compatible. CPU is enough for gates and encoder smoke.
+- **Python:** 3.7.x (e.g. via Conda).
+- **TensorFlow:** 1.15.x **with `tf.contrib`** (CPU). Do not use TensorFlow 2.
+- **GPU training:** forbidden until Phase 2 **and** Phase 3 close. No scientific GPU runs and no new paper figures until then.
 
 ```bash
 # System
 sudo apt-get update && sudo apt-get install cmake libopenmpi-dev python3-dev zlib1g-dev
 
 # Conda
-conda create --name tf-1.15 anaconda python=3.6
+conda create --name tf-1.15 python=3.7
 conda activate tf-1.15
 
-# TensorFlow
-pip install tensorflow-gpu==1.15   # or tensorflow==1.15
+# TensorFlow 1.15 CPU (contrib present)
+pip install tensorflow==1.15.5
 
 # Other
-pip install gym graphviz pydotplus pyprind mpi4py
+pip install gym graphviz pydotplus pyprind mpi4py PyYAML joblib scipy
+```
+
+Reproducible Phase 2 encoder gate (linux/amd64 Docker):
+
+```bash
+docker build --platform linux/amd64 -f spec/Dockerfile.tf115 -t margo-phase2-tf115 spec
+docker run --rm --platform linux/amd64 -v "$PWD":/work -w /work margo-phase2-tf115 \
+  python spec/phase2_gate.py
+```
+
+### Phase 2 encoder gate (CPU)
+
+Must print `Phase 2 encoder: PASS`. Record SHA, Python, TensorFlow, OS, and the five TF smoke tests.
+
+```bash
+python --version
+python -c "import tensorflow as tf; print(tf.__version__); print(hasattr(tf, 'contrib'))"
+python spec/phase2_gate.py
 ```
 
 ### Training
