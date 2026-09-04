@@ -12,6 +12,8 @@ from pathlib import Path
 
 SPEC = Path(__file__).resolve().parent
 ROOT = SPEC.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 CAMPAIGN_YAML = SPEC / "phase4_campaign.yaml"
 RUNS_ROOT = ROOT / "runs" / "phase4"
 

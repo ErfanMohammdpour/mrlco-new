@@ -8,7 +8,7 @@ cd "$ROOT"
 gpu_run() {
   docker run --rm --gpus all \
     -e MARGO_ALLOW_GPU=1 \
-    -e PYTHONUNBUFFERED=1 \
+    -e PYTHONPATH=/work \
     -e TF_FORCE_GPU_ALLOW_GROWTH=true \
     -e TF_CPP_MIN_LOG_LEVEL=2 \
     -v "$ROOT":/work -w /work \

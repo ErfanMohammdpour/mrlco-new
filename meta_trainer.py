@@ -3,7 +3,6 @@ import tensorflow as tf
 import numpy as np
 import time
 from utils import logger
-from automated_reporting import create_training_report
 
 from spec.eval_protocol import protocol_log_kvs
 
@@ -213,6 +212,7 @@ class Trainer(object):
 
         if self.write_training_report:
             try:
+                from automated_reporting import create_training_report
                 print("\n==================== GENERATING AUTOMATED REPORT ====================")
                 additional_metrics = {
                     'policy_losses': policy_losses_all,
