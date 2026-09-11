@@ -1,0 +1,104 @@
+{
+  "curve": {
+    "10": {
+      "meta_test": {
+        "bc_T_mean": 560.8414920536859,
+        "expert_T_mean": 411.56158866013124,
+        "frac_improved": 0.954,
+        "mean_delta": 102.05143077659606,
+        "mec_T_mean": 631.0733528239659,
+        "n_accept_mean": 2.6,
+        "n_eval_mean": 90.0,
+        "n_graphs": 500,
+        "pair_T_mean": 458.79006127708976,
+        "top_k": 10
+      },
+      "validation": {
+        "bc_T_mean": 581.8376110501426,
+        "expert_T_mean": 423.61724114905763,
+        "frac_improved": 0.96,
+        "mean_delta": 108.05198351718357,
+        "mec_T_mean": 634.1486952473232,
+        "n_accept_mean": 2.768,
+        "n_eval_mean": 90.0,
+        "n_graphs": 500,
+        "pair_T_mean": 473.785627532959,
+        "top_k": 10
+      }
+    },
+    "20": {
+      "meta_test": {
+        "bc_T_mean": 560.8414920536859,
+        "expert_T_mean": 411.56158866013124,
+        "frac_improved": 0.964,
+        "mean_delta": 117.32165396597725,
+        "mec_T_mean": 631.0733528239659,
+        "n_accept_mean": 3.466,
+        "n_eval_mean": 180.0,
+        "n_graphs": 500,
+        "pair_T_mean": 443.51983808770865,
+        "top_k": 20
+      },
+      "validation": {
+        "bc_T_mean": 581.8376110501426,
+        "expert_T_mean": 423.61724114905763,
+        "frac_improved": 0.98,
+        "mean_delta": 124.00749750123705,
+        "mec_T_mean": 634.1486952473232,
+        "n_accept_mean": 3.618,
+        "n_eval_mean": 179.982,
+        "n_graphs": 500,
+        "pair_T_mean": 457.83011354890544,
+        "top_k": 20
+      }
+    },
+    "50": {
+      "meta_test": {
+        "bc_T_mean": 560.8414920536859,
+        "expert_T_mean": 411.56158866013124,
+        "frac_improved": 0.97,
+        "mean_delta": 127.36806566200255,
+        "mec_T_mean": 631.0733528239659,
+        "n_accept_mean": 4.146,
+        "n_eval_mean": 414.792,
+        "n_graphs": 500,
+        "pair_T_mean": 433.4734263916833,
+        "top_k": 50
+      },
+      "validation": {
+        "bc_T_mean": 581.8376110501426,
+        "expert_T_mean": 423.61724114905763,
+        "frac_improved": 0.984,
+        "mean_delta": 135.15812450711385,
+        "mec_T_mean": 634.1486952473232,
+        "n_accept_mean": 4.452,
+        "n_eval_mean": 388.476,
+        "n_graphs": 500,
+        "pair_T_mean": 446.67948654302876,
+        "top_k": 50
+      }
+    }
+  },
+  "decoder_replaced": false,
+  "encoder_frozen": true,
+  "k_sweep": [
+    10,
+    20,
+    50
+  ],
+  "n_joint": 9,
+  "note": "k=10/20/50 vs motif oracle on the same validation graphs; LSTM decoder unchanged; no PPO; not 3500",
+  "oracle_val": {
+    "bc_T_mean": 581.8376110501426,
+    "frac_improved": 0.986,
+    "max_rounds": 8,
+    "mean_delta": 145.24641808090212,
+    "n_accept_mean": 3.398,
+    "n_eval_mean": 2732.4,
+    "n_graphs": 500,
+    "oracle_T_mean": 436.59119296924047
+  },
+  "paper_result": false,
+  "ppo": false,
+  "softmax_last_loss": 0.422853786881893
+}

@@ -55,8 +55,14 @@ class Seq2SeSamplerProcessor(SampleProcessor):
             energy = None
 
         decoder_full_lengths = np.array(observations.shape[0] * [observations.shape[1]])
-        # 5) if desired normalize / shift advantages
-        if self.normalize_adv:
+        # Diagnostic POMO: A_i = R_i - mean_graph(R). Skip global adv-norm (would mix graphs).
+        if getattr(self, "pomo_elite", False):
+            from spec.learning_ops import apply_pomo_token_advantages
+
+            advantages = apply_pomo_token_advantages(
+                rewards, int(getattr(self, "pomo_n_instances", 20))
+            )
+        elif self.normalize_adv:
             advantages = utils.normalize_advantages(advantages)
         if self.positive_adv:
             advantages = utils.shift_advantages_to_positive(advantages)

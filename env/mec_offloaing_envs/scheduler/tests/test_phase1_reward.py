@@ -203,6 +203,35 @@ class TestTelescopingReward(unittest.TestCase):
         self.assertAlmostEqual(out.final_energy, direct.total_mobile_joules, places=9)
         self.assertAlmostEqual(sum(out.final_per_task_energy), sum(energy), places=9)
 
+    def test_latency_tmec_diagnostic_ignores_energy_and_l_scale(self):
+        from env.mec_offloaing_envs.scheduler.reward import LATENCY_REF_L_MEC
+
+        all_mec = [(0, 1), (1, 1), (2, 1)]
+        all_ue = [(0, 0), (1, 0), (2, 0)]
+        mec = telescoping_token_rewards(
+            self.tg, all_mec, self.cfg, latency_ref=LATENCY_REF_L_MEC
+        )
+        ue = telescoping_token_rewards(
+            self.tg, all_ue, self.cfg, latency_ref=LATENCY_REF_L_MEC
+        )
+        self.assertAlmostEqual(
+            sum(mec.rewards),
+            expected_episode_return(
+                mec.makespans, mec.energies, mec.refs, latency_ref=LATENCY_REF_L_MEC
+            ),
+            places=9,
+        )
+        closed = -(mec.makespans[-1] - mec.makespans[0]) / mec.refs.L_mec
+        self.assertAlmostEqual(sum(mec.rewards), closed, places=9)
+        self.assertAlmostEqual(sum(ue.rewards), 0.0, places=9)
+        # Faster than all-UE fill must beat the all-UE return (0).
+        self.assertGreater(sum(mec.rewards), sum(ue.rewards))
+        # Publication 0.5/0.5 still rejects weight overrides.
+        with self.assertRaises(ValueError):
+            telescoping_token_rewards(
+                self.tg, all_ue, self.cfg, latency_weight=0.7, energy_weight=0.3
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

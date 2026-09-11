@@ -1,0 +1,261 @@
+{
+  "decoder_replaced": false,
+  "encoder_frozen": true,
+  "gain_stats": {
+    "meta_test": {
+      "frac_pos": 0.47742281519224966,
+      "mean_gain_pos": 50.04076950345414,
+      "n_eval": 238648,
+      "n_graphs": 500,
+      "n_pairs": 29831,
+      "n_pos": 14242
+    },
+    "meta_train": {
+      "frac_pos": 0.06907865762353563,
+      "mean_gain_pos": 48.897837542475635,
+      "n_eval": 726592,
+      "n_graphs": 1500,
+      "n_pairs": 90824,
+      "n_pos": 6274
+    },
+    "validation": {
+      "frac_pos": 0.5237192810857073,
+      "mean_gain_pos": 51.823390764438635,
+      "n_eval": 261728,
+      "n_graphs": 500,
+      "n_pairs": 32716,
+      "n_pos": 17134
+    }
+  },
+  "k_sweep": [
+    10,
+    20
+  ],
+  "n_joint": 9,
+  "note": "\u0394T ridge ranker vs CE 1-P_BC vs true one-shot gain ranking; LSTM decoder unchanged; no PPO; not 3500",
+  "paper_result": false,
+  "ppo": false,
+  "rank_metrics": {
+    "ce": {
+      "meta_test": {
+        "n_pairs": 29831,
+        "n_pos": 14242,
+        "pearson_vs_gain": 0.3476381236752972,
+        "recall_at_20": 0.001404297149276787,
+        "recall_at_20_graph_mean": 0.5735023740054339
+      },
+      "validation": {
+        "n_pairs": 32716,
+        "n_pos": 17134,
+        "pearson_vs_gain": 0.28968462082907476,
+        "recall_at_20": 0.001167269756040621,
+        "recall_at_20_graph_mean": 0.565424978041007
+      }
+    },
+    "gain_oracle": {
+      "meta_test": {
+        "n_pairs": 29831,
+        "n_pos": 14242,
+        "pearson_vs_gain": 1.0,
+        "recall_at_20": 0.001404297149276787,
+        "recall_at_20_graph_mean": 0.7404622427528973
+      },
+      "validation": {
+        "n_pairs": 32716,
+        "n_pos": 17134,
+        "pearson_vs_gain": 1.0,
+        "recall_at_20": 0.001167269756040621,
+        "recall_at_20_graph_mean": 0.7022875367381063
+      }
+    },
+    "learned": {
+      "meta_test": {
+        "n_pairs": 29831,
+        "n_pos": 14242,
+        "pearson_vs_gain": 0.1535998314932822,
+        "recall_at_20": 0.0009127931470299115,
+        "recall_at_20_graph_mean": 0.3907278997256399
+      },
+      "validation": {
+        "n_pairs": 32716,
+        "n_pos": 17134,
+        "pearson_vs_gain": 0.020319567541256786,
+        "recall_at_20": 0.0008170888292284347,
+        "recall_at_20_graph_mean": 0.4000299944262868
+      }
+    }
+  },
+  "refine": {
+    "ce": {
+      "meta_test": {
+        "10": {
+          "bc_T_mean": 560.8414920536859,
+          "expert_T_mean": 411.56158866013124,
+          "frac_improved": 0.954,
+          "mean_delta": 102.05143077659606,
+          "mec_T_mean": 631.0733528239659,
+          "n_accept_mean": 2.6,
+          "n_eval_mean": 90.0,
+          "n_graphs": 500,
+          "pair_T_mean": 458.79006127708976,
+          "top_k": 10
+        },
+        "20": {
+          "bc_T_mean": 560.8414920536859,
+          "expert_T_mean": 411.56158866013124,
+          "frac_improved": 0.964,
+          "mean_delta": 117.32165396597725,
+          "mec_T_mean": 631.0733528239659,
+          "n_accept_mean": 3.466,
+          "n_eval_mean": 180.0,
+          "n_graphs": 500,
+          "pair_T_mean": 443.51983808770865,
+          "top_k": 20
+        }
+      },
+      "validation": {
+        "10": {
+          "bc_T_mean": 581.8376110501426,
+          "expert_T_mean": 423.61724114905763,
+          "frac_improved": 0.96,
+          "mean_delta": 108.05198351718357,
+          "mec_T_mean": 634.1486952473232,
+          "n_accept_mean": 2.768,
+          "n_eval_mean": 90.0,
+          "n_graphs": 500,
+          "pair_T_mean": 473.785627532959,
+          "top_k": 10
+        },
+        "20": {
+          "bc_T_mean": 581.8376110501426,
+          "expert_T_mean": 423.61724114905763,
+          "frac_improved": 0.98,
+          "mean_delta": 124.00749750123705,
+          "mec_T_mean": 634.1486952473232,
+          "n_accept_mean": 3.618,
+          "n_eval_mean": 179.982,
+          "n_graphs": 500,
+          "pair_T_mean": 457.83011354890544,
+          "top_k": 20
+        }
+      }
+    },
+    "gain_oracle": {
+      "meta_test": {
+        "10": {
+          "bc_T_mean": 560.8414920536859,
+          "expert_T_mean": 411.56158866013124,
+          "frac_improved": 0.97,
+          "mean_delta": 110.85323745959144,
+          "mec_T_mean": 631.0733528239659,
+          "n_accept_mean": 2.116,
+          "n_eval_mean": 90.0,
+          "n_graphs": 500,
+          "pair_T_mean": 449.9882545940945,
+          "top_k": 10
+        },
+        "20": {
+          "bc_T_mean": 560.8414920536859,
+          "expert_T_mean": 411.56158866013124,
+          "frac_improved": 0.97,
+          "mean_delta": 118.85663185435703,
+          "mec_T_mean": 631.0733528239659,
+          "n_accept_mean": 2.682,
+          "n_eval_mean": 180.0,
+          "n_graphs": 500,
+          "pair_T_mean": 441.98486019932886,
+          "top_k": 20
+        }
+      },
+      "validation": {
+        "10": {
+          "bc_T_mean": 581.8376110501426,
+          "expert_T_mean": 423.61724114905763,
+          "frac_improved": 0.986,
+          "mean_delta": 116.10141236062731,
+          "mec_T_mean": 634.1486952473232,
+          "n_accept_mean": 2.172,
+          "n_eval_mean": 90.0,
+          "n_graphs": 500,
+          "pair_T_mean": 465.7361986895152,
+          "top_k": 10
+        },
+        "20": {
+          "bc_T_mean": 581.8376110501426,
+          "expert_T_mean": 423.61724114905763,
+          "frac_improved": 0.986,
+          "mean_delta": 124.4852556474958,
+          "mec_T_mean": 634.1486952473232,
+          "n_accept_mean": 2.804,
+          "n_eval_mean": 179.982,
+          "n_graphs": 500,
+          "pair_T_mean": 457.3523554026467,
+          "top_k": 20
+        }
+      }
+    },
+    "learned": {
+      "meta_test": {
+        "10": {
+          "bc_T_mean": 560.8414920536859,
+          "expert_T_mean": 411.56158866013124,
+          "frac_improved": 0.872,
+          "mean_delta": 76.42811918661936,
+          "mec_T_mean": 631.0733528239659,
+          "n_accept_mean": 2.102,
+          "n_eval_mean": 90.0,
+          "n_graphs": 500,
+          "pair_T_mean": 484.4133728670665,
+          "top_k": 10
+        },
+        "20": {
+          "bc_T_mean": 560.8414920536859,
+          "expert_T_mean": 411.56158866013124,
+          "frac_improved": 0.936,
+          "mean_delta": 99.42129226918902,
+          "mec_T_mean": 631.0733528239659,
+          "n_accept_mean": 3.156,
+          "n_eval_mean": 180.0,
+          "n_graphs": 500,
+          "pair_T_mean": 461.4201997844969,
+          "top_k": 20
+        }
+      },
+      "validation": {
+        "10": {
+          "bc_T_mean": 581.8376110501426,
+          "expert_T_mean": 423.61724114905763,
+          "frac_improved": 0.912,
+          "mean_delta": 85.05246828809466,
+          "mec_T_mean": 634.1486952473232,
+          "n_accept_mean": 2.162,
+          "n_eval_mean": 90.0,
+          "n_graphs": 500,
+          "pair_T_mean": 496.78514276204794,
+          "top_k": 10
+        },
+        "20": {
+          "bc_T_mean": 581.8376110501426,
+          "expert_T_mean": 423.61724114905763,
+          "frac_improved": 0.962,
+          "mean_delta": 106.57518382701875,
+          "mec_T_mean": 634.1486952473232,
+          "n_accept_mean": 3.256,
+          "n_eval_mean": 179.982,
+          "n_graphs": 500,
+          "pair_T_mean": 475.26242722312384,
+          "top_k": 20
+        }
+      }
+    }
+  },
+  "ridge": {
+    "lam": 1.0,
+    "n": 90824,
+    "n_pos": 6274,
+    "pos_weight": 10.0
+  },
+  "softmax_last_loss": 0.422853786881893,
+  "top_k": 20,
+  "verdict": "one_pass_gain_rank_insufficient"
+}

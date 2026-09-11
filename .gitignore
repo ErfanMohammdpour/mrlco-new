@@ -4,3 +4,11 @@ meta_offloading20_log-inner_step1/
 __pycache__/
 *.pyc
 .DS_Store
+
+# LaTeX build artifacts (keep PDFs)
+reports/**/*.aux
+reports/**/*.log
+reports/**/*.toc
+reports/**/*.lof
+reports/**/*.lot
+reports/**/*.out

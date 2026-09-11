@@ -1,0 +1,95 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+Logging to /work/runs/phase4/margo_v0.1_diag_bc_2opt/seed_0/logs
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:164: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:164: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+expert cache hit /work/runs/phase4/expert_2opt_mec_train.npz n=1500
+bc_load_ckpt /work/runs/phase4/margo_v0.1_diag_bc_continue/seed_0/ckpt/bc_core.ckpt
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+bc_epoch 1/80 loss=1.0686 stall=0
+bc_epoch 5/80 loss=0.4352 stall=0
+bc_epoch 10/80 loss=0.2940 stall=0
+bc_epoch 15/80 loss=0.2102 stall=0
+bc_epoch 20/80 loss=0.1325 stall=0
+bc_epoch 25/80 loss=0.1220 stall=4
+bc_epoch 30/80 loss=0.0840 stall=0
+bc_epoch 35/80 loss=0.0546 stall=1
+bc_epoch 40/80 loss=0.0631 stall=6
+bc_early_stop epoch=44 best_loss=0.0508
+bc_ckpt /work/runs/phase4/margo_v0.1_diag_bc_2opt/seed_0/ckpt/bc_core.ckpt
+bc_greedy_rollout T=435.6 expert=414.1 mec=627.8 token_vs_ex=0.965 n_non_p50=5.0 le3=0.238 mix L/M/V=0.222/0.706/0.071
+bc_greedy_mec graphs=1500 token_acc=0.990 greedy_acc=0.965 expert_MEC=0.705 n_non_p50=5.0 T_ex=414.1 T_mec=627.8 beat_mec=0.997
+bc_2opt_eval_unseen
+expert cache hit /work/runs/phase4/expert_2opt_mec_validation.npz n=500
+bc_unseen split=validation n=500 T=581.8 expert=423.6 mec=634.1 over_ex=1.373 over_mec=0.918 beat_mec=0.652 token=0.645 mix L/M/V=0.224/0.713/0.064 n_non_p50=5.0
+expert cache hit /work/runs/phase4/expert_2opt_mec_metatest.npz n=500
+bc_unseen split=meta_test n=500 T=560.8 expert=411.6 mec=631.1 over_ex=1.363 over_mec=0.889 beat_mec=0.676 token=0.659 mix L/M/V=0.213/0.722/0.065 n_non_p50=5.0
+bc_2opt_verdict train_T=435.6 expert=414.1 val_T=581.8 val_ex=423.6 test_T=560.8 test_ex=411.6 val_token=0.645 test_token=0.659

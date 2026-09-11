@@ -1,7 +1,11 @@
+import os
 import numpy as np
 import pickle as pickle
-from multiprocessing import Process, Pipe
+import multiprocessing
 import copy
+
+# spawn: child does not inherit parent CUDA/TF 1.15 context.
+_MP_CTX = multiprocessing.get_context("spawn")
 
 class MetaIterativeEnvExecutor(object):
     """
@@ -101,18 +105,25 @@ class MetaParallelEnvExecutor(object):
         self.n_envs = meta_batch_size * envs_per_task
         self.meta_batch_size = meta_batch_size
         self.envs_per_task = envs_per_task
-        self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(meta_batch_size)])
-        seeds = np.random.choice(range(10**6), size=meta_batch_size, replace=False)
+        self.remotes, self.work_remotes = zip(*[_MP_CTX.Pipe() for _ in range(meta_batch_size)])
+        # Private RNG. Global np.random feeds env.sample_tasks(); do not consume it here.
+        seeds = np.random.RandomState(0).choice(range(10**6), size=meta_batch_size, replace=False)
+        env_blob = pickle.dumps(env)
 
         self.ps = [
-            Process(target=worker, args=(work_remote, remote, pickle.dumps(env), envs_per_task, max_path_length, seed))
-            for (work_remote, remote, seed) in zip(self.work_remotes, self.remotes, seeds)]  # Why pass work remotes?
+            _MP_CTX.Process(
+                target=worker,
+                args=(work_remote, remote, env_blob, envs_per_task, max_path_length, seed),
+            )
+            for (work_remote, remote, seed) in zip(self.work_remotes, self.remotes, seeds)
+        ]
 
         for p in self.ps:
             p.daemon = True  # if the main process crashes, we should not cause things to hang
             p.start()
         for remote in self.work_remotes:
             remote.close()
+        self._closed = False
 
     def step(self, actions):
         """
@@ -174,6 +185,20 @@ class MetaParallelEnvExecutor(object):
         """
         return self.n_envs
 
+    def close(self):
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
+        for remote in self.remotes:
+            try:
+                remote.send(("close", None))
+            except (EOFError, BrokenPipeError, OSError):
+                pass
+        for proc in self.ps:
+            proc.join(timeout=5)
+            if proc.is_alive():
+                proc.terminate()
+
 
 def worker(remote, parent_remote, env_pickle, n_envs, max_path_length, seed):
     """
@@ -188,6 +213,8 @@ def worker(remote, parent_remote, env_pickle, n_envs, max_path_length, seed):
         max_path_length (int): maximum path length of the task
         seed (int): random seed for the worker
     """
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    os.environ.pop("MARGO_ALLOW_GPU", None)
     parent_remote.close()
 
     envs = [pickle.loads(env_pickle) for _ in range(n_envs)]

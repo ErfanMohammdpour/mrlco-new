@@ -1,0 +1,41 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+   Use the NVIDIA Container Toolkit to start this container with GPU support; see
+   https://docs.nvidia.com/datacenter/cloud-native/ .
+
+h2_graph 1/200 dist=1 idx=2 greedy=420.6 h2=420.6 dT=0.00 h1_better=0
+h2_graph 10/200 dist=1 idx=78 greedy=319.2 h2=319.2 dT=0.00 h1_better=2
+h2_graph 20/200 dist=3 idx=18 greedy=716.4 h2=683.1 dT=33.27 h1_better=1
+h2_graph 30/200 dist=4 idx=6 greedy=415.7 h2=385.3 dT=30.40 h1_better=0
+h2_graph 40/200 dist=4 idx=64 greedy=366.9 h2=361.9 dT=5.04 h1_better=0
+h2_graph 50/200 dist=5 idx=50 greedy=446.8 h2=405.1 dT=41.74 h1_better=0
+h2_graph 60/200 dist=8 idx=16 greedy=572.6 h2=572.6 dT=0.00 h1_better=0
+h2_graph 70/200 dist=8 idx=90 greedy=399.1 h2=399.1 dT=0.00 h1_better=0
+h2_graph 80/200 dist=9 idx=82 greedy=646.6 h2=633.2 dT=13.35 h1_better=0
+h2_graph 90/200 dist=11 idx=28 greedy=725.7 h2=664.2 dT=61.48 h1_better=0
+h2_graph 100/200 dist=13 idx=27 greedy=555.1 h2=526.1 dT=29.00 h1_better=0
+h2_graph 110/200 dist=15 idx=2 greedy=496.0 h2=463.4 dT=32.64 h1_better=0
+h2_graph 120/200 dist=15 idx=88 greedy=406.2 h2=403.2 dT=3.05 h1_better=0
+h2_graph 130/200 dist=18 idx=61 greedy=259.1 h2=259.1 dT=0.00 h1_better=0
+h2_graph 140/200 dist=19 idx=48 greedy=249.4 h2=249.4 dT=0.00 h1_better=0
+h2_graph 150/200 dist=21 idx=8 greedy=303.4 h2=303.4 dT=0.00 h1_better=0
+h2_graph 160/200 dist=21 idx=97 greedy=333.8 h2=333.8 dT=0.00 h1_better=0
+h2_graph 170/200 dist=22 idx=43 greedy=411.1 h2=396.1 dT=15.05 h1_better=0
+h2_graph 180/200 dist=24 idx=41 greedy=533.3 h2=505.2 dT=28.16 h1_better=0
+h2_graph 190/200 dist=25 idx=12 greedy=550.5 h2=529.2 dT=21.32 h1_better=0
+h2_graph 200/200 dist=25 idx=98 greedy=659.3 h2=570.1 dT=89.18 h1_better=1
+h2_verdict mixed greedy_T=445.2 h2_T=427.3 mec_T=618.6 dT=17.87 frac_h2=0.730 frac_h1=0.145

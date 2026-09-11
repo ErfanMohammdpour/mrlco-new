@@ -1,0 +1,1 @@
+Logging to /work/runs/phase4/margo_v0.1_diag_bc_only_eval/seed_0/logs

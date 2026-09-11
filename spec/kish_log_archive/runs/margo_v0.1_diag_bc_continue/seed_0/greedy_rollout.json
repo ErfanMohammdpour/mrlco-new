@@ -1,0 +1,20 @@
+{
+  "all_mec_T_mean": 627.8489691798619,
+  "expert_T_mean": 447.8866341275806,
+  "frac_greedy_beats_expert": 0.008666666666666666,
+  "frac_greedy_beats_mec": 0.9466666666666667,
+  "frac_n_nonmec_le2": 0.20066666666666666,
+  "frac_n_nonmec_le3": 0.37266666666666665,
+  "greedy_T_mean": 464.2743228254681,
+  "greedy_T_p10": 287.4986941964286,
+  "greedy_T_p50": 439.00967494419643,
+  "greedy_local_frac": 0.2021,
+  "greedy_mec_frac": 0.7472666666666666,
+  "greedy_over_expert": 1.036588921055455,
+  "greedy_over_mec": 0.7394681613190097,
+  "greedy_token_acc_vs_expert": 0.9678666666666667,
+  "greedy_v2v_frac": 0.050633333333333336,
+  "n_graphs": 1500,
+  "n_nonmec_mean": 5.054666666666667,
+  "n_nonmec_p50": 4.0
+}

@@ -1,0 +1,147 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+Logging to /work/runs/phase4/margo_v0.2_diag_rewrite_mec/seed_0/logs
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:164: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:164: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+expert cache hit /work/runs/phase4/expert_greedy_mec_train.npz n=1500
+pairsup_labels gi=1/1500 pos=34 pairs=52 eval=416
+pairsup_labels gi=50/1500 pos=1050 pairs=2185 eval=17480
+pairsup_labels gi=100/1500 pos=2033 pairs=4461 eval=35688
+pairsup_labels gi=150/1500 pos=4040 pairs=8267 eval=66136
+pairsup_labels gi=200/1500 pos=6223 pairs=12333 eval=98664
+pairsup_labels gi=250/1500 pos=7068 pairs=14919 eval=119352
+pairsup_labels gi=300/1500 pos=7909 pairs=17529 eval=140232
+pairsup_labels gi=350/1500 pos=9360 pairs=21151 eval=169208
+pairsup_labels gi=400/1500 pos=10867 pairs=24636 eval=197088
+pairsup_labels gi=450/1500 pos=12321 pairs=28561 eval=228488
+pairsup_labels gi=500/1500 pos=14050 pairs=32524 eval=260192
+pairsup_labels gi=550/1500 pos=16394 pairs=37244 eval=297952
+pairsup_labels gi=600/1500 pos=19180 pairs=42223 eval=337784
+pairsup_labels gi=650/1500 pos=22101 pairs=47015 eval=376120
+pairsup_labels gi=700/1500 pos=25085 pairs=51781 eval=414248
+pairsup_labels gi=750/1500 pos=27306 pairs=55342 eval=442736
+pairsup_labels gi=800/1500 pos=29570 pairs=59025 eval=472200
+pairsup_labels gi=850/1500 pos=30798 pairs=61707 eval=493656
+pairsup_labels gi=900/1500 pos=32037 pairs=64547 eval=516376
+pairsup_labels gi=950/1500 pos=32849 pairs=66080 eval=528640
+pairsup_labels gi=1000/1500 pos=33763 pairs=67659 eval=541272
+pairsup_labels gi=1050/1500 pos=34587 pairs=69476 eval=555808
+pairsup_labels gi=1100/1500 pos=35498 pairs=71346 eval=570768
+pairsup_labels gi=1150/1500 pos=36098 pairs=73653 eval=589224
+pairsup_labels gi=1200/1500 pos=36691 pairs=75993 eval=607944
+pairsup_labels gi=1250/1500 pos=37588 pairs=77653 eval=621224
+pairsup_labels gi=1300/1500 pos=38390 pairs=79301 eval=634408
+pairsup_labels gi=1350/1500 pos=39702 pairs=82074 eval=656592
+pairsup_labels gi=1400/1500 pos=41049 pairs=84707 eval=677656
+pairsup_labels gi=1450/1500 pos=42871 pairs=87765 eval=702120
+pairsup_labels gi=1500/1500 pos=44649 pairs=90824 eval=726592
+pairsup_label_cache write /work/runs/phase4/rewrite_joint_from_allmec_train.npz frac_pos=0.492
+rewrite_load_ckpt /work/runs/phase4/margo_v0.1_diag_bc_continue/seed_0/ckpt/bc_core.ckpt
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+rewrite_epoch 1/40 loss=2.3334 bc=0.6239 joint=3.4190
+rewrite_epoch 5/40 loss=1.0921 bc=0.3810 joint=1.4223
+rewrite_epoch 10/40 loss=0.9830 bc=0.3440 joint=1.2780
+rewrite_epoch 15/40 loss=0.9148 bc=0.3225 joint=1.1844
+rewrite_epoch 20/40 loss=0.8922 bc=0.3199 joint=1.1446
+rewrite_epoch 25/40 loss=0.8643 bc=0.3143 joint=1.1000
+rewrite_epoch 30/40 loss=0.8370 bc=0.3084 joint=1.0571
+rewrite_epoch 35/40 loss=0.8311 bc=0.3053 joint=1.0515
+rewrite_epoch 40/40 loss=0.8152 bc=0.3023 joint=1.0257
+rewrite_ckpt /work/runs/phase4/margo_v0.2_diag_rewrite_mec/seed_0/ckpt/bc_core.ckpt
+rewrite_train T=561.4 expert=447.9 frac_pos=0.492 mix=0.266/0.695/0.039
+rewrite_eval_unseen
+expert cache hit /work/runs/phase4/expert_greedy_mec_validation.npz n=500
+rewrite_eval split=validation gi=1/500 T0=618.7 Tk=618.7 n_apply=0
+rewrite_eval split=validation gi=50/500 T0=690.6 Tk=690.6 n_apply=0
+rewrite_eval split=validation gi=100/500 T0=684.8 Tk=684.8 n_apply=0
+rewrite_eval split=validation gi=150/500 T0=558.1 Tk=558.1 n_apply=0
+rewrite_eval split=validation gi=200/500 T0=534.6 Tk=534.6 n_apply=0
+rewrite_eval split=validation gi=250/500 T0=1151.4 Tk=1151.4 n_apply=0
+rewrite_eval split=validation gi=300/500 T0=633.5 Tk=633.5 n_apply=0
+rewrite_eval split=validation gi=350/500 T0=336.1 Tk=336.1 n_apply=0
+rewrite_eval split=validation gi=400/500 T0=527.1 Tk=527.1 n_apply=0
+rewrite_eval split=validation gi=450/500 T0=604.3 Tk=604.3 n_apply=0
+rewrite_eval split=validation gi=500/500 T0=411.1 Tk=411.1 n_apply=0
+rewrite_unseen split=validation n=500 T_k0=610.9 T_bestk=610.6 best_k=2 mix0 L/M/V=0.276/0.692/0.032
+expert cache hit /work/runs/phase4/expert_greedy_mec_metatest.npz n=500
+rewrite_eval split=meta_test gi=1/500 T0=580.2 Tk=580.2 n_apply=0
+rewrite_eval split=meta_test gi=50/500 T0=466.8 Tk=466.8 n_apply=0
+rewrite_eval split=meta_test gi=100/500 T0=448.3 Tk=448.3 n_apply=0
+rewrite_eval split=meta_test gi=150/500 T0=639.1 Tk=639.1 n_apply=0
+rewrite_eval split=meta_test gi=200/500 T0=511.1 Tk=511.1 n_apply=0
+rewrite_eval split=meta_test gi=250/500 T0=823.8 Tk=823.8 n_apply=0
+rewrite_eval split=meta_test gi=300/500 T0=978.2 Tk=978.2 n_apply=0
+rewrite_eval split=meta_test gi=350/500 T0=656.1 Tk=656.1 n_apply=0
+rewrite_eval split=meta_test gi=400/500 T0=352.9 Tk=352.9 n_apply=0
+rewrite_eval split=meta_test gi=450/500 T0=438.7 Tk=438.7 n_apply=0
+rewrite_eval split=meta_test gi=500/500 T0=627.1 Tk=627.1 n_apply=0
+rewrite_unseen split=meta_test n=500 T_k0=588.7 T_bestk=588.7 best_k=0 mix0 L/M/V=0.274/0.688/0.038
+rewrite_verdict=rewrite_hurts val_bestT=610.6 k=2 A=575.0 local0=0.276 test_bestT=588.7 A_test=557.0 frac_pos=0.492

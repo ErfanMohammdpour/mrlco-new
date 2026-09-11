@@ -1,0 +1,59 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Logging to /work/runs/phase4/margo_v0.3_diag_eas_inst/lastlayer_pg_b32/seed_0/logs
+eas_inst_audit subset=lastlayer n_params=384 budget=32 N=2 k=16 loss=pg
+eas_inst g=1/500 d=2 bok=570.9 eas=570.9 g*=570.9 min=0.1
+eas_inst g=2/500 d=2 bok=600.6 eas=600.6 g*=712.1 min=0.2
+eas_inst g=3/500 d=2 bok=506.7 eas=500.3 g*=655.9 min=0.3
+eas_inst g=25/500 d=2 bok=513.5 eas=489.9 g*=722.9 min=2.1
+eas_inst g=50/500 d=2 bok=543.2 eas=635.8 g*=738.7 min=4.3
+eas_inst g=75/500 d=2 bok=400.9 eas=423.4 g*=494.4 min=6.4
+eas_inst g=100/500 d=2 bok=523.5 eas=706.8 g*=813.0 min=8.5
+eas_inst g=125/500 d=6 bok=772.3 eas=686.7 g*=864.2 min=10.6
+eas_inst g=150/500 d=6 bok=468.0 eas=450.3 g*=525.2 min=12.9
+eas_inst g=175/500 d=6 bok=537.0 eas=537.0 g*=691.4 min=15.0
+eas_inst g=200/500 d=6 bok=435.7 eas=435.7 g*=707.7 min=17.2
+eas_inst g=225/500 d=10 bok=721.3 eas=721.3 g*=721.3 min=19.4
+eas_inst g=250/500 d=10 bok=919.7 eas=919.2 g*=1047.1 min=21.7
+eas_inst g=275/500 d=10 bok=635.2 eas=641.2 g*=728.1 min=23.9
+eas_inst g=300/500 d=10 bok=429.9 eas=429.9 g*=456.2 min=26.2
+eas_inst g=325/500 d=16 bok=276.3 eas=364.9 g*=364.9 min=28.4
+eas_inst g=350/500 d=16 bok=351.9 eas=393.1 g*=399.4 min=30.7
+eas_inst g=375/500 d=16 bok=529.1 eas=549.6 g*=578.7 min=33.0
+eas_inst g=400/500 d=16 bok=403.1 eas=390.3 g*=415.4 min=35.3
+eas_inst g=425/500 d=17 bok=471.2 eas=471.2 g*=471.2 min=37.7
+eas_inst g=450/500 d=17 bok=501.0 eas=512.2 g*=611.1 min=40.0
+eas_inst g=475/500 d=17 bok=267.5 eas=267.5 g*=267.5 min=42.5
+eas_inst g=500/500 d=17 bok=265.5 eas=290.9 g*=292.2 min=44.9
+eas_inst_verdict seed=0 subset=lastlayer loss=pg B=32 smoke=0 bok=498.8 eas=498.6 d=-0.2 gate5=False min=44.9

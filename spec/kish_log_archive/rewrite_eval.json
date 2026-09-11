@@ -1,0 +1,210 @@
+{
+  "baseline_a_test_T": 557.0,
+  "baseline_a_val_T": 575.0,
+  "joint_start": "all_mec",
+  "labels": {
+    "cache": "/work/runs/phase4/rewrite_joint_from_allmec_train.npz",
+    "frac_pos": 0.4915991367920374,
+    "mean_delta_pos": 41.977831003356464,
+    "n_eval": 726592,
+    "n_graphs": 1500,
+    "n_pairs": 90824,
+    "n_pos": 44649
+  },
+  "lam": 0.5,
+  "meta_test": {
+    "best_T": 588.6767692161287,
+    "best_k": 0,
+    "by_k": {
+      "0": {
+        "all_mec_T_mean": 631.0733528239659,
+        "expert_T_mean": 443.5432936121259,
+        "greedy_T_mean": 588.6767692161287,
+        "greedy_T_p50": 554.3571938991547,
+        "greedy_local_frac": 0.2742,
+        "greedy_mec_frac": 0.688,
+        "greedy_over_expert": 1.3272137752823754,
+        "greedy_v2v_frac": 0.0378,
+        "k": 0,
+        "n_apply_mean": null,
+        "n_nonmec_mean": 6.24,
+        "n_nonmec_p50": 6.0
+      },
+      "1": {
+        "all_mec_T_mean": 631.0733528239659,
+        "expert_T_mean": 443.5432936121259,
+        "greedy_T_mean": 588.6767692161287,
+        "greedy_T_p50": 554.3571938991547,
+        "greedy_local_frac": 0.2742,
+        "greedy_mec_frac": 0.688,
+        "greedy_over_expert": 1.3272137752823754,
+        "greedy_v2v_frac": 0.0378,
+        "k": 1,
+        "n_apply_mean": 0.0,
+        "n_nonmec_mean": 6.24,
+        "n_nonmec_p50": 6.0
+      },
+      "2": {
+        "all_mec_T_mean": 631.0733528239659,
+        "expert_T_mean": 443.5432936121259,
+        "greedy_T_mean": 588.6767692161287,
+        "greedy_T_p50": 554.3571938991547,
+        "greedy_local_frac": 0.2742,
+        "greedy_mec_frac": 0.688,
+        "greedy_over_expert": 1.3272137752823754,
+        "greedy_v2v_frac": 0.0378,
+        "k": 2,
+        "n_apply_mean": 0.0,
+        "n_nonmec_mean": 6.24,
+        "n_nonmec_p50": 6.0
+      },
+      "3": {
+        "all_mec_T_mean": 631.0733528239659,
+        "expert_T_mean": 443.5432936121259,
+        "greedy_T_mean": 588.6767692161287,
+        "greedy_T_p50": 554.3571938991547,
+        "greedy_local_frac": 0.2742,
+        "greedy_mec_frac": 0.688,
+        "greedy_over_expert": 1.3272137752823754,
+        "greedy_v2v_frac": 0.0378,
+        "k": 3,
+        "n_apply_mean": 0.0,
+        "n_nonmec_mean": 6.24,
+        "n_nonmec_p50": 6.0
+      }
+    },
+    "expert": {
+      "T_mean": 443.5432936121259,
+      "all_mec_T_mean": 631.0733528239659,
+      "n_graphs": 500
+    },
+    "greedy": {
+      "all_mec_T_mean": 631.0733528239659,
+      "expert_T_mean": 443.5432936121259,
+      "greedy_T_mean": 588.6767692161287,
+      "greedy_T_p50": 554.3571938991547,
+      "greedy_local_frac": 0.2742,
+      "greedy_mec_frac": 0.688,
+      "greedy_over_expert": 1.3272137752823754,
+      "greedy_v2v_frac": 0.0378,
+      "k": 0,
+      "n_apply_mean": null,
+      "n_nonmec_mean": 6.24,
+      "n_nonmec_p50": 6.0
+    },
+    "pair_search_at_eval": false,
+    "split": "meta_test"
+  },
+  "pair_search_at_eval": false,
+  "paper_result": false,
+  "ppo": false,
+  "rewrite_k": [
+    1,
+    2,
+    3
+  ],
+  "train": {
+    "all_mec_T_mean": 627.8489691798619,
+    "expert_T_mean": 447.8866341275806,
+    "frac_greedy_beats_expert": 0.006,
+    "frac_greedy_beats_mec": 0.7253333333333334,
+    "frac_n_nonmec_le2": 0.10866666666666666,
+    "frac_n_nonmec_le3": 0.21733333333333332,
+    "greedy_T_mean": 561.3520271119527,
+    "greedy_T_p10": 316.62132258551463,
+    "greedy_T_p50": 524.0219494274684,
+    "greedy_local_frac": 0.2658333333333333,
+    "greedy_mec_frac": 0.6947666666666666,
+    "greedy_over_expert": 1.2533350726247647,
+    "greedy_over_mec": 0.8940876781962834,
+    "greedy_token_acc_vs_expert": 0.7869333333333334,
+    "greedy_v2v_frac": 0.0394,
+    "n_graphs": 1500,
+    "n_nonmec_mean": 6.104666666666667,
+    "n_nonmec_p50": 6.0
+  },
+  "validation": {
+    "best_T": 610.6038756239482,
+    "best_k": 2,
+    "by_k": {
+      "0": {
+        "all_mec_T_mean": 634.1486952473232,
+        "expert_T_mean": 463.4877345352718,
+        "greedy_T_mean": 610.9447322785242,
+        "greedy_T_p50": 575.1660714285715,
+        "greedy_local_frac": 0.2758,
+        "greedy_mec_frac": 0.6921,
+        "greedy_over_expert": 1.3181464939759495,
+        "greedy_v2v_frac": 0.0321,
+        "k": 0,
+        "n_apply_mean": null,
+        "n_nonmec_mean": 6.158,
+        "n_nonmec_p50": 6.0
+      },
+      "1": {
+        "all_mec_T_mean": 634.1486952473232,
+        "expert_T_mean": 463.4877345352718,
+        "greedy_T_mean": 610.8105073203768,
+        "greedy_T_p50": 575.1660714285715,
+        "greedy_local_frac": 0.2757,
+        "greedy_mec_frac": 0.6922,
+        "greedy_over_expert": 1.3178568963271964,
+        "greedy_v2v_frac": 0.0321,
+        "k": 1,
+        "n_apply_mean": 0.002,
+        "n_nonmec_mean": 6.156,
+        "n_nonmec_p50": 6.0
+      },
+      "2": {
+        "all_mec_T_mean": 634.1486952473232,
+        "expert_T_mean": 463.4877345352718,
+        "greedy_T_mean": 610.6038756239482,
+        "greedy_T_p50": 575.1660714285715,
+        "greedy_local_frac": 0.2755,
+        "greedy_mec_frac": 0.6924,
+        "greedy_over_expert": 1.31741107720183,
+        "greedy_v2v_frac": 0.0321,
+        "k": 2,
+        "n_apply_mean": 0.004,
+        "n_nonmec_mean": 6.152,
+        "n_nonmec_p50": 6.0
+      },
+      "3": {
+        "all_mec_T_mean": 634.1486952473232,
+        "expert_T_mean": 463.4877345352718,
+        "greedy_T_mean": 610.6038756239482,
+        "greedy_T_p50": 575.1660714285715,
+        "greedy_local_frac": 0.2755,
+        "greedy_mec_frac": 0.6924,
+        "greedy_over_expert": 1.31741107720183,
+        "greedy_v2v_frac": 0.0321,
+        "k": 3,
+        "n_apply_mean": 0.004,
+        "n_nonmec_mean": 6.152,
+        "n_nonmec_p50": 6.0
+      }
+    },
+    "expert": {
+      "T_mean": 463.4877345352718,
+      "all_mec_T_mean": 634.1486952473232,
+      "n_graphs": 500
+    },
+    "greedy": {
+      "all_mec_T_mean": 634.1486952473232,
+      "expert_T_mean": 463.4877345352718,
+      "greedy_T_mean": 610.9447322785242,
+      "greedy_T_p50": 575.1660714285715,
+      "greedy_local_frac": 0.2758,
+      "greedy_mec_frac": 0.6921,
+      "greedy_over_expert": 1.3181464939759495,
+      "greedy_v2v_frac": 0.0321,
+      "k": 0,
+      "n_apply_mean": null,
+      "n_nonmec_mean": 6.158,
+      "n_nonmec_p50": 6.0
+    },
+    "pair_search_at_eval": false,
+    "split": "validation"
+  },
+  "verdict": "rewrite_hurts"
+}

@@ -1,0 +1,1496 @@
+{
+  "ckpt": "/work/runs/phase4/margo_v0.3_bc_profiles/seed_0/ckpt/bc_core.ckpt",
+  "ckpt_sha256": "2a385073e71a06890982d7601f1785ca4ffb9fdcd5fca4905a3ca86d964e956c",
+  "continuity": {
+    "continuity_delta_vs_phase1": -83.20051201389856,
+    "continuity_pass": true,
+    "continuity_rule": "no_regression_T_le_phase1_plus_10"
+  },
+  "encoder_type": "meanagg",
+  "eval_profiles": [
+    "frozen_7_5_10",
+    "p_5_5_10",
+    "p_9_5_10"
+  ],
+  "gate": {
+    "T_best_32_frozen": 447.6687567911693,
+    "T_best_64_frozen": 444.4768663004739,
+    "T_greedy_frozen": 493.8194879861014,
+    "ckpt_match_bc_seed0": true,
+    "continuity_pass": true,
+    "delta_best32_over_greedy": 46.15073119493212,
+    "pass": true,
+    "sampling_helps_10s": true
+  },
+  "k_sweep": [
+    1,
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "method_id": "margo_v0.3_bok_profiles",
+  "minutes": 11.354133689403534,
+  "obs_version": "v2",
+  "paper_result": false,
+  "per_profile": {
+    "frozen_7_5_10": {
+      "T_best_1": 493.8194879861014,
+      "T_greedy": 493.8194879861014,
+      "by_k": {
+        "1": {
+          "T_best_k": 493.8194879861014,
+          "T_best_p10": 298.19819126674105,
+          "T_best_p50": 465.0875460829053,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 493.8194879861014,
+          "T_p10_k": 493.8194879861014,
+          "duplicates_ratio": 0.0,
+          "evals_per_graph": 1,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.032,
+          "frac_best_equals_greedy": 1.0,
+          "greedy_local_frac": 0.2258,
+          "greedy_mec_frac": 0.7025,
+          "greedy_v2v_frac": 0.0717,
+          "k": 1,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 5.95,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.032,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 681.8825190031869,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 681.8825190031869,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            },
+            "16": {
+              "T_best_k": 368.8193714139121,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 368.8193714139121,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.0
+            },
+            "17": {
+              "T_best_k": 363.7831845794406,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 363.7831845794406,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.03
+            },
+            "2": {
+              "T_best_k": 478.27144983959204,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 478.27144983959204,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.05
+            },
+            "6": {
+              "T_best_k": 576.3409150943755,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 576.3409150943755,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.02
+            }
+          },
+          "seconds_per_graph": 0.002842092752456665,
+          "wall_clock_s": 1.4210463762283325
+        },
+        "16": {
+          "T_best_k": 452.6547909774508,
+          "T_best_p10": 275.21991978236605,
+          "T_best_p50": 427.00412013190135,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 499.97298277004785,
+          "T_p10_k": 466.13639243812554,
+          "duplicates_ratio": 0.529,
+          "evals_per_graph": 16,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.112,
+          "frac_best_equals_greedy": 0.268,
+          "greedy_local_frac": 0.2317,
+          "greedy_mec_frac": 0.6976,
+          "greedy_v2v_frac": 0.0707,
+          "k": 16,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.048,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.112,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 616.5979972205843,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 638.0112521232878,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.15
+            },
+            "16": {
+              "T_best_k": 334.47103243664327,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 343.2320343933786,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 340.3448507176808,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 350.16145647716525,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "2": {
+              "T_best_k": 443.0233009240286,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 453.3230118291719,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.11
+            },
+            "6": {
+              "T_best_k": 528.8367735883169,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 545.9542073676246,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.12
+            }
+          },
+          "seconds_per_graph": 0.04547348403930664,
+          "wall_clock_s": 22.73674201965332
+        },
+        "32": {
+          "T_best_k": 447.6687567911693,
+          "T_best_p10": 275.21991978236605,
+          "T_best_p50": 425.04416193962095,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 500.7617951062117,
+          "T_p10_k": 464.11373977235525,
+          "duplicates_ratio": 0.6251875,
+          "evals_per_graph": 32,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.124,
+          "frac_best_equals_greedy": 0.218,
+          "greedy_local_frac": 0.2333,
+          "greedy_mec_frac": 0.6945,
+          "greedy_v2v_frac": 0.0722,
+          "k": 32,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.11,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.124,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 608.4707051902498,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 635.3508430863517,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.17
+            },
+            "16": {
+              "T_best_k": 331.4018461036682,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 342.03036250114434,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 337.68763270309995,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 349.3004850380353,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.1
+            },
+            "2": {
+              "T_best_k": 439.0346658470971,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 450.29844577376497,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "6": {
+              "T_best_k": 521.7489341117314,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 543.5885624624797,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            }
+          },
+          "seconds_per_graph": 0.09094696807861329,
+          "wall_clock_s": 45.47348403930664
+        },
+        "4": {
+          "T_best_k": 468.833096997697,
+          "T_best_p10": 284.1129771205357,
+          "T_best_p50": 439.12390778405324,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 498.12051855066164,
+          "T_p10_k": 474.2154846453639,
+          "duplicates_ratio": 0.3105,
+          "evals_per_graph": 4,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.066,
+          "frac_best_equals_greedy": 0.492,
+          "greedy_local_frac": 0.23,
+          "greedy_mec_frac": 0.6983,
+          "greedy_v2v_frac": 0.0717,
+          "k": 4,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.034,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.066,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 641.3897910975048,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 649.6395195874078,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.07
+            },
+            "16": {
+              "T_best_k": 344.66927109105245,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 350.0185133246286,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            },
+            "17": {
+              "T_best_k": 352.2634088924954,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 354.73643000654505,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.05
+            },
+            "2": {
+              "T_best_k": 458.4284238098689,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 463.02753363558907,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.08
+            },
+            "6": {
+              "T_best_k": 547.4145900975635,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 553.6554266726494,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.07
+            }
+          },
+          "seconds_per_graph": 0.01136837100982666,
+          "wall_clock_s": 5.68418550491333
+        },
+        "64": {
+          "T_best_k": 444.4768663004739,
+          "T_best_p10": 275.11152692522325,
+          "T_best_p50": 422.97005214691166,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 500.7494302092454,
+          "T_p10_k": 463.1093187824631,
+          "duplicates_ratio": 0.71153125,
+          "evals_per_graph": 64,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.142,
+          "frac_best_equals_greedy": 0.182,
+          "greedy_local_frac": 0.2307,
+          "greedy_mec_frac": 0.6972,
+          "greedy_v2v_frac": 0.0721,
+          "k": 64,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.056,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.142,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 603.7023685620171,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 634.2287903939792,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.19
+            },
+            "16": {
+              "T_best_k": 329.7651659881047,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 342.13673484216406,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.1
+            },
+            "17": {
+              "T_best_k": 335.2660439929962,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 347.85935139850886,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.11
+            },
+            "2": {
+              "T_best_k": 436.1095135846819,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 449.28887578191757,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "6": {
+              "T_best_k": 517.5412393745695,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 542.0328414957455,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.18
+            }
+          },
+          "seconds_per_graph": 0.18189393615722657,
+          "wall_clock_s": 90.94696807861328
+        },
+        "8": {
+          "T_best_k": 459.3855949404308,
+          "T_best_p10": 279.08534458705356,
+          "T_best_p50": 435.6042061941964,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 499.21058835501674,
+          "T_p10_k": 468.6734215972873,
+          "duplicates_ratio": 0.42425,
+          "evals_per_graph": 8,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.094,
+          "frac_best_equals_greedy": 0.366,
+          "greedy_local_frac": 0.2304,
+          "greedy_mec_frac": 0.6985,
+          "greedy_v2v_frac": 0.0711,
+          "k": 8,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.03,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.094,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 626.2639271875108,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 640.7150120482173,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.11
+            },
+            "16": {
+              "T_best_k": 337.15374007020677,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 344.99833144155224,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 347.2251418660029,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 352.38978692644673,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "2": {
+              "T_best_k": 448.04050713552743,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 456.090815828841,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "6": {
+              "T_best_k": 538.2446584429059,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 549.1731617413793,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            }
+          },
+          "seconds_per_graph": 0.02273674201965332,
+          "wall_clock_s": 11.36837100982666
+        }
+      },
+      "crosscheck_graphs": [
+        190,
+        267,
+        457
+      ],
+      "evals_per_graph": 64,
+      "expert_T_mean": 423.61724114905763,
+      "k_max": 64,
+      "n_graphs": 500,
+      "profile_id": "frozen_7_5_10",
+      "sample_s": 68.95144414901733,
+      "score_s": 21.995523929595947,
+      "seconds_per_graph": 0.18189393615722657,
+      "split": "validation_frozen_7_5_10",
+      "temp_sweep_k32": {
+        "0.7": {
+          "T_best_k": 453.07169361594066,
+          "T_best_p10": 279.73470005580356,
+          "T_best_p50": 426.09788295200894,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 498.6982817790636,
+          "T_p10_k": 469.48588193880624,
+          "duplicates_ratio": 0.735375,
+          "evals_per_graph": 32,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.12,
+          "frac_best_equals_greedy": 0.284,
+          "greedy_local_frac": 0.2318,
+          "greedy_mec_frac": 0.6969,
+          "greedy_v2v_frac": 0.0713,
+          "k": 32,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.062,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.12,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 616.5459756943839,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 642.2219169771603,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.16
+            },
+            "16": {
+              "T_best_k": 337.38435921096794,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 345.756214870848,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 342.3607122546605,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 352.9719512317522,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.1
+            },
+            "2": {
+              "T_best_k": 443.5416283250536,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 458.47640475853507,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.12
+            },
+            "6": {
+              "T_best_k": 525.5257925946372,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 548.0029218557357,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            }
+          },
+          "seconds_per_graph": 0.09260071611404419,
+          "wall_clock_s": 46.300358057022095
+        },
+        "1.0": {
+          "T_best_k": 447.6687567911693,
+          "T_best_p10": 275.21991978236605,
+          "T_best_p50": 425.04416193962095,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 500.7617951062117,
+          "T_p10_k": 464.11373977235525,
+          "duplicates_ratio": 0.6251875,
+          "evals_per_graph": 32,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.124,
+          "frac_best_equals_greedy": 0.218,
+          "greedy_local_frac": 0.2333,
+          "greedy_mec_frac": 0.6945,
+          "greedy_v2v_frac": 0.0722,
+          "k": 32,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.11,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.124,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 608.4707051902498,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 635.3508430863517,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.17
+            },
+            "16": {
+              "T_best_k": 331.4018461036682,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 342.03036250114434,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 337.68763270309995,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 349.3004850380353,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.1
+            },
+            "2": {
+              "T_best_k": 439.0346658470971,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 450.29844577376497,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "6": {
+              "T_best_k": 521.7489341117314,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 543.5885624624797,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            }
+          },
+          "seconds_per_graph": 0.09094696807861329,
+          "wall_clock_s": 45.47348403930664
+        },
+        "1.3": {
+          "T_best_k": 444.8050351043701,
+          "T_best_p10": 275.21991978236605,
+          "T_best_p50": 422.15276227678567,
+          "T_greedy": 493.8194879861014,
+          "T_mean_k": 502.9212158906774,
+          "T_p10_k": 462.27448520604264,
+          "duplicates_ratio": 0.51425,
+          "evals_per_graph": 32,
+          "expert_T_mean": 423.61724114905763,
+          "frac_best_beats_expert": 0.14,
+          "frac_best_equals_greedy": 0.196,
+          "greedy_local_frac": 0.2293,
+          "greedy_mec_frac": 0.6971,
+          "greedy_v2v_frac": 0.0736,
+          "k": 32,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 6.058,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.14,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 608.6288008901051,
+              "T_greedy": 681.8825190031869,
+              "T_p10_k": 635.8662584726197,
+              "expert_T_mean": 580.8128493097851,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.14
+            },
+            "16": {
+              "T_best_k": 327.717110779626,
+              "T_greedy": 368.8193714139121,
+              "T_p10_k": 338.6722479979378,
+              "expert_T_mean": 310.6119667711258,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.11
+            },
+            "17": {
+              "T_best_k": 334.66983997508464,
+              "T_greedy": 363.7831845794406,
+              "T_p10_k": 346.12192884859365,
+              "expert_T_mean": 320.1101872085843,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.15
+            },
+            "2": {
+              "T_best_k": 435.55057349954336,
+              "T_greedy": 478.27144983959204,
+              "T_p10_k": 449.98206251618524,
+              "expert_T_mean": 413.5845531373706,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.14
+            },
+            "6": {
+              "T_best_k": 517.4588503774916,
+              "T_greedy": 576.3409150943755,
+              "T_p10_k": 540.7299281948771,
+              "expert_T_mean": 492.96664931842247,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.16
+            }
+          },
+          "seconds_per_graph": 0.08945051860809326,
+          "wall_clock_s": 44.72525930404663
+        }
+      },
+      "temperature": 1.0,
+      "wall_clock_s": 90.94696807861328
+    },
+    "p_5_5_10": {
+      "T_best_1": 621.7807739040375,
+      "T_greedy": 621.7807739040375,
+      "by_k": {
+        "1": {
+          "T_best_k": 621.7807739040375,
+          "T_best_p10": 366.7542578125,
+          "T_best_p50": 598.6865234375001,
+          "T_greedy": 621.7807739040375,
+          "T_mean_k": 621.7807739040375,
+          "T_p10_k": 621.7807739040375,
+          "duplicates_ratio": 0.0,
+          "evals_per_graph": 1,
+          "expert_T_mean": 516.929922599411,
+          "frac_best_beats_expert": 0.036,
+          "frac_best_equals_greedy": 1.0,
+          "greedy_local_frac": 0.2791,
+          "greedy_mec_frac": 0.6284,
+          "greedy_v2v_frac": 0.0925,
+          "k": 1,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 7.432,
+          "n_nonmec_p50": 7.0,
+          "oracle_within_samples": 0.036,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 841.7154066963197,
+              "T_greedy": 841.7154066963197,
+              "T_p10_k": 841.7154066963197,
+              "expert_T_mean": 690.575649318695,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.02
+            },
+            "16": {
+              "T_best_k": 450.57638034629815,
+              "T_greedy": 450.57638034629815,
+              "T_p10_k": 450.57638034629815,
+              "expert_T_mean": 380.41434421253194,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.02
+            },
+            "17": {
+              "T_best_k": 448.12333005046844,
+              "T_greedy": 448.12333005046844,
+              "T_p10_k": 448.12333005046844,
+              "expert_T_mean": 387.9745535535813,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            },
+            "2": {
+              "T_best_k": 632.8631441955566,
+              "T_greedy": 632.8631441955566,
+              "T_p10_k": 632.8631441955566,
+              "expert_T_mean": 518.0135935716629,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.03
+            },
+            "6": {
+              "T_best_k": 735.6256082315446,
+              "T_greedy": 735.6256082315446,
+              "T_p10_k": 735.6256082315446,
+              "expert_T_mean": 607.6714723405838,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.05
+            }
+          },
+          "seconds_per_graph": 0.002787580356001854,
+          "wall_clock_s": 1.393790178000927
+        },
+        "16": {
+          "T_best_k": 562.4185258680342,
+          "T_best_p10": 343.3189453125,
+          "T_best_p50": 538.88037109375,
+          "T_greedy": 621.7807739040375,
+          "T_mean_k": 628.4647108346583,
+          "T_p10_k": 580.7083870516778,
+          "duplicates_ratio": 0.4855,
+          "evals_per_graph": 16,
+          "expert_T_mean": 516.929922599411,
+          "frac_best_beats_expert": 0.118,
+          "frac_best_equals_greedy": 0.24,
+          "greedy_local_frac": 0.2798,
+          "greedy_mec_frac": 0.629,
+          "greedy_v2v_frac": 0.0912,
+          "k": 16,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 7.42,
+          "n_nonmec_p50": 7.0,
+          "oracle_within_samples": 0.118,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 750.2440431823728,
+              "T_greedy": 841.7154066963197,
+              "T_p10_k": 779.0960243554116,
+              "expert_T_mean": 690.575649318695,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "16": {
+              "T_best_k": 412.5876275520324,
+              "T_greedy": 450.57638034629815,
+              "T_p10_k": 425.34551031637193,
+              "expert_T_mean": 380.41434421253194,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.07
+            },
+            "17": {
+              "T_best_k": 419.19224181365973,
+              "T_greedy": 448.12333005046844,
+              "T_p10_k": 428.2053890328407,
+              "expert_T_mean": 387.9745535535813,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.12
+            },
+            "2": {
+              "T_best_k": 567.2618460159301,
+              "T_greedy": 632.8631441955566,
+              "T_p10_k": 587.1408917999266,
+              "expert_T_mean": 518.0135935716629,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.17
+            },
+            "6": {
+              "T_best_k": 662.8068707761763,
+              "T_greedy": 735.6256082315446,
+              "T_p10_k": 683.7541197538375,
+              "expert_T_mean": 607.6714723405838,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.14
+            }
+          },
+          "seconds_per_graph": 0.04460128569602966,
+          "wall_clock_s": 22.30064284801483
+        },
+        "32": {
+          "T_best_k": 554.3254375183105,
+          "T_best_p10": 342.74603515625,
+          "T_best_p50": 528.8794921875,
+          "T_greedy": 621.7807739040375,
+          "T_mean_k": 628.7344297566533,
+          "T_p10_k": 578.1471371285056,
+          "duplicates_ratio": 0.57875,
+          "evals_per_graph": 32,
+          "expert_T_mean": 516.929922599411,
+          "frac_best_beats_expert": 0.136,
+          "frac_best_equals_greedy": 0.192,
+          "greedy_local_frac": 0.2822,
+          "greedy_mec_frac": 0.6259,
+          "greedy_v2v_frac": 0.0919,
+          "k": 32,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 7.482,
+          "n_nonmec_p50": 7.0,
+          "oracle_within_samples": 0.136,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 739.3573323783875,
+              "T_greedy": 841.7154066963197,
+              "T_p10_k": 773.364292185688,
+              "expert_T_mean": 690.575649318695,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.1
+            },
+            "16": {
+              "T_best_k": 408.6057720823288,
+              "T_greedy": 450.57638034629815,
+              "T_p10_k": 425.1264294101714,
+              "expert_T_mean": 380.41434421253194,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 413.8846798048019,
+              "T_greedy": 448.12333005046844,
+              "T_p10_k": 425.9081567411423,
+              "expert_T_mean": 387.9745535535813,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "2": {
+              "T_best_k": 555.6238873720168,
+              "T_greedy": 632.8631441955566,
+              "T_p10_k": 584.1677920182228,
+              "expert_T_mean": 518.0135935716629,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.18
+            },
+            "6": {
+              "T_best_k": 654.1555159540176,
+              "T_greedy": 735.6256082315446,
+              "T_p10_k": 682.1690152873039,
+              "expert_T_mean": 607.6714723405838,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.18
+            }
+          },
+          "seconds_per_graph": 0.08920257139205932,
+          "wall_clock_s": 44.60128569602966
+        },
+        "4": {
+          "T_best_k": 589.1986027116774,
+          "T_best_p10": 357.79429721832275,
+          "T_best_p50": 571.1949951171875,
+          "T_greedy": 621.7807739040375,
+          "T_mean_k": 626.5782221893311,
+          "T_p10_k": 595.7244124761582,
+          "duplicates_ratio": 0.2995,
+          "evals_per_graph": 4,
+          "expert_T_mean": 516.929922599411,
+          "frac_best_beats_expert": 0.058,
+          "frac_best_equals_greedy": 0.506,
+          "greedy_local_frac": 0.2784,
+          "greedy_mec_frac": 0.6297,
+          "greedy_v2v_frac": 0.0919,
+          "k": 4,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 7.406,
+          "n_nonmec_p50": 7.0,
+          "oracle_within_samples": 0.058,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 789.8292848196029,
+              "T_greedy": 841.7154066963197,
+              "T_p10_k": 800.7305763688087,
+              "expert_T_mean": 690.575649318695,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.03
+            },
+            "16": {
+              "T_best_k": 435.4838818044663,
+              "T_greedy": 450.57638034629815,
+              "T_p10_k": 438.1498165735245,
+              "expert_T_mean": 380.41434421253194,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.02
+            },
+            "17": {
+              "T_best_k": 432.73591631221774,
+              "T_greedy": 448.12333005046844,
+              "T_p10_k": 436.31159223785403,
+              "expert_T_mean": 387.9745535535813,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.08
+            },
+            "2": {
+              "T_best_k": 593.5405020904541,
+              "T_greedy": 632.8631441955566,
+              "T_p10_k": 601.1441093685149,
+              "expert_T_mean": 518.0135935716629,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "6": {
+              "T_best_k": 694.4034285316467,
+              "T_greedy": 735.6256082315446,
+              "T_p10_k": 702.2859678320883,
+              "expert_T_mean": 607.6714723405838,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.07
+            }
+          },
+          "seconds_per_graph": 0.011150321424007415,
+          "wall_clock_s": 5.575160712003708
+        },
+        "64": {
+          "T_best_k": 546.8689977870943,
+          "T_best_p10": 342.2606298828125,
+          "T_best_p50": 517.7263673782348,
+          "T_greedy": 621.7807739040375,
+          "T_mean_k": 628.3243792750894,
+          "T_p10_k": 576.1433977087211,
+          "duplicates_ratio": 0.66821875,
+          "evals_per_graph": 64,
+          "expert_T_mean": 516.929922599411,
+          "frac_best_beats_expert": 0.162,
+          "frac_best_equals_greedy": 0.152,
+          "greedy_local_frac": 0.2832,
+          "greedy_mec_frac": 0.6245,
+          "greedy_v2v_frac": 0.0923,
+          "k": 64,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 7.51,
+          "n_nonmec_p50": 7.0,
+          "oracle_within_samples": 0.162,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 725.1509451351167,
+              "T_greedy": 841.7154066963197,
+              "T_p10_k": 767.5933111071587,
+              "expert_T_mean": 690.575649318695,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.17
+            },
+            "16": {
+              "T_best_k": 405.80037332153324,
+              "T_greedy": 450.57638034629815,
+              "T_p10_k": 425.14356102867134,
+              "expert_T_mean": 380.41434421253194,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 410.61911649417874,
+              "T_greedy": 448.12333005046844,
+              "T_p10_k": 427.3354530834198,
+              "expert_T_mean": 387.9745535535813,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.14
+            },
+            "2": {
+              "T_best_k": 547.9557294559479,
+              "T_greedy": 632.8631441955566,
+              "T_p10_k": 581.6783809895514,
+              "expert_T_mean": 518.0135935716629,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.19
+            },
+            "6": {
+              "T_best_k": 644.8188245286941,
+              "T_greedy": 735.6256082315446,
+              "T_p10_k": 678.9662823348044,
+              "expert_T_mean": 607.6714723405838,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.22
+            }
+          },
+          "seconds_per_graph": 0.17840514278411865,
+          "wall_clock_s": 89.20257139205933
+        },
+        "8": {
+          "T_best_k": 573.6210648649217,
+          "T_best_p10": 349.82638671875003,
+          "T_best_p50": 557.9684814453126,
+          "T_greedy": 621.7807739040375,
+          "T_mean_k": 627.4124377567291,
+          "T_p10_k": 586.6143915986252,
+          "duplicates_ratio": 0.38875,
+          "evals_per_graph": 8,
+          "expert_T_mean": 516.929922599411,
+          "frac_best_beats_expert": 0.086,
+          "frac_best_equals_greedy": 0.34,
+          "greedy_local_frac": 0.2792,
+          "greedy_mec_frac": 0.6284,
+          "greedy_v2v_frac": 0.0924,
+          "k": 8,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 7.432,
+          "n_nonmec_p50": 7.0,
+          "oracle_within_samples": 0.086,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 764.937994682312,
+              "T_greedy": 841.7154066963197,
+              "T_p10_k": 787.2909735266687,
+              "expert_T_mean": 690.575649318695,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            },
+            "16": {
+              "T_best_k": 422.9469874286652,
+              "T_greedy": 450.57638034629815,
+              "T_p10_k": 431.0547554357529,
+              "expert_T_mean": 380.41434421253194,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.04
+            },
+            "17": {
+              "T_best_k": 425.7983637132645,
+              "T_greedy": 448.12333005046844,
+              "T_p10_k": 430.40107689905165,
+              "expert_T_mean": 387.9745535535813,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "2": {
+              "T_best_k": 578.5770092554092,
+              "T_greedy": 632.8631441955566,
+              "T_p10_k": 593.6031499937056,
+              "expert_T_mean": 518.0135935716629,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "6": {
+              "T_best_k": 675.8449692449569,
+              "T_greedy": 735.6256082315446,
+              "T_p10_k": 690.722002137947,
+              "expert_T_mean": 607.6714723405838,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.11
+            }
+          },
+          "seconds_per_graph": 0.02230064284801483,
+          "wall_clock_s": 11.150321424007416
+        }
+      },
+      "crosscheck_graphs": [
+        190,
+        267,
+        457
+      ],
+      "evals_per_graph": 64,
+      "expert_T_mean": 516.929922599411,
+      "k_max": 64,
+      "n_graphs": 500,
+      "profile_id": "p_5_5_10",
+      "sample_s": 67.57723498344421,
+      "score_s": 21.625336408615112,
+      "seconds_per_graph": 0.17840514278411865,
+      "split": "validation_p_5_5_10",
+      "temperature": 1.0,
+      "wall_clock_s": 89.20257139205933
+    },
+    "p_9_5_10": {
+      "T_best_1": 418.36813482009035,
+      "T_greedy": 418.36813482009035,
+      "by_k": {
+        "1": {
+          "T_best_k": 418.36813482009035,
+          "T_best_p10": 257.53860240194535,
+          "T_best_p50": 386.82987467447913,
+          "T_greedy": 418.36813482009035,
+          "T_mean_k": 418.36813482009035,
+          "T_p10_k": 418.36813482009035,
+          "duplicates_ratio": 0.0,
+          "evals_per_graph": 1,
+          "expert_T_mean": 363.64660176817574,
+          "frac_best_beats_expert": 0.04,
+          "frac_best_equals_greedy": 1.0,
+          "greedy_local_frac": 0.2016,
+          "greedy_mec_frac": 0.7393,
+          "greedy_v2v_frac": 0.0591,
+          "k": 1,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 5.214,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.04,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 579.772316880544,
+              "T_greedy": 579.772316880544,
+              "T_p10_k": 579.772316880544,
+              "expert_T_mean": 497.95203897963626,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.02
+            },
+            "16": {
+              "T_best_k": 308.41003963226746,
+              "T_greedy": 308.41003963226746,
+              "T_p10_k": 308.41003963226746,
+              "expert_T_mean": 273.4813523773617,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.05
+            },
+            "17": {
+              "T_best_k": 312.90015420807737,
+              "T_greedy": 312.90015420807737,
+              "T_p10_k": 312.90015420807737,
+              "expert_T_mean": 279.30990000438686,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.07
+            },
+            "2": {
+              "T_best_k": 409.0224160013199,
+              "T_greedy": 409.0224160013199,
+              "T_p10_k": 409.0224160013199,
+              "expert_T_mean": 351.50350318431856,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.02
+            },
+            "6": {
+              "T_best_k": 481.7357473782434,
+              "T_greedy": 481.7357473782434,
+              "T_p10_k": 481.7357473782434,
+              "expert_T_mean": 415.9862142951754,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.04
+            }
+          },
+          "seconds_per_graph": 0.0027676387056708336,
+          "wall_clock_s": 1.3838193528354168
+        },
+        "16": {
+          "T_best_k": 386.64434394336274,
+          "T_best_p10": 246.51226671006947,
+          "T_best_p50": 365.6077907986111,
+          "T_greedy": 418.36813482009035,
+          "T_mean_k": 422.87889691705965,
+          "T_p10_k": 395.35656527532996,
+          "duplicates_ratio": 0.55075,
+          "evals_per_graph": 16,
+          "expert_T_mean": 363.64660176817574,
+          "frac_best_beats_expert": 0.108,
+          "frac_best_equals_greedy": 0.29,
+          "greedy_local_frac": 0.2,
+          "greedy_mec_frac": 0.7385,
+          "greedy_v2v_frac": 0.0615,
+          "k": 16,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 5.23,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.108,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 529.700571234703,
+              "T_greedy": 579.772316880544,
+              "T_p10_k": 544.78383019495,
+              "expert_T_mean": 497.95203897963626,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.12
+            },
+            "16": {
+              "T_best_k": 288.68800903140175,
+              "T_greedy": 308.41003963226746,
+              "T_p10_k": 293.8782359075017,
+              "expert_T_mean": 273.4813523773617,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "17": {
+              "T_best_k": 293.77202274237743,
+              "T_greedy": 312.90015420807737,
+              "T_p10_k": 299.61124987379714,
+              "expert_T_mean": 279.30990000438686,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.15
+            },
+            "2": {
+              "T_best_k": 373.58667972066655,
+              "T_greedy": 409.0224160013199,
+              "T_p10_k": 381.778586081028,
+              "expert_T_mean": 351.50350318431856,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.08
+            },
+            "6": {
+              "T_best_k": 447.47443698766506,
+              "T_greedy": 481.7357473782434,
+              "T_p10_k": 456.73092431937323,
+              "expert_T_mean": 415.9862142951754,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            }
+          },
+          "seconds_per_graph": 0.04428221929073334,
+          "wall_clock_s": 22.14110964536667
+        },
+        "32": {
+          "T_best_k": 381.6766943163342,
+          "T_best_p10": 238.31603515625002,
+          "T_best_p50": 359.0430770979987,
+          "T_greedy": 418.36813482009035,
+          "T_mean_k": 422.932585268114,
+          "T_p10_k": 394.09066083453916,
+          "duplicates_ratio": 0.6495,
+          "evals_per_graph": 32,
+          "expert_T_mean": 363.64660176817574,
+          "frac_best_beats_expert": 0.15,
+          "frac_best_equals_greedy": 0.222,
+          "greedy_local_frac": 0.2,
+          "greedy_mec_frac": 0.7386,
+          "greedy_v2v_frac": 0.0614,
+          "k": 32,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 5.228,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.15,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 523.3995354164972,
+              "T_greedy": 579.772316880544,
+              "T_p10_k": 541.6795350239647,
+              "expert_T_mean": 497.95203897963626,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.16
+            },
+            "16": {
+              "T_best_k": 285.89188788869643,
+              "T_greedy": 308.41003963226746,
+              "T_p10_k": 293.2938788445049,
+              "expert_T_mean": 273.4813523773617,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.15
+            },
+            "17": {
+              "T_best_k": 288.8957040070428,
+              "T_greedy": 312.90015420807737,
+              "T_p10_k": 297.80029631668725,
+              "expert_T_mean": 279.30990000438686,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.18
+            },
+            "2": {
+              "T_best_k": 370.5940347077051,
+              "T_greedy": 409.0224160013199,
+              "T_p10_k": 381.38760254524016,
+              "expert_T_mean": 351.50350318431856,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.12
+            },
+            "6": {
+              "T_best_k": 439.60230956172944,
+              "T_greedy": 481.7357473782434,
+              "T_p10_k": 456.2919914422989,
+              "expert_T_mean": 415.9862142951754,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.14
+            }
+          },
+          "seconds_per_graph": 0.08856443858146668,
+          "wall_clock_s": 44.28221929073334
+        },
+        "4": {
+          "T_best_k": 400.4579293894662,
+          "T_best_p10": 251.69626085069447,
+          "T_best_p50": 377.083850897683,
+          "T_greedy": 418.36813482009035,
+          "T_mean_k": 421.83207916312745,
+          "T_p10_k": 404.1130177190992,
+          "duplicates_ratio": 0.3355,
+          "evals_per_graph": 4,
+          "expert_T_mean": 363.64660176817574,
+          "frac_best_beats_expert": 0.07,
+          "frac_best_equals_greedy": 0.56,
+          "greedy_local_frac": 0.1989,
+          "greedy_mec_frac": 0.7431,
+          "greedy_v2v_frac": 0.058,
+          "k": 4,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 5.138,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.07,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 549.4443807439803,
+              "T_greedy": 579.772316880544,
+              "T_p10_k": 555.7672226237933,
+              "expert_T_mean": 497.95203897963626,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            },
+            "16": {
+              "T_best_k": 297.57022097301484,
+              "T_greedy": 308.41003963226746,
+              "T_p10_k": 299.90105738414127,
+              "expert_T_mean": 273.4813523773617,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.09
+            },
+            "17": {
+              "T_best_k": 304.62117548433946,
+              "T_greedy": 312.90015420807737,
+              "T_p10_k": 306.80383766765596,
+              "expert_T_mean": 279.30990000438686,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.11
+            },
+            "2": {
+              "T_best_k": 388.475947113249,
+              "T_greedy": 409.0224160013199,
+              "T_p10_k": 391.5402130976888,
+              "expert_T_mean": 351.50350318431856,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.04
+            },
+            "6": {
+              "T_best_k": 462.1779226327472,
+              "T_greedy": 481.7357473782434,
+              "T_p10_k": 466.55275782221696,
+              "expert_T_mean": 415.9862142951754,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.05
+            }
+          },
+          "seconds_per_graph": 0.011070554822683334,
+          "wall_clock_s": 5.535277411341667
+        },
+        "64": {
+          "T_best_k": 377.8728222048017,
+          "T_best_p10": 238.31603515625002,
+          "T_best_p50": 353.7536078559028,
+          "T_greedy": 418.36813482009035,
+          "T_mean_k": 423.1579861083544,
+          "T_p10_k": 392.5138607387712,
+          "duplicates_ratio": 0.734,
+          "evals_per_graph": 64,
+          "expert_T_mean": 363.64660176817574,
+          "frac_best_beats_expert": 0.18,
+          "frac_best_equals_greedy": 0.2,
+          "greedy_local_frac": 0.2028,
+          "greedy_mec_frac": 0.7364,
+          "greedy_v2v_frac": 0.0608,
+          "k": 64,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 5.272,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.18,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 516.8789233488507,
+              "T_greedy": 579.772316880544,
+              "T_p10_k": 540.6627754289838,
+              "expert_T_mean": 497.95203897963626,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.2
+            },
+            "16": {
+              "T_best_k": 284.34879952632053,
+              "T_greedy": 308.41003963226746,
+              "T_p10_k": 292.8480764656173,
+              "expert_T_mean": 273.4813523773617,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.18
+            },
+            "17": {
+              "T_best_k": 286.81051680299976,
+              "T_greedy": 312.90015420807737,
+              "T_p10_k": 297.2968778431998,
+              "expert_T_mean": 279.30990000438686,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.2
+            },
+            "2": {
+              "T_best_k": 366.6699076539145,
+              "T_greedy": 409.0224160013199,
+              "T_p10_k": 379.2578193856451,
+              "expert_T_mean": 351.50350318431856,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "6": {
+              "T_best_k": 434.6559636919235,
+              "T_greedy": 481.7357473782434,
+              "T_p10_k": 452.50375457040997,
+              "expert_T_mean": 415.9862142951754,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.19
+            }
+          },
+          "seconds_per_graph": 0.17712887716293335,
+          "wall_clock_s": 88.56443858146667
+        },
+        "8": {
+          "T_best_k": 392.61452513631184,
+          "T_best_p10": 248.38579210069443,
+          "T_best_p50": 370.56200082037185,
+          "T_greedy": 418.36813482009035,
+          "T_mean_k": 422.4978216646512,
+          "T_p10_k": 398.6824983431329,
+          "duplicates_ratio": 0.44375,
+          "evals_per_graph": 8,
+          "expert_T_mean": 363.64660176817574,
+          "frac_best_beats_expert": 0.092,
+          "frac_best_equals_greedy": 0.408,
+          "greedy_local_frac": 0.1995,
+          "greedy_mec_frac": 0.7407,
+          "greedy_v2v_frac": 0.0598,
+          "k": 8,
+          "monotonic_ok": true,
+          "n_graphs": 500,
+          "n_nonmec_mean": 5.186,
+          "n_nonmec_p50": 5.0,
+          "oracle_within_samples": 0.092,
+          "per_distribution": {
+            "10": {
+              "T_best_k": 540.0733553855684,
+              "T_greedy": 579.772316880544,
+              "T_p10_k": 548.0928322480838,
+              "expert_T_mean": 497.95203897963626,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.1
+            },
+            "16": {
+              "T_best_k": 291.14274464914536,
+              "T_greedy": 308.41003963226746,
+              "T_p10_k": 296.0186822843658,
+              "expert_T_mean": 273.4813523773617,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.11
+            },
+            "17": {
+              "T_best_k": 298.26854803657534,
+              "T_greedy": 312.90015420807737,
+              "T_p10_k": 301.67891263115143,
+              "expert_T_mean": 279.30990000438686,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.13
+            },
+            "2": {
+              "T_best_k": 380.52416623306266,
+              "T_greedy": 409.0224160013199,
+              "T_p10_k": 387.4472651708709,
+              "expert_T_mean": 351.50350318431856,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            },
+            "6": {
+              "T_best_k": 453.06381137720746,
+              "T_greedy": 481.7357473782434,
+              "T_p10_k": 460.17479938119254,
+              "expert_T_mean": 415.9862142951754,
+              "n_graphs": 100,
+              "oracle_within_samples": 0.06
+            }
+          },
+          "seconds_per_graph": 0.02214110964536667,
+          "wall_clock_s": 11.070554822683334
+        }
+      },
+      "crosscheck_graphs": [
+        190,
+        267,
+        457
+      ],
+      "evals_per_graph": 64,
+      "expert_T_mean": 363.64660176817574,
+      "k_max": 64,
+      "n_graphs": 500,
+      "profile_id": "p_9_5_10",
+      "sample_s": 67.20432424545288,
+      "score_s": 21.360114336013794,
+      "seconds_per_graph": 0.17712887716293335,
+      "split": "validation_p_9_5_10",
+      "temperature": 1.0,
+      "wall_clock_s": 88.56443858146667
+    }
+  },
+  "readout_type": "mean",
+  "seed": 0,
+  "smoke": false
+}

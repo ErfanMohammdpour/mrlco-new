@@ -1,0 +1,172 @@
+{
+  "all_mec_T_mean": 627.8489691798619,
+  "expert_T_mean": 414.0629949285326,
+  "frac_greedy_beats_expert": 0.0006666666666666666,
+  "frac_greedy_beats_mec": 0.9506666666666667,
+  "frac_n_nonmec_le2": 0.11133333333333334,
+  "frac_n_nonmec_le3": 0.238,
+  "greedy_T_mean": 435.5508689671108,
+  "greedy_T_p10": 274.5799393136161,
+  "greedy_T_p50": 411.3956612723215,
+  "greedy_local_frac": 0.22226666666666667,
+  "greedy_mec_frac": 0.7062333333333334,
+  "greedy_over_expert": 1.0518951809308315,
+  "greedy_over_mec": 0.6937191750685778,
+  "greedy_token_acc_vs_expert": 0.9647,
+  "greedy_v2v_frac": 0.0715,
+  "n_graphs": 1500,
+  "n_nonmec_mean": 5.875333333333334,
+  "n_nonmec_p50": 5.0,
+  "per_distribution": {
+    "1": {
+      "all_mec_T_mean": 468.3499841206415,
+      "expert_T_mean": 341.91793740231645,
+      "frac_greedy_beats_mec": 0.95,
+      "greedy_T_mean": 353.4986244886943,
+      "greedy_over_expert": 1.033869785172316,
+      "greedy_over_mec": 0.7547744987168339,
+      "n_graphs": 100,
+      "n_nonmec_p50": 4.0
+    },
+    "11": {
+      "all_mec_T_mean": 929.8960775448935,
+      "expert_T_mean": 546.1948251654759,
+      "frac_greedy_beats_mec": 0.97,
+      "greedy_T_mean": 567.2016724234988,
+      "greedy_over_expert": 1.0384603557012073,
+      "greedy_over_mec": 0.6099624314160154,
+      "n_graphs": 100,
+      "n_nonmec_p50": 10.0
+    },
+    "13": {
+      "all_mec_T_mean": 872.5461769805635,
+      "expert_T_mean": 491.5449667953763,
+      "frac_greedy_beats_mec": 0.97,
+      "greedy_T_mean": 529.9299306904927,
+      "greedy_over_expert": 1.0780904423564073,
+      "greedy_over_mec": 0.6073374047942189,
+      "n_graphs": 100,
+      "n_nonmec_p50": 9.0
+    },
+    "15": {
+      "all_mec_T_mean": 576.4560627540861,
+      "expert_T_mean": 381.78162111445835,
+      "frac_greedy_beats_mec": 0.94,
+      "greedy_T_mean": 409.5074663975579,
+      "greedy_over_expert": 1.0726222629632225,
+      "greedy_over_mec": 0.7103879946046333,
+      "n_graphs": 100,
+      "n_nonmec_p50": 5.0
+    },
+    "18": {
+      "all_mec_T_mean": 427.9148056249618,
+      "expert_T_mean": 322.13136348901475,
+      "frac_greedy_beats_mec": 0.93,
+      "greedy_T_mean": 338.5683945541382,
+      "greedy_over_expert": 1.051025863756616,
+      "greedy_over_mec": 0.791205142013409,
+      "n_graphs": 100,
+      "n_nonmec_p50": 4.0
+    },
+    "19": {
+      "all_mec_T_mean": 425.038698239054,
+      "expert_T_mean": 329.3836818910326,
+      "frac_greedy_beats_mec": 0.94,
+      "greedy_T_mean": 342.0487080225263,
+      "greedy_over_expert": 1.0384506787305983,
+      "greedy_over_mec": 0.8047472134646626,
+      "n_graphs": 100,
+      "n_nonmec_p50": 3.0
+    },
+    "21": {
+      "all_mec_T_mean": 393.2028501769475,
+      "expert_T_mean": 324.803088146346,
+      "frac_greedy_beats_mec": 0.97,
+      "greedy_T_mean": 327.24786146790643,
+      "greedy_over_expert": 1.007526939893068,
+      "greedy_over_mec": 0.8322621805020989,
+      "n_graphs": 100,
+      "n_nonmec_p50": 3.0
+    },
+    "22": {
+      "all_mec_T_mean": 443.9205452657427,
+      "expert_T_mean": 320.4423057206017,
+      "frac_greedy_beats_mec": 0.9,
+      "greedy_T_mean": 347.11881397410804,
+      "greedy_over_expert": 1.083249021047695,
+      "greedy_over_mec": 0.7819390602124834,
+      "n_graphs": 100,
+      "n_nonmec_p50": 4.0
+    },
+    "24": {
+      "all_mec_T_mean": 761.5899972147258,
+      "expert_T_mean": 448.0751738559178,
+      "frac_greedy_beats_mec": 0.97,
+      "greedy_T_mean": 484.67479303250997,
+      "greedy_over_expert": 1.0816818724001904,
+      "greedy_over_mec": 0.6363985803451391,
+      "n_graphs": 100,
+      "n_nonmec_p50": 8.0
+    },
+    "25": {
+      "all_mec_T_mean": 913.7315919546401,
+      "expert_T_mean": 488.47518104267124,
+      "frac_greedy_beats_mec": 1.0,
+      "greedy_T_mean": 513.1874353162219,
+      "greedy_over_expert": 1.0505906036429555,
+      "greedy_over_mec": 0.5616391507471242,
+      "n_graphs": 100,
+      "n_nonmec_p50": 9.0
+    },
+    "3": {
+      "all_mec_T_mean": 754.1157241950717,
+      "expert_T_mean": 481.66901307187766,
+      "frac_greedy_beats_mec": 0.95,
+      "greedy_T_mean": 511.12809111581527,
+      "greedy_over_expert": 1.0611604177234908,
+      "greedy_over_mec": 0.677784688366475,
+      "n_graphs": 100,
+      "n_nonmec_p50": 7.0
+    },
+    "4": {
+      "all_mec_T_mean": 456.77334455926064,
+      "expert_T_mean": 340.9993140682493,
+      "frac_greedy_beats_mec": 0.96,
+      "greedy_T_mean": 352.5170816839763,
+      "greedy_over_expert": 1.0337765125633707,
+      "greedy_over_mec": 0.7717549324690106,
+      "n_graphs": 100,
+      "n_nonmec_p50": 4.0
+    },
+    "5": {
+      "all_mec_T_mean": 600.2649018027442,
+      "expert_T_mean": 417.8065806462424,
+      "frac_greedy_beats_mec": 0.95,
+      "greedy_T_mean": 435.6741333660398,
+      "greedy_over_expert": 1.0427651299607603,
+      "greedy_over_mec": 0.7258031113556739,
+      "n_graphs": 100,
+      "n_nonmec_p50": 6.0
+    },
+    "8": {
+      "all_mec_T_mean": 620.5810334444046,
+      "expert_T_mean": 451.7116250934601,
+      "frac_greedy_beats_mec": 0.94,
+      "greedy_T_mean": 468.24592137009756,
+      "greedy_over_expert": 1.036603654540032,
+      "greedy_over_mec": 0.7545282503578895,
+      "n_graphs": 100,
+      "n_nonmec_p50": 5.0
+    },
+    "9": {
+      "all_mec_T_mean": 773.3527438201904,
+      "expert_T_mean": 524.0082464249474,
+      "frac_greedy_beats_mec": 0.92,
+      "greedy_T_mean": 552.7141066030775,
+      "greedy_over_expert": 1.0547813137941553,
+      "greedy_over_mec": 0.7146985783910107,
+      "n_graphs": 100,
+      "n_nonmec_p50": 8.0
+    }
+  }
+}

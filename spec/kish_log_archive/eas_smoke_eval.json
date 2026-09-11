@@ -1,0 +1,87 @@
+{
+  "adapt_subset": "lastlayer",
+  "ckpt": "/work/runs/phase4/margo_v0.3_diag_encoder/meanagg_mean/seed_0/ckpt/bc_core.ckpt",
+  "ckpt_sha256": "9ce043b2589dfee7f3c40fa65b206eb67c79cfaceb8919fd9c407a35dc94fc9b",
+  "gate": {
+    "local_band": true,
+    "n_non_p50_ok": true,
+    "query_greedy_T_le_520": false,
+    "target_query_T": 520.0,
+    "v2v_band": true
+  },
+  "identity_query_T_mean": 574.6182439105171,
+  "identity_ref": 577.017539613315,
+  "k": 4,
+  "lambda_il": 1.0,
+  "loss_type": "pg_il",
+  "method_id": "margo_v0.3_diag_eas",
+  "minutes": 0.1335878888765971,
+  "mix_mean": {
+    "local_frac": 0.206875,
+    "n_nonmec_p50": 5.0,
+    "v2v_frac": 0.051875
+  },
+  "n_adapt": 5,
+  "n_trainable_params_adapted": 384,
+  "paper_result": false,
+  "per_distribution": [
+    {
+      "curve": [
+        {
+          "L_IL": null,
+          "L_PG": null,
+          "iter": 0,
+          "local_frac": 0.2075,
+          "mec_frac": 0.741875,
+          "n_nonmec_mean": 5.1625,
+          "n_nonmec_p50": 5.0,
+          "phi_l2": 0.0,
+          "query_greedy_T": 578.5121795395441,
+          "support_best_T_mean": 559.0425013944081,
+          "support_greedy_T0": 559.0425013944081,
+          "v2v_frac": 0.050625
+        },
+        {
+          "L_IL": 3.5269722938537598,
+          "L_PG": -0.013454906642436981,
+          "iter": 5,
+          "local_frac": 0.206875,
+          "mec_frac": 0.74125,
+          "n_nonmec_mean": 5.175,
+          "n_nonmec_p50": 5.0,
+          "phi_l2": 0.0721028760054909,
+          "query_greedy_T": 577.7172445573126,
+          "support_best_T_mean": 496.70750241552076,
+          "support_greedy_T0": 559.0425013944081,
+          "v2v_frac": 0.051875
+        }
+      ],
+      "dist_id": 2,
+      "k": 4,
+      "mix": {
+        "local_frac": 0.206875,
+        "mec_frac": 0.74125,
+        "n_nonmec_mean": 5.175,
+        "n_nonmec_p50": 5.0,
+        "v2v_frac": 0.051875
+      },
+      "n_adapt": 5,
+      "n_trainable_params_adapted": 384,
+      "phi_l2_final": 0.0721028760054909,
+      "query_bestof4_T": 542.5957578897476,
+      "query_greedy_T": 577.7172445573126,
+      "query_greedy_T0": 578.5121795395441,
+      "query_n": 80,
+      "query_sha256": "3d88d92bb07dccc61e861abd9b7c5409832f38cf121b1c548d7855a18049536f",
+      "schedule_per_iter": 80,
+      "support_best_T0": 559.0425013944081,
+      "support_best_T_final": 496.70750241552076,
+      "support_n": 20,
+      "support_sha256": "cbe011c4347aa5e421028f0dbb85d523d04f02864e1c48417f5aec58259f2785"
+    }
+  ],
+  "query_greedy_T0_mean": 578.5121795395441,
+  "query_greedy_T_mean": 577.7172445573126,
+  "seed": 0,
+  "smoke": true
+}

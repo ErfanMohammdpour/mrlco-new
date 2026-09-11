@@ -194,8 +194,11 @@ class OffloadingTaskGraph(object):
     def encode_point_sequence_with_ranking_and_cost(self, sorted_task, resource_cluster):
         from .scheduler.encoder_obs import encode_task_graph
 
-        del resource_cluster  # decoder order is HEFT; features come from CanonicalDAG
-        return encode_task_graph(self, decoder_order=sorted_task)
+        return encode_task_graph(
+            self,
+            decoder_order=sorted_task,
+            resource_cluster=resource_cluster,
+        )
 
     def encode_edge_sequence(self):
         edge_array = []

@@ -1,0 +1,58 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Logging to /work/runs/phase4/margo_v0.2_diag_oracle_dist/seed_0/logs
+oracle_identity_eval
+expert cache hit /work/runs/phase4/expert_greedy_mec_validation.npz n=500
+oracle_eval split=identity_validation n=500 T=575.1 mix=0.193/0.770/0.037
+oracle_identity_ok T=575.1
+expert cache hit /work/runs/phase4/expert_greedy_mec_train.npz n=1500
+oracle_epoch 1/40 loss=0.0392
+oracle_epoch 5/40 loss=0.0193
+oracle_epoch 10/40 loss=0.0204
+oracle_epoch 15/40 loss=0.0125
+oracle_epoch 20/40 loss=0.0162
+oracle_epoch 25/40 loss=0.0132
+oracle_epoch 30/40 loss=0.0385
+oracle_epoch 35/40 loss=0.0080
+oracle_epoch 40/40 loss=0.0117
+oracle_ckpt /work/runs/phase4/margo_v0.2_diag_oracle_dist/seed_0/ckpt/bc_core.ckpt
+expert cache hit /work/runs/phase4/expert_greedy_mec_train.npz n=1500
+oracle_eval split=train n=1500 T=453.7 mix=0.204/0.745/0.052
+oracle_train T=453.7 expert=447.9 ref=464.0 mix=0.204/0.745/0.052
+oracle_eval_unseen
+expert cache hit /work/runs/phase4/expert_greedy_mec_validation.npz n=500
+oracle_eval split=validation n=500 T=584.2 mix=0.199/0.761/0.040
+expert cache hit /work/runs/phase4/expert_greedy_mec_metatest.npz n=500
+oracle_eval split=meta_test n=500 T=553.0 mix=0.204/0.746/0.049
+oracle_verdict=oracle_no_gain valT=584.2 A=575.0 local=0.199 testT=553.0 A_test=557.0 trainT=453.7 identT=575.1

@@ -17,6 +17,7 @@ from env.mec_offloaing_envs.scheduler import (  # noqa: E402
     CanonicalDAG,
     CanonicalTask,
     ResourceConfig,
+    greedy_from_mec_plan,
     greedy_plan,
     schedule,
     schedule_via_adapter,
@@ -117,6 +118,31 @@ class TestGreedyUsesEngine(unittest.TestCase):
         self.assertEqual({a for _, a in plan} <= {0, 1, 2}, True)
         direct, _, _ = schedule_via_adapter(TG(), plan, cfg)
         self.assertAlmostEqual(result.makespan_seconds, direct.makespan_seconds)
+
+
+class TestGreedyFromMec(unittest.TestCase):
+    def test_from_mec_not_worse_than_all_mec(self):
+        class TG:
+            task_number = 2
+            task_list = [
+                types.SimpleNamespace(processing_data_size=1048576, transmission_data_size=458752),
+                types.SimpleNamespace(processing_data_size=1048576, transmission_data_size=458752),
+            ]
+            pre_task_sets = [set(), {0}]
+            edge_set = [[0, 0, 1048576, 458752, 1, 1, 1048576]]
+            prioritize_sequence = [0, 1]
+
+        cfg = ResourceConfig.from_frozen_yaml()
+        tg = TG()
+        plan, result = greedy_from_mec_plan(tg, cfg)
+        self.assertEqual(len(plan), 2)
+        self.assertTrue({a for _, a in plan} <= {0, 1, 2})
+        order = [int(tid) for tid in tg.prioritize_sequence]
+        mec, _, _ = schedule_via_adapter(tg, list(zip(order, [1, 1])), cfg)
+        self.assertLessEqual(result.makespan_seconds, mec.makespan_seconds + 1e-12)
+        pub, pub_res = greedy_plan(tg, cfg)
+        self.assertEqual(len(pub), 2)
+        self.assertGreater(pub_res.makespan_seconds, 0.0)
 
 
 class TestNoLegacySchedulerMath(unittest.TestCase):

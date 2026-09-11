@@ -1,0 +1,41 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+   Use the NVIDIA Container Toolkit to start this container with GPU support; see
+   https://docs.nvidia.com/datacenter/cloud-native/ .
+
+pairfrac_mec 1/200 dist=1 idx=2 mec=477.9 pos=28 pairs=57 frac=0.491
+pairfrac_mec 10/200 dist=1 idx=78 mec=435.2 pos=166 pairs=433 frac=0.383
+pairfrac_mec 20/200 dist=3 idx=18 mec=1131.5 pos=461 pairs=1110 frac=0.415
+pairfrac_mec 30/200 dist=4 idx=6 mec=453.3 pos=799 pairs=1862 frac=0.429
+pairfrac_mec 40/200 dist=4 idx=64 mec=506.8 pos=948 pairs=2349 frac=0.404
+pairfrac_mec 50/200 dist=5 idx=50 mec=719.4 pos=1242 pairs=3008 frac=0.413
+pairfrac_mec 60/200 dist=8 idx=16 mec=821.3 pos=1587 pairs=3731 frac=0.425
+pairfrac_mec 70/200 dist=8 idx=90 mec=444.3 pos=1867 pairs=4508 frac=0.414
+pairfrac_mec 80/200 dist=9 idx=82 mec=975.4 pos=2491 pairs=5458 frac=0.456
+pairfrac_mec 90/200 dist=11 idx=28 mec=1222.2 pos=2997 pairs=6481 frac=0.462
+pairfrac_mec 100/200 dist=13 idx=27 mec=992.2 pos=3575 pairs=7343 frac=0.487
+pairfrac_mec 110/200 dist=15 idx=2 mec=587.3 pos=4008 pairs=8062 frac=0.497
+pairfrac_mec 120/200 dist=15 idx=88 mec=545.4 pos=4283 pairs=8617 frac=0.497
+pairfrac_mec 130/200 dist=18 idx=61 mec=354.1 pos=4463 pairs=9008 frac=0.495
+pairfrac_mec 140/200 dist=19 idx=48 mec=326.5 pos=4633 pairs=9335 frac=0.496
+pairfrac_mec 150/200 dist=21 idx=8 mec=403.2 pos=4853 pairs=9756 frac=0.497
+pairfrac_mec 160/200 dist=21 idx=97 mec=393.6 pos=4970 pairs=10221 frac=0.486
+pairfrac_mec 170/200 dist=22 idx=43 mec=517.2 pos=5136 pairs=10563 frac=0.486
+pairfrac_mec 180/200 dist=24 idx=41 mec=698.8 pos=5377 pairs=11000 frac=0.489
+pairfrac_mec 190/200 dist=25 idx=12 mec=923.6 pos=5760 pairs=11624 frac=0.496
+pairfrac_mec 200/200 dist=25 idx=98 mec=1004.3 pos=6034 pairs=12210 frac=0.494
+pairfrac_verdict=pairfrac_mec_holdout_like frac_pos=0.494 n_pos=6034 n_pairs=12210 clone_ref=0.070 proceed_rewrite=True

@@ -24,6 +24,10 @@ from .model import ScheduleResult
 from .resources import ResourceConfig
 
 FILL_UNASSIGNED = 0  # all_UE completion policy
+LATENCY_REF_L_SCALE = "l_scale"  # frozen v0.1: divide by pure-location L_scale
+LATENCY_REF_L_MEC = "l_mec"  # diagnostic: divide by all-MEC makespan; not publication
+REWARD_MODE_PUBLICATION = "publication"
+REWARD_MODE_LATENCY_TMEC = "latency_over_all_mec"
 
 
 @dataclass(frozen=True)
@@ -78,21 +82,32 @@ def telescoping_token_rewards(
     energy_weight: float | None = None,
     refs: ReferenceRanges | None = None,
     compute_j_report: bool = False,
+    latency_ref: str = LATENCY_REF_L_SCALE,
 ) -> TelescopingRewardResult:
     """Post-hoc telescoping with completion policy all_UE.
 
     Schedules P_1..P_N (P_0 metrics reused from pure-location all_UE refs).
-    Deltas are unclipped. Token reward:
+    Deltas are unclipped. Token reward (publication):
 
         r_t = -(w_L * (L_t - L_{t-1}) / L_scale + w_E * (E_t - E_{t-1}) / E_scale)
+
+    Diagnostic `latency_ref=l_mec` (not v0.1 publication):
+
+        r_t = - (L_t - L_{t-1}) / T_allMEC
 
     Publication mode freezes w_L/w_E at 0.5/0.5. Training path leaves
     `compute_j_report=False` to avoid clip_and_log warning floods.
     """
     decoder_order, actions = validate_plan(task_graph, plan)
     n = len(decoder_order)
+    if latency_ref not in (LATENCY_REF_L_SCALE, LATENCY_REF_L_MEC):
+        raise ValueError("latency_ref must be l_scale or l_mec, got %r" % (latency_ref,))
+    diagnostic_tmec = latency_ref == LATENCY_REF_L_MEC
 
-    if include_energy:
+    if diagnostic_tmec:
+        lw, ew = 1.0, 0.0
+        include_energy = False
+    elif include_energy:
         if latency_weight is None and energy_weight is None:
             lw, ew = LATENCY_WEIGHT, ENERGY_WEIGHT
             require_publication_weights(lw, ew)
@@ -123,11 +138,12 @@ def telescoping_token_rewards(
 
     assert final_result is not None
 
+    denom_l = max(float(refs.L_mec), 1e-12) if diagnostic_tmec else refs.L_scale
     rewards: list[float] = []
     for t in range(1, n + 1):
         delta_l = makespans[t] - makespans[t - 1]
         delta_e = energies[t] - energies[t - 1]
-        term = lw * (delta_l / refs.L_scale)
+        term = lw * (delta_l / denom_l)
         if include_energy:
             term += ew * (delta_e / refs.E_scale)
         rewards.append(-term)
@@ -157,8 +173,12 @@ def expected_episode_return(
     include_energy: bool = True,
     latency_weight: float = LATENCY_WEIGHT,
     energy_weight: float = ENERGY_WEIGHT,
+    latency_ref: str = LATENCY_REF_L_SCALE,
 ) -> float:
-    """Closed form: sum_t r_t == -(w_L*(L_N-L_0)/L_scale + w_E*(E_N-E_0)/E_scale)."""
+    """Closed form of sum_t r_t. Diagnostic l_mec uses T_allMEC, no energy term."""
+    if latency_ref == LATENCY_REF_L_MEC:
+        denom = max(float(refs.L_mec), 1e-12)
+        return -((makespans[-1] - makespans[0]) / denom)
     term = latency_weight * ((makespans[-1] - makespans[0]) / refs.L_scale)
     if include_energy:
         term += energy_weight * ((energies[-1] - energies[0]) / refs.E_scale)

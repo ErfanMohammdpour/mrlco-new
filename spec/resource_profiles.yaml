@@ -1,0 +1,48 @@
+# Resource profile axis for Phase 4 (DAG × profile meta-tasks).
+# Rates: declared Mi-Mbps (mebibits/s). bytes/s = mbps * 1024 * 1024 / 8.
+# Frozen profile (pid frozen_7_5_10): UL=DL=7, V2V=5, mec/ue CPU ratio=10.
+# UE CPU always 1048576 B/s; HELPER CPU = UE CPU; MEC CPU = ratio * UE CPU.
+
+schema_version: 1
+ue_cpu_bytes_per_second: 1048576
+mbps_to_bps: "mbps * 1048576 / 8"
+
+# Full grid Cartesian product (45):
+mec_ul_dl_mbps: [3, 5, 7, 9, 11]
+v2v_mbps: [3, 5, 7]
+mec_ue_cpu_ratio: [5, 10, 20]
+
+# Roles (exact lists; code must load from this file, not hard-code).
+# Train: UL∈{3,7,11} × V2V∈{3,7} × ratio∈{5,20} = 12, plus frozen = 13.
+meta_train_profile_ids:
+  - p_3_3_5
+  - p_3_3_20
+  - p_3_7_5
+  - p_3_7_20
+  - p_7_3_5
+  - p_7_3_20
+  - p_7_7_5
+  - p_7_7_20
+  - p_11_3_5
+  - p_11_3_20
+  - p_11_7_5
+  - p_11_7_20
+  - frozen_7_5_10
+
+# Validation held-out (interpolation): UL∈{5,9}, V2V=5, ratio=10 → 2.
+validation_heldout_profile_ids:
+  - p_5_5_10
+  - p_9_5_10
+
+# Meta-test held-out: UL∈{5,9} × V2V∈{3,7} × ratio∈{5,20} → 8. Phase 6 only.
+meta_test_heldout_profile_ids:
+  - p_5_3_5
+  - p_5_3_20
+  - p_5_7_5
+  - p_5_7_20
+  - p_9_3_5
+  - p_9_3_20
+  - p_9_7_5
+  - p_9_7_20
+
+frozen_profile_id: frozen_7_5_10

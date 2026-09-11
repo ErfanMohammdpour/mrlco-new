@@ -1,0 +1,47 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Logging to /work/runs/phase4/margo_v0.3_diag_eas/lastlayer_pg_il/seed_0/logs
+eas_trainable_audit subset=lastlayer n_vars=1 n_params=384 names=['pi/decoder/decoder/output_projection/kernel:0']
+eas_all_trainable_count=26 (θ frozen except φ)
+eas_identity dist=2 full_greedy_T=574.6182
+eas_identity dist=6 full_greedy_T=680.1309
+eas_identity dist=10 full_greedy_T=790.0735
+eas_identity dist=16 full_greedy_T=436.0206
+eas_identity dist=17 full_greedy_T=405.5162
+eas_dist 2 T0=578.5 T*=587.6 best=462.8 phi_l2=1.2671 min=2.8
+eas_dist 6 T0=685.6 T*=692.5 best=532.2 phi_l2=1.1600 min=5.6
+eas_dist 10 T0=785.5 T*=776.9 best=623.4 phi_l2=0.9986 min=8.4
+eas_dist 16 T0=431.7 T*=420.4 best=347.9 phi_l2=1.1733 min=11.0
+eas_dist 17 T0=407.1 T*=404.8 best=345.1 phi_l2=1.2124 min=13.5
+eas_verdict seed=0 subset=lastlayer loss=pg_il smoke=0 T0=577.7 T*=576.4 gate520=False min=13.5

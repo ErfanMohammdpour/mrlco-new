@@ -21,17 +21,20 @@ from .model import (
 )
 from .resources import ResourceConfig
 from .routes import ROUTE_TABLE, route
-from .greedy import greedy_plan
+from .greedy import greedy_from_mec_plan, greedy_plan
 from .energy_api import (
     ReferenceRanges,
     attribute_energy_by_task,
     attribute_energy_components_by_task,
     compute_reference_ranges,
     frozen_objective_weights,
+    j_lambda,
     j_report,
+    lambda_tag,
     normalize,
     pure_location_plan,
     require_publication_weights,
+    PARETO_LAMBDAS,
 )
 from .reward import (
     TelescopingRewardResult,
@@ -62,10 +65,14 @@ __all__ = [
     "compute_reference_ranges",
     "expected_episode_return",
     "frozen_objective_weights",
+    "greedy_from_mec_plan",
     "greedy_plan",
+    "j_lambda",
     "j_report",
+    "lambda_tag",
     "make_calendars",
     "normalize",
+    "PARETO_LAMBDAS",
     "provisional_plan",
     "pure_location_plan",
     "require_publication_weights",

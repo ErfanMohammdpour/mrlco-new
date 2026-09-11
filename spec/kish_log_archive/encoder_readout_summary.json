@@ -1,0 +1,70 @@
+{
+  "backbone": {
+    "encoder_type": "meanagg",
+    "readout_type": "mean"
+  },
+  "best_readout": "mean",
+  "best_val_T": 577.017539613315,
+  "decision": "adopt_mean_readout",
+  "encoder_type": "meanagg",
+  "gate_pm5": {
+    "all_within_pm5": false,
+    "any_within_pm5": false,
+    "note": "Phase1: any within \u00b15 of triple => triple not a contribution. Here none strictly within \u00b15; mean is \u221211.1s better so readout matters; adopt mean for backbone readout."
+  },
+  "method_id": "margo_v0.3_diag_encoder_readout",
+  "paper_result": false,
+  "rows": [
+    {
+      "delta_vs_triple": -11.123393261882256,
+      "minutes": 8.969690795739492,
+      "n_params": 232064,
+      "readout": "mean",
+      "seed": 0,
+      "train_T": 434.3952858026777,
+      "train_tok": 0.9568,
+      "val_T": 577.017539613315,
+      "val_tok": 0.6457,
+      "within_pm5": false
+    },
+    {
+      "delta_vs_triple": 5.798805124909563,
+      "minutes": 9.230058813095093,
+      "n_params": 232064,
+      "readout": "max",
+      "seed": 0,
+      "train_T": 446.30814625321347,
+      "train_tok": 0.9432666666666667,
+      "val_T": 593.9397380001068,
+      "val_tok": 0.6392,
+      "within_pm5": false
+    },
+    {
+      "delta_vs_triple": -5.057527442114633,
+      "minutes": 8.541172647476197,
+      "n_params": 232321,
+      "readout": "attn",
+      "seed": 0,
+      "train_T": 434.91171978960494,
+      "train_tok": 0.9571333333333333,
+      "val_T": 583.0834054330826,
+      "val_tok": 0.6413,
+      "within_pm5": false
+    },
+    {
+      "delta_vs_triple": 6.856208216530945,
+      "minutes": 8.730647436777751,
+      "n_params": 199168,
+      "readout": "zero",
+      "seed": 0,
+      "train_T": 465.10256611046566,
+      "train_tok": 0.8958,
+      "val_T": 594.9971410917282,
+      "val_tok": 0.6342,
+      "within_pm5": false
+    }
+  ],
+  "seed": 0,
+  "triple_n_params": 429185,
+  "triple_val_T": 588.1409328751972
+}

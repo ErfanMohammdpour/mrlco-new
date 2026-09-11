@@ -47,7 +47,12 @@ class Resources(object):
         self.energy_config = energy_config
         
         # Store energy weights if enabled — v0.1 publication freeze is 0.5/0.5.
-        if self.use_energy:
+        # Diagnostic latency_over_all_mec is not publication; skip the freeze check.
+        self.reward_mode = str(energy_config.get("reward_mode", "publication"))
+        if self.reward_mode == "latency_over_all_mec":
+            self.latency_weight = 1.0
+            self.energy_weight = 0.0
+        elif self.use_energy:
             from env.mec_offloaing_envs.scheduler.energy_api import require_publication_weights
 
             lw = float(energy_config.get("latency_weight", 0.5))
@@ -218,6 +223,7 @@ class OffloadingEnvironment(MetaEnv):
 
         # set the file paht of task graphs.
         self.graph_file_paths = graph_file_paths
+        self.greedy_actions = None  # None = publication ternary (0, 1, 2)
         from spec.split_loader import parse_distribution_id
 
         self.distribution_ids = [parse_distribution_id(path) for path in graph_file_paths]
@@ -466,12 +472,17 @@ class OffloadingEnvironment(MetaEnv):
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):
         """Post-hoc telescoping rewards (OBJECTIVE §6); max/min batch args unused."""
-        from env.mec_offloaing_envs.scheduler.reward import telescoping_token_rewards
+        from env.mec_offloaing_envs.scheduler.reward import (
+            LATENCY_REF_L_MEC,
+            telescoping_token_rewards,
+        )
 
         target_batch = []
         task_finish_time_batch = []
         energy_batch = []
         include_energy = bool(self.resource_cluster.use_energy)
+        reward_mode = getattr(self.resource_cluster, "reward_mode", "publication")
+        latency_ref = LATENCY_REF_L_MEC if reward_mode == "latency_over_all_mec" else "l_scale"
 
         for i in range(len(action_sequence_batch)):
             task_graph = task_graph_batch[i]
@@ -484,6 +495,7 @@ class OffloadingEnvironment(MetaEnv):
                 self.scheduler_resources,
                 include_energy=include_energy,
                 compute_j_report=False,
+                latency_ref=latency_ref,
             )
             target_batch.append(np.asarray(out.rewards, dtype=float))
             task_finish_time_batch.append(out.final_makespan)
@@ -516,7 +528,11 @@ class OffloadingEnvironment(MetaEnv):
             finish_time_plan = []
             energy_plan = []
             for task_graph in task_graph_batch:
-                plan, scheduled = greedy_plan(task_graph, self.scheduler_resources)
+                plan, scheduled = greedy_plan(
+                    task_graph,
+                    self.scheduler_resources,
+                    actions=getattr(self, "greedy_actions", None),
+                )
                 plan_batchs.append(plan)
                 finish_time_plan.append(scheduled.makespan_seconds)
                 energy_plan.append(scheduled.total_mobile_joules)

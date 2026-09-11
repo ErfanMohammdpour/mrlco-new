@@ -1,0 +1,25 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+   Use the NVIDIA Container Toolkit to start this container with GPU support; see
+   https://docs.nvidia.com/datacenter/cloud-native/ .
+
+expert_profiles start p_3_3_5 smoke=1
+expert_profiles done p_3_3_5 greedy=696.0 twopt=633.6 mec=1119.1 mix_mec=0.627
+expert_profiles start p_11_7_20 smoke=1
+expert_profiles done p_11_7_20 greedy=244.1 twopt=235.7 mec=302.4 mix_mec=0.848
+expert_profiles start frozen_7_5_10 smoke=1
+expert_profiles done frozen_7_5_10 greedy=370.3 twopt=353.1 mec=491.9 mix_mec=0.795

@@ -1,0 +1,50 @@
+\begin{titlepage}
+\thispagestyle{empty}
+\definecolor{coverink}{RGB}{22,40,68}
+\definecolor{coveraccent}{RGB}{210,180,120}
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[coverink] (current page.south west) rectangle (current page.north east);
+  \foreach \x in {-2,-1,...,16} {
+    \draw[coveraccent, opacity=0.07, line width=0.4pt]
+      ([xshift=\x cm]current page.south west) -- ++(0,1.25\paperheight);
+  }
+  \foreach \y in {-2,-1,...,22} {
+    \draw[coveraccent, opacity=0.05, line width=0.35pt]
+      ([yshift=\y cm]current page.south west) -- ++(1.25\paperwidth,0);
+  }
+  \foreach \i in {1,...,90} {
+    \pgfmathsetmacro{\rx}{rnd*\paperwidth}
+    \pgfmathsetmacro{\ry}{rnd*\paperheight}
+    \fill[coveraccent, opacity=0.08]
+      ([xshift=\rx, yshift=\ry]current page.south west) circle (0.6pt);
+  }
+  \fill[coveraccent, opacity=0.85]
+    ([yshift=-2.1cm]current page.north west) rectangle
+    ([yshift=-2.18cm]current page.north east);
+  \fill[coveraccent, opacity=0.55]
+    ([yshift=2.1cm]current page.south west) rectangle
+    ([yshift=2.18cm]current page.south east);
+\end{tikzpicture}
+
+\vspace*{4.2cm}
+\begin{center}
+{\color{white}\fontsize{28}{34}\selectfont گزارش پیشرفت}\\[0.7cm]
+{\color{coveraccent}\fontsize{34}{40}\selectfont\lr{MARGO}}\\[0.55cm]
+{\color{white!88}\Large آزمایش‌ها، نتایج عددی و وضعیت فعلی}\\[1.1cm]
+{\color{coveraccent!90}\rule{0.28\textwidth}{0.7pt}}
+\end{center}
+
+\vspace*{3.6cm}
+\begin{center}
+\color{white!92}\large
+\begin{tabular}{rl}
+تاریخ: & ۲۱ شهریور ۱۴۰۵ \\[0.25em]
+نوع گزارش: & پیشرفت پژوهشی میانی \\[0.25em]
+دامنهٔ ارزیابی: & مجموعهٔ اعتبارسنجی \\
+\end{tabular}
+\end{center}
+
+\vfill
+\vspace*{1.8cm}
+\end{titlepage}
+\clearpage

@@ -1,0 +1,572 @@
+{
+  "paper_result": false,
+  "optimization_claim": false,
+  "frozen_primary": {
+    "method_id": "margo_v0.1_primary",
+    "outer_iterations": 3500,
+    "objective": "0.5/0.5",
+    "parallel": false,
+    "not_started": true
+  },
+  "host": "kish-ai",
+  "image": "margo-phase4-tf115-nv2212",
+  "kish_repo": "/opt/margo/mrlco-new",
+  "kish_logs": "/opt/margo/logs",
+  "runs": [
+    {
+      "method_id": "margo_v0.1_diag_500_parallel",
+      "status": "stopped_incomplete",
+      "paper_result": false,
+      "reward_mode": "publication_0.5_0.5",
+      "parallel": true,
+      "iters_recorded": 181,
+      "collapse_iter": 21,
+      "notes": "MEC frac >=0.95 from iter 21; iter 180 MEC~0.998 entropy~0.01; no recovery",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_500_parallel/seed_0",
+      "log": "/opt/margo/logs/gpu_par500.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_latency_tmec",
+      "status": "finished",
+      "paper_result": false,
+      "reward_mode": "latency_over_all_mec",
+      "iters": 50,
+      "T_iter0": 958,
+      "T_iter49": 796,
+      "greedy_T_approx": 594,
+      "plans_1_2_nonmec": 0,
+      "physics_ok": true,
+      "skill_ok": false,
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_latency_tmec/seed_0",
+      "log": "/opt/margo/logs/gpu_lat50.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_pomo_tmec",
+      "status": "finished",
+      "paper_result": false,
+      "reward_mode": "latency_over_all_mec",
+      "learning_mode": "pomo_elite",
+      "iters": 50,
+      "T_iter49": 921,
+      "greedy_T": 594,
+      "T_over_greedy": 1.55,
+      "mix_L_M_V_iter49": [0.53, 0.33, 0.14],
+      "plans_1_2_nonmec": 0,
+      "elite_n_nonmec_p50": 9,
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_pomo_tmec/seed_0",
+      "log": "/opt/margo/logs/gpu_pomo50.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_bc_greedy_tmec",
+      "status": "finished",
+      "paper_result": false,
+      "reward_mode": "latency_over_all_mec",
+      "learning_mode": "bc_greedy_mec",
+      "bc_epochs": 8,
+      "bc_not_converged": true,
+      "expert": {
+        "T_mean": 447.8866341275806,
+        "all_mec_T_mean": 627.8489691798619,
+        "frac_beats_mec": 0.992,
+        "mix_L_M_V": [0.20363333333333333, 0.7448333333333333, 0.051533333333333334],
+        "n_nonmec_mean": 5.1033333333333335,
+        "n_nonmec_p50": 4.0,
+        "frac_n_nonmec_le3": 0.3546666666666667
+      },
+      "bc": {
+        "n_graphs": 1500,
+        "token_acc": 0.7789,
+        "greedy_decode_acc_teacher": 0.7615666666666666,
+        "epoch_losses": [0.6532914739974002, 0.6083059577231712, 0.5949243865114577, 0.5857081869815258, 0.578091839526562, 0.5703206157430689, 0.5671933623070412, 0.5599998058156764],
+        "greedy_env_rollout_T": null
+      },
+      "ppo": {
+        "iters": 50,
+        "iter0_T": 668.0,
+        "iter0_mix_L_M_V": [0.216, 0.738, 0.046],
+        "iter0_n_nonmec_le2": 0.0471,
+        "iter0_T_p10": 445.24492187499993,
+        "iter9_T": 931.0,
+        "iter9_n_nonmec_le3": 0.0,
+        "iter49_T": 720.0,
+        "iter49_mix_L_M_V": [0.376, 0.590, 0.034],
+        "iter49_greedy_pub_T": 594.0,
+        "iter49_n_nonmec_le2": 0.0002,
+        "best_mean_T_was_iter": 0,
+        "value_loss_iter0": 2.6557977199554443,
+        "health_ok_all": true,
+        "mec_collapse": false
+      },
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_greedy_tmec/seed_0",
+      "log": "/opt/margo/logs/gpu_bc50.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_bc_only_eval",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "bc_epochs": 40,
+      "ce_loss": {"epoch1": 0.6533, "epoch40": 0.3025, "still_falling": true},
+      "token_acc_teacher": 0.8868,
+      "greedy_decode_acc_vs_expert": 0.8114,
+      "greedy_rollout": {
+        "n_graphs": 1500,
+        "T_mean": 532.8118184324809,
+        "T_p50": 498.4042973041534,
+        "T_p10": 320.22864118303573,
+        "expert_T_mean": 447.8866341275806,
+        "all_mec_T_mean": 627.8489691798619,
+        "greedy_over_expert": 1.1896131249156887,
+        "greedy_over_mec": 0.8486305538232788,
+        "frac_beats_expert": 0.022,
+        "frac_beats_mec": 0.7813333333333333,
+        "mix_L_M_V": [0.18793333333333334, 0.7761333333333333, 0.03593333333333333],
+        "n_nonmec_mean": 4.477333333333333,
+        "n_nonmec_p50": 4.0,
+        "frac_n_nonmec_le2": 0.2806666666666667,
+        "frac_n_nonmec_le3": 0.4493333333333333
+      },
+      "ckpt": "ckpt/bc_core.ckpt",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_only_eval/seed_0",
+      "log": "/opt/margo/logs/gpu_bconly.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_bc_continue",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "load_ckpt": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_only_eval/seed_0/ckpt/bc_core.ckpt",
+      "bc_epochs_max": 80,
+      "bc_epochs_ran": 68,
+      "bc_early_stop": true,
+      "bc_best_loss": 0.02728917986709387,
+      "ce_loss": {"epoch1": 0.2821, "epoch68": 0.0536, "best": 0.0273},
+      "token_acc_teacher": 0.9884333333333334,
+      "greedy_decode_acc_vs_expert": 0.9678666666666667,
+      "gate_T_mean_le480": true,
+      "greedy_rollout": {
+        "n_graphs": 1500,
+        "T_mean": 464.2743228254681,
+        "T_p50": 439.00967494419643,
+        "T_p10": 287.4986941964286,
+        "expert_T_mean": 447.8866341275806,
+        "all_mec_T_mean": 627.8489691798619,
+        "greedy_over_expert": 1.036588921055455,
+        "greedy_over_mec": 0.7394681613190097,
+        "frac_beats_expert": 0.008666666666666666,
+        "frac_beats_mec": 0.9466666666666667,
+        "mix_L_M_V": [0.2021, 0.7472666666666666, 0.050633333333333336],
+        "n_nonmec_mean": 5.054666666666667,
+        "n_nonmec_p50": 4.0,
+        "frac_n_nonmec_le2": 0.20066666666666666,
+        "frac_n_nonmec_le3": 0.37266666666666665
+      },
+      "ckpt": "ckpt/bc_core.ckpt",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_continue/seed_0",
+      "log": "/opt/margo/logs/gpu_bccont.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_kl_bc_ppo",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": true,
+      "kl_to": "frozen_pi_bc",
+      "refinement_ok": false,
+      "bc_frozen_vars_loaded": 30,
+      "warmup_iters_0_4": {"mode": "vf_only", "T": [489, 467, 508, 447, 476], "mix_itr0": [0.210, 0.736, 0.054], "mix_itr4": [0.203, 0.737, 0.060]},
+      "kl_iters": 45,
+      "T_itr5": 648,
+      "T_peak_itr14": 985,
+      "T_itr49": 571,
+      "mix_itr49_L_M_V": [0.142, 0.854, 0.003],
+      "kl_bc_itr5": 1.18,
+      "kl_bc_peak": 16.1,
+      "kl_bc_itr49": 2.61,
+      "health_ok_all": true,
+      "bc_kl_coef": 0.1,
+      "critic_warmup_iters": 5,
+      "iters": 50,
+      "load_ckpt": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_continue/seed_0/ckpt/bc_core.ckpt",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_kl_bc_ppo/seed_0",
+      "log": "/opt/margo/logs/gpu_klppo50.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_bc_unseen",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "launch_kl_ppo": true,
+      "load_ckpt": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_continue/seed_0/ckpt/bc_core.ckpt",
+      "validation": {
+        "n_graphs": 500,
+        "T_mean": 575.1430194272995,
+        "expert_T_mean": 463.4877345352718,
+        "all_mec_T_mean": 634.1486952473232,
+        "greedy_over_expert": 1.2409023509629264,
+        "greedy_over_mec": 0.9069529334961243,
+        "frac_beats_mec": 0.674,
+        "token_acc": 0.7106,
+        "mix_L_M_V": [0.193, 0.7701, 0.0369],
+        "n_nonmec_p50": 4.0
+      },
+      "meta_test": {
+        "n_graphs": 500,
+        "T_mean": 556.7207519837243,
+        "expert_T_mean": 443.5432936121259,
+        "all_mec_T_mean": 631.0733528239659,
+        "greedy_over_expert": 1.2551666545330993,
+        "greedy_over_mec": 0.8821807314355391,
+        "frac_beats_mec": 0.708,
+        "token_acc": 0.7073,
+        "mix_L_M_V": [0.1968, 0.7548, 0.0484],
+        "n_nonmec_p50": 4.0
+      },
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_unseen/seed_0",
+      "log": "/opt/margo/logs/gpu_bcunseen.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_bc_fewshot",
+      "status": "finished",
+      "paper_result": false,
+      "adaptations": ["k0", "k3_ppo", "k3_ce"],
+      "encoder_frozen": true,
+      "inner_ce_steps": 3,
+      "query": "sampled_held_out_not_greedy_decode",
+      "validation": {
+        "k0_T": 580.3,
+        "k3_ppo_T": 657.2,
+        "k3_ce_T": 583.0,
+        "pub_greedy_T": 626.6,
+        "k0_mix_L_M_V": [0.194, 0.767, 0.039],
+        "k3_ppo_mix_L_M_V": [0.293, 0.630, 0.076],
+        "k3_ce_mix_L_M_V": [0.192, 0.766, 0.042],
+        "ppo_destroyed_flag": false,
+        "ce_helps": false,
+        "ppo_T_ratio": 1.133
+      },
+      "meta_test": {
+        "k0_T": 558.7,
+        "k3_ppo_T": 640.1,
+        "k3_ce_T": 564.7,
+        "pub_greedy_T": 608.5,
+        "k0_mix_L_M_V": [0.200, 0.749, 0.050],
+        "k3_ppo_mix_L_M_V": [0.300, 0.624, 0.076],
+        "k3_ce_mix_L_M_V": [0.198, 0.752, 0.051],
+        "ppo_destroyed_flag": false,
+        "ce_helps": false,
+        "ppo_T_ratio": 1.146
+      },
+      "note": "k0 matches unseen greedy decode; inner PPO occupancy damage just under 15pct T flag; inner CE-20 no query gain; OOD clone/exposure gap remains",
+      "load_ckpt": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_continue/seed_0/ckpt/bc_core.ckpt",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_fewshot/seed_0",
+      "log": "/opt/margo/logs/gpu_bcfew.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_bc_scheduled",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "ss_epochs": 40,
+      "ss_eps": [0.8, 0.3],
+      "encoder_frozen": true,
+      "best_epoch": 38,
+      "train": {
+        "greedy_T": 448.4,
+        "expert_T": 447.9,
+        "token": 0.999,
+        "mix_L_M_V": [0.204, 0.745, 0.052]
+      },
+      "validation": {
+        "greedy_T": 574.1,
+        "expert_T": 463.5,
+        "mec_T": 634.1,
+        "token": 0.716,
+        "mix_L_M_V": [0.190, 0.778, 0.032],
+        "n_nonmec_p50": 4.0
+      },
+      "meta_test": {
+        "greedy_T": 555.1,
+        "expert_T": 443.5,
+        "mec_T": 631.1,
+        "token": 0.709,
+        "mix_L_M_V": [0.196, 0.760, 0.045],
+        "n_nonmec_p50": 4.0
+      },
+      "baseline_unseen": {
+        "val_T": 575,
+        "val_token": 0.711,
+        "meta_test_T": 557,
+        "meta_test_token": 0.707
+      },
+      "exposure_closed_ood": false,
+      "note": "train clone tighter; held-out T/token = unseen within noise; OOD fat/density not teacher-force; no PPO; not 3500",
+      "load_ckpt": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_continue/seed_0/ckpt/bc_core.ckpt",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_scheduled/seed_0",
+      "log": "/opt/margo/logs/gpu_bcss.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_hamming2_expert",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": false,
+      "n_graphs": 200,
+      "split": "meta_train",
+      "neighborhood": "hamming2_from_greedy_from_mec",
+      "verdict": "mixed",
+      "greedy_T": 445.2,
+      "h2_T": 427.3,
+      "mec_T": 618.6,
+      "mean_delta_h2": 17.87,
+      "p50_delta_h2": 11.28,
+      "max_delta_h2": 140.3,
+      "frac_h2_improved": 0.73,
+      "frac_h1_improved": 0.145,
+      "note": "73pct graphs have pairwise gain; mean 18s teacher headroom; OOD clone gap still larger; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_hamming2_expert/seed_0",
+      "log": "/opt/margo/logs/cpu_h2.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_motif_expert",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": false,
+      "n_train_graphs": 200,
+      "n_val_graphs": 500,
+      "n_metatest_graphs": 500,
+      "verdict": "mixed_structure",
+      "architecture_hint": "mixed_or_ood_structure",
+      "train": {
+        "n_non_mean": 4.8,
+        "n_cc_mean": 2.48,
+        "cc_ratio_mean": 0.629,
+        "max_cc_mean": 3.12,
+        "local_nbr_frac_mean": 0.453,
+        "edge_homophily_mean": 0.755,
+        "frac_single_cc_n_non_ge2": 0.179
+      },
+      "validation": {
+        "n_non_mean": 5.07,
+        "n_cc_mean": 2.53,
+        "cc_ratio_mean": 0.616,
+        "local_nbr_frac_mean": 0.488
+      },
+      "meta_test": {
+        "n_non_mean": 5.22,
+        "n_cc_mean": 2.7,
+        "cc_ratio_mean": 0.642,
+        "local_nbr_frac_mean": 0.45
+      },
+      "note": "mean CC size ~2; fat more clustered than skinny; OOD same law; skip DiffPool; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_motif_expert/seed_0",
+      "log": "/opt/margo/logs/cpu_motif.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_2opt_expert",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": false,
+      "n_train_graphs": 1500,
+      "n_val_graphs": 500,
+      "n_metatest_graphs": 500,
+      "max_h2_rounds": 8,
+      "train": {
+        "greedy_T": 447.9,
+        "h1_T": 441.0,
+        "first_h2_T": 428.2,
+        "twopt_T": 414.1,
+        "mec_T": 627.8,
+        "mean_delta_twopt": 33.82,
+        "mean_extra_vs_first_h2": 14.19,
+        "h2_moves_mean": 1.17
+      },
+      "validation": {
+        "greedy_T": 463.5,
+        "twopt_T": 423.6,
+        "mean_delta_twopt": 39.87
+      },
+      "meta_test": {
+        "greedy_T": 443.5,
+        "twopt_T": 411.6,
+        "mean_delta_twopt": 31.98
+      },
+      "note": "iterative 2-opt ~2x one-shot H2; holdout ceiling 424/412 still far from BC 574/555; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_2opt_expert/seed_0",
+      "log": "/opt/margo/logs/cpu_twopt.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_bc_2opt",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": true,
+      "verdict": "teacher_closed_ood_remains",
+      "bc_epochs_ran": 44,
+      "bc_best_loss": 0.0508,
+      "train": {
+        "greedy_T": 435.6,
+        "expert_T": 414.1,
+        "token_greedy": 0.965
+      },
+      "validation": {
+        "greedy_T": 581.8,
+        "expert_T": 423.6,
+        "token": 0.646,
+        "old_bc_unseen_T": 574
+      },
+      "meta_test": {
+        "greedy_T": 560.8,
+        "expert_T": 411.6,
+        "token": 0.659,
+        "old_bc_unseen_T": 555
+      },
+      "load_ckpt": "margo_v0.1_diag_bc_continue/seed_0/ckpt/bc_core.ckpt",
+      "train_cache": "expert_2opt_mec_train.npz",
+      "note": "train clone 2-opt OK; holdout T unchanged vs greedy-teacher BC; OOD is the paper gap; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_bc_2opt/seed_0",
+      "log": "/opt/margo/logs/gpu_bc2opt.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_pair_head",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": true,
+      "encoder_frozen": true,
+      "decoder_replaced": false,
+      "verdict": "decoder_interaction",
+      "top_k": 20,
+      "validation": {
+        "bc_T": 581.8,
+        "pair_T": 457.8,
+        "expert_T": 423.6,
+        "mean_delta": 124.0
+      },
+      "meta_test": {
+        "bc_T": 560.8,
+        "pair_T": 443.5,
+        "expert_T": 411.6,
+        "mean_delta": 117.3
+      },
+      "oracle_val_n100": {
+        "bc_T": 595.2,
+        "oracle_T": 441.6,
+        "mean_delta": 153.6
+      },
+      "load_ckpt": "margo_v0.1_diag_bc_2opt/seed_0/ckpt/bc_core.ckpt",
+      "note": "top-20 x 9 from BC plan closes most OOD gap; head ranking weak; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_pair_head/seed_0",
+      "log": "/opt/margo/logs/gpu_pairhead.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_pair_ksweep",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": true,
+      "k_sweep": [10, 20, 50],
+      "validation": {
+        "bc_T": 581.8,
+        "k10": 473.8,
+        "k20": 457.8,
+        "k50": 446.7,
+        "oracle_T": 436.6,
+        "expert_T": 423.6
+      },
+      "meta_test": {
+        "bc_T": 560.8,
+        "k10": 458.8,
+        "k20": 443.5,
+        "k50": 433.5,
+        "expert_T": 411.6
+      },
+      "note": "k=10 takes most gain; k=20 sweet; k50 10s above same-split oracle; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_pair_ksweep/seed_0",
+      "log": "/opt/margo/logs/gpu_pairksweep.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_pair_ranker",
+      "status": "finished",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": true,
+      "encoder_frozen": true,
+      "decoder_replaced": false,
+      "verdict": "one_pass_gain_rank_insufficient",
+      "k_sweep": [10, 20],
+      "validation": {
+        "bc_T": 581.8,
+        "ce_k10": 473.8,
+        "ce_k20": 457.8,
+        "learned_k10": 496.8,
+        "learned_k20": 475.3,
+        "gain_k10": 465.7,
+        "gain_k20": 457.4,
+        "expert_T": 423.6
+      },
+      "meta_test": {
+        "bc_T": 560.8,
+        "ce_k20": 443.5,
+        "learned_k20": 461.4,
+        "gain_k20": 442.0,
+        "expert_T": 411.6
+      },
+      "load_ckpt": "margo_v0.1_diag_bc_2opt/seed_0/ckpt/bc_core.ckpt",
+      "note": "learned ΔT worse than CE; true one-shot gain rank ties CE at k=20; leftover is sequential search not first-pass ranker; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_pair_ranker/seed_0",
+      "log": "/opt/margo/logs/gpu_pairranker.log"
+    },
+    {
+      "method_id": "margo_v0.1_diag_pair_seq",
+      "status": "running",
+      "paper_result": false,
+      "ppo": false,
+      "gpu": true,
+      "encoder_frozen": true,
+      "decoder_replaced": false,
+      "bestimp_k": [20, 50],
+      "load_ckpt": "margo_v0.1_diag_bc_2opt/seed_0/ckpt/bc_core.ckpt",
+      "note": "CE scan vs multipass vs bestimp; target 21s to motif oracle; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_pair_seq/seed_0",
+      "log": "/opt/margo/logs/gpu_pairseq.log"
+        "expert_T": 423.6,
+        "mean_delta": 124.0
+      },
+      "meta_test": {
+        "bc_T": 560.8,
+        "pair_T": 443.5,
+        "expert_T": 411.6,
+        "mean_delta": 117.3
+      },
+      "oracle_val_n100": {
+        "bc_T": 595.2,
+        "oracle_T": 441.6,
+        "mean_delta": 153.6
+      },
+      "load_ckpt": "margo_v0.1_diag_bc_2opt/seed_0/ckpt/bc_core.ckpt",
+      "note": "top-20 x 9 from BC plan closes most OOD gap; head ranking weak; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_pair_head/seed_0",
+      "log": "/opt/margo/logs/gpu_pairhead.log"
+        "expert_T": 423.6,
+        "mean_delta": 124.0
+      },
+      "meta_test": {
+        "bc_T": 560.8,
+        "pair_T": 443.5,
+        "expert_T": 411.6,
+        "mean_delta": 117.3
+      },
+      "oracle_val_n100": {
+        "bc_T": 595.2,
+        "oracle_T": 441.6,
+        "mean_delta": 153.6
+      },
+      "load_ckpt": "margo_v0.1_diag_bc_2opt/seed_0/ckpt/bc_core.ckpt",
+      "note": "top-20 x 9 from BC plan closes most OOD gap; head ranking weak; no PPO; not 3500",
+      "kish_run_dir": "/opt/margo/mrlco-new/runs/phase4/margo_v0.1_diag_pair_head/seed_0",
+      "log": "/opt/margo/logs/gpu_pairhead.log"
+    }
+  ]
+}

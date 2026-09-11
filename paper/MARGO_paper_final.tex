@@ -28,26 +28,26 @@
 %%     FIX: Replace with precise, testable claims supported by experiments.
 %% ======================================================================
 
-\documentclass[journal,twoside]{IEEEtran}
+    \documentclass[journal,twoside]{IEEEtran}
 
 % ======================================================================
 % PACKAGES
 % ======================================================================
-\usepackage{cite}
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
-\usepackage{algorithm}
-\usepackage{graphicx}
-\usepackage{textcomp}
-\usepackage{xcolor}
-\usepackage{multirow}
-\usepackage{booktabs}
-\usepackage{array}
+    \usepackage{cite}
+    \usepackage{amsmath,amssymb,amsfonts}
+    \usepackage{algorithmic}
+    \usepackage{algorithm}
+    \usepackage{graphicx}
+    \usepackage{textcomp}
+    \usepackage{xcolor}
+    \usepackage{multirow}
+    \usepackage{booktabs}
+    \usepackage{array}
 \usepackage{hyperref}
-\usepackage{bm}
+    \usepackage{bm}
 \usepackage{subcaption}
 \usepackage{balance}
-\usepackage{tabularx}
+    \usepackage{tabularx}
 \usepackage{adjustbox}
 
 % ======================================================================
@@ -60,12 +60,12 @@
 % ======================================================================
 \newcommand{\method}{\textsc{MARGO}}
 \newcommand{\baseline}{\textsc{MRLCO}}
-\newcommand{\R}{\mathbb{R}}
+    \newcommand{\R}{\mathbb{R}}
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\argmax}{\operatorname{argmax}}
 \newcommand{\argmin}{\operatorname{argmin}}
 
-\begin{document}
+    \begin{document}
 
 % ======================================================================
 % TITLE
@@ -76,30 +76,30 @@
 \IEEEauthorblockN{[Author Names]}
 \IEEEauthorblockA{[Affiliation]\\
 [Email addresses]}
-}
+    }
 
-\maketitle
+    \maketitle
 
 % ======================================================================
 % ABSTRACT
 % ======================================================================
-\begin{abstract}
+    \begin{abstract}
 Task offloading in Mobile Edge Computing (MEC) for Directed Acyclic Graph (DAG)-structured applications is NP-hard and requires adaptation to dynamic vehicular environments. MRLCO (Meta-Reinforcement Learning for Computational Offloading) addresses adaptation through Reptile-based meta-learning but suffers from three limitations: (1) sequential LSTM encoding loses graph structure, (2) binary action space excludes Vehicle-to-Vehicle (V2V) computing, and (3) latency-only optimization ignores energy consumption.
 
 We propose \method{} (\textbf{M}eta-learning with \textbf{A}ttention-augmented g\textbf{R}aph-to-sequence for energy-aware task \textbf{O}ffloading), which addresses these gaps. \method{} employs a Graph Neural Network encoder with triple readout (attention, mean, max pooling) to capture task dependencies, extends the action space to ternary choices (Local/MEC/V2V) with half-duplex V2V channel constraints, and optimizes a joint latency-energy objective. The architecture processes 20-dimensional task features through a two-layer mean-aggregation GNN and generates decisions via an LSTM decoder with Luong attention.
 
 We evaluate on 1,900 DAG graphs across 19 task distributions with explicit meta-train/meta-test split (15 train, 4 held-out). After meta-training (3,500 iterations, meta-batch size 10, inner steps K=1) and fine-tuning, \method{} achieves 17.8--20.3\% latency reduction and 28.9--32.0\% energy reduction over greedy scheduling. Comprehensive ablation studies demonstrate the individual contributions of each component: the GNN encoder improves latency by 1.0\% and energy by 3.0\% over sequential encoding, V2V offloading contributes 4.2\% energy reduction, and joint optimization achieves optimal trade-offs. We define a meta-test protocol (Section~\ref{sec:meta_test}) for evaluating fast adaptation to unseen task distributions.
-\end{abstract}
+    \end{abstract}
 
-\begin{IEEEkeywords}
+    \begin{IEEEkeywords}
 Mobile Edge Computing, Task Offloading, Meta-Reinforcement Learning, Graph Neural Networks, Graph2Seq, Vehicle-to-Vehicle Communication, Energy Optimization, DAG Scheduling, Attention Mechanism, Proximal Policy Optimization
-\end{IEEEkeywords}
+    \end{IEEEkeywords}
 
 % ======================================================================
 % 1. INTRODUCTION
 % ======================================================================
-\section{Introduction}
-\label{sec:introduction}
+    \section{Introduction}
+    \label{sec:introduction}
 
 \IEEEPARstart{T}{he} proliferation of computationally intensive applications in autonomous vehicles, augmented reality systems, and Internet of Vehicles (IoV) scenarios has created unprecedented demands for real-time processing under stringent latency and energy constraints~\cite{mao2017survey}. Applications such as LiDAR-based object detection for autonomous driving, real-time video analytics for traffic monitoring, and collaborative vehicular sensing require processing massive volumes of sensor data within strict timing deadlines---often in the order of tens of milliseconds. However, mobile devices and vehicles are inherently constrained by limited computational resources, thermal dissipation capabilities, and battery capacity, making local execution of such demanding applications challenging or entirely infeasible.
 
@@ -144,8 +144,8 @@ The remainder of this paper is organized as follows. Section~\ref{sec:background
 % ======================================================================
 % 2. BACKGROUND (MRLCO-style)
 % ======================================================================
-\section{Background}
-\label{sec:background}
+    \section{Background}
+    \label{sec:background}
 
 \subsection{Multi-access Edge Computing and Task Offloading}
 Mobile edge computing (MEC) deploys computation close to mobile users to reduce end-to-end service latency and relieve backhaul traffic~\cite{mao2017survey, kumar2013survey}. In DAG applications, tasks exhibit precedence constraints and communication dependencies, making offloading a coupled scheduling problem; classical heuristics provide efficient but brittle solutions that require accurate cost models and do not adapt well to changing conditions.
@@ -159,8 +159,8 @@ Meta-reinforcement learning (meta-RL) aims to learn a meta-policy (or initializa
 % ======================================================================
 % 3. PROBLEM FORMULATION (includes system model, MRLCO-style)
 % ======================================================================
-\section{Problem Formulation}
-\label{sec:problem}
+    \section{Problem Formulation}
+    \label{sec:problem}
 
 \subsection{Network Architecture}
 
@@ -174,8 +174,8 @@ We consider a V2V-assisted MEC system comprising three types of computational en
 
 Table~\ref{tab:system_params} summarizes the system parameters and their default values used in our implementation.
 
-\begin{figure}[t]
-\centering
+    \begin{figure}[t]
+    \centering
 \fbox{\parbox{0.95\columnwidth}{
 \vspace{0.5em}
 \centering
@@ -206,8 +206,8 @@ V2V (2) & Offload via V2V, execute on helper \\
 \vspace{0.5em}
 }}
 \caption{V2V-assisted MEC system architecture. The UE can execute tasks locally, offload to MEC via cellular uplink/downlink (full-duplex), or offload to a V2V helper via a half-duplex V2V channel.}
-\label{fig:system_model}
-\end{figure}
+    \label{fig:system_model}
+    \end{figure}
 
 \begin{table}[t]
 \centering
@@ -245,7 +245,7 @@ V2V computation coefficient & $\rho_{v2v}$ & 0.7 (configurable) \\
 }
 \end{table}
 
-\subsection{DAG Task Model}
+    \subsection{DAG Task Model}
 
 An application is modeled as a Directed Acyclic Graph (DAG) $\mathcal{G} = (\mathcal{V}, \mathcal{E})$ where:
 \begin{itemize}
@@ -273,10 +273,10 @@ The DAG structure imposes \textit{precedence constraints}: task $v_i$ can only b
 \subsection{20-Dimensional Task Feature Encoding}
 
 To enable neural network processing, we encode each task $v_i$ as a comprehensive 20-dimensional feature vector:
-\begin{equation}
+    \begin{equation}
 \mathbf{x}_i = \begin{bmatrix} i \\ T_i^{loc} \\ T_i^{ul} \\ T_i^{mec} \\ T_i^{dl} \\ T_i^{v2v,ul} \\ T_i^{v2v} \\ T_i^{v2v,dl} \\ \mathbf{p}_i \\ \mathbf{s}_i \end{bmatrix} \in \R^{20}
 \label{eq:task_features}
-\end{equation}
+    \end{equation}
 
 The feature components are:
 \begin{itemize}
@@ -315,14 +315,14 @@ For exit tasks (tasks with no successors), $rank_{sim}(v_i) = w_i^{min}$. Tasks 
 A distinguishing feature of our model is the explicit treatment of V2V half-duplex constraints. The V2V channel cannot transmit and receive simultaneously, which significantly affects scheduling when multiple tasks are offloaded to the V2V helper.
 
 Let $T_{ch}^{avail}$ denote the time when the V2V channel becomes available for the next transmission (either direction). For task $v_i$ offloaded to V2V, the scheduling must satisfy:
-\begin{align}
+    \begin{align}
 T_i^{v2v,ul,start} &\geq \max\left( T_{ch}^{avail}, \max_{j \in \text{pred}(i)} FT_j^{data} \right) \label{eq:v2v_ul_start}\\
 T_i^{v2v,ul,end} &= T_i^{v2v,ul,start} + T_i^{v2v,ul} \label{eq:v2v_ul_end}\\
 T_i^{v2v,exec,start} &\geq \max\left( T_i^{v2v,ul,end}, T_{helper}^{avail} \right) \label{eq:v2v_exec_start}\\
 T_i^{v2v,exec,end} &= T_i^{v2v,exec,start} + T_i^{v2v} \label{eq:v2v_exec_end}\\
 T_i^{v2v,dl,start} &\geq \max\left( T_i^{v2v,exec,end}, T_{ch}^{avail'} \right) \label{eq:v2v_dl_start}\\
 FT_i^{v2v} &= T_i^{v2v,dl,start} + T_i^{v2v,dl} \label{eq:v2v_ft}
-\end{align}
+    \end{align}
 
 In these equations:
 \begin{itemize}
@@ -364,18 +364,18 @@ where $FT_j^{data@UE}$ is the time when predecessor $j$'s output data becomes av
 
 \subsubsection{MEC Offloading ($a_i = 1$)}
 The task requires uplink transmission, remote execution, and downlink transmission:
-\begin{align}
+    \begin{align}
 T_i^{MEC,total} &= T_i^{ul} + T_i^{mec} + T_i^{dl} \\
 &= \frac{w_i}{B_{up}} + \frac{w_i}{f_m} + \frac{d_i}{B_{dl}}
-\end{align}
+    \end{align}
 
 The detailed finish time computation accounts for channel availability and predecessor constraints through similar equations as the V2V case, but without the half-duplex constraint (MEC uses separate uplink/downlink channels).
 
 \subsubsection{V2V Offloading ($a_i = 2$)}
 The task is offloaded to the V2V helper with half-duplex constraints:
-\begin{equation}
+    \begin{equation}
 T_i^{V2V,total} = T_i^{v2v,ul} + T_i^{v2v} + T_i^{v2v,dl}
-\end{equation}
+    \end{equation}
 
 The actual finish time is computed according to Equations~\ref{eq:v2v_ul_start}--\ref{eq:v2v_ft}.
 
@@ -398,11 +398,11 @@ E_i^{MEC} = P_{tx}^{mec} \cdot T_i^{ul} + P_{rx}^{mec} \cdot T_i^{dl}
 
 \subsubsection{V2V Offloading Energy}
 V2V offloading energy includes both transmission and helper computation costs:
-\begin{align}
+    \begin{align}
 E_i^{V2V,comm} &= P_{tx}^{v2v} \cdot T_i^{v2v,ul} + P_{rx}^{v2v} \cdot T_i^{v2v,dl} \label{eq:energy_v2v_comm}\\
 E_i^{V2V,comp} &= \rho_{v2v} \cdot f_v^\zeta \cdot T_i^{v2v} \label{eq:energy_v2v_comp}\\
 E_i^{V2V} &= E_i^{V2V,comm} + E_i^{V2V,comp} \label{eq:energy_v2v_total}
-\end{align}
+    \end{align}
 
 V2V transmission uses lower power than MEC ($P_{tx}^{v2v} = 0.06$W vs $P_{tx}^{mec} = 0.1$W) due to shorter communication distance. 
 
@@ -448,12 +448,12 @@ where $E_t$ is the energy consumption for action at step $t$.
 % 4. PROPOSED METHOD: MARGO
 % ======================================================================
 \section{Proposed Method: \method{}}
-\label{sec:method}
+    \label{sec:method}
 
 Figure~\ref{fig:architecture} provides an architectural overview of \method{}. The system comprises five main components that we describe in detail.
 
-\begin{figure*}[t]
-\centering
+    \begin{figure*}[t]
+    \centering
 \fbox{\parbox{0.95\textwidth}{
 \vspace{0.5em}
 \centering
@@ -495,7 +495,7 @@ Meta-Batch & $M=10$ tasks per iteration \\
 }}
 \caption{\method{} architecture. (a) Graph2Seq encoder with DAG-edge-based message passing (pred/succ neighborhoods) and 2-layer mean aggregation. (b) Triple readout (attention/mean/max pooling) produces graph-level representation. (c) LSTM decoder with Luong attention generates offloading decisions. (d) Reptile meta-learning with PPO inner-loop updates.}
 \label{fig:architecture}
-\end{figure*}
+    \end{figure*}
 
 \subsection{Feature Embedding Layer}
 
@@ -524,24 +524,24 @@ This design explicitly models task dependencies: a task's embedding captures inf
 We apply two layers of mean aggregation~\cite{hamilton2017inductive}. In each layer, nodes aggregate information from their neighbors and combine it with their self-representations.
 
 \textbf{Layer 1:}
-\begin{align}
+    \begin{align}
 |\mathcal{N}(i)| &= |\text{pred}(i)| + |\text{succ}(i)| \label{eq:neigh_size}\\
 \mathbf{h}_{neigh,i}^{(1)} &= \frac{1}{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} \mathbf{h}_j^{(0)} \quad \text{if } |\mathcal{N}(i)| > 0 \label{eq:mean_agg_1}\\
 \mathbf{h}_{neigh,i}^{(1)} &= \mathbf{0} \quad \text{if } |\mathcal{N}(i)| = 0 \quad \text{(isolated nodes)} \label{eq:mean_agg_1_empty}\\
 \mathbf{h}_{self,i}^{(1)} &= \mathbf{W}_{self}^{(1)} \mathbf{h}_i^{(0)} \label{eq:self_transform_1}\\
 \mathbf{h}_{agg,i}^{(1)} &= \mathbf{W}_{neigh}^{(1)} \mathbf{h}_{neigh,i}^{(1)} \label{eq:neigh_transform_1}\\
 \mathbf{h}_i^{(1)} &= \sigma\left( \left[ \mathbf{h}_{self,i}^{(1)} \| \mathbf{h}_{agg,i}^{(1)} \right] + \mathbf{b}^{(1)} \right) \label{eq:combine_1}
-\end{align}
+    \end{align}
 where $\|$ denotes concatenation, $\sigma$ is ReLU activation, $\mathbf{W}_{self}^{(1)}, \mathbf{W}_{neigh}^{(1)} \in \R^{h \times h}$, and $\mathbf{b}^{(1)} \in \R^{2h}$. The output dimension after concatenation is $2h = 256$.
 
 \textbf{Layer 2:}
-\begin{align}
+    \begin{align}
 \mathbf{h}_{neigh,i}^{(2)} &= \frac{1}{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} \mathbf{h}_j^{(1)} \quad \text{if } |\mathcal{N}(i)| > 0 \\
 \mathbf{h}_{neigh,i}^{(2)} &= \mathbf{0} \quad \text{if } |\mathcal{N}(i)| = 0 \\
 \mathbf{h}_{self,i}^{(2)} &= \mathbf{W}_{self}^{(2)} \mathbf{h}_i^{(1)} \\
 \mathbf{h}_{agg,i}^{(2)} &= \mathbf{W}_{neigh}^{(2)} \mathbf{h}_{neigh,i}^{(2)} \\
 \mathbf{h}_i^{(2)} &= \sigma\left( \left[ \mathbf{h}_{self,i}^{(2)} \| \mathbf{h}_{agg,i}^{(2)} \right] + \mathbf{b}^{(2)} \right)
-\end{align}
+    \end{align}
 where $\mathbf{W}_{self}^{(2)}, \mathbf{W}_{neigh}^{(2)} \in \R^{h \times 2h}$ map from $2h$ input dimension to $h$ output dimension, and $\mathbf{b}^{(2)} \in \R^{2h}$. After concatenation, the output $\mathbf{h}_i^{(2)} \in \R^{2h}$ maintains the same dimension as Layer 1. After two layers, each node embedding captures information from its 2-hop DAG neighborhood (predecessors of predecessors, successors of successors), enabling propagation of dependency signals across the graph structure.
 
 \subsubsection{Dropout Regularization}
@@ -566,17 +566,17 @@ e_i &= \mathbf{w}_{attn}^\top \mathbf{h}_i^{(L)} + b_{attn} \in \R \label{eq:att
 The attention weights $\alpha_i$ are learned end-to-end and capture task importance---e.g., critical path tasks may receive higher attention.
 
 \textbf{2. Mean Pooling} captures average task characteristics:
-\begin{equation}
+    \begin{equation}
 \mathbf{h}_{mean} = \frac{1}{n} \sum_{i=1}^{n} \mathbf{h}_i^{(L)} \in \R^{2h}
 \label{eq:mean_pool}
-\end{equation}
+    \end{equation}
 This provides a stable representation of overall workload distribution.
 
 \textbf{3. Max Pooling} identifies bottleneck tasks with extreme characteristics:
-\begin{equation}
+    \begin{equation}
 [\mathbf{h}_{max}]_k = \max_{i=1}^{n} [\mathbf{h}_i^{(L)}]_k \quad \forall k \in \{1, \ldots, 2h\}
 \label{eq:max_pool}
-\end{equation}
+    \end{equation}
 Max pooling captures the most extreme feature values, often corresponding to bottleneck tasks.
 
 \textbf{Fusion and Projection:}
@@ -720,10 +720,10 @@ Algorithm~\ref{alg:margo} presents the complete training procedure.
 
 \textbf{Overall:} Per forward pass, \method{} has $O(n^2 \cdot h + n \cdot h^2)$ complexity, which is quadratic in sequence length $n$ (typical for seq2seq models with attention). For $n=20$ and $h=128$, this is computationally efficient and suitable for real-time offloading decisions.
 
-\begin{algorithm}[t]
+    \begin{algorithm}[t]
 \caption{\method{} Meta-Training}
-\label{alg:margo}
-\begin{algorithmic}[1]
+    \label{alg:margo}
+    \begin{algorithmic}[1]
 \REQUIRE Task distribution $p(\mathcal{T})$, meta-batch size $M=10$, inner steps $K=1$, learning rates $\eta_{inner}=\eta_{outer}=5\times10^{-4}$, iterations $N=3500$
 \STATE Initialize meta-policy $\theta_{meta}$
 \FOR{iteration $= 1$ to $N$}
@@ -735,14 +735,14 @@ Algorithm~\ref{alg:margo} presents the complete training procedure.
             \STATE Compute rewards with latency-energy weighting
             \STATE Compute GAE advantages
             \STATE $\theta_i \leftarrow \theta_i - \eta_{inner} \nabla L^{total}(\theta_i; \mathcal{D}_i^{(k)})$
-        \ENDFOR
+    \ENDFOR
     \ENDFOR
     \STATE $g_{meta} = \frac{1}{MK} \sum_{i=1}^{M} (\theta_{meta} - \theta_i)$
     \STATE $\theta_{meta} \leftarrow \theta_{meta} - \eta_{outer} \cdot g_{meta}$
-\ENDFOR
+    \ENDFOR
 \RETURN $\theta_{meta}$
-\end{algorithmic}
-\end{algorithm}
+    \end{algorithmic}
+    \end{algorithm}
 
 % ======================================================================
 % 5. EXPERIMENTS
@@ -787,16 +787,16 @@ TensorFlow 1.x implementation with:
 
 Table~\ref{tab:hyperparams} lists all hyperparameters.
 
-\begin{table}[t]
-\centering
+    \begin{table}[t]
+    \centering
 \caption{Hyperparameter Configuration}
 \label{tab:hyperparams}
 \footnotesize
 \adjustbox{width=\columnwidth,center}{
 \begin{tabular}{lcc}
-\toprule
+    \toprule
 \textbf{Parameter} & \textbf{Symbol} & \textbf{Value} \\
-\midrule
+    \midrule
 Input feature dimension & $d_{in}$ & 20 \\
 Hidden dimension & $h$ & 128 \\
 GNN layers & $L$ & 2 \\
@@ -811,10 +811,10 @@ GAE lambda & $\lambda$ & 0.95 \\
 PPO clip ratio & $\epsilon$ & 0.2 \\
 Value coefficient & $c_{vf}$ & 0.5 \\
 Latency weight & $\alpha$ & 0.5 \\
-\bottomrule
-\end{tabular}
+    \bottomrule
+    \end{tabular}
 }
-\end{table}
+    \end{table}
 
 \subsubsection{Baselines}
 
@@ -864,8 +864,8 @@ Table~\ref{tab:main_results} presents performance comparison after 20 fine-tunin
 
 Figure~\ref{fig:latency_comparison} illustrates the latency performance across training iterations. Our \method{} consistently achieves lower average latency than the greedy baseline, demonstrating the effectiveness of learned offloading decisions.
 
-\begin{figure}[t]
-\centering
+    \begin{figure}[t]
+    \centering
 \begin{subfigure}[b]{0.48\columnwidth}
     \includegraphics[width=\textwidth]{task1-average-latency.jpg}
     \caption{Task Distribution 1}
@@ -877,7 +877,7 @@ Figure~\ref{fig:latency_comparison} illustrates the latency performance across t
 \end{subfigure}
 \caption{Average latency during training. Lower is better. Both task distributions show consistent improvement over iterations.}
 \label{fig:latency_comparison}
-\end{figure}
+    \end{figure}
 
 \subsubsection{Energy Performance}
 
@@ -903,7 +903,7 @@ Figure~\ref{fig:energy_comparison} shows the energy consumption across training.
 Figure~\ref{fig:greedy_comparison} provides direct comparison with the greedy scheduling baseline for both latency and energy metrics.
 
 \begin{figure}[t]
-\centering
+    \centering
 \begin{subfigure}[b]{0.48\columnwidth}
     \includegraphics[width=\textwidth]{task1-greedy-latency.jpg}
     \caption{Task 1: Latency vs Greedy}
@@ -931,8 +931,8 @@ Figure~\ref{fig:greedy_comparison} provides direct comparison with the greedy sc
 
 Figure~\ref{fig:training_dynamics} shows the training dynamics including reward accumulation and loss convergence.
 
-\begin{figure}[t]
-\centering
+    \begin{figure}[t]
+    \centering
 \begin{subfigure}[b]{0.48\columnwidth}
     \includegraphics[width=\textwidth]{task1-average-reward.jpg}
     \caption{Task 1: Average Reward}
@@ -954,14 +954,14 @@ Figure~\ref{fig:training_dynamics} shows the training dynamics including reward 
 \end{subfigure}
 \caption{Training dynamics. (a)-(b) show increasing average reward indicating policy improvement. (c)-(d) show converging loss indicating stable learning.}
 \label{fig:training_dynamics}
-\end{figure}
+    \end{figure}
 
 \subsubsection{Policy and Value Loss Analysis}
 
 Figure~\ref{fig:loss_analysis} presents detailed analysis of policy and value function losses during training.
 
-\begin{figure}[t]
-\centering
+    \begin{figure}[t]
+    \centering
 \begin{subfigure}[b]{0.48\columnwidth}
     \includegraphics[width=\textwidth]{task1-policy-loses.jpg}
     \caption{Task 1: Policy Loss}
@@ -983,7 +983,7 @@ Figure~\ref{fig:loss_analysis} presents detailed analysis of policy and value fu
 \end{subfigure}
 \caption{Detailed loss analysis. Policy losses (PPO clipped surrogate) and value function losses both show convergence, indicating stable optimization under the Reptile meta-learning framework.}
 \label{fig:loss_analysis}
-\end{figure}
+    \end{figure}
 
 \subsection{Architectural Component Analysis}
 
@@ -991,8 +991,8 @@ To understand the individual contributions of our architectural components, we c
 
 To quantify the benefit of the GNN encoder specifically, we refer to the ablation study (Table~\ref{tab:ablation}, row ``w/o GNN''), which evaluates a sequential LSTM-based encoding variant. The results show that replacing the GNN with an LSTM degrades latency by 1.0\% and energy by 3.0\%, confirming that the graph-based encoding provides a fundamental advantage in capturing task dependencies and topological structure.
 
-\begin{figure}[t]
-\centering
+    \begin{figure}[t]
+    \centering
 \begin{subfigure}[b]{0.48\columnwidth}
     \includegraphics[width=\textwidth]{../results/mrlco-compare/1/task1-latency.jpg}
     \caption{Task 1: Latency}
@@ -1014,10 +1014,10 @@ To quantify the benefit of the GNN encoder specifically, we refer to the ablatio
 \end{subfigure}
 \caption{Direct comparison with \baseline{} using binary action space (without V2V). The Graph2Seq encoder with triple readout provides improvements even without the V2V extension.}
 \label{fig:mrlco_comparison}
-\end{figure}
+    \end{figure}
 
-\begin{figure}[t]
-\centering
+    \begin{figure}[t]
+    \centering
 \begin{subfigure}[b]{0.48\columnwidth}
     \includegraphics[width=\textwidth]{../results/mrlco-compare/1/task1-latency-with-greedy.jpg}
     \caption{Task 1: Latency vs Greedy}
@@ -1039,7 +1039,7 @@ To quantify the benefit of the GNN encoder specifically, we refer to the ablatio
 \end{subfigure}
 \caption{\baseline{} comparison with greedy baseline. These results show the performance of the original \baseline{} method without our proposed improvements.}
 \label{fig:mrlco_greedy}
-\end{figure}
+    \end{figure}
 
 \begin{table}[t]
 \centering
@@ -1199,7 +1199,7 @@ Results are reported in a table showing $\rho_{v2v}$, Latency, Energy, $\mathcal
 % ======================================================================
 % 6. RELATED WORK (MRLCO-style placement: after evaluation)
 % ======================================================================
-\section{Related Work}
+    \section{Related Work}
 \label{sec:related_work}
 
 \subsection{DAG Task Offloading}
@@ -1221,8 +1221,8 @@ Graph Neural Networks~\cite{hamilton2017inductive} and Graph2Seq models~\cite{xu
 % ======================================================================
 % 7. DISCUSSION
 % ======================================================================
-\section{Discussion}
-\label{sec:discussion}
+    \section{Discussion}
+    \label{sec:discussion}
 
 \subsection{Key Insights}
 
@@ -1260,8 +1260,8 @@ Three factors contribute to \method{}'s improvements over \baseline{}:
 % ======================================================================
 % 8. CONCLUSION
 % ======================================================================
-\section{Conclusion}
-\label{sec:conclusion}
+    \section{Conclusion}
+    \label{sec:conclusion}
 
 We presented \method{}, a meta-reinforcement learning framework for energy-aware task offloading in V2V-assisted MEC. Our Graph2Seq encoder with novel triple readout explicitly models DAG task dependencies. The extended ternary action space enables V2V cooperative computing with realistic half-duplex constraints. The joint latency-energy optimization balances performance and power consumption.
 
@@ -1275,10 +1275,10 @@ A meta-test protocol is defined (Section~\ref{sec:meta_test}) for evaluating fas
 
 Future work will explore multi-helper scenarios, real application validation, and analysis of adaptation performance vs DAG density.
 
-\section*{Acknowledgment}
+    \section*{Acknowledgment}
 [To be added]
 
-\bibliographystyle{IEEEtran}
-\bibliography{MARGO_references}
+    \bibliographystyle{IEEEtran}
+    \bibliography{MARGO_references}
 
-\end{document}
+    \end{document}

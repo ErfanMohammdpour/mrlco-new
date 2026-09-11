@@ -7,7 +7,9 @@ import tensorflow as tf
 
 from spec.learning_ops import (
     clipped_value_prediction,
+    instance_ids_from_order,
     mean_pseudogradient,
+    select_elite_per_instance,
     select_support_rows,
     shuffled_minibatch_slices,
 )
@@ -33,6 +35,8 @@ class MRLCO:
         adam_beta2=0.999,
         adam_epsilon=1e-8,
         rng=None,
+        support_select="random",
+        bc_kl_coef=0.0,
     ):
         if int(num_inner_grad_steps) != 3:
             raise ValueError("v0.1 k_steps must be 3 optimizer apply steps")
@@ -60,6 +64,14 @@ class MRLCO:
         self.support_trajectories = int(support_trajectories)
         self.ppo_batch_size_trajectories = int(ppo_batch_size_trajectories)
         self.rng = np.random.RandomState() if rng is None else rng
+        if support_select not in ("random", "elite"):
+            raise ValueError("support_select must be random or elite, got %r" % (support_select,))
+        self.support_select = support_select
+        self.bc_kl_coef = float(bc_kl_coef)
+        if self.bc_kl_coef < 0:
+            raise ValueError("bc_kl_coef must be >= 0")
+        self.last_kl_bc = None
+        self.last_update_mode = "publication"
 
         self.inner_optimizers = []
         self.outer_optimizer = tf.compat.v1.train.AdamOptimizer(
@@ -86,6 +98,10 @@ class MRLCO:
         self.clipped_obj = []
         self.total_loss = []
         self._train = []
+        self._train_kl = []
+        self._train_vf_only = []
+        self.bc_logits = []
+        self.kl_bc = []
         self._inner_slot_init = []
 
         self.build_graph(adam_beta1, adam_beta2, adam_epsilon)
@@ -155,6 +171,41 @@ class MRLCO:
                 grads_and_var = list(zip(grads, var))
                 train_op = inner_opt.apply_gradients(grads_and_var)
                 self._train.append(train_op)
+
+                if self.bc_kl_coef > 0:
+                    self.bc_logits.append(
+                        tf.compat.v1.placeholder(
+                            dtype=tf.float32,
+                            shape=[None, None, self.policy.action_dim],
+                            name="bc_logits_ph_task_" + str(i),
+                        )
+                    )
+                    # KL(π || π_BC): current logits vs frozen BC logits. Not PPO π_old.
+                    self.kl_bc.append(
+                        tf.reduce_mean(
+                            self.policy.distribution.kl_sym(self.new_logits[i], self.bc_logits[i])
+                        )
+                    )
+                    kl_total = self.surr_obj[i] + self.vf_coef * self.vf_loss[i] + self.bc_kl_coef * self.kl_bc[i]
+                    kl_gvs = inner_opt.compute_gradients(kl_total, params)
+                    kl_grads, kl_vars = zip(*kl_gvs)
+                    if self.max_grad_norm is not None:
+                        kl_grads, _ = tf.clip_by_global_norm(kl_grads, self.max_grad_norm)
+                    self._train_kl.append(inner_opt.apply_gradients(list(zip(kl_grads, kl_vars))))
+                    vf_params = [v for v in params if "qvalue_layer" in v.name]
+                    if not vf_params:
+                        raise ValueError("qvalue_layer vars missing for critic warmup task %d" % i)
+                    vf_gvs = inner_opt.compute_gradients(self.vf_loss[i], vf_params)
+                    vf_grads, vf_vars = zip(*vf_gvs)
+                    if self.max_grad_norm is not None:
+                        vf_grads, _ = tf.clip_by_global_norm(vf_grads, self.max_grad_norm)
+                    self._train_vf_only.append(inner_opt.apply_gradients(list(zip(vf_grads, vf_vars))))
+                else:
+                    self.bc_logits.append(None)
+                    self.kl_bc.append(None)
+                    self._train_kl.append(None)
+                    self._train_vf_only.append(None)
+
                 slot_vars = inner_opt.variables()
                 if slot_vars:
                     self._inner_slot_init.append(tf.compat.v1.variables_initializer(slot_vars))
@@ -191,24 +242,59 @@ class MRLCO:
         sess.run(self._outer_train, feed_dict=feed)
         self.sync_task_policies_from_core()
 
-    def UpdatePPOTarget(self, task_samples, batch_size=20):
+    def _pick_support_rows(self, task_samples, n):
+        k = self.support_trajectories
+        if self.support_select != "elite":
+            return select_support_rows(n, k, self.rng)
+        ft = np.asarray(task_samples["finish_time"], dtype=np.float64).reshape(n, -1)[:, -1]
+        ids = instance_ids_from_order(n, k)
+        return select_elite_per_instance(ft, ids, k)
+
+    def UpdatePPOTarget(self, task_samples, batch_size=20, update_mode="publication", bc_policy=None):
         if int(batch_size) != self.ppo_batch_size_trajectories:
             raise ValueError(
                 "batch_size=%s != frozen ppo_batch_size_trajectories=%s"
                 % (batch_size, self.ppo_batch_size_trajectories)
             )
+        if update_mode not in ("publication", "kl_bc", "vf_only"):
+            raise ValueError("update_mode must be publication, kl_bc, or vf_only, got %r" % (update_mode,))
+        if update_mode != "publication" and self.bc_kl_coef <= 0:
+            raise ValueError("update_mode=%s requires bc_kl_coef > 0" % update_mode)
+        if update_mode == "kl_bc" and bc_policy is None:
+            raise ValueError("kl_bc update needs frozen bc_policy")
+        self.last_update_mode = update_mode
+        self.last_kl_bc = []
         total_policy_losses = []
         total_value_losses = []
         for task_id in range(self.meta_batch_size):
-            policy_losses, value_losses = self.UpdatePPOTargetPerTask(task_samples[task_id], task_id, batch_size)
+            policy_losses, value_losses = self.UpdatePPOTargetPerTask(
+                task_samples[task_id],
+                task_id,
+                batch_size,
+                update_mode=update_mode,
+                bc_policy=bc_policy,
+            )
             total_policy_losses.append(policy_losses)
             total_value_losses.append(value_losses)
         return total_policy_losses, total_value_losses
 
-    def UpdatePPOTargetPerTask(self, task_samples, task_id, batch_size=20):
+    def _frozen_bc_logits(self, bc_policy, obs_b, shift_b, actions_b):
+        sess = tf.compat.v1.get_default_session()
+        decoder_full_length = np.array([obs_b.shape[1]] * obs_b.shape[0], dtype=np.int32)
+        return sess.run(
+            bc_policy.network.decoder_logits,
+            feed_dict={
+                bc_policy.obs: obs_b,
+                bc_policy.decoder_inputs: shift_b,
+                bc_policy.decoder_targets: actions_b,
+                bc_policy.decoder_full_length: decoder_full_length,
+            },
+        )
+
+    def UpdatePPOTargetPerTask(self, task_samples, task_id, batch_size=20, update_mode="publication", bc_policy=None):
         self.reset_inner_optimizer(task_id)
         observations = np.asarray(task_samples["observations"])
-        pick = select_support_rows(observations.shape[0], self.support_trajectories, self.rng)
+        pick = self._pick_support_rows(task_samples, observations.shape[0])
         actions = np.asarray(task_samples["actions"])[pick]
         observations = observations[pick]
         logits = np.asarray(task_samples["logits"], dtype=np.float32)[pick]
@@ -223,6 +309,12 @@ class MRLCO:
         policy_losses = []
         value_losses = []
         apply_count = 0
+        if update_mode == "kl_bc":
+            train_op = self._train_kl[task_id]
+        elif update_mode == "vf_only":
+            train_op = self._train_vf_only[task_id]
+        else:
+            train_op = self._train[task_id]
         for _epoch in range(self.num_inner_grad_steps):
             for idx in shuffled_minibatch_slices(
                 self.support_trajectories, batch_size, self.rng
@@ -239,10 +331,17 @@ class MRLCO:
                     self.advs[task_id]: advantages[idx],
                     self.r[task_id]: returns[idx],
                 }
-                _, value_loss, policy_loss = sess.run(
-                    [self._train[task_id], self.vf_loss[task_id], self.surr_obj[task_id]],
-                    feed_dict=feed_dict,
-                )
+                fetches = [train_op, self.vf_loss[task_id], self.surr_obj[task_id]]
+                if update_mode == "kl_bc":
+                    feed_dict[self.bc_logits[task_id]] = self._frozen_bc_logits(
+                        bc_policy, obs_b, shift_actions[idx], actions[idx]
+                    )
+                    fetches.append(self.kl_bc[task_id])
+                out = sess.run(fetches, feed_dict=feed_dict)
+                value_loss = out[1]
+                policy_loss = out[2]
+                if update_mode == "kl_bc":
+                    self.last_kl_bc.append(float(out[3]))
                 apply_count += 1
                 value_losses.append(value_loss)
                 policy_losses.append(policy_loss)

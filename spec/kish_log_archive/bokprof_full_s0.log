@@ -1,0 +1,44 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+Logging to /work/runs/phase4/margo_v0.3_bok_profiles/seed_0/logs
+bok_profiles_load_ckpt /work/runs/phase4/margo_v0.3_bc_profiles/seed_0/ckpt/bc_core.ckpt sha=2a385073e71a0689 packed=54
+bok_profiles_eval frozen_7_5_10 n=500 k_max=64
+bok_profiles frozen_7_5_10 T_greedy=493.8 T_best_64=444.5 expert=423.6 min=2.9
+bok_profiles_temp t=0.7 k=32 frozen_7_5_10
+bok_profiles_temp t=1.3 k=32 frozen_7_5_10
+bok_profiles_eval p_5_5_10 n=500 k_max=64
+bok_profiles p_5_5_10 T_greedy=621.8 T_best_64=546.9 expert=516.9 min=8.6
+bok_profiles_eval p_9_5_10 n=500 k_max=64
+bok_profiles p_9_5_10 T_greedy=418.4 T_best_64=377.9 expert=363.6 min=11.4
+bok_profiles_verdict seed=0 smoke=0 frozen_T_greedy=493.8194879861014 T_best_32=447.6687567911693 T_best_64=444.4768663004739 gate=True min=11.4

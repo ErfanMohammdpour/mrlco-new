@@ -1,4 +1,5 @@
-# Phase 4 GPU runtime on NVIDIA hosts.
+# LEGACY. CUDA 10. Do not use on RTX 4090 (Blas GEMM launch failed / no sm_89).
+# Ada GPU runtime is spec/Dockerfile.tf115-nv2212 (nvidia-tensorflow 1.15.5+nv22.12).
 # Base is the last official TF 1.15 GPU image (Ubuntu 18.04, CUDA 10).
 # We add Python 3.7 because MARGO spec uses `from __future__ import annotations`.
 #

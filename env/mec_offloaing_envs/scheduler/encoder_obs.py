@@ -6,12 +6,19 @@ Packed layout per decoder position:
 Neighbor slots are decoder indices, padded with PAD_INDEX. No self-loop.
 MAX_NEIGH = MAX_TASKS - 1 so a 20-node DAG can hold degree 19. Overflow raises.
 Feature z-score uses frozen meta_train statistics only.
+
+Obs version:
+  v1 (default): FEATURE_DIM=11, PACKED_DIM=50 — Phases 1–3.
+  v2: FEATURE_DIM=15, PACKED_DIM=54 — Phase 4 resource axis.
+  Select with env MARGO_OBS_VERSION=v2 before importing policies, or call set_obs_version.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -33,7 +40,7 @@ DIRECTION_COMBINE = "sum"
 AGGREGATOR = "masked_mean"
 SELF_NEIGHBOR_CONCAT = True
 
-FEATURE_NAMES: tuple[str, ...] = (
+FEATURE_NAMES_V1: tuple[str, ...] = (
     "compute_workload_bytes",
     "task_output_bytes",
     "external_input_bytes",
@@ -46,20 +53,63 @@ FEATURE_NAMES: tuple[str, ...] = (
     "is_root",
     "is_sink",
 )
+RESOURCE_FEATURE_NAMES: tuple[str, ...] = (
+    "log_ul_bps",
+    "log_v2v_bps",
+    "log_mec_cpu",
+    "log_ue_cpu",
+)
+FEATURE_NAMES_V2: tuple[str, ...] = FEATURE_NAMES_V1 + RESOURCE_FEATURE_NAMES
+
+# Mutable active schema (default v1). Policies import these names at load time —
+# set MARGO_OBS_VERSION before importing graph2seq / policies for v2 jobs.
+FEATURE_NAMES: tuple[str, ...] = FEATURE_NAMES_V1
 STANDARDIZE_FEATURES: frozenset[str] = frozenset(
     name for name in FEATURE_NAMES if name not in ("is_root", "is_sink")
 )
 FEATURE_DIM = len(FEATURE_NAMES)
 PACKED_DIM = FEATURE_DIM + 2 * MAX_NEIGH + 1
+OBS_VERSION = "v1"
 
-_DEFAULT_STATS_PATH = (
-    Path(__file__).resolve().parents[3] / "spec" / "encoder_feature_stats.json"
-)
-_STATS_CACHE: FeatureStats | None = None
+_SPEC_DIR = Path(__file__).resolve().parents[3] / "spec"
+_DEFAULT_STATS_PATH = _SPEC_DIR / "encoder_feature_stats.json"
+_DEFAULT_STATS_PATH_V2 = _SPEC_DIR / "encoder_feature_stats_v2.json"
+_STATS_CACHE = None  # type: ignore[var-annotated]
+_STATS_CACHE_VERSION: str | None = None
 
 
 class EncoderGraphError(ValueError):
     """Invalid DAG, decoder order, or neighbor degree for encoder packing."""
+
+
+def set_obs_version(version: str) -> None:
+    """Switch FEATURE_DIM / PACKED_DIM. Call before policy import for v2 train/eval."""
+    global FEATURE_NAMES, STANDARDIZE_FEATURES, FEATURE_DIM, PACKED_DIM, OBS_VERSION
+    global _STATS_CACHE, _STATS_CACHE_VERSION
+    version = str(version).lower().strip()
+    if version not in ("v1", "v2"):
+        raise EncoderGraphError("obs version must be v1 or v2, got %r" % version)
+    if version == "v1":
+        FEATURE_NAMES = FEATURE_NAMES_V1
+    else:
+        FEATURE_NAMES = FEATURE_NAMES_V2
+    STANDARDIZE_FEATURES = frozenset(
+        name for name in FEATURE_NAMES if name not in ("is_root", "is_sink")
+    )
+    FEATURE_DIM = len(FEATURE_NAMES)
+    PACKED_DIM = FEATURE_DIM + 2 * MAX_NEIGH + 1
+    OBS_VERSION = version
+    _STATS_CACHE = None
+    _STATS_CACHE_VERSION = None
+
+
+def _boot_obs_version_from_env() -> None:
+    ver = os.environ.get("MARGO_OBS_VERSION", "v1").strip().lower() or "v1"
+    if ver != "v1":
+        set_obs_version(ver)
+
+
+_boot_obs_version_from_env()
 
 
 @dataclass(frozen=True)
@@ -219,15 +269,49 @@ def load_feature_stats(path: str | Path | None = None) -> FeatureStats:
 
 
 def default_feature_stats() -> FeatureStats:
-    global _STATS_CACHE
-    if _STATS_CACHE is None:
-        _STATS_CACHE = load_feature_stats()
+    global _STATS_CACHE, _STATS_CACHE_VERSION
+    if _STATS_CACHE is None or _STATS_CACHE_VERSION != OBS_VERSION:
+        path = _DEFAULT_STATS_PATH_V2 if OBS_VERSION == "v2" else _DEFAULT_STATS_PATH
+        _STATS_CACHE = load_feature_stats(path)
+        _STATS_CACHE_VERSION = OBS_VERSION
     return _STATS_CACHE
 
 
 def reset_feature_stats_cache() -> None:
-    global _STATS_CACHE
+    global _STATS_CACHE, _STATS_CACHE_VERSION
     _STATS_CACHE = None
+    _STATS_CACHE_VERSION = None
+
+
+def resource_log_vector_from_cluster(resource_cluster: Any) -> np.ndarray:
+    """[log UL_bps, log V2V_bps, log MEC_CPU, log UE_CPU] from OffloadingEnvironment Resources."""
+    mbps_to_bps = 1024.0 * 1024.0 / 8.0
+    ul = float(resource_cluster.bandwidth_up) * mbps_to_bps
+    v2v_bw = float(getattr(resource_cluster, "v2v_bandwidth", 5.0))
+    v2v = v2v_bw * mbps_to_bps
+    mec = float(resource_cluster.mec_process_capable)
+    ue = float(resource_cluster.mobile_process_capable)
+    for name, val in (("ul", ul), ("v2v", v2v), ("mec", mec), ("ue", ue)):
+        if not (val > 0.0) or not math.isfinite(val):
+            raise EncoderGraphError("bad resource rate %s=%s" % (name, val))
+    return np.asarray(
+        [math.log(ul), math.log(v2v), math.log(mec), math.log(ue)],
+        dtype=np.float64,
+    )
+
+
+def resource_ctx_from_vec(resource_vec: Sequence[float], stats: FeatureStats | None = None) -> np.ndarray:
+    """Z-scored resource 4-vector for readout-side conditioning. Shape [4]."""
+    if stats is None:
+        stats = default_feature_stats()
+    raw = np.asarray(resource_vec, dtype=np.float64).reshape(4)
+    if OBS_VERSION != "v2":
+        raise EncoderGraphError("resource_ctx requires obs v2")
+    idxs = [FEATURE_NAMES.index(n) for n in RESOURCE_FEATURE_NAMES]
+    out = np.zeros(4, dtype=np.float32)
+    for j, i in enumerate(idxs):
+        out[j] = (raw[j] - stats.mean[i]) / stats.std[i]
+    return out
 
 
 def _decoder_ids(decoder_order: Sequence[Any]) -> list[int]:
@@ -251,7 +335,11 @@ def _task_depths(dag: CanonicalDAG) -> dict[int, int]:
     return {tid: depth(tid) for tid in dag.tasks}
 
 
-def raw_node_features(dag: CanonicalDAG, decoder_order: Sequence[Any]) -> np.ndarray:
+def raw_node_features(
+    dag: CanonicalDAG,
+    decoder_order: Sequence[Any],
+    resource_vec: Sequence[float] | None = None,
+) -> np.ndarray:
     order = _decoder_ids(decoder_order)
     if len(order) != len(set(order)):
         raise EncoderGraphError("decoder_order has duplicate task ids")
@@ -292,6 +380,17 @@ def raw_node_features(dag: CanonicalDAG, decoder_order: Sequence[Any]) -> np.nda
         row[name_index["depth"]] = depths[tid]
         row[name_index["is_root"]] = 1.0 if indeg == 0 else 0.0
         row[name_index["is_sink"]] = 1.0 if outdeg == 0 else 0.0
+
+    if OBS_VERSION == "v2":
+        if resource_vec is None:
+            raise EncoderGraphError("obs v2 requires resource_vec [4]")
+        rv = np.asarray(resource_vec, dtype=np.float64).reshape(4)
+        if not np.all(np.isfinite(rv)):
+            raise EncoderGraphError("resource_vec must be finite")
+        for j, name in enumerate(RESOURCE_FEATURE_NAMES):
+            rows[:, name_index[name]] = rv[j]
+    elif resource_vec is not None:
+        raise EncoderGraphError("resource_vec only valid for obs v2")
     return rows
 
 
@@ -381,6 +480,37 @@ def global_neighbor_indices(local_adj: np.ndarray) -> tuple[np.ndarray, np.ndarr
     return global_adj.reshape(dummy, MAX_NEIGH), lengths
 
 
+def reachability_mask(dag: CanonicalDAG, decoder_order: Sequence[Any] | None = None) -> np.ndarray:
+    """Directed reachability in decoder-index space: ancestor ∪ descendant ∪ self.
+
+    Returns float32 [n, n] with 1.0 on allowed transformer pairs. No padding.
+    """
+    if decoder_order is None:
+        decoder_order = sorted(dag.tasks)
+    order = _decoder_ids(decoder_order)
+    n = len(order)
+    if set(order) != set(dag.tasks):
+        raise EncoderGraphError("decoder_order must be a permutation of DAG task ids")
+    tid_to_pos = {tid: i for i, tid in enumerate(order)}
+    fwd = np.zeros((n, n), dtype=np.float32)
+    succs = dag.successors()
+    for tid in order:
+        i = tid_to_pos[tid]
+        stack = [tid_to_pos[sid] for sid in succs[tid]]
+        seen = set(stack)
+        while stack:
+            j = stack.pop()
+            fwd[i, j] = 1.0
+            src_tid = order[j]
+            for sid in succs[src_tid]:
+                k = tid_to_pos[sid]
+                if k not in seen:
+                    seen.add(k)
+                    stack.append(k)
+    eye = np.eye(n, dtype=np.float32)
+    return np.maximum(np.maximum(fwd, fwd.T), eye)
+
+
 def packed_edge_set(packed: np.ndarray, decoder_order: Sequence[Any]) -> set[tuple[int, int]]:
     order = _decoder_ids(decoder_order)
     _, fw, _, mask = unpack_observation(packed)
@@ -403,13 +533,17 @@ def encode_canonical_dag(
     decoder_order: Sequence[Any],
     stats: FeatureStats | None = None,
     enforce_task_count: bool = False,
+    resource_vec: Sequence[float] | None = None,
+    resource_cluster: Any = None,
 ) -> np.ndarray:
     order = _decoder_ids(decoder_order)
     if enforce_task_count:
         require_spec_task_count(len(order))
     if stats is None:
         stats = default_feature_stats()
-    raw = raw_node_features(dag, order)
+    if resource_vec is None and resource_cluster is not None:
+        resource_vec = resource_log_vector_from_cluster(resource_cluster)
+    raw = raw_node_features(dag, order, resource_vec=resource_vec)
     features = stats.standardize(raw)
     fw, bw, _, _ = neighbor_index_tables(dag, order)
     return pack_observation(features, fw, bw)
@@ -419,12 +553,16 @@ def encode_task_graph(
     task_graph: Any,
     decoder_order: Sequence[Any],
     stats: FeatureStats | None = None,
+    resource_vec: Sequence[float] | None = None,
+    resource_cluster: Any = None,
 ) -> np.ndarray:
     return encode_canonical_dag(
         to_canonical_dag(task_graph),
         decoder_order,
         stats=stats,
         enforce_task_count=True,
+        resource_vec=resource_vec,
+        resource_cluster=resource_cluster,
     )
 
 

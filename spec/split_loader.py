@@ -70,6 +70,48 @@ def support_query_indices(distribution_id: int) -> tuple[list[int], list[int]]:
     return support, query
 
 
+def iter_meta_tasks(role: str):
+    """Yield (dist_id, profile_id) for Phase 4 resource axis.
+
+    role:
+      meta_train → 15 dists × 13 profiles = 195
+      validation → 5 dists × 2 held-out + 5 × frozen = 15
+      validation_heldout → 5 × 2 = 10
+      validation_frozen → 5 × 1 = 5
+      meta_test → 5 × 8 = 40 (Phase 6 only)
+    """
+    from spec.resource_profiles import role_profile_ids
+
+    role = str(role)
+    if role == "meta_train":
+        dists = meta_train_distribution_ids()
+        profiles = role_profile_ids("meta_train")
+    elif role == "validation_heldout":
+        dists = validation_distribution_ids()
+        profiles = role_profile_ids("validation_heldout")
+    elif role == "validation_frozen":
+        dists = validation_distribution_ids()
+        profiles = role_profile_ids("frozen")
+    elif role == "validation":
+        for dist_id in validation_distribution_ids():
+            for pid in role_profile_ids("validation_heldout"):
+                yield int(dist_id), str(pid)
+            yield int(dist_id), str(role_profile_ids("frozen")[0])
+        return
+    elif role == "meta_test":
+        dists = meta_test_distribution_ids()
+        profiles = role_profile_ids("meta_test_heldout")
+    else:
+        raise ValueError("iter_meta_tasks role %r" % role)
+    for dist_id in dists:
+        for pid in profiles:
+            yield int(dist_id), str(pid)
+
+
+def count_meta_tasks(role: str) -> int:
+    return sum(1 for _ in iter_meta_tasks(role))
+
+
 def support_query_tasks(env_index: int, distribution_id: int) -> tuple[dict, dict]:
     support, query = support_query_indices(distribution_id)
     return (

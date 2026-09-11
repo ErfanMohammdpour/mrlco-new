@@ -6,6 +6,8 @@ import tensorflow as tf
 
 from spec.learning_ops import (
     expected_adam_apply_count,
+    instance_ids_from_order,
+    select_elite_per_instance,
     select_support_rows,
     shuffled_minibatch_slices,
 )
@@ -32,6 +34,7 @@ class PPO:
         adam_epsilon=1e-8,
         entropy_coefficient=0.0,
         rng=None,
+        support_select="random",
     ):
         if int(num_inner_grad_steps) not in (0, 3):
             raise ValueError("v0.1 k_steps must be 0 (zero-shot) or 3 optimizer apply steps")
@@ -61,13 +64,16 @@ class PPO:
         self.ppo_batch_size_trajectories = int(ppo_batch_size_trajectories)
         self.entropy_coefficient = float(entropy_coefficient)
         self.rng = np.random.RandomState() if rng is None else rng
+        if support_select not in ("random", "elite"):
+            raise ValueError("support_select must be random or elite, got %r" % (support_select,))
+        self.support_select = support_select
 
         self.optimizer = tf.compat.v1.train.AdamOptimizer(
             learning_rate=self.lr,
             beta1=adam_beta1,
             beta2=adam_beta2,
             epsilon=adam_epsilon,
-            name="ppo_inner_adam",
+            name="ppo_inner_adam_%s" % policy.name,
         )
         self.build_graph()
 
@@ -86,7 +92,7 @@ class PPO:
         self.advs = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None])
         self.r = tf.compat.v1.placeholder(dtype=tf.float32, shape=[None, None])
 
-        with tf.compat.v1.variable_scope("ppo_update"):
+        with tf.compat.v1.variable_scope("ppo_update_%s" % self.policy.name):
             likelihood_ratio = self.policy.distribution.likelihood_ratio_sym(
                 self.actions, self.old_logits, new_logits
             )
@@ -138,7 +144,12 @@ class PPO:
         self.reset_inner_optimizer()
         observations = np.asarray(task_samples["observations"])
         n = observations.shape[0]
-        pick = select_support_rows(n, self.support_trajectories, self.rng)
+        if self.support_select == "elite":
+            ft = np.asarray(task_samples["finish_time"], dtype=np.float64).reshape(n, -1)[:, -1]
+            ids = instance_ids_from_order(n, self.support_trajectories)
+            pick = select_elite_per_instance(ft, ids, self.support_trajectories)
+        else:
+            pick = select_support_rows(n, self.support_trajectories, self.rng)
         actions = np.asarray(task_samples["actions"])[pick]
         observations = observations[pick]
         logits = np.asarray(task_samples["logits"], dtype=np.float32)[pick]

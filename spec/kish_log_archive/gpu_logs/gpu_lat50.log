@@ -1,0 +1,2545 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+Logging to /work/runs/phase4/margo_v0.1_diag_latency_tmec/seed_0/logs
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:179: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:164: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:164: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+WARNING:tensorflow:From /work/utils/utils.py:296: The name tf.get_default_session is deprecated. Please use tf.compat.v1.get_default_session instead.
+
+WARNING:tensorflow:From /work/utils/utils.py:296: The name tf.get_default_session is deprecated. Please use tf.compat.v1.get_default_session instead.
+
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 0]
+  Total actions: 200000
+  Local (0): 67837 (33.9%)
+  MEC (1): 67163 (33.6%)
+  V2V (2): 65000 (32.5%)
+Processing samples...
+average task losses:  0.047388338
+average value losses:  0.10431699
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 0: 886.5885
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+-----------------------------------------------------
+| Average energy,         | 887                     |
+| Average greedy latency, | 612                     |
+| Average latency,        | 958                     |
+| Average reward,         | 0.779                   |
+| AverageDiscountedReturn | 0.727                   |
+| AverageReturn           | 0.779                   |
+| EnvExecTime             | 29.8                    |
+| Itr                     | 0                       |
+| MaxReturn               | 3.12                    |
+| MinReturn               | -1.23                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.9                    |
+| StdReturn               | 0.499                   |
+| checkpoint_is_best_val  | 1                       |
+| checkpoint_selection... | validation_query_com... |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 1                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| validation_query_com... | 0.842                   |
+| validation_query_mea... | 921                     |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 0 ok=True flags=[]
+
+ ---------------- Iteration 1 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 1]
+  Total actions: 200000
+  Local (0): 77354 (38.7%)
+  MEC (1): 78377 (39.2%)
+  V2V (2): 44269 (22.1%)
+Processing samples...
+average task losses:  0.03738207
+average value losses:  0.10235519
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 1: 883.3846
+-----------------------------------------------------
+| Average energy,         | 883                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 917                     |
+| Average reward,         | 0.89                    |
+| AverageDiscountedReturn | 0.818                   |
+| AverageReturn           | 0.89                    |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 1                       |
+| MaxReturn               | 3.52                    |
+| MinReturn               | -0.914                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.9                    |
+| StdReturn               | 0.462                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 2                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 1 ok=True flags=[]
+
+ ---------------- Iteration 2 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 2]
+  Total actions: 200000
+  Local (0): 87195 (43.6%)
+  MEC (1): 83527 (41.8%)
+  V2V (2): 29278 (14.6%)
+Processing samples...
+average task losses:  0.047640715
+average value losses:  0.12468766
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 2: 926.7834
+-----------------------------------------------------
+| Average energy,         | 927                     |
+| Average greedy latency, | 622                     |
+| Average latency,        | 933                     |
+| Average reward,         | 0.852                   |
+| AverageDiscountedReturn | 0.783                   |
+| AverageReturn           | 0.852                   |
+| EnvExecTime             | 28.6                    |
+| Itr                     | 2                       |
+| MaxReturn               | 2.74                    |
+| MinReturn               | -0.743                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 30.6                    |
+| StdReturn               | 0.444                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 3                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 2 ok=True flags=[]
+
+ ---------------- Iteration 3 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 3]
+  Total actions: 200000
+  Local (0): 96088 (48.0%)
+  MEC (1): 81382 (40.7%)
+  V2V (2): 22530 (11.3%)
+Processing samples...
+average task losses:  -0.013821703
+average value losses:  0.13390097
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 3: 903.4922
+-----------------------------------------------------
+| Average energy,         | 903                     |
+| Average greedy latency, | 589                     |
+| Average latency,        | 932                     |
+| Average reward,         | 0.983                   |
+| AverageDiscountedReturn | 0.899                   |
+| AverageReturn           | 0.983                   |
+| EnvExecTime             | 28.4                    |
+| Itr                     | 3                       |
+| MaxReturn               | 3.03                    |
+| MinReturn               | -1.12                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.1                    |
+| StdReturn               | 0.471                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 4                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 3 ok=True flags=[]
+
+ ---------------- Iteration 4 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 4]
+  Total actions: 200000
+  Local (0): 99633 (49.8%)
+  MEC (1): 78857 (39.4%)
+  V2V (2): 21510 (10.8%)
+Processing samples...
+average task losses:  0.008440123
+average value losses:  0.12482728
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 4: 953.4419
+-----------------------------------------------------
+| Average energy,         | 953                     |
+| Average greedy latency, | 611                     |
+| Average latency,        | 925                     |
+| Average reward,         | 0.911                   |
+| AverageDiscountedReturn | 0.832                   |
+| AverageReturn           | 0.911                   |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 4                       |
+| MaxReturn               | 3.78                    |
+| MinReturn               | -0.965                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.3                    |
+| StdReturn               | 0.471                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 5                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 4 ok=True flags=[]
+
+ ---------------- Iteration 5 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 5]
+  Total actions: 200000
+  Local (0): 101758 (50.9%)
+  MEC (1): 76213 (38.1%)
+  V2V (2): 22029 (11.0%)
+Processing samples...
+average task losses:  0.10333629
+average value losses:  0.07810363
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 5: 974.5901
+-----------------------------------------------------
+| Average energy,         | 975                     |
+| Average greedy latency, | 629                     |
+| Average latency,        | 916                     |
+| Average reward,         | 0.876                   |
+| AverageDiscountedReturn | 0.802                   |
+| AverageReturn           | 0.876                   |
+| EnvExecTime             | 26.7                    |
+| Itr                     | 5                       |
+| MaxReturn               | 3.13                    |
+| MinReturn               | -0.691                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 29.9                    |
+| StdReturn               | 0.413                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 6                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 5 ok=True flags=[]
+
+ ---------------- Iteration 6 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 6]
+  Total actions: 200000
+  Local (0): 102513 (51.3%)
+  MEC (1): 71891 (35.9%)
+  V2V (2): 25596 (12.8%)
+Processing samples...
+average task losses:  -0.027513186
+average value losses:  0.11716971
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 6: 985.0955
+-----------------------------------------------------
+| Average energy,         | 985                     |
+| Average greedy latency, | 600                     |
+| Average latency,        | 948                     |
+| Average reward,         | 0.953                   |
+| AverageDiscountedReturn | 0.869                   |
+| AverageReturn           | 0.953                   |
+| EnvExecTime             | 27.9                    |
+| Itr                     | 6                       |
+| MaxReturn               | 2.9                     |
+| MinReturn               | -0.972                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 30.8                    |
+| StdReturn               | 0.426                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 7                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 6 ok=True flags=[]
+
+ ---------------- Iteration 7 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 7]
+  Total actions: 200000
+  Local (0): 101847 (50.9%)
+  MEC (1): 70652 (35.3%)
+  V2V (2): 27501 (13.8%)
+Processing samples...
+average task losses:  0.048773788
+average value losses:  0.07441735
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 7: 968.3969
+-----------------------------------------------------
+| Average energy,         | 968                     |
+| Average greedy latency, | 607                     |
+| Average latency,        | 929                     |
+| Average reward,         | 0.877                   |
+| AverageDiscountedReturn | 0.8                     |
+| AverageReturn           | 0.877                   |
+| EnvExecTime             | 26.9                    |
+| Itr                     | 7                       |
+| MaxReturn               | 3.52                    |
+| MinReturn               | -1.3                    |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.7                    |
+| StdReturn               | 0.425                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 8                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 7 ok=True flags=[]
+
+ ---------------- Iteration 8 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 8]
+  Total actions: 200000
+  Local (0): 101441 (50.7%)
+  MEC (1): 69453 (34.7%)
+  V2V (2): 29106 (14.6%)
+Processing samples...
+average task losses:  -0.02012434
+average value losses:  0.08892217
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 8: 973.2683
+-----------------------------------------------------
+| Average energy,         | 973                     |
+| Average greedy latency, | 609                     |
+| Average latency,        | 929                     |
+| Average reward,         | 0.85                    |
+| AverageDiscountedReturn | 0.776                   |
+| AverageReturn           | 0.85                    |
+| EnvExecTime             | 28                      |
+| Itr                     | 8                       |
+| MaxReturn               | 2.56                    |
+| MinReturn               | -1.2                    |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.2                    |
+| StdReturn               | 0.413                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 9                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 8 ok=True flags=[]
+
+ ---------------- Iteration 9 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 9]
+  Total actions: 200000
+  Local (0): 101065 (50.5%)
+  MEC (1): 67963 (34.0%)
+  V2V (2): 30972 (15.5%)
+Processing samples...
+average task losses:  0.028925484
+average value losses:  0.07744332
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 9: 996.9574
+-----------------------------------------------------
+| Average energy,         | 997                     |
+| Average greedy latency, | 597                     |
+| Average latency,        | 956                     |
+| Average reward,         | 0.897                   |
+| AverageDiscountedReturn | 0.817                   |
+| AverageReturn           | 0.897                   |
+| EnvExecTime             | 26.9                    |
+| Itr                     | 9                       |
+| MaxReturn               | 2.95                    |
+| MinReturn               | -1.2                    |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.9                    |
+| StdReturn               | 0.453                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 10                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 9 ok=True flags=[]
+
+ ---------------- Iteration 10 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 10]
+  Total actions: 200000
+  Local (0): 99957 (50.0%)
+  MEC (1): 67974 (34.0%)
+  V2V (2): 32069 (16.0%)
+Processing samples...
+average task losses:  0.039993335
+average value losses:  0.071390204
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 10: 986.1827
+-----------------------------------------------------
+| Average energy,         | 986                     |
+| Average greedy latency, | 615                     |
+| Average latency,        | 927                     |
+| Average reward,         | 0.892                   |
+| AverageDiscountedReturn | 0.815                   |
+| AverageReturn           | 0.892                   |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 10                      |
+| MaxReturn               | 2.86                    |
+| MinReturn               | -1.08                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.4                    |
+| StdReturn               | 0.423                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 11                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 10 ok=True flags=[]
+
+ ---------------- Iteration 11 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 11]
+  Total actions: 200000
+  Local (0): 99100 (49.5%)
+  MEC (1): 67687 (33.8%)
+  V2V (2): 33213 (16.6%)
+Processing samples...
+average task losses:  -0.056817297
+average value losses:  0.06322176
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 11: 959.9897
+-----------------------------------------------------
+| Average energy,         | 960                     |
+| Average greedy latency, | 618                     |
+| Average latency,        | 947                     |
+| Average reward,         | 0.815                   |
+| AverageDiscountedReturn | 0.747                   |
+| AverageReturn           | 0.815                   |
+| EnvExecTime             | 28.2                    |
+| Itr                     | 11                      |
+| MaxReturn               | 2.76                    |
+| MinReturn               | -1.77                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.1                    |
+| StdReturn               | 0.435                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 12                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 11 ok=True flags=[]
+
+ ---------------- Iteration 12 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 12]
+  Total actions: 200000
+  Local (0): 96976 (48.5%)
+  MEC (1): 68393 (34.2%)
+  V2V (2): 34631 (17.3%)
+Processing samples...
+average task losses:  -0.06856485
+average value losses:  0.07448804
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 12: 959.6327
+-----------------------------------------------------
+| Average energy,         | 960                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 943                     |
+| Average reward,         | 0.854                   |
+| AverageDiscountedReturn | 0.781                   |
+| AverageReturn           | 0.854                   |
+| EnvExecTime             | 27.8                    |
+| Itr                     | 12                      |
+| MaxReturn               | 2.98                    |
+| MinReturn               | -0.987                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.9                    |
+| StdReturn               | 0.465                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 13                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 12 ok=True flags=[]
+
+ ---------------- Iteration 13 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 13]
+  Total actions: 200000
+  Local (0): 95321 (47.7%)
+  MEC (1): 68603 (34.3%)
+  V2V (2): 36076 (18.0%)
+Processing samples...
+average task losses:  -0.004737609
+average value losses:  0.07302551
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 13: 975.0512
+-----------------------------------------------------
+| Average energy,         | 975                     |
+| Average greedy latency, | 592                     |
+| Average latency,        | 978                     |
+| Average reward,         | 0.908                   |
+| AverageDiscountedReturn | 0.829                   |
+| AverageReturn           | 0.908                   |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 13                      |
+| MaxReturn               | 2.96                    |
+| MinReturn               | -1.74                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 27.6                    |
+| StdReturn               | 0.494                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 14                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 13 ok=True flags=[]
+
+ ---------------- Iteration 14 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 14]
+  Total actions: 200000
+  Local (0): 91316 (45.7%)
+  MEC (1): 72769 (36.4%)
+  V2V (2): 35915 (18.0%)
+Processing samples...
+average task losses:  -0.08033124
+average value losses:  0.070945375
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 14: 934.9928
+-----------------------------------------------------
+| Average energy,         | 935                     |
+| Average greedy latency, | 612                     |
+| Average latency,        | 908                     |
+| Average reward,         | 0.893                   |
+| AverageDiscountedReturn | 0.818                   |
+| AverageReturn           | 0.893                   |
+| EnvExecTime             | 27.3                    |
+| Itr                     | 14                      |
+| MaxReturn               | 3.26                    |
+| MinReturn               | -0.977                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 26.5                    |
+| StdReturn               | 0.478                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 15                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 14 ok=True flags=[]
+
+ ---------------- Iteration 15 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 15]
+  Total actions: 200000
+  Local (0): 89723 (44.9%)
+  MEC (1): 74761 (37.4%)
+  V2V (2): 35516 (17.8%)
+Processing samples...
+average task losses:  0.018758051
+average value losses:  0.06626486
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 15: 929.1245
+-----------------------------------------------------
+| Average energy,         | 929                     |
+| Average greedy latency, | 621                     |
+| Average latency,        | 908                     |
+| Average reward,         | 0.884                   |
+| AverageDiscountedReturn | 0.81                    |
+| AverageReturn           | 0.884                   |
+| EnvExecTime             | 27.2                    |
+| Itr                     | 15                      |
+| MaxReturn               | 3.46                    |
+| MinReturn               | -1.5                    |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 18.9                    |
+| StdReturn               | 0.455                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 16                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 15 ok=True flags=[]
+
+ ---------------- Iteration 16 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 16]
+  Total actions: 200000
+  Local (0): 89239 (44.6%)
+  MEC (1): 76548 (38.3%)
+  V2V (2): 34213 (17.1%)
+Processing samples...
+average task losses:  0.0693976
+average value losses:  0.05986569
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 16: 913.0901
+-----------------------------------------------------
+| Average energy,         | 913                     |
+| Average greedy latency, | 621                     |
+| Average latency,        | 911                     |
+| Average reward,         | 0.931                   |
+| AverageDiscountedReturn | 0.854                   |
+| AverageReturn           | 0.931                   |
+| EnvExecTime             | 28.5                    |
+| Itr                     | 16                      |
+| MaxReturn               | 4.04                    |
+| MinReturn               | -0.562                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.2                    |
+| StdReturn               | 0.468                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 17                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 16 ok=True flags=[]
+
+ ---------------- Iteration 17 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 17]
+  Total actions: 200000
+  Local (0): 87160 (43.6%)
+  MEC (1): 80022 (40.0%)
+  V2V (2): 32818 (16.4%)
+Processing samples...
+average task losses:  -0.0358273
+average value losses:  0.06665195
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 17: 915.8934
+-----------------------------------------------------
+| Average energy,         | 916                     |
+| Average greedy latency, | 620                     |
+| Average latency,        | 921                     |
+| Average reward,         | 0.886                   |
+| AverageDiscountedReturn | 0.809                   |
+| AverageReturn           | 0.886                   |
+| EnvExecTime             | 28.6                    |
+| Itr                     | 17                      |
+| MaxReturn               | 3.07                    |
+| MinReturn               | -1.04                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.4                    |
+| StdReturn               | 0.453                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 18                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 17 ok=True flags=[]
+
+ ---------------- Iteration 18 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 18]
+  Total actions: 200000
+  Local (0): 85644 (42.8%)
+  MEC (1): 83628 (41.8%)
+  V2V (2): 30728 (15.4%)
+Processing samples...
+average task losses:  -0.014947856
+average value losses:  0.07068301
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 18: 874.4152
+-----------------------------------------------------
+| Average energy,         | 874                     |
+| Average greedy latency, | 616                     |
+| Average latency,        | 881                     |
+| Average reward,         | 0.882                   |
+| AverageDiscountedReturn | 0.809                   |
+| AverageReturn           | 0.882                   |
+| EnvExecTime             | 27.8                    |
+| Itr                     | 18                      |
+| MaxReturn               | 3.24                    |
+| MinReturn               | -1.15                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.7                    |
+| StdReturn               | 0.442                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 19                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 18 ok=True flags=[]
+
+ ---------------- Iteration 19 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 19]
+  Total actions: 200000
+  Local (0): 86857 (43.4%)
+  MEC (1): 84230 (42.1%)
+  V2V (2): 28913 (14.5%)
+Processing samples...
+average task losses:  -0.014444824
+average value losses:  0.0684626
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 19: 876.4533
+-----------------------------------------------------
+| Average energy,         | 876                     |
+| Average greedy latency, | 603                     |
+| Average latency,        | 907                     |
+| Average reward,         | 0.965                   |
+| AverageDiscountedReturn | 0.881                   |
+| AverageReturn           | 0.965                   |
+| EnvExecTime             | 29                      |
+| Itr                     | 19                      |
+| MaxReturn               | 3.35                    |
+| MinReturn               | -0.955                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.3                    |
+| StdReturn               | 0.446                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 20                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 19 ok=True flags=[]
+
+ ---------------- Iteration 20 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 20]
+  Total actions: 200000
+  Local (0): 83694 (41.8%)
+  MEC (1): 89737 (44.9%)
+  V2V (2): 26569 (13.3%)
+Processing samples...
+average task losses:  -0.000887155
+average value losses:  0.058676086
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 20: 904.7799
+-----------------------------------------------------
+| Average energy,         | 905                     |
+| Average greedy latency, | 632                     |
+| Average latency,        | 877                     |
+| Average reward,         | 0.909                   |
+| AverageDiscountedReturn | 0.833                   |
+| AverageReturn           | 0.909                   |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 20                      |
+| MaxReturn               | 3.02                    |
+| MinReturn               | -0.922                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 30.5                    |
+| StdReturn               | 0.436                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 21                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 20 ok=True flags=[]
+
+ ---------------- Iteration 21 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 21]
+  Total actions: 200000
+  Local (0): 86714 (43.4%)
+  MEC (1): 88784 (44.4%)
+  V2V (2): 24502 (12.3%)
+Processing samples...
+average task losses:  0.0018377575
+average value losses:  0.08111587
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 21: 887.6060
+-----------------------------------------------------
+| Average energy,         | 888                     |
+| Average greedy latency, | 620                     |
+| Average latency,        | 897                     |
+| Average reward,         | 0.956                   |
+| AverageDiscountedReturn | 0.87                    |
+| AverageReturn           | 0.956                   |
+| EnvExecTime             | 28.5                    |
+| Itr                     | 21                      |
+| MaxReturn               | 3.07                    |
+| MinReturn               | -1.11                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32                      |
+| StdReturn               | 0.472                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 22                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 21 ok=True flags=[]
+
+ ---------------- Iteration 22 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 22]
+  Total actions: 200000
+  Local (0): 89668 (44.8%)
+  MEC (1): 87592 (43.8%)
+  V2V (2): 22740 (11.4%)
+Processing samples...
+average task losses:  -0.0150824
+average value losses:  0.077009186
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 22: 899.3999
+-----------------------------------------------------
+| Average energy,         | 899                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 887                     |
+| Average reward,         | 1.03                    |
+| AverageDiscountedReturn | 0.938                   |
+| AverageReturn           | 1.03                    |
+| EnvExecTime             | 27.7                    |
+| Itr                     | 22                      |
+| MaxReturn               | 3.34                    |
+| MinReturn               | -1.12                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.3                    |
+| StdReturn               | 0.452                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 23                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 22 ok=True flags=[]
+
+ ---------------- Iteration 23 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 23]
+  Total actions: 200000
+  Local (0): 90096 (45.0%)
+  MEC (1): 87857 (43.9%)
+  V2V (2): 22047 (11.0%)
+Processing samples...
+average task losses:  -0.013085628
+average value losses:  0.079243205
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 23: 918.3571
+-----------------------------------------------------
+| Average energy,         | 918                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 912                     |
+| Average reward,         | 1.02                    |
+| AverageDiscountedReturn | 0.932                   |
+| AverageReturn           | 1.02                    |
+| EnvExecTime             | 27.7                    |
+| Itr                     | 23                      |
+| MaxReturn               | 3.26                    |
+| MinReturn               | -0.895                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.2                    |
+| StdReturn               | 0.468                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 24                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 23 ok=True flags=[]
+
+ ---------------- Iteration 24 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 24]
+  Total actions: 200000
+  Local (0): 93582 (46.8%)
+  MEC (1): 86331 (43.2%)
+  V2V (2): 20087 (10.0%)
+Processing samples...
+average task losses:  0.01641398
+average value losses:  0.07959506
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 24: 883.7852
+-----------------------------------------------------
+| Average energy,         | 884                     |
+| Average greedy latency, | 595                     |
+| Average latency,        | 914                     |
+| Average reward,         | 0.994                   |
+| AverageDiscountedReturn | 0.902                   |
+| AverageReturn           | 0.994                   |
+| EnvExecTime             | 28.8                    |
+| Itr                     | 24                      |
+| MaxReturn               | 4.58                    |
+| MinReturn               | -0.435                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.8                    |
+| StdReturn               | 0.473                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 25                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 24 ok=True flags=[]
+
+ ---------------- Iteration 25 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 25]
+  Total actions: 200000
+  Local (0): 91351 (45.7%)
+  MEC (1): 89076 (44.5%)
+  V2V (2): 19573 (9.8%)
+Processing samples...
+average task losses:  -0.031388
+average value losses:  0.071980104
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 25: 868.1645
+-----------------------------------------------------
+| Average energy,         | 868                     |
+| Average greedy latency, | 619                     |
+| Average latency,        | 858                     |
+| Average reward,         | 0.988                   |
+| AverageDiscountedReturn | 0.9                     |
+| AverageReturn           | 0.988                   |
+| EnvExecTime             | 28.8                    |
+| Itr                     | 25                      |
+| MaxReturn               | 3.29                    |
+| MinReturn               | -0.901                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.3                    |
+| StdReturn               | 0.467                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 26                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 25 ok=True flags=[]
+
+ ---------------- Iteration 26 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 26]
+  Total actions: 200000
+  Local (0): 92498 (46.2%)
+  MEC (1): 88864 (44.4%)
+  V2V (2): 18638 (9.3%)
+Processing samples...
+average task losses:  0.0016835139
+average value losses:  0.063872665
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 26: 859.0005
+-----------------------------------------------------
+| Average energy,         | 859                     |
+| Average greedy latency, | 624                     |
+| Average latency,        | 877                     |
+| Average reward,         | 0.918                   |
+| AverageDiscountedReturn | 0.838                   |
+| AverageReturn           | 0.918                   |
+| EnvExecTime             | 26.9                    |
+| Itr                     | 26                      |
+| MaxReturn               | 3.73                    |
+| MinReturn               | -0.486                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.5                    |
+| StdReturn               | 0.441                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 27                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 26 ok=True flags=[]
+
+ ---------------- Iteration 27 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 27]
+  Total actions: 200000
+  Local (0): 93643 (46.8%)
+  MEC (1): 88038 (44.0%)
+  V2V (2): 18319 (9.2%)
+Processing samples...
+average task losses:  -0.0114162015
+average value losses:  0.06621737
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 27: 853.2299
+-----------------------------------------------------
+| Average energy,         | 853                     |
+| Average greedy latency, | 614                     |
+| Average latency,        | 857                     |
+| Average reward,         | 0.975                   |
+| AverageDiscountedReturn | 0.886                   |
+| AverageReturn           | 0.975                   |
+| EnvExecTime             | 28                      |
+| Itr                     | 27                      |
+| MaxReturn               | 3.06                    |
+| MinReturn               | -0.719                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.8                    |
+| StdReturn               | 0.443                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 28                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 27 ok=True flags=[]
+
+ ---------------- Iteration 28 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 28]
+  Total actions: 200000
+  Local (0): 94225 (47.1%)
+  MEC (1): 88105 (44.1%)
+  V2V (2): 17670 (8.8%)
+Processing samples...
+average task losses:  0.038259134
+average value losses:  0.07364714
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 28: 845.6523
+-----------------------------------------------------
+| Average energy,         | 846                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 876                     |
+| Average reward,         | 1.05                    |
+| AverageDiscountedReturn | 0.952                   |
+| AverageReturn           | 1.05                    |
+| EnvExecTime             | 28                      |
+| Itr                     | 28                      |
+| MaxReturn               | 3.69                    |
+| MinReturn               | -0.692                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31                      |
+| StdReturn               | 0.492                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 29                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 28 ok=True flags=[]
+
+ ---------------- Iteration 29 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 29]
+  Total actions: 200000
+  Local (0): 90535 (45.3%)
+  MEC (1): 90909 (45.5%)
+  V2V (2): 18556 (9.3%)
+Processing samples...
+average task losses:  -0.052367385
+average value losses:  0.07690276
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 29: 872.5395
+-----------------------------------------------------
+| Average energy,         | 873                     |
+| Average greedy latency, | 621                     |
+| Average latency,        | 891                     |
+| Average reward,         | 1.01                    |
+| AverageDiscountedReturn | 0.92                    |
+| AverageReturn           | 1.01                    |
+| EnvExecTime             | 28.1                    |
+| Itr                     | 29                      |
+| MaxReturn               | 3.45                    |
+| MinReturn               | -0.909                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.9                    |
+| StdReturn               | 0.498                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 30                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 29 ok=True flags=[]
+
+ ---------------- Iteration 30 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 30]
+  Total actions: 200000
+  Local (0): 88687 (44.3%)
+  MEC (1): 92443 (46.2%)
+  V2V (2): 18870 (9.4%)
+Processing samples...
+average task losses:  0.048024572
+average value losses:  0.052181635
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 30: 814.4742
+-----------------------------------------------------
+| Average energy,         | 814                     |
+| Average greedy latency, | 610                     |
+| Average latency,        | 859                     |
+| Average reward,         | 1.05                    |
+| AverageDiscountedReturn | 0.958                   |
+| AverageReturn           | 1.05                    |
+| EnvExecTime             | 29.2                    |
+| Itr                     | 30                      |
+| MaxReturn               | 3.48                    |
+| MinReturn               | -0.773                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.8                    |
+| StdReturn               | 0.495                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 31                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 30 ok=True flags=[]
+
+ ---------------- Iteration 31 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 31]
+  Total actions: 200000
+  Local (0): 85481 (42.7%)
+  MEC (1): 95343 (47.7%)
+  V2V (2): 19176 (9.6%)
+Processing samples...
+average task losses:  -0.018745003
+average value losses:  0.06404052
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 31: 814.5366
+-----------------------------------------------------
+| Average energy,         | 815                     |
+| Average greedy latency, | 606                     |
+| Average latency,        | 865                     |
+| Average reward,         | 1.03                    |
+| AverageDiscountedReturn | 0.936                   |
+| AverageReturn           | 1.03                    |
+| EnvExecTime             | 28.2                    |
+| Itr                     | 31                      |
+| MaxReturn               | 3.22                    |
+| MinReturn               | -0.744                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.9                    |
+| StdReturn               | 0.481                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 32                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 31 ok=True flags=[]
+
+ ---------------- Iteration 32 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 32]
+  Total actions: 200000
+  Local (0): 80275 (40.1%)
+  MEC (1): 99201 (49.6%)
+  V2V (2): 20524 (10.3%)
+Processing samples...
+average task losses:  0.05319617
+average value losses:  0.057202045
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 32: 777.9422
+-----------------------------------------------------
+| Average energy,         | 778                     |
+| Average greedy latency, | 604                     |
+| Average latency,        | 820                     |
+| Average reward,         | 1.05                    |
+| AverageDiscountedReturn | 0.96                    |
+| AverageReturn           | 1.05                    |
+| EnvExecTime             | 27.1                    |
+| Itr                     | 32                      |
+| MaxReturn               | 2.97                    |
+| MinReturn               | -0.7                    |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.8                    |
+| StdReturn               | 0.456                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 33                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 32 ok=True flags=[]
+
+ ---------------- Iteration 33 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 33]
+  Total actions: 200000
+  Local (0): 76516 (38.3%)
+  MEC (1): 102636 (51.3%)
+  V2V (2): 20848 (10.4%)
+Processing samples...
+average task losses:  -0.026219971
+average value losses:  0.05633612
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 33: 793.7324
+-----------------------------------------------------
+| Average energy,         | 794                     |
+| Average greedy latency, | 625                     |
+| Average latency,        | 870                     |
+| Average reward,         | 0.955                   |
+| AverageDiscountedReturn | 0.87                    |
+| AverageReturn           | 0.955                   |
+| EnvExecTime             | 27.8                    |
+| Itr                     | 33                      |
+| MaxReturn               | 3.04                    |
+| MinReturn               | -1.19                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.7                    |
+| StdReturn               | 0.461                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 34                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 33 ok=True flags=[]
+
+ ---------------- Iteration 34 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 34]
+  Total actions: 200000
+  Local (0): 74412 (37.2%)
+  MEC (1): 103815 (51.9%)
+  V2V (2): 21773 (10.9%)
+Processing samples...
+average task losses:  -0.0375246
+average value losses:  0.06498941
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 34: 788.1886
+-----------------------------------------------------
+| Average energy,         | 788                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 850                     |
+| Average reward,         | 1.04                    |
+| AverageDiscountedReturn | 0.949                   |
+| AverageReturn           | 1.04                    |
+| EnvExecTime             | 27.1                    |
+| Itr                     | 34                      |
+| MaxReturn               | 2.89                    |
+| MinReturn               | -0.71                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.8                    |
+| StdReturn               | 0.468                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 35                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 34 ok=True flags=[]
+
+ ---------------- Iteration 35 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 35]
+  Total actions: 200000
+  Local (0): 71478 (35.7%)
+  MEC (1): 107288 (53.6%)
+  V2V (2): 21234 (10.6%)
+Processing samples...
+average task losses:  -0.008195292
+average value losses:  0.06469684
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 35: 777.1540
+-----------------------------------------------------
+| Average energy,         | 777                     |
+| Average greedy latency, | 624                     |
+| Average latency,        | 821                     |
+| Average reward,         | 1.03                    |
+| AverageDiscountedReturn | 0.944                   |
+| AverageReturn           | 1.03                    |
+| EnvExecTime             | 28.2                    |
+| Itr                     | 35                      |
+| MaxReturn               | 3.06                    |
+| MinReturn               | -0.815                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.1                    |
+| StdReturn               | 0.499                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 36                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 35 ok=True flags=[]
+
+ ---------------- Iteration 36 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 36]
+  Total actions: 200000
+  Local (0): 70322 (35.2%)
+  MEC (1): 108855 (54.4%)
+  V2V (2): 20823 (10.4%)
+Processing samples...
+average task losses:  0.030969331
+average value losses:  0.05038285
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 36: 778.1513
+-----------------------------------------------------
+| Average energy,         | 778                     |
+| Average greedy latency, | 636                     |
+| Average latency,        | 837                     |
+| Average reward,         | 0.966                   |
+| AverageDiscountedReturn | 0.886                   |
+| AverageReturn           | 0.966                   |
+| EnvExecTime             | 28.1                    |
+| Itr                     | 36                      |
+| MaxReturn               | 4.4                     |
+| MinReturn               | -0.735                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.2                    |
+| StdReturn               | 0.513                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 37                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 36 ok=True flags=[]
+
+ ---------------- Iteration 37 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 37]
+  Total actions: 200000
+  Local (0): 70578 (35.3%)
+  MEC (1): 109049 (54.5%)
+  V2V (2): 20373 (10.2%)
+Processing samples...
+average task losses:  -0.0076668425
+average value losses:  0.047060505
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 37: 787.1444
+-----------------------------------------------------
+| Average energy,         | 787                     |
+| Average greedy latency, | 641                     |
+| Average latency,        | 839                     |
+| Average reward,         | 0.926                   |
+| AverageDiscountedReturn | 0.85                    |
+| AverageReturn           | 0.926                   |
+| EnvExecTime             | 27.7                    |
+| Itr                     | 37                      |
+| MaxReturn               | 2.56                    |
+| MinReturn               | -0.522                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.6                    |
+| StdReturn               | 0.402                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 38                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 37 ok=True flags=[]
+
+ ---------------- Iteration 38 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 38]
+  Total actions: 200000
+  Local (0): 72405 (36.2%)
+  MEC (1): 107570 (53.8%)
+  V2V (2): 20025 (10.0%)
+Processing samples...
+average task losses:  -0.008026325
+average value losses:  0.0626759
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 38: 806.6238
+-----------------------------------------------------
+| Average energy,         | 807                     |
+| Average greedy latency, | 633                     |
+| Average latency,        | 853                     |
+| Average reward,         | 0.998                   |
+| AverageDiscountedReturn | 0.912                   |
+| AverageReturn           | 0.998                   |
+| EnvExecTime             | 27.5                    |
+| Itr                     | 38                      |
+| MaxReturn               | 3.26                    |
+| MinReturn               | -0.52                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.3                    |
+| StdReturn               | 0.497                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 39                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 38 ok=True flags=[]
+
+ ---------------- Iteration 39 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 39]
+  Total actions: 200000
+  Local (0): 75658 (37.8%)
+  MEC (1): 105464 (52.7%)
+  V2V (2): 18878 (9.4%)
+Processing samples...
+average task losses:  0.082814924
+average value losses:  0.06144437
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 39: 792.0000
+-----------------------------------------------------
+| Average energy,         | 792                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 830                     |
+| Average reward,         | 1.11                    |
+| AverageDiscountedReturn | 1.01                    |
+| AverageReturn           | 1.11                    |
+| EnvExecTime             | 26                      |
+| Itr                     | 39                      |
+| MaxReturn               | 4.55                    |
+| MinReturn               | -0.807                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.3                    |
+| StdReturn               | 0.556                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 40                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 39 ok=True flags=[]
+
+ ---------------- Iteration 40 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 40]
+  Total actions: 200000
+  Local (0): 78626 (39.3%)
+  MEC (1): 103992 (52.0%)
+  V2V (2): 17382 (8.7%)
+Processing samples...
+average task losses:  -0.028131004
+average value losses:  0.05743883
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 40: 794.5543
+-----------------------------------------------------
+| Average energy,         | 795                     |
+| Average greedy latency, | 622                     |
+| Average latency,        | 824                     |
+| Average reward,         | 1.04                    |
+| AverageDiscountedReturn | 0.945                   |
+| AverageReturn           | 1.04                    |
+| EnvExecTime             | 26.4                    |
+| Itr                     | 40                      |
+| MaxReturn               | 3.2                     |
+| MinReturn               | -0.642                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.2                    |
+| StdReturn               | 0.473                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 41                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 40 ok=True flags=[]
+
+ ---------------- Iteration 41 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 41]
+  Total actions: 200000
+  Local (0): 83563 (41.8%)
+  MEC (1): 100408 (50.2%)
+  V2V (2): 16029 (8.0%)
+Processing samples...
+average task losses:  0.05094535
+average value losses:  0.06073153
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 41: 772.9210
+-----------------------------------------------------
+| Average energy,         | 773                     |
+| Average greedy latency, | 600                     |
+| Average latency,        | 821                     |
+| Average reward,         | 1.14                    |
+| AverageDiscountedReturn | 1.04                    |
+| AverageReturn           | 1.14                    |
+| EnvExecTime             | 25.5                    |
+| Itr                     | 41                      |
+| MaxReturn               | 3.6                     |
+| MinReturn               | -0.586                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.6                    |
+| StdReturn               | 0.512                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 42                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 41 ok=True flags=[]
+
+ ---------------- Iteration 42 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 42]
+  Total actions: 200000
+  Local (0): 86519 (43.3%)
+  MEC (1): 99255 (49.6%)
+  V2V (2): 14226 (7.1%)
+Processing samples...
+average task losses:  -0.0017266151
+average value losses:  0.060428213
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 42: 764.2810
+-----------------------------------------------------
+| Average energy,         | 764                     |
+| Average greedy latency, | 607                     |
+| Average latency,        | 822                     |
+| Average reward,         | 1.12                    |
+| AverageDiscountedReturn | 1.02                    |
+| AverageReturn           | 1.12                    |
+| EnvExecTime             | 27.1                    |
+| Itr                     | 42                      |
+| MaxReturn               | 3.73                    |
+| MinReturn               | -0.388                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.2                    |
+| StdReturn               | 0.528                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 43                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 42 ok=True flags=[]
+
+ ---------------- Iteration 43 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 43]
+  Total actions: 200000
+  Local (0): 87987 (44.0%)
+  MEC (1): 99872 (49.9%)
+  V2V (2): 12141 (6.1%)
+Processing samples...
+average task losses:  -0.020343537
+average value losses:  0.05184211
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 43: 758.8439
+-----------------------------------------------------
+| Average energy,         | 759                     |
+| Average greedy latency, | 632                     |
+| Average latency,        | 806                     |
+| Average reward,         | 1.02                    |
+| AverageDiscountedReturn | 0.933                   |
+| AverageReturn           | 1.02                    |
+| EnvExecTime             | 28.4                    |
+| Itr                     | 43                      |
+| MaxReturn               | 3.47                    |
+| MinReturn               | -0.671                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.2                    |
+| StdReturn               | 0.491                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 44                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 43 ok=True flags=[]
+
+ ---------------- Iteration 44 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 44]
+  Total actions: 200000
+  Local (0): 88474 (44.2%)
+  MEC (1): 99822 (49.9%)
+  V2V (2): 11704 (5.9%)
+Processing samples...
+average task losses:  0.04288746
+average value losses:  0.048769373
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 44: 777.9036
+-----------------------------------------------------
+| Average energy,         | 778                     |
+| Average greedy latency, | 625                     |
+| Average latency,        | 801                     |
+| Average reward,         | 1.07                    |
+| AverageDiscountedReturn | 0.973                   |
+| AverageReturn           | 1.07                    |
+| EnvExecTime             | 26.2                    |
+| Itr                     | 44                      |
+| MaxReturn               | 2.94                    |
+| MinReturn               | -1.03                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.2                    |
+| StdReturn               | 0.424                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 45                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 44 ok=True flags=[]
+
+ ---------------- Iteration 45 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 45]
+  Total actions: 200000
+  Local (0): 87783 (43.9%)
+  MEC (1): 100297 (50.1%)
+  V2V (2): 11920 (6.0%)
+Processing samples...
+average task losses:  0.025659302
+average value losses:  0.070697285
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 45: 721.7502
+-----------------------------------------------------
+| Average energy,         | 722                     |
+| Average greedy latency, | 586                     |
+| Average latency,        | 794                     |
+| Average reward,         | 1.28                    |
+| AverageDiscountedReturn | 1.16                    |
+| AverageReturn           | 1.28                    |
+| EnvExecTime             | 26.3                    |
+| Itr                     | 45                      |
+| MaxReturn               | 4.14                    |
+| MinReturn               | -0.638                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.3                    |
+| StdReturn               | 0.542                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 46                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 45 ok=True flags=[]
+
+ ---------------- Iteration 46 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 46]
+  Total actions: 200000
+  Local (0): 85604 (42.8%)
+  MEC (1): 103371 (51.7%)
+  V2V (2): 11025 (5.5%)
+Processing samples...
+average task losses:  0.027685804
+average value losses:  0.042705655
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 46: 752.2704
+-----------------------------------------------------
+| Average energy,         | 752                     |
+| Average greedy latency, | 625                     |
+| Average latency,        | 807                     |
+| Average reward,         | 1.04                    |
+| AverageDiscountedReturn | 0.951                   |
+| AverageReturn           | 1.04                    |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 46                      |
+| MaxReturn               | 3.17                    |
+| MinReturn               | -0.337                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.8                    |
+| StdReturn               | 0.478                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 47                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 46 ok=True flags=[]
+
+ ---------------- Iteration 47 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 47]
+  Total actions: 200000
+  Local (0): 82748 (41.4%)
+  MEC (1): 106123 (53.1%)
+  V2V (2): 11129 (5.6%)
+Processing samples...
+average task losses:  0.07812846
+average value losses:  0.051998485
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 47: 730.1207
+-----------------------------------------------------
+| Average energy,         | 730                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 801                     |
+| Average reward,         | 1.09                    |
+| AverageDiscountedReturn | 0.995                   |
+| AverageReturn           | 1.09                    |
+| EnvExecTime             | 27.8                    |
+| Itr                     | 47                      |
+| MaxReturn               | 4.56                    |
+| MinReturn               | -0.556                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.519                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 48                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 47 ok=True flags=[]
+
+ ---------------- Iteration 48 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 48]
+  Total actions: 200000
+  Local (0): 79334 (39.7%)
+  MEC (1): 108513 (54.3%)
+  V2V (2): 12153 (6.1%)
+Processing samples...
+average task losses:  -0.007956168
+average value losses:  0.08933287
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 48: 722.7259
+-----------------------------------------------------
+| Average energy,         | 723                     |
+| Average greedy latency, | 597                     |
+| Average latency,        | 782                     |
+| Average reward,         | 1.27                    |
+| AverageDiscountedReturn | 1.15                    |
+| AverageReturn           | 1.27                    |
+| EnvExecTime             | 27                      |
+| Itr                     | 48                      |
+| MaxReturn               | 4.4                     |
+| MinReturn               | -0.569                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.546                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 49                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 48 ok=True flags=[]
+
+ ---------------- Iteration 49 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+
+[Action Choices - Iteration 49]
+  Total actions: 200000
+  Local (0): 77494 (38.7%)
+  MEC (1): 110478 (55.2%)
+  V2V (2): 12028 (6.0%)
+Processing samples...
+average task losses:  -0.012990669
+average value losses:  0.07993283
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 49: 714.1405
+-----------------------------------------------------
+| Average energy,         | 714                     |
+| Average greedy latency, | 594                     |
+| Average latency,        | 796                     |
+| Average reward,         | 1.24                    |
+| AverageDiscountedReturn | 1.12                    |
+| AverageReturn           | 1.24                    |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 49                      |
+| MaxReturn               | 3.5                     |
+| MinReturn               | -0.572                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.4                    |
+| StdReturn               | 0.534                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 50                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 49 ok=True flags=[]

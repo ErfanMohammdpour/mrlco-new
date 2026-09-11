@@ -1,0 +1,8 @@
+Kish GPU log archive. Copied 2026-09-06. Not paper results.
+
+gpu_logs/  = /opt/margo/logs/*.log
+  gpu_audit5.log gpu_bc50.log gpu_bccont.log gpu_bconly.log
+  gpu_diag200.log gpu_lat50.log gpu_par5.log gpu_par500.log
+  gpu_pomo50.log gpu_smoke.log gpu_train0.log
+
+runs/      = small per-run JSON + trainer logs/ (no traj jsonl, no ckpt)

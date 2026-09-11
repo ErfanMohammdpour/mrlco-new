@@ -1,0 +1,42 @@
+Logging to /work/runs/phase4/gpu_smoke/seed_0/logs
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 873                     |
+| Average greedy latency, | 624                     |
+| Average latency,        | 986                     |
+| Average reward,         | 0.391                   |
+| AverageDiscountedReturn | 0.364                   |
+| AverageReturn           | 0.391                   |
+| EnvExecTime             | 297                     |
+| Itr                     | 0                       |
+| MaxReturn               | 0.9                     |
+| MinReturn               | -0.676                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 27                      |
+| StdReturn               | 0.166                   |
+| checkpoint_is_best_val  | 1                       |
+| checkpoint_selection... | validation_query_com... |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 1                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| validation_query_com... | 0.409                   |
+| validation_query_mea... | 879                     |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------

@@ -213,6 +213,35 @@ class TestShuffleLeftoverAndRejects(unittest.TestCase):
         idx = select_support_rows(20, 20, np.random.RandomState(0))
         np.testing.assert_array_equal(idx, np.arange(20))
 
+    def test_pomo_mean_zero_per_instance(self):
+        from spec.learning_ops import (
+            apply_pomo_token_advantages,
+            instance_ids_from_order,
+            pomo_episode_advantages,
+        )
+
+        ids = np.array([0, 0, 1, 1])
+        r = np.array([1.0, 3.0, 10.0, 12.0])
+        adv = pomo_episode_advantages(r, ids)
+        np.testing.assert_allclose(adv, [-1.0, 1.0, -1.0, 1.0])
+        tokens = np.array([[1.0, 0.0], [2.0, 1.0], [4.0, 6.0], [5.0, 7.0]])
+        tok_adv = apply_pomo_token_advantages(tokens, 2)
+        self.assertEqual(tok_adv.shape, (4, 2))
+        np.testing.assert_allclose(tok_adv[:, 0], tok_adv[:, 1])
+        cycle = instance_ids_from_order(4, 2)
+        np.testing.assert_allclose(tok_adv[cycle == 0].mean(), 0.0, atol=1e-12)
+        np.testing.assert_allclose(tok_adv[cycle == 1].mean(), 0.0, atol=1e-12)
+
+    def test_elite_picks_lowest_cost_per_instance(self):
+        from spec.learning_ops import instance_ids_from_order, select_elite_per_instance
+
+        costs = np.array([5.0, 1.0, 9.0, 4.0, 2.0, 8.0])
+        ids = instance_ids_from_order(6, 3)
+        pick = select_elite_per_instance(costs, ids, 3)
+        np.testing.assert_array_equal(pick, [3, 1, 5])
+        with self.assertRaises(ValueError):
+            select_elite_per_instance(costs, ids, 2)
+
     def test_mean_pg_rejects_k_zero(self):
         with self.assertRaises(ValueError):
             mean_pseudogradient([np.array([1.0])], [[np.array([0.0])]], alpha=5e-4, k_steps=0)

@@ -5,6 +5,7 @@ import time
 from utils import logger
 
 from spec.eval_protocol import protocol_log_kvs
+from spec.train_audit import health_verdict, task_spec_records
 
 FROZEN_PPO_BATCH = 20
 FROZEN_K_STEPS = 3
@@ -28,7 +29,10 @@ class Trainer(object):
                 validation_interval=50,
                 held_out_evaluator=None,
                 ckpt_dir="./meta_model_inner_step1",
-                write_training_report=False):
+                write_training_report=False,
+                audit_writer=None,
+                critic_warmup_iters=0,
+                bc_policy=None):
         if int(inner_batch_size) != FROZEN_PPO_BATCH:
             raise ValueError("v0.1 inner_batch_size / ppo_batch_size_trajectories must be 20")
         if int(validation_interval) != FROZEN_VALIDATION_INTERVAL:
@@ -53,7 +57,33 @@ class Trainer(object):
         self.best_val_composite = None
         self.ckpt_dir = ckpt_dir
         self.write_training_report = bool(write_training_report)
+        self.audit_writer = audit_writer
+        self.critic_warmup_iters = int(critic_warmup_iters)
+        self.bc_policy = bc_policy
         os.makedirs(self.ckpt_dir, exist_ok=True)
+
+    def _audit(self, itr, name, payload=None):
+        if self.audit_writer is None:
+            return
+        self.audit_writer.stage(itr, name, payload or {})
+
+    def _core_vars(self):
+        sess = tf.compat.v1.get_default_session()
+        return sess.run(self.policy.core_policy.get_trainable_variables())
+
+    def _task_vars(self):
+        sess = tf.compat.v1.get_default_session()
+        out = []
+        for task_id in range(self.algo.meta_batch_size):
+            out.append(sess.run(self.policy.meta_policies[task_id].get_trainable_variables()))
+        return out
+
+    def _param_l2(self, a, b):
+        total = 0.0
+        for x, y in zip(a, b):
+            d = np.asarray(x, dtype=np.float64) - np.asarray(y, dtype=np.float64)
+            total += float(np.sum(d * d))
+        return total ** 0.5
 
     def _ckpt_path(self, name):
         return os.path.join(self.ckpt_dir, name)
@@ -103,11 +133,24 @@ class Trainer(object):
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
+            if self.audit_writer is not None:
+                self.audit_writer.begin_iter(itr)
             self.algo.sync_task_policies_from_core()
+            theta0 = self._core_vars() if self.audit_writer is not None else None
+            self._audit(itr, "sync_task_policies_from_core")
             logger.log("Sampling set of tasks/goals for this meta-batch...")
 
             task_specs = self.sampler.update_tasks()
+            self._audit(itr, "sample_tasks", {"tasks": task_spec_records(task_specs, self.env)})
+            if self.audit_writer is not None:
+                self.audit_writer.dump_graphs(itr, self.env, task_specs)
             paths = self.sampler.obtain_samples(log=False, log_prefix='')
+            ppo_summary = None
+            if self.audit_writer is not None:
+                _, ppo_summary = self.audit_writer.dump_paths(
+                    itr, "trajs_ppo.jsonl", paths, task_specs, self.env
+                )
+                self._audit(itr, "obtain_samples_ppo", ppo_summary)
 
             if self.print_action_choices and (self.action_print_interval == 0 or itr == 0 or itr % self.action_print_interval == 0):
                 all_actions = []
@@ -143,8 +186,38 @@ class Trainer(object):
 
             logger.log("Processing samples...")
             samples_data = self.sampler_processor.process_samples(paths, log=False, log_prefix='')
+            self._audit(itr, "process_samples_ppo", {
+                "n_tasks": len(samples_data),
+                "adv_mean": float(np.mean([np.mean(s["advantages"]) for s in samples_data])),
+                "adv_std": float(np.mean([np.std(s["advantages"]) for s in samples_data])),
+                "return_mean": float(np.mean([np.mean(s["returns"]) for s in samples_data])),
+            })
 
-            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, batch_size=self.inner_batch_size )
+            update_mode = "publication"
+            if float(getattr(self.algo, "bc_kl_coef", 0.0) or 0.0) > 0:
+                if itr < self.critic_warmup_iters:
+                    update_mode = "vf_only"
+                else:
+                    update_mode = "kl_bc"
+            ppo_kwargs = {"batch_size": self.inner_batch_size}
+            if update_mode != "publication":
+                ppo_kwargs["update_mode"] = update_mode
+                ppo_kwargs["bc_policy"] = self.bc_policy
+            policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, **ppo_kwargs)
+            inner_payload = {
+                "policy_losses": policy_losses,
+                "value_losses": value_losses,
+                "policy_loss_mean": float(np.mean(policy_losses)),
+                "value_loss_mean": float(np.mean(value_losses)),
+                "k_steps": FROZEN_K_STEPS,
+                "inner_update_mode": update_mode,
+            }
+            kl_vals = getattr(self.algo, "last_kl_bc", None)
+            if kl_vals:
+                inner_payload["kl_bc_mean"] = float(np.mean(kl_vals))
+                logger.logkv("kl_bc_mean", inner_payload["kl_bc_mean"])
+            logger.logkv("inner_update_mode", update_mode)
+            self._audit(itr, "inner_ppo", inner_payload)
 
             print("average task losses: ", np.mean(policy_losses))
             avg_loss.append(np.mean(policy_losses))
@@ -155,10 +228,24 @@ class Trainer(object):
 
             logger.log("Evaluating adapted task policies on a fresh support sample")
             new_paths = self.sampler.obtain_samples(log=True, log_prefix='')
+            eval_summary = None
+            if self.audit_writer is not None:
+                _, eval_summary = self.audit_writer.dump_paths(
+                    itr, "trajs_eval.jsonl", new_paths, task_specs, self.env
+                )
+                self._audit(itr, "obtain_samples_eval", eval_summary)
             new_samples_data = self.sampler_processor.process_samples(new_paths, log="all", log_prefix='')
+            self._audit(itr, "process_samples_eval")
 
             logger.log("Optimizing policy...")
+            adapted = self._task_vars() if self.audit_writer is not None else None
             self.algo.UpdateMetaPolicy()
+            if self.audit_writer is not None:
+                theta1 = self._core_vars()
+                self._audit(itr, "outer_update", {
+                    "core_delta_l2": self._param_l2(theta0, theta1),
+                    "mean_adapt_l2": float(np.mean([self._param_l2(theta0, th) for th in adapted])),
+                })
 
             ret = np.array([])
             for i in range(len(new_samples_data)):
@@ -196,10 +283,31 @@ class Trainer(object):
             self._log_protocol_fields(itr, FROZEN_K_STEPS)
 
             if itr % self.validation_interval == 0:
-                self._run_validation(itr)
+                k0, k3 = self._run_validation(itr)
+                self._audit(itr, "validation", {"k0": k0, "k3": k3})
 
             logger.dumpkvs()
             avg_ret.append(avg_reward)
+
+            if self.audit_writer is not None:
+                health_src = eval_summary if eval_summary is not None else (ppo_summary or {})
+                health = health_verdict(
+                    health_src,
+                    inner_policy_losses=policy_losses,
+                    inner_value_losses=value_losses,
+                    k_steps=FROZEN_K_STEPS,
+                )
+                self.audit_writer.finish_iter(itr, {
+                    "itr": itr,
+                    "wall_s": time.time() - itr_start_time,
+                    "avg_reward": float(avg_reward),
+                    "avg_latency": float(avg_latency),
+                    "ppo_sample": ppo_summary,
+                    "eval_sample": eval_summary,
+                    "inner": inner_payload,
+                    "health": health,
+                })
+                logger.log("audit health itr %d ok=%s flags=%s" % (itr, health["ok"], health["flags"]))
 
             if itr % self.save_interval == 0:
                 self.policy.core_policy.save_variables(
@@ -241,7 +349,12 @@ class Trainer(object):
         return avg_ret, avg_loss, avg_latencies
 
 
-def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_step1"):
+def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_step1",
+                               audit_writer=None, print_action_choices=None,
+                               parallel=False, reward_mode="publication",
+                               learning_mode="publication",
+                               bc_kl_coef=0.0, critic_warmup_iters=0,
+                               vocab_size=3, use_energy=True):
     """Frozen v0.1 train+val stack. Caller must set CUDA_VISIBLE_DEVICES before importing TF."""
     from env.mec_offloaing_envs.offloading_env import Resources
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
@@ -273,12 +386,32 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
     PPO_BATCH_SIZE = 20
     SUPPORT_GRAPHS = 20
     VALIDATION_INTERVAL = 50
-    PRINT_ACTION_CHOICES = False
+    PRINT_ACTION_CHOICES = False if print_action_choices is None else bool(print_action_choices)
     ACTION_PRINT_INTERVAL = 0
-    USE_ENERGY = True
+    vocab_size = int(vocab_size)
+    if vocab_size not in (2, 3):
+        raise ValueError("vocab_size must be 2 or 3, got %r" % (vocab_size,))
+    USE_ENERGY = bool(use_energy)
+    if learning_mode not in ("publication", "pomo_elite", "bc_greedy_mec", "kl_bc_ppo"):
+        raise ValueError(
+            "learning_mode must be publication, pomo_elite, bc_greedy_mec, or kl_bc_ppo, got %r"
+            % (learning_mode,)
+        )
+    pomo_elite = learning_mode == "pomo_elite"
+    support_select = "elite" if pomo_elite else "random"
+    kl_coef = float(bc_kl_coef)
+    warmup = int(critic_warmup_iters)
+    if learning_mode == "kl_bc_ppo":
+        if kl_coef <= 0:
+            raise ValueError("kl_bc_ppo requires bc_kl_coef > 0")
+        if warmup < 1:
+            raise ValueError("kl_bc_ppo requires critic_warmup_iters >= 1")
+    elif kl_coef != 0.0 or warmup != 0:
+        raise ValueError("bc_kl_coef/critic_warmup_iters only valid for kl_bc_ppo")
 
     ENERGY_CONFIG = {
         'use_energy': USE_ENERGY,
+        'reward_mode': str(reward_mode or "publication"),
         'energy_weight': 0.5,
         'latency_weight': 0.5,
         'rho': 1.0,
@@ -310,6 +443,8 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                 graph_file_paths=train_paths,
                                 time_major=False)
     env.support_graphs_per_task = SUPPORT_GRAPHS
+    if vocab_size == 2:
+        env.greedy_actions = (0, 1)
 
     greedy_result = env.greedy_solution()
     if env.resource_cluster.use_energy:
@@ -319,20 +454,22 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
 
     baseline = ValueFunctionBaseline()
     meta_policy = MetaSeq2SeqPolicy(meta_batch_size=META_BATCH_SIZE, obs_dim=env.input_dim, encoder_units=128, decoder_units=128,
-                                    vocab_size=3)
+                                    vocab_size=vocab_size)
     sampler = Seq2SeqMetaSampler(
         env=env,
         policy=meta_policy,
         rollouts_per_meta_task=1,
         meta_batch_size=META_BATCH_SIZE,
         max_path_length=20000,
-        parallel=False,
+        parallel=bool(parallel),
     )
     sample_processor = Seq2SeqMetaSamplerProcessor(baseline=baseline,
                                                    discount=0.99,
                                                    gae_lambda=0.95,
-                                                   normalize_adv=True,
+                                                   normalize_adv=not pomo_elite,
                                                    positive_adv=False)
+    sample_processor.pomo_elite = pomo_elite
+    sample_processor.pomo_n_instances = SUPPORT_GRAPHS
     algo = MRLCO(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
@@ -344,7 +481,18 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                          value_clip_epsilon=0.2,
                          support_trajectories=SUPPORT_GRAPHS,
                          ppo_batch_size_trajectories=PPO_BATCH_SIZE,
-                         rng=np.random.RandomState(SEED))
+                         rng=np.random.RandomState(SEED),
+                         support_select=support_select,
+                         bc_kl_coef=kl_coef)
+    bc_policy = None
+    if learning_mode == "kl_bc_ppo":
+        bc_policy = Seq2SeqPolicy(
+            obs_dim=env.input_dim,
+            encoder_units=128,
+            decoder_units=128,
+            vocab_size=vocab_size,
+            name="bc_frozen",
+        )
 
     val_paths = validation_graph_prefixes()
     assert_held_out_prefixes(val_paths, "validation")
@@ -353,10 +501,12 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                     graph_number=100,
                                     graph_file_paths=val_paths,
                                     time_major=False)
+    if vocab_size == 2:
+        val_env.greedy_actions = (0, 1)
     val_policy = Seq2SeqPolicy(obs_dim=env.input_dim,
                                encoder_units=128,
                                decoder_units=128,
-                               vocab_size=3,
+                               vocab_size=vocab_size,
                                name="validation_policy")
     val_sampler = Seq2SeqSampler(val_env,
                                  val_policy,
@@ -367,8 +517,10 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
     val_processor = Seq2SeSamplerProcessor(baseline=ValueFunctionBaseline(),
                                            discount=0.99,
                                            gae_lambda=0.95,
-                                           normalize_adv=True,
+                                           normalize_adv=not pomo_elite,
                                            positive_adv=False)
+    val_processor.pomo_elite = pomo_elite
+    val_processor.pomo_n_instances = SUPPORT_GRAPHS
     val_ppo = PPO(policy=val_policy,
                   meta_sampler=val_sampler,
                   meta_sampler_process=val_processor,
@@ -376,7 +528,8 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                   num_inner_grad_steps=K_STEPS,
                   clip_value=0.2,
                   max_grad_norm=0.5,
-                  rng=np.random.RandomState(SEED + 1))
+                  rng=np.random.RandomState(SEED + 1),
+                  support_select=support_select)
     held_out = HeldOutQueryEvaluator(
         env=val_env,
         policy=val_policy,
@@ -400,7 +553,10 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                         seed=SEED,
                         validation_interval=VALIDATION_INTERVAL,
                         held_out_evaluator=held_out,
-                        ckpt_dir=ckpt_dir)
+                        ckpt_dir=ckpt_dir,
+                        audit_writer=audit_writer,
+                        critic_warmup_iters=warmup,
+                        bc_policy=bc_policy)
     return trainer, algo
 
 

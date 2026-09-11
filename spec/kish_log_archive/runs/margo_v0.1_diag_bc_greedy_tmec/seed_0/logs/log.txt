@@ -1,0 +1,1905 @@
+Logging to /work/runs/phase4/margo_v0.1_diag_bc_greedy_tmec/seed_0/logs
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 533                     |
+| Average greedy latency, | 612                     |
+| Average latency,        | 668                     |
+| Average reward,         | 1.34                    |
+| AverageDiscountedReturn | 1.23                    |
+| AverageReturn           | 1.34                    |
+| EnvExecTime             | 28.9                    |
+| Itr                     | 0                       |
+| MaxReturn               | 4.18                    |
+| MinReturn               | -0.292                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.2                    |
+| StdReturn               | 0.7                     |
+| checkpoint_is_best_val  | 1                       |
+| checkpoint_selection... | validation_query_com... |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 1                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| validation_query_com... | 1.43                    |
+| validation_query_mea... | 716                     |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 0 ok=True flags=[]
+
+ ---------------- Iteration 1 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 608                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 699                     |
+| Average reward,         | 1.36                    |
+| AverageDiscountedReturn | 1.25                    |
+| AverageReturn           | 1.36                    |
+| EnvExecTime             | 27.7                    |
+| Itr                     | 1                       |
+| MaxReturn               | 4.56                    |
+| MinReturn               | -0.123                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.706                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 2                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 1 ok=True flags=[]
+
+ ---------------- Iteration 2 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 768                     |
+| Average greedy latency, | 622                     |
+| Average latency,        | 792                     |
+| Average reward,         | 1.15                    |
+| AverageDiscountedReturn | 1.06                    |
+| AverageReturn           | 1.15                    |
+| EnvExecTime             | 29.3                    |
+| Itr                     | 2                       |
+| MaxReturn               | 4.15                    |
+| MinReturn               | -0.435                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.3                    |
+| StdReturn               | 0.618                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 3                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 2 ok=True flags=[]
+
+ ---------------- Iteration 3 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 735                     |
+| Average greedy latency, | 589                     |
+| Average latency,        | 798                     |
+| Average reward,         | 1.28                    |
+| AverageDiscountedReturn | 1.17                    |
+| AverageReturn           | 1.28                    |
+| EnvExecTime             | 28                      |
+| Itr                     | 3                       |
+| MaxReturn               | 3.59                    |
+| MinReturn               | -0.081                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.566                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 4                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 3 ok=True flags=[]
+
+ ---------------- Iteration 4 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 839                     |
+| Average greedy latency, | 611                     |
+| Average latency,        | 821                     |
+| Average reward,         | 1.13                    |
+| AverageDiscountedReturn | 1.04                    |
+| AverageReturn           | 1.13                    |
+| EnvExecTime             | 27.1                    |
+| Itr                     | 4                       |
+| MaxReturn               | 4.24                    |
+| MinReturn               | -0.42                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.8                    |
+| StdReturn               | 0.615                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 5                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 4 ok=True flags=[]
+
+ ---------------- Iteration 5 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 955                     |
+| Average greedy latency, | 629                     |
+| Average latency,        | 864                     |
+| Average reward,         | 0.986                   |
+| AverageDiscountedReturn | 0.902                   |
+| AverageReturn           | 0.986                   |
+| EnvExecTime             | 26.8                    |
+| Itr                     | 5                       |
+| MaxReturn               | 3.76                    |
+| MinReturn               | -0.42                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 33                      |
+| StdReturn               | 0.495                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 6                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 5 ok=True flags=[]
+
+ ---------------- Iteration 6 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 956                     |
+| Average greedy latency, | 600                     |
+| Average latency,        | 903                     |
+| Average reward,         | 1.08                    |
+| AverageDiscountedReturn | 0.978                   |
+| AverageReturn           | 1.08                    |
+| EnvExecTime             | 27                      |
+| Itr                     | 6                       |
+| MaxReturn               | 3.08                    |
+| MinReturn               | -0.447                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.504                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 7                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 6 ok=True flags=[]
+
+ ---------------- Iteration 7 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 966                     |
+| Average greedy latency, | 607                     |
+| Average latency,        | 897                     |
+| Average reward,         | 0.953                   |
+| AverageDiscountedReturn | 0.867                   |
+| AverageReturn           | 0.953                   |
+| EnvExecTime             | 26.7                    |
+| Itr                     | 7                       |
+| MaxReturn               | 4.23                    |
+| MinReturn               | -0.817                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.8                    |
+| StdReturn               | 0.447                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 8                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 7 ok=True flags=[]
+
+ ---------------- Iteration 8 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 970                     |
+| Average greedy latency, | 609                     |
+| Average latency,        | 898                     |
+| Average reward,         | 0.944                   |
+| AverageDiscountedReturn | 0.858                   |
+| AverageReturn           | 0.944                   |
+| EnvExecTime             | 27.4                    |
+| Itr                     | 8                       |
+| MaxReturn               | 2.7                     |
+| MinReturn               | -0.326                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.9                    |
+| StdReturn               | 0.462                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 9                       |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 8 ok=True flags=[]
+
+ ---------------- Iteration 9 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 1.01e+03                |
+| Average greedy latency, | 597                     |
+| Average latency,        | 931                     |
+| Average reward,         | 0.968                   |
+| AverageDiscountedReturn | 0.877                   |
+| AverageReturn           | 0.968                   |
+| EnvExecTime             | 25.8                    |
+| Itr                     | 9                       |
+| MaxReturn               | 3.15                    |
+| MinReturn               | -0.402                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 33.2                    |
+| StdReturn               | 0.457                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 10                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 9 ok=True flags=[]
+
+ ---------------- Iteration 10 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 967                     |
+| Average greedy latency, | 615                     |
+| Average latency,        | 893                     |
+| Average reward,         | 0.979                   |
+| AverageDiscountedReturn | 0.89                    |
+| AverageReturn           | 0.979                   |
+| EnvExecTime             | 27.2                    |
+| Itr                     | 10                      |
+| MaxReturn               | 3.21                    |
+| MinReturn               | -0.388                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.469                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 11                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 10 ok=True flags=[]
+
+ ---------------- Iteration 11 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 984                     |
+| Average greedy latency, | 618                     |
+| Average latency,        | 918                     |
+| Average reward,         | 0.882                   |
+| AverageDiscountedReturn | 0.803                   |
+| AverageReturn           | 0.882                   |
+| EnvExecTime             | 27.9                    |
+| Itr                     | 11                      |
+| MaxReturn               | 2.77                    |
+| MinReturn               | -0.527                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.432                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 12                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 11 ok=True flags=[]
+
+ ---------------- Iteration 12 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 935                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 904                     |
+| Average reward,         | 0.957                   |
+| AverageDiscountedReturn | 0.869                   |
+| AverageReturn           | 0.957                   |
+| EnvExecTime             | 27                      |
+| Itr                     | 12                      |
+| MaxReturn               | 3.05                    |
+| MinReturn               | -0.707                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.2                    |
+| StdReturn               | 0.491                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 13                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 12 ok=True flags=[]
+
+ ---------------- Iteration 13 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 920                     |
+| Average greedy latency, | 592                     |
+| Average latency,        | 909                     |
+| Average reward,         | 1.07                    |
+| AverageDiscountedReturn | 0.968                   |
+| AverageReturn           | 1.07                    |
+| EnvExecTime             | 27.1                    |
+| Itr                     | 13                      |
+| MaxReturn               | 3.32                    |
+| MinReturn               | -0.634                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 30.6                    |
+| StdReturn               | 0.511                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 14                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 13 ok=True flags=[]
+
+ ---------------- Iteration 14 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 909                     |
+| Average greedy latency, | 612                     |
+| Average latency,        | 867                     |
+| Average reward,         | 0.996                   |
+| AverageDiscountedReturn | 0.906                   |
+| AverageReturn           | 0.996                   |
+| EnvExecTime             | 27.5                    |
+| Itr                     | 14                      |
+| MaxReturn               | 3.44                    |
+| MinReturn               | -0.886                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.504                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 15                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 14 ok=True flags=[]
+
+ ---------------- Iteration 15 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 902                     |
+| Average greedy latency, | 621                     |
+| Average latency,        | 865                     |
+| Average reward,         | 0.979                   |
+| AverageDiscountedReturn | 0.891                   |
+| AverageReturn           | 0.979                   |
+| EnvExecTime             | 27.8                    |
+| Itr                     | 15                      |
+| MaxReturn               | 3.6                     |
+| MinReturn               | -0.762                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.477                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 16                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 15 ok=True flags=[]
+
+ ---------------- Iteration 16 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 856                     |
+| Average greedy latency, | 621                     |
+| Average latency,        | 841                     |
+| Average reward,         | 1.08                    |
+| AverageDiscountedReturn | 0.982                   |
+| AverageReturn           | 1.08                    |
+| EnvExecTime             | 28.2                    |
+| Itr                     | 16                      |
+| MaxReturn               | 4.11                    |
+| MinReturn               | -0.554                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.8                    |
+| StdReturn               | 0.53                    |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 17                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 16 ok=True flags=[]
+
+ ---------------- Iteration 17 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 880                     |
+| Average greedy latency, | 620                     |
+| Average latency,        | 869                     |
+| Average reward,         | 0.99                    |
+| AverageDiscountedReturn | 0.9                     |
+| AverageReturn           | 0.99                    |
+| EnvExecTime             | 28.8                    |
+| Itr                     | 17                      |
+| MaxReturn               | 3.42                    |
+| MinReturn               | -0.52                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.498                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 18                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 17 ok=True flags=[]
+
+ ---------------- Iteration 18 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 830                     |
+| Average greedy latency, | 616                     |
+| Average latency,        | 823                     |
+| Average reward,         | 0.998                   |
+| AverageDiscountedReturn | 0.909                   |
+| AverageReturn           | 0.998                   |
+| EnvExecTime             | 27.3                    |
+| Itr                     | 18                      |
+| MaxReturn               | 3.06                    |
+| MinReturn               | -0.649                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.6                    |
+| StdReturn               | 0.453                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 19                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 18 ok=True flags=[]
+
+ ---------------- Iteration 19 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 813                     |
+| Average greedy latency, | 603                     |
+| Average latency,        | 839                     |
+| Average reward,         | 1.12                    |
+| AverageDiscountedReturn | 1.02                    |
+| AverageReturn           | 1.12                    |
+| EnvExecTime             | 28                      |
+| Itr                     | 19                      |
+| MaxReturn               | 3.58                    |
+| MinReturn               | -0.504                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.6                    |
+| StdReturn               | 0.51                    |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 20                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 19 ok=True flags=[]
+
+ ---------------- Iteration 20 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 821                     |
+| Average greedy latency, | 632                     |
+| Average latency,        | 811                     |
+| Average reward,         | 1.02                    |
+| AverageDiscountedReturn | 0.934                   |
+| AverageReturn           | 1.02                    |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 20                      |
+| MaxReturn               | 3.43                    |
+| MinReturn               | -0.454                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.4                    |
+| StdReturn               | 0.478                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 21                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 20 ok=True flags=[]
+
+ ---------------- Iteration 21 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 797                     |
+| Average greedy latency, | 620                     |
+| Average latency,        | 820                     |
+| Average reward,         | 1.11                    |
+| AverageDiscountedReturn | 1.01                    |
+| AverageReturn           | 1.11                    |
+| EnvExecTime             | 28.5                    |
+| Itr                     | 21                      |
+| MaxReturn               | 4.04                    |
+| MinReturn               | -0.703                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.8                    |
+| StdReturn               | 0.571                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 22                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 21 ok=True flags=[]
+
+ ---------------- Iteration 22 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 777                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 799                     |
+| Average reward,         | 1.22                    |
+| AverageDiscountedReturn | 1.1                     |
+| AverageReturn           | 1.22                    |
+| EnvExecTime             | 28.4                    |
+| Itr                     | 22                      |
+| MaxReturn               | 3.68                    |
+| MinReturn               | -0.34                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.564                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 23                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 22 ok=True flags=[]
+
+ ---------------- Iteration 23 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 770                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 806                     |
+| Average reward,         | 1.25                    |
+| AverageDiscountedReturn | 1.13                    |
+| AverageReturn           | 1.25                    |
+| EnvExecTime             | 27.5                    |
+| Itr                     | 23                      |
+| MaxReturn               | 3.63                    |
+| MinReturn               | -0.32                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 30.5                    |
+| StdReturn               | 0.597                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 24                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 23 ok=True flags=[]
+
+ ---------------- Iteration 24 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 731                     |
+| Average greedy latency, | 595                     |
+| Average latency,        | 793                     |
+| Average reward,         | 1.25                    |
+| AverageDiscountedReturn | 1.13                    |
+| AverageReturn           | 1.25                    |
+| EnvExecTime             | 29.3                    |
+| Itr                     | 24                      |
+| MaxReturn               | 4.28                    |
+| MinReturn               | -0.417                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.606                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 25                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 24 ok=True flags=[]
+
+ ---------------- Iteration 25 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 731                     |
+| Average greedy latency, | 619                     |
+| Average latency,        | 772                     |
+| Average reward,         | 1.16                    |
+| AverageDiscountedReturn | 1.06                    |
+| AverageReturn           | 1.16                    |
+| EnvExecTime             | 28.4                    |
+| Itr                     | 25                      |
+| MaxReturn               | 3.75                    |
+| MinReturn               | -0.295                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.597                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 26                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 25 ok=True flags=[]
+
+ ---------------- Iteration 26 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 714                     |
+| Average greedy latency, | 624                     |
+| Average latency,        | 774                     |
+| Average reward,         | 1.14                    |
+| AverageDiscountedReturn | 1.03                    |
+| AverageReturn           | 1.14                    |
+| EnvExecTime             | 26.9                    |
+| Itr                     | 26                      |
+| MaxReturn               | 4.41                    |
+| MinReturn               | -0.383                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.612                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 27                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 26 ok=True flags=[]
+
+ ---------------- Iteration 27 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 683                     |
+| Average greedy latency, | 614                     |
+| Average latency,        | 747                     |
+| Average reward,         | 1.2                     |
+| AverageDiscountedReturn | 1.08                    |
+| AverageReturn           | 1.2                     |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 27                      |
+| MaxReturn               | 3.51                    |
+| MinReturn               | -0.402                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.586                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 28                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 27 ok=True flags=[]
+
+ ---------------- Iteration 28 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 662                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 755                     |
+| Average reward,         | 1.31                    |
+| AverageDiscountedReturn | 1.18                    |
+| AverageReturn           | 1.31                    |
+| EnvExecTime             | 28.4                    |
+| Itr                     | 28                      |
+| MaxReturn               | 4.11                    |
+| MinReturn               | -0.281                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.8                    |
+| StdReturn               | 0.625                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 29                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 28 ok=True flags=[]
+
+ ---------------- Iteration 29 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 668                     |
+| Average greedy latency, | 621                     |
+| Average latency,        | 778                     |
+| Average reward,         | 1.23                    |
+| AverageDiscountedReturn | 1.11                    |
+| AverageReturn           | 1.23                    |
+| EnvExecTime             | 28.5                    |
+| Itr                     | 29                      |
+| MaxReturn               | 3.87                    |
+| MinReturn               | -0.679                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 33.2                    |
+| StdReturn               | 0.605                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 30                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 29 ok=True flags=[]
+
+ ---------------- Iteration 30 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 653                     |
+| Average greedy latency, | 610                     |
+| Average latency,        | 767                     |
+| Average reward,         | 1.24                    |
+| AverageDiscountedReturn | 1.12                    |
+| AverageReturn           | 1.24                    |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 30                      |
+| MaxReturn               | 3.66                    |
+| MinReturn               | -0.516                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.1                    |
+| StdReturn               | 0.591                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 31                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 30 ok=True flags=[]
+
+ ---------------- Iteration 31 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 632                     |
+| Average greedy latency, | 606                     |
+| Average latency,        | 751                     |
+| Average reward,         | 1.26                    |
+| AverageDiscountedReturn | 1.14                    |
+| AverageReturn           | 1.26                    |
+| EnvExecTime             | 28.9                    |
+| Itr                     | 31                      |
+| MaxReturn               | 3.8                     |
+| MinReturn               | -0.678                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.599                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 32                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 31 ok=True flags=[]
+
+ ---------------- Iteration 32 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 615                     |
+| Average greedy latency, | 604                     |
+| Average latency,        | 715                     |
+| Average reward,         | 1.27                    |
+| AverageDiscountedReturn | 1.15                    |
+| AverageReturn           | 1.27                    |
+| EnvExecTime             | 26.8                    |
+| Itr                     | 32                      |
+| MaxReturn               | 3.19                    |
+| MinReturn               | -0.0484                 |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 33.4                    |
+| StdReturn               | 0.577                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 33                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 32 ok=True flags=[]
+
+ ---------------- Iteration 33 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 640                     |
+| Average greedy latency, | 625                     |
+| Average latency,        | 764                     |
+| Average reward,         | 1.16                    |
+| AverageDiscountedReturn | 1.05                    |
+| AverageReturn           | 1.16                    |
+| EnvExecTime             | 27.5                    |
+| Itr                     | 33                      |
+| MaxReturn               | 3.4                     |
+| MinReturn               | -0.347                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 33                      |
+| StdReturn               | 0.588                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 34                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 33 ok=True flags=[]
+
+ ---------------- Iteration 34 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 618                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 735                     |
+| Average reward,         | 1.28                    |
+| AverageDiscountedReturn | 1.16                    |
+| AverageReturn           | 1.28                    |
+| EnvExecTime             | 26.7                    |
+| Itr                     | 34                      |
+| MaxReturn               | 3.09                    |
+| MinReturn               | -0.388                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.578                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 35                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 34 ok=True flags=[]
+
+ ---------------- Iteration 35 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 658                     |
+| Average greedy latency, | 624                     |
+| Average latency,        | 754                     |
+| Average reward,         | 1.16                    |
+| AverageDiscountedReturn | 1.05                    |
+| AverageReturn           | 1.16                    |
+| EnvExecTime             | 26.9                    |
+| Itr                     | 35                      |
+| MaxReturn               | 3.45                    |
+| MinReturn               | -0.361                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.2                    |
+| StdReturn               | 0.561                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 36                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 35 ok=True flags=[]
+
+ ---------------- Iteration 36 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 679                     |
+| Average greedy latency, | 636                     |
+| Average latency,        | 760                     |
+| Average reward,         | 1.11                    |
+| AverageDiscountedReturn | 1.01                    |
+| AverageReturn           | 1.11                    |
+| EnvExecTime             | 27.4                    |
+| Itr                     | 36                      |
+| MaxReturn               | 4.39                    |
+| MinReturn               | -0.77                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.3                    |
+| StdReturn               | 0.63                    |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 37                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 36 ok=True flags=[]
+
+ ---------------- Iteration 37 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 671                     |
+| Average greedy latency, | 641                     |
+| Average latency,        | 770                     |
+| Average reward,         | 1.04                    |
+| AverageDiscountedReturn | 0.948                   |
+| AverageReturn           | 1.04                    |
+| EnvExecTime             | 27.3                    |
+| Itr                     | 37                      |
+| MaxReturn               | 2.66                    |
+| MinReturn               | -0.558                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.3                    |
+| StdReturn               | 0.453                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 38                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 37 ok=True flags=[]
+
+ ---------------- Iteration 38 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 696                     |
+| Average greedy latency, | 633                     |
+| Average latency,        | 791                     |
+| Average reward,         | 1.1                     |
+| AverageDiscountedReturn | 1                       |
+| AverageReturn           | 1.1                     |
+| EnvExecTime             | 27.3                    |
+| Itr                     | 38                      |
+| MaxReturn               | 3.15                    |
+| MinReturn               | -0.275                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.5                    |
+| StdReturn               | 0.557                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 39                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 38 ok=True flags=[]
+
+ ---------------- Iteration 39 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 633                     |
+| Average greedy latency, | 608                     |
+| Average latency,        | 731                     |
+| Average reward,         | 1.34                    |
+| AverageDiscountedReturn | 1.21                    |
+| AverageReturn           | 1.34                    |
+| EnvExecTime             | 26.3                    |
+| Itr                     | 39                      |
+| MaxReturn               | 4.95                    |
+| MinReturn               | -0.405                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.5                    |
+| StdReturn               | 0.691                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 40                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 39 ok=True flags=[]
+
+ ---------------- Iteration 40 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 664                     |
+| Average greedy latency, | 622                     |
+| Average latency,        | 742                     |
+| Average reward,         | 1.2                     |
+| AverageDiscountedReturn | 1.09                    |
+| AverageReturn           | 1.2                     |
+| EnvExecTime             | 26.7                    |
+| Itr                     | 40                      |
+| MaxReturn               | 4.07                    |
+| MinReturn               | -0.294                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.1                    |
+| StdReturn               | 0.59                    |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 41                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 40 ok=True flags=[]
+
+ ---------------- Iteration 41 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 626                     |
+| Average greedy latency, | 600                     |
+| Average latency,        | 718                     |
+| Average reward,         | 1.37                    |
+| AverageDiscountedReturn | 1.24                    |
+| AverageReturn           | 1.37                    |
+| EnvExecTime             | 25.3                    |
+| Itr                     | 41                      |
+| MaxReturn               | 3.92                    |
+| MinReturn               | -0.175                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.1                    |
+| StdReturn               | 0.683                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 42                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 41 ok=True flags=[]
+
+ ---------------- Iteration 42 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 652                     |
+| Average greedy latency, | 607                     |
+| Average latency,        | 742                     |
+| Average reward,         | 1.29                    |
+| AverageDiscountedReturn | 1.17                    |
+| AverageReturn           | 1.29                    |
+| EnvExecTime             | 26.9                    |
+| Itr                     | 42                      |
+| MaxReturn               | 4.33                    |
+| MinReturn               | -0.288                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.4                    |
+| StdReturn               | 0.657                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 43                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 42 ok=True flags=[]
+
+ ---------------- Iteration 43 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 679                     |
+| Average greedy latency, | 632                     |
+| Average latency,        | 748                     |
+| Average reward,         | 1.13                    |
+| AverageDiscountedReturn | 1.03                    |
+| AverageReturn           | 1.13                    |
+| EnvExecTime             | 27.6                    |
+| Itr                     | 43                      |
+| MaxReturn               | 3.2                     |
+| MinReturn               | -0.328                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.572                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 44                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 43 ok=True flags=[]
+
+ ---------------- Iteration 44 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 660                     |
+| Average greedy latency, | 625                     |
+| Average latency,        | 729                     |
+| Average reward,         | 1.22                    |
+| AverageDiscountedReturn | 1.1                     |
+| AverageReturn           | 1.22                    |
+| EnvExecTime             | 26.5                    |
+| Itr                     | 44                      |
+| MaxReturn               | 3.32                    |
+| MinReturn               | -0.0347                 |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.6                    |
+| StdReturn               | 0.552                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 45                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 44 ok=True flags=[]
+
+ ---------------- Iteration 45 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 641                     |
+| Average greedy latency, | 586                     |
+| Average latency,        | 726                     |
+| Average reward,         | 1.43                    |
+| AverageDiscountedReturn | 1.29                    |
+| AverageReturn           | 1.43                    |
+| EnvExecTime             | 25.7                    |
+| Itr                     | 45                      |
+| MaxReturn               | 4.29                    |
+| MinReturn               | -0.287                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.3                    |
+| StdReturn               | 0.615                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 46                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 45 ok=True flags=[]
+
+ ---------------- Iteration 46 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 689                     |
+| Average greedy latency, | 625                     |
+| Average latency,        | 749                     |
+| Average reward,         | 1.16                    |
+| AverageDiscountedReturn | 1.05                    |
+| AverageReturn           | 1.16                    |
+| EnvExecTime             | 28.6                    |
+| Itr                     | 46                      |
+| MaxReturn               | 3.27                    |
+| MinReturn               | -0.894                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.7                    |
+| StdReturn               | 0.574                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 47                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 46 ok=True flags=[]
+
+ ---------------- Iteration 47 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 664                     |
+| Average greedy latency, | 605                     |
+| Average latency,        | 740                     |
+| Average reward,         | 1.22                    |
+| AverageDiscountedReturn | 1.11                    |
+| AverageReturn           | 1.22                    |
+| EnvExecTime             | 27.4                    |
+| Itr                     | 47                      |
+| MaxReturn               | 4.51                    |
+| MinReturn               | -0.0894                 |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.6                    |
+| StdReturn               | 0.6                     |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 48                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 47 ok=True flags=[]
+
+ ---------------- Iteration 48 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 631                     |
+| Average greedy latency, | 597                     |
+| Average latency,        | 710                     |
+| Average reward,         | 1.43                    |
+| AverageDiscountedReturn | 1.29                    |
+| AverageReturn           | 1.43                    |
+| EnvExecTime             | 26.4                    |
+| Itr                     | 48                      |
+| MaxReturn               | 4.12                    |
+| MinReturn               | -0.444                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 31.7                    |
+| StdReturn               | 0.637                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 49                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 48 ok=True flags=[]
+
+ ---------------- Iteration 49 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Processing samples...
+Evaluating adapted task policies on a fresh support sample
+Optimizing policy...
+-----------------------------------------------------
+| Average energy,         | 631                     |
+| Average greedy latency, | 594                     |
+| Average latency,        | 720                     |
+| Average reward,         | 1.4                     |
+| AverageDiscountedReturn | 1.27                    |
+| AverageReturn           | 1.4                     |
+| EnvExecTime             | 27.7                    |
+| Itr                     | 49                      |
+| MaxReturn               | 4.05                    |
+| MinReturn               | -0.273                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 32.6                    |
+| StdReturn               | 0.607                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| k_steps                 | 3                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 50                      |
+| outer_update_method     | mrlco_first_order_me... |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 49 ok=True flags=[]

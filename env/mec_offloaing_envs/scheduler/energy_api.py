@@ -22,6 +22,8 @@ OUT_OF_RANGE = "clip_and_log"
 LATENCY_WEIGHT = 0.5
 ENERGY_WEIGHT = 0.5
 WEIGHT_SUM = 1.0
+# Phase 5 Pareto sweep. λ=1.0 is the latency track.
+PARETO_LAMBDAS = (1.0, 0.75, 0.5, 0.25, 0.0)
 
 
 def _almost_eq(a: float, b: float, tol: float = 1e-12) -> bool:
@@ -180,19 +182,36 @@ def normalize(
     return min(1.0, max(0.0, raw))
 
 
+def lambda_tag(lam: float) -> str:
+    return "%.2f" % float(lam)
+
+
+def j_lambda(
+    makespan_seconds: float,
+    total_mobile_joules: float,
+    refs: ReferenceRanges,
+    lam: float,
+    *,
+    clip: bool = True,
+) -> float:
+    """J_λ = λ T_norm + (1−λ) E_norm. Search uses clip=False; report uses clip=True."""
+    lam = float(lam)
+    if lam < 0.0 or lam > 1.0:
+        raise ValueError("lambda must be in [0,1], got %s" % lam)
+    t = require_finite("T", makespan_seconds)
+    e = require_finite("E", total_mobile_joules)
+    if clip:
+        t_n = normalize(t, refs.L_ref_min, refs.L_ref_max, name="L", out_of_range=refs.out_of_range)
+        e_n = normalize(e, refs.E_ref_min, refs.E_ref_max, name="E", out_of_range=refs.out_of_range)
+    else:
+        t_n = (t - refs.L_ref_min) / refs.L_scale
+        e_n = (e - refs.E_ref_min) / refs.E_scale
+    return lam * t_n + (1.0 - lam) * e_n
+
+
 def j_report(makespan_seconds: float, total_mobile_joules: float, refs: ReferenceRanges) -> float:
     """Scientific composite: 0.5 * L_norm + 0.5 * E_norm (clipped)."""
-    l_norm = normalize(
-        makespan_seconds, refs.L_ref_min, refs.L_ref_max, name="L", out_of_range=refs.out_of_range
-    )
-    e_norm = normalize(
-        total_mobile_joules,
-        refs.E_ref_min,
-        refs.E_ref_max,
-        name="E",
-        out_of_range=refs.out_of_range,
-    )
-    return LATENCY_WEIGHT * l_norm + ENERGY_WEIGHT * e_norm
+    return j_lambda(makespan_seconds, total_mobile_joules, refs, LATENCY_WEIGHT, clip=True)
 
 
 def _add_transfer_components(
