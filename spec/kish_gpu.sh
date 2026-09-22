@@ -80,6 +80,23 @@ for d in device_lib.list_local_devices():
     gpu_run_masked off python -m spec.mask_metric_smoke --mask-mode off
     gpu_run_masked static python -m spec.mask_metric_smoke --mask-mode static
     ;;
+  mask-train-smoke-off)
+    # full Trainer -> sampler -> processor -> PPO -> CSV path, one iteration
+    gpu_run python -m spec.mask_sanity --mode off --itr 1 --seed 0 --i-allow-gpu
+    ;;
+  mask-train-smoke-static)
+    gpu_run python -m spec.mask_sanity --mode static --itr 1 --seed 0 --i-allow-gpu
+    ;;
+  mask-sanity-500-off)
+    gpu_run python -m spec.mask_sanity --mode off --itr 500 --seed 0 --i-allow-gpu
+    ;;
+  mask-sanity-500-static)
+    gpu_run python -m spec.mask_sanity --mode static --itr 500 --seed 0 --i-allow-gpu
+    ;;
+  mask-preflight)
+    # cheap: no stack, no GPU -- validates env, mask mode, constraints, git state
+    gpu_run python -m spec.mask_sanity --mode static --itr 1 --preflight-only
+    ;;
   mask-runtime)
     # Expected to exit 0: the smoke itself catches the required ValueError and
     # reports it in the JSON. No `|| true` here -- that would also hide an

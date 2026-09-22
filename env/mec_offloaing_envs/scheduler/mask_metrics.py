@@ -162,7 +162,16 @@ def accumulate(
         guard = np.ones(flat_raw.shape, dtype=bool)
         masked_mode = False
     else:
-        guard = _as_tokens(pre_guard, "pre_guard", N_ACTIONS).astype(bool)
+        raw_guard = _as_tokens(pre_guard, "pre_guard", N_ACTIONS)
+        # validate BEFORE astype(bool): NaN/inf silently become True, and a
+        # non-binary value would be silently reinterpreted as "open"
+        if not np.all(np.isfinite(raw_guard)):
+            raise ValueError("pre_guard contains non-finite values")
+        if not np.all((raw_guard == 0) | (raw_guard == 1)):
+            raise ValueError(
+                "pre_guard must contain only 0/1 or bool values"
+            )
+        guard = raw_guard.astype(bool)
         if guard.shape != raw.shape:
             raise ValueError(
                 "mask shape %s != logits shape %s" % (guard.shape, raw.shape)

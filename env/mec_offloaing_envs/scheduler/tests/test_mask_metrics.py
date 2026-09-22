@@ -226,6 +226,44 @@ class TestFailLoud(unittest.TestCase):
                 require_mask=True,
             )
 
+    def test_non_finite_mask_is_rejected(self):
+        # NaN would silently cast to True and produce a fake but plausible report
+        for bad in (np.nan, np.inf, -np.inf):
+            with self.assertRaises(ValueError):
+                accumulate(
+                    pre_guard=np.array([[bad, 1.0, 1.0]]),
+                    actions=np.array([0]),
+                    raw_logits=logits_with_argmax(0),
+                    values=np.array([0.0]),
+                    require_mask=True,
+                )
+
+    def test_non_binary_mask_is_rejected(self):
+        for bad in (0.5, -1.0, 2.0):
+            with self.assertRaises(ValueError):
+                accumulate(
+                    pre_guard=np.array([[bad, 1.0, 1.0]]),
+                    actions=np.array([0]),
+                    raw_logits=logits_with_argmax(0),
+                    values=np.array([0.0]),
+                    require_mask=True,
+                )
+
+    def test_binary_forms_are_accepted(self):
+        for good in (
+            np.array([[True, False, True]]),
+            np.array([[1.0, 0.0, 1.0]]),
+            np.array([[1, 0, 1]]),
+        ):
+            acc = accumulate(
+                pre_guard=good,
+                actions=np.array([0]),
+                raw_logits=logits_with_argmax(0),
+                values=np.array([0.0]),
+                require_mask=True,
+            )
+            self.assertEqual(rates(acc)["mask/active_rate"], 1.0)
+
     def test_empty_batch(self):
         with self.assertRaises(ValueError):
             accumulate(
