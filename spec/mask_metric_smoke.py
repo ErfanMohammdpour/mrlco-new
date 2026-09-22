@@ -167,16 +167,14 @@ def main(argv=None):
             check("metrics_computable[%s]" % name, True)
             results[name] = {k: float(v) for k, v in out.items()}
 
-            # --- cross-check against the TF distribution itself ---
-            sample_pi = sess.run(
-                network.sample_pi,
-                feed_dict={
-                    policy.obs: obs,
-                    policy.decoder_full_length: np.full(
-                        (obs.shape[0],), obs.shape[1], dtype=np.int32
-                    ),
-                    **({policy.feasible_mask: pre_guard.astype(np.float32)} if masking_on else {}),
-                },
+            # --- cross-check against the TF distribution of THAT trajectory ---
+            # sample_pi must come from the rollout run: the decoder samples its
+            # own next input, so a second sess.run would replay a different path
+            sample_pi = np.asarray(policy.last_sample_pi)
+            check(
+                "sample_pi_shape[%s]" % name,
+                sample_pi.shape == obs.shape[:2] + (3,),
+                list(sample_pi.shape),
             )
             picked = np.take_along_axis(sample_pi, actions[..., None], axis=-1)[..., 0]
             zero_prob_rate = float(np.mean(picked == 0.0))
@@ -188,9 +186,11 @@ def main(argv=None):
             p = sample_pi
             safe = np.where(p > 0.0, p, 1.0)
             tf_entropy = float(np.mean(-np.where(p > 0.0, p * np.log(safe), 0.0).sum(axis=-1)))
+            # the metric evaluates the same formula in float64 from float32
+            # logits; the graph's pi is float32, hence the 1e-4 tolerance
             check(
                 "entropy_matches_tf_distribution[%s]" % name,
-                abs(tf_entropy - out["policy/entropy_valid"]) < 1e-5,
+                abs(tf_entropy - out["policy/entropy_valid"]) < 1e-4,
                 {"from_sample_pi": tf_entropy, "metric": out["policy/entropy_valid"]},
             )
             check(
@@ -232,29 +232,31 @@ def main(argv=None):
                 results[name][key] == 0.0,
                 results[name][key],
             )
-    check(
-        "hard_partial_active",
-        results.get("hard_partial", {}).get("mask/active_rate", 0.0) > 0.0,
-        results.get("hard_partial", {}).get("mask/active_rate"),
-    )
-    check(
-        "hard_partial_no_invalid_action",
-        results.get("hard_partial", {}).get("policy/invalid_action_rate", 1.0) == 0.0,
-    )
-    check(
-        "forced_rate_positive",
-        results.get("forced", {}).get("mask/forced_rate", 0.0) > 0.0,
-        results.get("forced", {}).get("mask/forced_rate"),
-    )
-    check(
-        "dead_end_all_invalid_positive",
-        results.get("dead_end", {}).get("mask/all_invalid_rate", 0.0) > 0.0,
-        results.get("dead_end", {}).get("mask/all_invalid_rate"),
-    )
-    check(
-        "dead_end_no_invalid_action",
-        results.get("dead_end", {}).get("policy/invalid_action_rate", 1.0) == 0.0,
-    )
+    if mode == "static":
+        # these three scenarios only carry a shield in static mode; in off mode
+        # there is no mask, so the five rates are zero by definition (checked below)
+        check(
+            "hard_partial_active",
+            results.get("hard_partial", {}).get("mask/active_rate", 0.0) > 0.0,
+            results.get("hard_partial", {}).get("mask/active_rate"),
+        )
+        check(
+            "forced_rate_positive",
+            results.get("forced", {}).get("mask/forced_rate", 0.0) > 0.0,
+            results.get("forced", {}).get("mask/forced_rate"),
+        )
+        check(
+            "dead_end_all_invalid_positive",
+            results.get("dead_end", {}).get("mask/all_invalid_rate", 0.0) > 0.0,
+            results.get("dead_end", {}).get("mask/all_invalid_rate"),
+        )
+    # invalid actions are a bug in every mode
+    for name in SCENARIOS:
+        check(
+            "no_invalid_action[%s]" % name,
+            results.get(name, {}).get("policy/invalid_action_rate", 1.0) == 0.0,
+            results.get(name, {}).get("policy/invalid_action_rate"),
+        )
     if mode == "off":
         for name in SCENARIOS:
             for key in RATE_KEYS:

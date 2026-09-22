@@ -701,6 +701,7 @@ class Seq2SeqPolicy():
         # store exactly what the rollout used (never a recomputation).
         self.last_feasible_mask = None
         self.last_raw_logits = None
+        self.last_sample_pi = None
         self.reachability_mask = None
         if self.encoder_type == "dagformer":
             self.reachability_mask = tf.compat.v1.placeholder(
@@ -830,16 +831,21 @@ class Seq2SeqPolicy():
         # a masked argmax cannot be inverted back into the raw one, so the
         # argmax_masked_rate metric needs it captured here. The public return
         # tuple is unchanged (three values, as every existing caller expects).
-        actions, logits, v_value, raw_logits = sess.run(
+        actions, logits, v_value, raw_logits, sample_pi = sess.run(
             [
                 self.network.sample_decoder_prediction,
                 self.network.sample_decoder_logits,
                 self.network.sample_vf,
                 self.network.sample_decoder_logits_raw,
+                self.network.sample_pi,
             ],
             feed_dict=feed_dict,
         )
         self.last_raw_logits = np.asarray(raw_logits)
+        # the masked distribution of THAT trajectory: the decoder samples its own
+        # next input, so fetching pi in a second sess.run would describe a
+        # different token path
+        self.last_sample_pi = np.asarray(sample_pi)
 
         return actions, logits, v_value
 
@@ -904,6 +910,7 @@ class MetaSeq2SeqPolicy():
         self.action_dim = vocab_size
         self.last_feasible_masks = None
         self.last_raw_logits = None
+        self.last_sample_pi = None
         self.encoder_type = str(encoder_type)
         self.readout_type = str(readout_type)
 
@@ -950,6 +957,7 @@ class MetaSeq2SeqPolicy():
         meta_v_values = []
         applied_masks = []
         raw_logits = []
+        sample_pis = []
         for i, obser_per_task in enumerate(observations):
             action, logits, v_value = self.meta_policies[i].get_actions(
                 obser_per_task,
@@ -961,11 +969,13 @@ class MetaSeq2SeqPolicy():
             meta_v_values.append(np.array(v_value))
             applied_masks.append(self.meta_policies[i].last_feasible_mask)
             raw_logits.append(self.meta_policies[i].last_raw_logits)
+            sample_pis.append(self.meta_policies[i].last_sample_pi)
 
         self.last_feasible_masks = (
             None if all(m is None for m in applied_masks) else applied_masks
         )
         self.last_raw_logits = raw_logits
+        self.last_sample_pi = sample_pis
 
         return meta_actions, meta_logits, meta_v_values
 
