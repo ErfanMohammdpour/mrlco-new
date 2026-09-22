@@ -124,6 +124,16 @@ def main(argv=None):
             feasible_mask = masking_mod.observation_mask(observations, mode=mask_mode)
         return policy.mask_feed(policy.check_feasible_mask(feasible_mask, observations))
 
+    def sample_feed(observations):
+        """Everything the SAMPLE decoder needs: obs + length (+ mask)."""
+        return {
+            policy.obs: observations,
+            policy.decoder_full_length: np.full(
+                (observations.shape[0],), observations.shape[1], dtype=np.int32
+            ),
+            **mask_feed(observations),
+        }
+
     with tf.compat.v1.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
@@ -159,23 +169,23 @@ def main(argv=None):
             return 1 if failures else 0
 
         actions, logits, values = policy.get_actions(obs)
+        # the policy stores the mask as float32; normalise once, then use `applied`
+        applied = (
+            np.asarray(policy.last_feasible_mask).astype(bool) if masking_on else None
+        )
         check("action_shape", actions.shape == obs.shape[:2], list(actions.shape))
         check("logits_shape", logits.shape == obs.shape[:2] + (3,), list(logits.shape))
         check("values_shape", values.shape == obs.shape[:2], list(values.shape))
         if masking_on:
             check(
                 "shield_is_hard_deadline_only",
-                bool(np.array_equal(np.asarray(policy.last_feasible_mask).astype(bool), expected_mask)),
+                bool(np.array_equal(applied, expected_mask)),
                 {
                     "masked_rows_hard": int((~expected_mask[0]).sum()),
-                    "masked_rows_soft": int((~policy.last_feasible_mask[1]).sum()),
+                    "masked_rows_soft": int((~applied[1]).sum()),
                 },
             )
-            picked = np.take_along_axis(
-                np.asarray(policy.last_feasible_mask).astype(bool),
-                actions[..., None],
-                axis=-1,
-            )[..., 0]
+            picked = np.take_along_axis(applied, actions[..., None], axis=-1)[..., 0]
         else:
             check("stored_mask_is_the_applied_mask", policy.last_feasible_mask is None)
             picked = np.ones(actions.shape, dtype=bool)
@@ -184,14 +194,14 @@ def main(argv=None):
         # ---- off-mode parity: the mask node is the identity ----
         raw_logits, masked_logits = sess.run(
             [network.sample_decoder_logits_raw, network.sample_decoder_logits],
-            feed_dict=mask_feed(obs) if masking_on else {},
+            feed_dict=sample_feed(obs),
         )
         if not masking_on:
             check("off_mode_mask_is_identity", bool(np.array_equal(raw_logits, masked_logits)))
 
         sample_pi, sample_q, sample_vf = sess.run(
             [network.sample_pi, network.sample_q, network.sample_vf],
-            feed_dict=mask_feed(obs),
+            feed_dict=sample_feed(obs),
         )
         # value magnitude: -1e9 logits inside the critic would push this to ~1e8
         check(
@@ -206,7 +216,7 @@ def main(argv=None):
         if masking_on:
             check(
                 "infeasible_probability_is_zero",
-                float(np.max(sample_pi[~np.asarray(policy.last_feasible_mask).astype(bool)])) == 0.0,
+                float(np.max(sample_pi[~applied])) == 0.0,
             )
             check(
                 "probabilities_sum_to_one",
@@ -260,7 +270,7 @@ def main(argv=None):
         # ---- log-prob of a deliberately infeasible action is ~ -1e9 ----
         if masking_on:
             action_grid = np.zeros(obs.shape[:2], dtype=np.int32)
-            infeasible = ~np.asarray(policy.last_feasible_mask).astype(bool)
+            infeasible = ~applied
             has_infeasible = infeasible.any(axis=-1)
             action_grid[has_infeasible] = np.argmax(infeasible, axis=-1)[has_infeasible]
             logp = sess.run(
@@ -302,6 +312,12 @@ def main(argv=None):
             (g, v) for g, v in zip(tf.gradients(total_loss, params), params) if g is not None
         ]
         grads = [g for g, _v in grads_and_vars]
+        # embedding grads arrive as IndexedSlices; densify in-graph so the fetch
+        # returns plain arrays instead of a ragged object array
+        grads_dense = [
+            g if isinstance(g, tf.Tensor) else tf.convert_to_tensor(g) for g in grads
+        ]
+        grad_norm = tf.global_norm(grads)
         check("gradient_list_is_non_empty", len(grads) > 0, {"n_grads": len(grads)})
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=5e-4, name="smoke_adam")
         train_op = optimizer.apply_gradients(grads_and_vars)
@@ -325,9 +341,11 @@ def main(argv=None):
         sess.run(slot_init)
         before = sess.run(params)
         # grads BEFORE the step, in their own run, so the update cannot race them
-        grads_before = sess.run(grads, feed_dict=train_feed)
+        grads_before = sess.run(grads_dense, feed_dict=train_feed)
+        grad_norm_value = float(sess.run(grad_norm, feed_dict=train_feed))
         _, losses = sess.run([train_op, [surr_obj, vf_loss, total_loss]], feed_dict=train_feed)
         after = sess.run(params)
+        check("gradient_norm_is_finite", bool(np.isfinite(grad_norm_value)), grad_norm_value)
         check(
             "losses_finite",
             all(bool(np.isfinite(v)) for v in losses),
@@ -340,8 +358,13 @@ def main(argv=None):
         )
         check(
             "gradients_finite",
-            all(bool(np.all(np.isfinite(g))) for g in grads_before),
-            "non-finite gradient",
+            len(grads_before) > 0
+            and all(bool(np.all(np.isfinite(np.asarray(g)))) for g in grads_before),
+            "non-finite or empty gradient list",
+        )
+        check(
+            "parameters_finite_after_step",
+            all(bool(np.all(np.isfinite(p))) for p in after),
         )
         check(
             "parameters_moved",
