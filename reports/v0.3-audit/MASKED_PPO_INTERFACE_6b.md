@@ -400,6 +400,14 @@ variables are initialised. Related fix: gradients are kept paired with their
 variables (`[(g, v) ...]`) instead of filtering a gradient list against the full
 parameter list, which would have silently applied gradients to the wrong variables.
 
+### 13.4 the watcher fix is now covered by the suite
+
+`tests/test_branch_watch_tool.py` (6 tests, run inside a throwaway repo so the
+project's own refs stay clean) asserts: first look records the head; a newly pushed
+commit is reported; the marker only advances after a report; a force-push sets
+`history_rewritten`; and a failed fetch — with and without a stale tracking ref —
+exits non-zero and leaves the marker untouched. Non-TF suite: **400 passed, 5 skipped**.
+
 Order from here is unchanged: `mask-smoke` on kish, then the `mask/*`, `policy/*`,
 `critic/*` metrics commit, then the no-deadline 500-iteration sanity run — in which
 `active_rate = forced_rate = all_invalid_rate = invalid_action_rate =
