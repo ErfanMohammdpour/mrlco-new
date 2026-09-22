@@ -1,4 +1,7 @@
 from samplers.base import SampleProcessor
+
+from env.mec_offloaing_envs.scheduler.mask_metrics import accumulate
+from env.mec_offloaing_envs.scheduler.masking import resolve_mask_mode
 from utils import utils
 import numpy as np
 
@@ -48,10 +51,17 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         paths = self._compute_advantages(paths, all_path_baselines)
 
         path_data = self._append_path_data(paths)
-        (
-            observations, actions, logits, rewards, returns, values,
-            advantages, finish_time, energy, feasible,
-        ) = path_data
+        observations = path_data["observations"]
+        actions = path_data["actions"]
+        logits = path_data["logits"]
+        rewards = path_data["rewards"]
+        returns = path_data["returns"]
+        values = path_data["values"]
+        advantages = path_data["advantages"]
+        finish_time = path_data["finish_time"]
+        energy = path_data["energy"]
+        feasible = path_data["feasible"]
+        raw_logits = path_data["raw_logits"]
 
         decoder_full_lengths = np.array(observations.shape[0] * [observations.shape[1]])
         # Diagnostic POMO: A_i = R_i - mean_graph(R). Skip global adv-norm (would mix graphs).
@@ -87,8 +97,26 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         # rollout mask, never a recomputation (MASKED_PPO_INTERFACE_6b).
         if feasible is not None:
             samples_data['feasible'] = feasible
+        if raw_logits is not None:
+            samples_data['raw_logits'] = raw_logits
+
+        # ⑥b metrics: aggregate over TOKENS with the stored rollout mask and the
+        # raw logits captured in the same sess.run. In active mode a missing or
+        # mis-shaped mask raises here instead of reporting zeros.
+        samples_data['mask_accumulator'] = accumulate(
+            pre_guard=feasible,
+            actions=actions,
+            raw_logits=raw_logits,
+            values=values,
+            require_mask=self.resolved_mask_mode() != "off",
+        )
 
         return samples_data, paths
+
+    def resolved_mask_mode(self):
+        """Explicit mode set by the trainer, else the process environment."""
+        explicit = getattr(self, "mask_mode", None)
+        return explicit if explicit is not None else resolve_mask_mode()
 
     def _append_path_data(self, paths):
         observations = np.array([path["observations"] for path in paths])
@@ -135,8 +163,19 @@ class Seq2SeSamplerProcessor(SampleProcessor):
             energy = np.array([path["energy"] for path in paths])
         else:
             energy = None
-        return (
-            observations, actions, logits, rewards, returns, values,
-            advantages, finish_time, energy, feasible,
-        )
+        has_raw = all(p.get("raw_logits") is not None for p in paths)
+        raw_logits = np.array([p["raw_logits"] for p in paths]) if has_raw else None
+        return {
+            "observations": observations,
+            "actions": actions,
+            "logits": logits,
+            "rewards": rewards,
+            "returns": returns,
+            "values": values,
+            "advantages": advantages,
+            "finish_time": finish_time,
+            "energy": energy,
+            "feasible": feasible,
+            "raw_logits": raw_logits,
+        }
 

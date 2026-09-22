@@ -73,6 +73,7 @@ class Seq2SeqSampler(Sampler):
             actions, logits, values = policy.get_actions(obs_per_task)
             # Keep the exact mask the rollout used (see MASKED_PPO_INTERFACE_6b).
             applied_mask = getattr(policy, "last_feasible_mask", None)
+            applied_raw = getattr(policy, "last_raw_logits", None)
             policy_time += time.time() - t
 
             # step environments
@@ -135,6 +136,8 @@ class Seq2SeqSampler(Sampler):
 
                 if applied_mask is not None:
                     running_paths["feasible"] = np.asarray(applied_mask)[i]
+                if applied_raw is not None:
+                    running_paths["raw_logits"] = np.asarray(applied_raw)[i]
                 
                 # handling
                 path_dict = dict(
@@ -153,6 +156,10 @@ class Seq2SeqSampler(Sampler):
                 if running_paths.get("feasible") is not None:
                     path_dict["feasible"] = np.squeeze(
                         np.asarray(running_paths["feasible"])
+                    )
+                if running_paths.get("raw_logits") is not None:
+                    path_dict["raw_logits"] = np.squeeze(
+                        np.asarray(running_paths["raw_logits"])
                     )
                 
                 paths.append(path_dict)

@@ -75,6 +75,11 @@ for d in device_lib.list_local_devices():
     gpu_run_masked off python -m spec.masked_ppo_smoke --mask-mode off
     gpu_run_masked static python -m spec.masked_ppo_smoke --mask-mode static
     ;;
+  mask-metrics)
+    # ⑥b metrics: same scenarios in legacy and shielded mode
+    gpu_run_masked off python -m spec.mask_metric_smoke --mask-mode off
+    gpu_run_masked static python -m spec.mask_metric_smoke --mask-mode static
+    ;;
   mask-runtime)
     # Expected to exit 0: the smoke itself catches the required ValueError and
     # reports it in the JSON. No `|| true` here -- that would also hide an

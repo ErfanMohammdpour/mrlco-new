@@ -94,6 +94,7 @@ class Seq2SeqMetaSampler(Sampler):
             # update time, otherwise the PPO importance ratio stops being a
             # likelihood ratio (see reports/MASKED_PPO_INTERFACE_6b.md).
             applied_masks = getattr(policy, "last_feasible_masks", None)
+            applied_raw = getattr(policy, "last_raw_logits", None)
             policy_time += time.time() - t
 
             # step environments
@@ -130,6 +131,11 @@ class Seq2SeqMetaSampler(Sampler):
                     task_mask = applied_masks[min(idx // self.envs_per_task, len(applied_masks) - 1)]
                     if task_mask is not None:
                         env_mask = np.asarray(task_mask)[idx % self.envs_per_task]
+                env_raw = None
+                if applied_raw is not None:
+                    task_raw = applied_raw[min(idx // self.envs_per_task, len(applied_raw) - 1)]
+                    if task_raw is not None:
+                        env_raw = np.asarray(task_raw)[idx % self.envs_per_task]
 
                 for i, (single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time) \
                         in enumerate(zip(observation, action, logit, reward, value, task_finish_times)):
@@ -141,6 +147,8 @@ class Seq2SeqMetaSampler(Sampler):
                     running_paths[idx]["values"] = single_value
                     if env_mask is not None:
                         running_paths[idx]["feasible"] = np.asarray(env_mask)[i]
+                    if env_raw is not None:
+                        running_paths[idx]["raw_logits"] = np.asarray(env_raw)[i]
                     
                     # Store energy if enabled (energy_info[i] is the energy list for trajectory i)
                     if energy_info is not None and i < len(energy_info):
@@ -157,6 +165,10 @@ class Seq2SeqMetaSampler(Sampler):
                     if "feasible" in running_paths[idx]:
                         path_dict["feasible"] = np.squeeze(
                             np.asarray(running_paths[idx]["feasible"])
+                        )
+                    if "raw_logits" in running_paths[idx]:
+                        path_dict["raw_logits"] = np.squeeze(
+                            np.asarray(running_paths[idx]["raw_logits"])
                         )
                     
                     # Add energy to path if available

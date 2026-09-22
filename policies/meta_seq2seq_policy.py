@@ -64,7 +64,8 @@ def mask_logits_tf(logits, feasible_mask, time=None):
     Returns (masked_logits, dead_end_rows).
     """
     if feasible_mask is None:
-        return logits, tf.constant(0, dtype=tf.int32)
+        # off mode: no mask placeholder, no masking op, no counter node
+        return logits, None
     feasible = tf.cast(feasible_mask, tf.float32) > 0.5
     if feasible.shape.ndims is not None and logits.shape.ndims is not None:
         if feasible.shape.ndims == 3 and logits.shape.ndims == 2:
@@ -222,8 +223,9 @@ class Seq2SeqNetwork():
         self.decoder_inputs = decoder_inputs
         self.decoder_targets = decoder_targets
         self.feasible_mask = feasible_mask
-        self.dead_end_rows = tf.constant(0, dtype=tf.int32)
-        self.sample_dead_end_rows = tf.constant(0, dtype=tf.int32)
+        # None in off mode (no node exists); a tensor when the shield is active
+        self.dead_end_rows = None
+        self.sample_dead_end_rows = None
 
         self.decoder_full_length = decoder_full_length
         self.enable_cavia = bool(getattr(hparams, "enable_cavia", False))
@@ -698,6 +700,7 @@ class Seq2SeqPolicy():
         # Mask actually applied by the last get_actions call, so the sampler can
         # store exactly what the rollout used (never a recomputation).
         self.last_feasible_mask = None
+        self.last_raw_logits = None
         self.reachability_mask = None
         if self.encoder_type == "dagformer":
             self.reachability_mask = tf.compat.v1.placeholder(
@@ -779,6 +782,10 @@ class Seq2SeqPolicy():
 
         self._dist = CategoricalPd(vocab_size)
 
+    @property
+    def mask_mode_name(self):
+        return self.mask_mode
+
     def expected_mask_shape(self, observations):
         return (int(observations.shape[0]), int(observations.shape[1]), int(self.action_dim))
 
@@ -819,10 +826,20 @@ class Seq2SeqPolicy():
             feed_dict.update(self.mask_feed(feasible_mask))
             self.last_feasible_mask = feasible_mask
 
-        actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
-                                             self.network.sample_decoder_logits,
-                                             self.network.sample_vf],
-                                            feed_dict=feed_dict)
+        # `last_raw_logits` is the UNMASKED decoder output from this very run:
+        # a masked argmax cannot be inverted back into the raw one, so the
+        # argmax_masked_rate metric needs it captured here. The public return
+        # tuple is unchanged (three values, as every existing caller expects).
+        actions, logits, v_value, raw_logits = sess.run(
+            [
+                self.network.sample_decoder_prediction,
+                self.network.sample_decoder_logits,
+                self.network.sample_vf,
+                self.network.sample_decoder_logits_raw,
+            ],
+            feed_dict=feed_dict,
+        )
+        self.last_raw_logits = np.asarray(raw_logits)
 
         return actions, logits, v_value
 
@@ -886,6 +903,7 @@ class MetaSeq2SeqPolicy():
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
         self.last_feasible_masks = None
+        self.last_raw_logits = None
         self.encoder_type = str(encoder_type)
         self.readout_type = str(readout_type)
 
@@ -915,6 +933,11 @@ class MetaSeq2SeqPolicy():
         self._dist = CategoricalPd(vocab_size)
 
 
+    @property
+    def mask_mode(self):
+        """Mask mode shared by every task policy (resolved at construction)."""
+        return self.meta_policies[0].mask_mode if self.meta_policies else "off"
+
     def get_actions(self, observations, feasible_masks=None):
         assert len(observations) == self.meta_batch_size
         if feasible_masks is not None and len(feasible_masks) != self.meta_batch_size:
@@ -926,6 +949,7 @@ class MetaSeq2SeqPolicy():
         meta_logits = []
         meta_v_values = []
         applied_masks = []
+        raw_logits = []
         for i, obser_per_task in enumerate(observations):
             action, logits, v_value = self.meta_policies[i].get_actions(
                 obser_per_task,
@@ -936,10 +960,12 @@ class MetaSeq2SeqPolicy():
             meta_logits.append(np.array(logits))
             meta_v_values.append(np.array(v_value))
             applied_masks.append(self.meta_policies[i].last_feasible_mask)
+            raw_logits.append(self.meta_policies[i].last_raw_logits)
 
         self.last_feasible_masks = (
             None if all(m is None for m in applied_masks) else applied_masks
         )
+        self.last_raw_logits = raw_logits
 
         return meta_actions, meta_logits, meta_v_values
 

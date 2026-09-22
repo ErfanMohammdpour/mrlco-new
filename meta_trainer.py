@@ -4,6 +4,8 @@ import numpy as np
 import time
 from utils import logger
 
+from env.mec_offloaing_envs.scheduler.mask_metrics import merge as merge_mask_metrics
+from env.mec_offloaing_envs.scheduler.mask_metrics import rates as mask_metric_rates
 from spec.eval_protocol import protocol_log_kvs
 from spec.train_audit import health_verdict, task_spec_records
 
@@ -65,6 +67,19 @@ class Trainer(object):
         self.critic_warmup_iters = int(critic_warmup_iters)
         self.bc_policy = bc_policy
         os.makedirs(self.ckpt_dir, exist_ok=True)
+
+    def _mask_metrics(self, samples_data):
+        """Token-weighted ⑥b metrics over every meta task of this iteration."""
+        accumulators = [
+            s.get("mask_accumulator") for s in samples_data
+            if isinstance(s, dict) and s.get("mask_accumulator") is not None
+        ]
+        if not accumulators:
+            raise RuntimeError(
+                "no mask_accumulator in the processed samples: the ⑥b metrics "
+                "must be computed from the stored rollout mask and raw logits"
+            )
+        return mask_metric_rates(merge_mask_metrics(accumulators))
 
     def _audit(self, itr, name, payload=None):
         if self.audit_writer is None:
@@ -239,6 +254,9 @@ class Trainer(object):
 
             logger.log("Processing samples...")
             samples_data = self.sampler_processor.process_samples(paths, log=False, log_prefix='')
+            # ⑥b metrics: merge the per-meta-task accumulators (token counts, so
+            # unequal path lengths cannot skew the rates) and log once per itr.
+            mask_metrics = self._mask_metrics(samples_data)
             self._audit(itr, "process_samples_ppo", {
                 "n_tasks": len(samples_data),
                 "adv_mean": float(np.mean([np.mean(s["advantages"]) for s in samples_data])),
@@ -257,9 +275,12 @@ class Trainer(object):
                 ppo_kwargs["update_mode"] = update_mode
                 ppo_kwargs["bc_policy"] = self.bc_policy
             policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, **ppo_kwargs)
+            for metric_name, metric_value in mask_metrics.items():
+                logger.logkv(metric_name, float(metric_value))
             inner_payload = {
                 "policy_losses": policy_losses,
                 "value_losses": value_losses,
+                "mask_metrics": mask_metrics,
                 "policy_loss_mean": float(np.mean(policy_losses)),
                 "value_loss_mean": float(np.mean(value_losses)),
                 "k_steps": FROZEN_K_STEPS,
@@ -585,6 +606,8 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                                    positive_adv=False)
     sample_processor.pomo_elite = pomo_elite
     sample_processor.pomo_n_instances = SUPPORT_GRAPHS
+    # ⑥b: the processor must know whether a missing mask is an error
+    sample_processor.mask_mode = getattr(meta_policy, "mask_mode", None)
     algo = MRLCO(policy=meta_policy,
                          meta_sampler=sampler,
                          meta_sampler_process=sample_processor,
@@ -636,6 +659,7 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                            positive_adv=False)
     val_processor.pomo_elite = pomo_elite
     val_processor.pomo_n_instances = SUPPORT_GRAPHS
+    val_processor.mask_mode = getattr(val_policy, "mask_mode", None)
     val_ppo = PPO(policy=val_policy,
                   meta_sampler=val_sampler,
                   meta_sampler_process=val_processor,
