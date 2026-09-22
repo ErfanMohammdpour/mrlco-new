@@ -399,6 +399,23 @@ def _task_depths(dag: CanonicalDAG) -> dict[int, int]:
     return {tid: depth(tid) for tid in dag.tasks}
 
 
+def feasibility_channel_indices() -> tuple[int, int, int]:
+    """Indices of (feasible_ue, feasible_mec, feasible_helper) in the ACTIVE schema.
+
+    Used by the policy to build the static mask directly from the observation, so
+    that rollout and update construct the identical mask with no extra plumbing.
+    Raises for v1/v2, which have no feasibility channels.
+    """
+    if OBS_VERSION != "v3":
+        raise EncoderGraphError(
+            "feasibility channels exist only in obs v3 (active %r)" % OBS_VERSION
+        )
+    return tuple(
+        FEATURE_NAMES.index(name)
+        for name in ("feasible_ue", "feasible_mec", "feasible_helper")
+    )
+
+
 def _deadline_block(
     dag: CanonicalDAG,
     order: Sequence[int],
