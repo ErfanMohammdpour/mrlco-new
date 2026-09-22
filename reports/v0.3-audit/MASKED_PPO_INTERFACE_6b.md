@@ -549,3 +549,82 @@ Evidence: `reports/v0.3-audit/mask_smoke/kish_a636a6a_metrics_evidence.json`
 - `mask/*` rates describe the *stored* mask. A runtime shield, when it exists,
   must be stored the same way or these numbers become meaningless.
 - The 500-iteration sanity run has not been started.
+
+---
+
+## 15. Readiness analysis and the 500-iteration launch
+
+### 15.1 What the trainer-level one-iteration smoke proved
+
+`spec/mask_sanity.py --itr 1` runs the real path (frozen stack -> sampler ->
+processor -> PPO inner -> eval -> outer update -> logger/CSV) in both modes.
+Both runs are green, from a clean tree at `d543030`:
+
+| mode | started -> finished | live preflight | failures | CSV fields | active | forced | all_invalid | invalid_action | argmax_masked | entropy | value_abs_max |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| off | 20:17:58 -> 20:43:24 | 30000 tasks, 0 deadlines | [] | 43/43 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 1.0961 | 0.3191 |
+| static | 20:43:27 -> 21:08:58 | 30000 tasks, 0 deadlines | [] | 43/43 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 1.0948 | 0.1854 |
+
+Raw artifacts: `reports/v0.3-audit/mask_smoke/itr1_trainer/`. Each iteration takes
+**25.4 minutes**, of which the frozen stack build, graph construction and the first
+sampling dominate; the historical `margo_v0.1_diag_500_parallel` reference on this
+host (208 iterations in 10h53m) puts the marginal cost at **~3.1 min/iteration**.
+
+### 15.2 Bugs this smoke caught (why it was worth 26 minutes)
+
+1. `91ca2a1` — the sampler indexed the policy's per-task mask/raw array twice
+   (`[env_index % envs_per_task][i]`), so a path kept one token `[3]` instead of
+   its plan `[T, 3]`: `actions shape (1000, 20) != logits shape (1000,)`. Fixed
+   with `masking.select_task_batch`, plus a local regression test and a
+   ragged-stack guard in both processors.
+2. `7f8f5d2` + `974f39f` + `d543030` — the shared CSV logger misaligned header and
+   values (`policy/invalid_action_rate` read 1.096; a string landed in a metric
+   column). It extended the header from a set difference, rewrote without
+   truncating, and never quoted keys containing the separator, so a key like
+   `'Average greedy latency,'` split the header. Now deterministic, truncated and
+   quoted, with a replay test built from the trainer's real 45-key set.
+3. `a92b8a8` — the watchdog itself: it treated "no CSV yet" as a violation (both
+   watchdogs exited within seconds of launch) and matched containers on
+   `docker ps {{.Command}}`, which shows the image ENTRYPOINT rather than
+   `--mode`. It now reads `.Config.Cmd` and exempts startup.
+
+### 15.3 Readiness verdict
+
+Ready, with one limitation stated plainly:
+
+* the metric pipeline, the shield plumbing and the CSV logging are verified on
+  real TF end to end (`failures=[]`, five control rates exactly zero);
+* the dataset has **zero deadlines** (live preflight: 30000 tasks, 0 deadlines),
+  so in `static` the shield mask is all-True. The two 500-iteration runs are
+  therefore a **stability + metric-pipeline test**, not a test of shielding
+  behaviour: both modes should be numerically identical apart from parallel
+  nondeterminism. Shielding behaviour is covered by the synthetic metric smoke
+  (hard / forced / dead-end scenarios) in section 14.
+
+### 15.4 Launch record
+
+Frozen code SHA **7fa31f2d** (clean tree, verified before start); the watchdog
+enforcement script is the fixed one from `a92b8a8`, executed from `/tmp` with
+`PYTHONPATH` pointing at the frozen checkout so the running tree stays clean.
+
+    runs/mask_sanity_v3/off/seed_0/      runs/mask_sanity_v3/static/seed_0/
+    logs/progress.csv                    logs/progress.csv
+    config.resolved.json                 config.resolved.json
+    watchdog_status.json                 watchdog_status.json
+
+Both modes run **in parallel** (one container each, RTX 4090, ~1 GB VRAM each;
+host: 32 cores, 53 GB free, 426 GB disk). Expected wall time ~26 h single-mode,
+with contention perhaps 1.1-1.4x that for each while both run.
+
+Stop rules are enforced *during* the run by `spec/mask_run_watchdog.py`: any
+missing metric column, row/header field mismatch, non-finite value, non-zero
+control rate, `critic/value_abs_max >= 1e3`, a stall after the first row, or a
+run that disappears without an exit file causes the container to be killed and
+`watchdog_failure.json` to be written. `watchdog_status.json` always holds the
+last verified row, so one `cat` answers "how far did it get".
+
+Inspection commands:
+
+    cat runs/mask_sanity_v3/static/seed_0/watchdog_status.json
+    tail -2 runs/mask_sanity_v3/static/seed_0/logs/progress.csv
+    cat /tmp/ts_static.exit
