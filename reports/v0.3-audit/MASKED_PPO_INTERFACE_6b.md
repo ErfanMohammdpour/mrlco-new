@@ -426,7 +426,36 @@ raised, so an unrelated error cannot make the runtime gate look green.
 
 Non-TF suite: **401 passed, 5 skipped**.
 
-Order from here is unchanged: `mask-smoke` on kish, then the `mask/*`, `policy/*`,
+### 13.6 kish TF/GPU gate: PASSED (`34fd49d`)
+
+Host `kish-ai`: RTX 4090 24GB idle (1 MiB used, 0% util), image
+`margo-phase4-tf115-nv2212` present, 427G free. The existing checkout
+`/opt/margo/mrlco-new` is stale (`39ea0ed`) with 3661 dirty entries, so it was
+left untouched; a clean clone lives at `/opt/margo/mrlco-new-6b`.
+
+    MARGO_ROOT=/opt/margo/mrlco-new-6b bash spec/kish_gpu.sh mask-smoke
+    MARGO_ROOT=/opt/margo/mrlco-new-6b bash spec/kish_gpu.sh mask-runtime
+
+Run from the committed SHA (dirty=0), TF 1.15.5 / Python 3.8, all three exit 0
+with `failures: []` — off 18/18 checks, static 21/21, runtime 2/2. Evidence:
+`reports/v0.3-audit/mask_smoke/kish_34fd49d_evidence.json`.
+
+The three checks that directly refute the audit blockers, now measured rather
+than argued: `critic_value_scale_is_sane` and `value_is_masked_support_dot_raw_q`
+(the `-1e9` critic contamination), `shield_is_hard_deadline_only` (soft/firm no
+longer shielded), and `ratio_identity_before_first_update` (correct prefix). The
+runtime gate reports the expected
+`ValueError: runtime shield masks cannot be derived from the observation`.
+
+Reaching a green run also exposed three bugs in the smoke harness itself, fixed in
+`34fd49d`: the sample-decoder fetches never fed `obs`/`decoder_full_length`;
+embedding gradients arrive as `IndexedSlices` and came back as a ragged object
+array; and the stored mask is float32, so `~mask` raised `TypeError`.
+
+Order from here is unchanged: the `mask/*`, `policy/*`, `critic/*` metrics commit,
+then the no-deadline 500-iteration sanity run — in which
+`active_rate = forced_rate = all_invalid_rate = invalid_action_rate =
+argmax_masked_rate = 0` is the expected result, not a failure.
 `critic/*` metrics commit, then the no-deadline 500-iteration sanity run — in which
 `active_rate = forced_rate = all_invalid_rate = invalid_action_rate =
 argmax_masked_rate = 0` is the expected result, not a failure.

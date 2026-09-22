@@ -1,0 +1,292 @@
+{
+  "commands": [
+    "python -m spec.masked_ppo_smoke --mask-mode off|static|runtime"
+  ],
+  "gpu": "RTX 4090 24GB",
+  "host": "kish-ai",
+  "image": "margo-phase4-tf115-nv2212",
+  "modes": {
+    "off": {
+      "checks": {
+        "action_shape": true,
+        "critic_value_scale_is_sane": true,
+        "dead_end_logits_finite": true,
+        "gradient_list_is_non_empty": true,
+        "gradient_norm_is_finite": true,
+        "gradients_finite": true,
+        "logits_shape": true,
+        "losses_finite": true,
+        "off_mode_mask_is_identity": true,
+        "parameters_finite_after_step": true,
+        "parameters_moved": true,
+        "placeholder_presence_matches_mode": true,
+        "ratio_identity_before_first_update": true,
+        "sampled_actions_are_feasible": true,
+        "stored_mask_is_the_applied_mask": true,
+        "value_is_masked_support_dot_raw_q": true,
+        "value_loss_is_sane": true,
+        "values_shape": true
+      },
+      "checks_detail": {
+        "action_shape": {
+          "detail": [
+            2,
+            20
+          ],
+          "ok": true
+        },
+        "critic_value_scale_is_sane": {
+          "detail": 0.08507536351680756,
+          "ok": true
+        },
+        "dead_end_logits_finite": {
+          "detail": null,
+          "ok": true
+        },
+        "gradient_list_is_non_empty": {
+          "detail": {
+            "n_grads": 30
+          },
+          "ok": true
+        },
+        "gradient_norm_is_finite": {
+          "detail": 0.4174658954143524,
+          "ok": true
+        },
+        "gradients_finite": {
+          "detail": "non-finite or empty gradient list",
+          "ok": true
+        },
+        "logits_shape": {
+          "detail": [
+            2,
+            20,
+            3
+          ],
+          "ok": true
+        },
+        "losses_finite": {
+          "detail": [
+            -1.0,
+            0.0011902193073183298,
+            -0.9994049072265625
+          ],
+          "ok": true
+        },
+        "off_mode_mask_is_identity": {
+          "detail": null,
+          "ok": true
+        },
+        "parameters_finite_after_step": {
+          "detail": null,
+          "ok": true
+        },
+        "parameters_moved": {
+          "detail": null,
+          "ok": true
+        },
+        "placeholder_presence_matches_mode": {
+          "detail": {
+            "mask_mode": "off",
+            "placeholder": false
+          },
+          "ok": true
+        },
+        "ratio_identity_before_first_update": {
+          "detail": {
+            "max_abs_deviation": 0.0
+          },
+          "ok": true
+        },
+        "sampled_actions_are_feasible": {
+          "detail": "infeasible action sampled",
+          "ok": true
+        },
+        "stored_mask_is_the_applied_mask": {
+          "detail": null,
+          "ok": true
+        },
+        "value_is_masked_support_dot_raw_q": {
+          "detail": null,
+          "ok": true
+        },
+        "value_loss_is_sane": {
+          "detail": 0.0011902193073183298,
+          "ok": true
+        },
+        "values_shape": {
+          "detail": [
+            2,
+            20
+          ],
+          "ok": true
+        }
+      },
+      "failures": []
+    },
+    "runtime": {
+      "checks": {
+        "placeholder_presence_matches_mode": true,
+        "runtime_mask_is_not_derived_from_obs": true
+      },
+      "checks_detail": {
+        "placeholder_presence_matches_mode": {
+          "detail": {
+            "mask_mode": "runtime",
+            "placeholder": true
+          },
+          "ok": true
+        },
+        "runtime_mask_is_not_derived_from_obs": {
+          "detail": {
+            "exception": "ValueError",
+            "message": "runtime shield masks cannot be derived from the observation; pass the env shield explicitly (per-prefix masking needs token-by-token env stepping, which is not implemented)",
+            "required_substring": "runtime shield masks cannot be derived"
+          },
+          "ok": true
+        }
+      },
+      "failures": []
+    },
+    "static": {
+      "checks": {
+        "action_shape": true,
+        "critic_value_scale_is_sane": true,
+        "dead_end_guard_counts_row": true,
+        "dead_end_logits_finite": true,
+        "gradient_list_is_non_empty": true,
+        "gradient_norm_is_finite": true,
+        "gradients_finite": true,
+        "infeasible_action_logp_is_neg_large": true,
+        "infeasible_probability_is_zero": true,
+        "logits_shape": true,
+        "losses_finite": true,
+        "parameters_finite_after_step": true,
+        "parameters_moved": true,
+        "placeholder_presence_matches_mode": true,
+        "probabilities_sum_to_one": true,
+        "ratio_identity_before_first_update": true,
+        "sampled_actions_are_feasible": true,
+        "shield_is_hard_deadline_only": true,
+        "value_is_masked_support_dot_raw_q": true,
+        "value_loss_is_sane": true,
+        "values_shape": true
+      },
+      "checks_detail": {
+        "action_shape": {
+          "detail": [
+            2,
+            20
+          ],
+          "ok": true
+        },
+        "critic_value_scale_is_sane": {
+          "detail": 0.07412780821323395,
+          "ok": true
+        },
+        "dead_end_guard_counts_row": {
+          "detail": 1,
+          "ok": true
+        },
+        "dead_end_logits_finite": {
+          "detail": null,
+          "ok": true
+        },
+        "gradient_list_is_non_empty": {
+          "detail": {
+            "n_grads": 30
+          },
+          "ok": true
+        },
+        "gradient_norm_is_finite": {
+          "detail": 0.3597277104854584,
+          "ok": true
+        },
+        "gradients_finite": {
+          "detail": "non-finite or empty gradient list",
+          "ok": true
+        },
+        "infeasible_action_logp_is_neg_large": {
+          "detail": null,
+          "ok": true
+        },
+        "infeasible_probability_is_zero": {
+          "detail": null,
+          "ok": true
+        },
+        "logits_shape": {
+          "detail": [
+            2,
+            20,
+            3
+          ],
+          "ok": true
+        },
+        "losses_finite": {
+          "detail": [
+            -1.0,
+            0.001119273598305881,
+            -0.9994403719902039
+          ],
+          "ok": true
+        },
+        "parameters_finite_after_step": {
+          "detail": null,
+          "ok": true
+        },
+        "parameters_moved": {
+          "detail": null,
+          "ok": true
+        },
+        "placeholder_presence_matches_mode": {
+          "detail": {
+            "mask_mode": "static",
+            "placeholder": true
+          },
+          "ok": true
+        },
+        "probabilities_sum_to_one": {
+          "detail": null,
+          "ok": true
+        },
+        "ratio_identity_before_first_update": {
+          "detail": {
+            "max_abs_deviation": 0.0
+          },
+          "ok": true
+        },
+        "sampled_actions_are_feasible": {
+          "detail": "infeasible action sampled",
+          "ok": true
+        },
+        "shield_is_hard_deadline_only": {
+          "detail": {
+            "masked_rows_hard": 7,
+            "masked_rows_soft": 0
+          },
+          "ok": true
+        },
+        "value_is_masked_support_dot_raw_q": {
+          "detail": null,
+          "ok": true
+        },
+        "value_loss_is_sane": {
+          "detail": 0.001119273598305881,
+          "ok": true
+        },
+        "values_shape": {
+          "detail": [
+            2,
+            20
+          ],
+          "ok": true
+        }
+      },
+      "failures": []
+    }
+  },
+  "note": "container entrypoint prints an NVIDIA banner on stdout before the JSON",
+  "python": "3.8",
+  "sha": "34fd49d0873ce839289a111b3f8f2d67996b5517",
+  "tf": "1.15.5"
+}
