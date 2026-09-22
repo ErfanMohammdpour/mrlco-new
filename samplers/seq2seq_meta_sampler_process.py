@@ -1,3 +1,5 @@
+import os
+
 from samplers.base import SampleProcessor
 
 from env.mec_offloaing_envs.scheduler.mask_metrics import accumulate
@@ -129,6 +131,20 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
 
         return samples_data, paths
 
+    @staticmethod
+    def _stack(paths, key):
+        """Stack per-path arrays, refusing a ragged/object result.
+
+        A ragged stack silently becomes an object array and surfaces much later
+        as a confusing shape error (or a wrong metric), so name the offender.
+        """
+        arrays = [p[key] for p in paths]
+        stacked = np.array(arrays)
+        if stacked.dtype == object:
+            shapes = sorted({np.shape(a) for a in arrays})
+            raise ValueError("ragged %s across paths: shapes %s" % (key, shapes[:5]))
+        return stacked
+
     def resolved_mask_mode(self):
         """Explicit mode set by the trainer, else the process environment."""
         explicit = getattr(self, "mask_mode", None)
@@ -143,9 +159,7 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         values = np.array([path["values"] for path in paths])
         advantages = np.array([path["advantages"] for path in paths])
         has_feasible = all(p.get("feasible") is not None for p in paths)
-        feasible = (
-            np.array([p["feasible"] for p in paths]) if has_feasible else None
-        )
+        feasible = self._stack(paths, "feasible") if has_feasible else None
         finish_time = np.array([path["finish_time"] for path in paths])
         
         # Handle energy if present (optional, for logging)
@@ -154,7 +168,13 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         else:
             energy = None
         has_raw = all(p.get("raw_logits") is not None for p in paths)
-        raw_logits = np.array([p["raw_logits"] for p in paths]) if has_raw else None
+        if os.environ.get("MARGO_SHAPE_DEBUG"):
+            print("[shape-debug] n_paths=%d" % len(paths), flush=True)
+            for key in ("observations", "actions", "logits", "values", "feasible", "raw_logits"):
+                shapes = [np.shape(p.get(key)) for p in paths[:4]]
+                print("[shape-debug] %s first4=%s dtype=%s" % (
+                    key, shapes, np.asarray(paths[0].get(key)).dtype), flush=True)
+        raw_logits = self._stack(paths, "raw_logits") if has_raw else None
         return {
             "observations": observations,
             "actions": actions,

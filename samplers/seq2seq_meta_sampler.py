@@ -1,10 +1,13 @@
 from samplers.base import Sampler
+
+from env.mec_offloaing_envs.scheduler import masking as _masking
 from samplers.vectorized_env_executor import MetaParallelEnvExecutor, MetaIterativeEnvExecutor
 from utils import utils, logger
 from collections import OrderedDict
 
 from pyprind import ProgBar
 import numpy as np
+import os
 import time
 import itertools
 
@@ -126,16 +129,17 @@ class Seq2SeqMetaSampler(Sampler):
                 
                 # append new samples to running paths
                 # handling
-                env_mask = None
-                if applied_masks is not None:
-                    task_mask = applied_masks[min(idx // self.envs_per_task, len(applied_masks) - 1)]
-                    if task_mask is not None:
-                        env_mask = np.asarray(task_mask)[idx % self.envs_per_task]
-                env_raw = None
-                if applied_raw is not None:
-                    task_raw = applied_raw[min(idx // self.envs_per_task, len(applied_raw) - 1)]
-                    if task_raw is not None:
-                        env_raw = np.asarray(task_raw)[idx % self.envs_per_task]
+                # The policy's per-task arrays are already batched over this env's
+                # graphs: dim0 is the SAME axis the loop below enumerates.
+                # Pre-indexing by `idx % envs_per_task` stripped that axis, so each
+                # path kept one token instead of the whole plan.
+                task_mask = _masking.select_task_batch(applied_masks, idx, self.envs_per_task)
+                if os.environ.get("MARGO_SHAPE_DEBUG") and idx == 0:
+                    print("[shape-debug sampler] idx=0 observation=%s action=%s logit=%s mask=%s raw=%s" % (
+                        np.shape(observation), np.shape(action), np.shape(logit),
+                        None if applied_masks is None else np.shape(applied_masks[0]),
+                        None if applied_raw is None else np.shape(applied_raw[0])), flush=True)
+                task_raw = _masking.select_task_batch(applied_raw, idx, self.envs_per_task)
 
                 for i, (single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time) \
                         in enumerate(zip(observation, action, logit, reward, value, task_finish_times)):
@@ -145,10 +149,10 @@ class Seq2SeqMetaSampler(Sampler):
                     running_paths[idx]["rewards"] = single_reward
                     running_paths[idx]["finish_time"] = single_task_finish_time
                     running_paths[idx]["values"] = single_value
-                    if env_mask is not None:
-                        running_paths[idx]["feasible"] = np.asarray(env_mask)[i]
-                    if env_raw is not None:
-                        running_paths[idx]["raw_logits"] = np.asarray(env_raw)[i]
+                    if task_mask is not None:
+                        running_paths[idx]["feasible"] = task_mask[i]
+                    if task_raw is not None:
+                        running_paths[idx]["raw_logits"] = task_raw[i]
                     
                     # Store energy if enabled (energy_info[i] is the energy list for trajectory i)
                     if energy_info is not None and i < len(energy_info):

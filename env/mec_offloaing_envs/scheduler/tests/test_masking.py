@@ -225,6 +225,45 @@ class TestTest5MaskIsDeterministicFromState(unittest.TestCase):
         self.assertEqual(mask.shape, (2, 20, 3))
 
 
+class TestSamplerTaskSelection(unittest.TestCase):
+    """Regression guard for the per-plan slice the sampler stores.
+
+    Pre-indexing the policy's per-task array by `env_index % envs_per_task`
+    stripped the batch axis, so a path kept one token ([3]) while its actions
+    kept the whole plan ([T]) -- caught only by the trainer-level smoke.
+    """
+
+    def test_batch_axis_is_preserved(self):
+        from env.mec_offloaing_envs.scheduler.masking import select_task_batch
+
+        applied = [np.ones((1, 20, 3), dtype=bool)]
+        selected = select_task_batch(applied, 0, 1)
+        self.assertEqual(selected.shape, (1, 20, 3))
+        # the per-path slice must be a whole plan, never a single token
+        self.assertEqual(selected[0].shape, (20, 3))
+
+    def test_multiple_envs_per_task_pick_the_right_env(self):
+        from env.mec_offloaing_envs.scheduler.masking import select_task_batch
+
+        # task 0 all-True, task 1 all-False; env 1 and 3 belong to task 0 and 1
+        applied = [np.ones((2, 20, 3), dtype=bool), np.zeros((2, 20, 3), dtype=bool)]
+        self.assertEqual(select_task_batch(applied, 3, 2).shape, (2, 20, 3))
+        self.assertTrue(select_task_batch(applied, 1, 2).all())      # task 0
+        self.assertFalse(select_task_batch(applied, 3, 2).any())     # task 1
+
+    def test_none_is_passed_through(self):
+        from env.mec_offloaing_envs.scheduler.masking import select_task_batch
+
+        self.assertIsNone(select_task_batch(None, 0, 1))
+        self.assertIsNone(select_task_batch([None], 0, 1))
+
+    def test_out_of_range_env_index_is_clamped(self):
+        from env.mec_offloaing_envs.scheduler.masking import select_task_batch
+
+        applied = [np.ones((1, 4, 3), dtype=bool)]
+        self.assertEqual(select_task_batch(applied, 99, 1).shape, (1, 4, 3))
+
+
 class TestTest6MaskModeAndFeed(unittest.TestCase):
     """Mode resolution and the feed-level contract used by the TF plumbing."""
 

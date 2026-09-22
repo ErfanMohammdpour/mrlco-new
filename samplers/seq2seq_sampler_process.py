@@ -113,6 +113,20 @@ class Seq2SeSamplerProcessor(SampleProcessor):
 
         return samples_data, paths
 
+    @staticmethod
+    def _stack(paths, key):
+        """Stack per-path arrays, refusing a ragged/object result.
+
+        A ragged stack silently becomes an object array and surfaces much later
+        as a confusing shape error (or a wrong metric), so name the offender.
+        """
+        arrays = [p[key] for p in paths]
+        stacked = np.array(arrays)
+        if stacked.dtype == object:
+            shapes = sorted({np.shape(a) for a in arrays})
+            raise ValueError("ragged %s across paths: shapes %s" % (key, shapes[:5]))
+        return stacked
+
     def resolved_mask_mode(self):
         """Explicit mode set by the trainer, else the process environment."""
         explicit = getattr(self, "mask_mode", None)
@@ -128,9 +142,7 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         values = np.array([path["values"] for path in paths])
         advantages = np.array([path["advantages"] for path in paths])
         has_feasible = all(p.get("feasible") is not None for p in paths)
-        feasible = (
-            np.array([p["feasible"] for p in paths]) if has_feasible else None
-        )
+        feasible = self._stack(paths, "feasible") if has_feasible else None
         
         # Handle finish_time - ensure it's a scalar for each path
         finish_times = []
@@ -164,7 +176,7 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         else:
             energy = None
         has_raw = all(p.get("raw_logits") is not None for p in paths)
-        raw_logits = np.array([p["raw_logits"] for p in paths]) if has_raw else None
+        raw_logits = self._stack(paths, "raw_logits") if has_raw else None
         return {
             "observations": observations,
             "actions": actions,

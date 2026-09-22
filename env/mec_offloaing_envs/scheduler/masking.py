@@ -233,6 +233,23 @@ def likelihood_ratio(
     return np.exp(np.take_along_axis(new_logp, idx, axis=-1) - np.take_along_axis(old_logp, idx, axis=-1)).squeeze(-1)
 
 
+def select_task_batch(applied, env_index: int, envs_per_task: int):
+    """Per-task batch for `env_index`, with its leading (batch) axis INTACT.
+
+    `applied` is the policy's per-task list, one entry per meta task, each shaped
+    [batch, T, A]. The sampler must index it by task only: the batch axis is the
+    same axis the per-env loop enumerates, so pre-indexing by
+    `env_index % envs_per_task` strips it and every path keeps a single token
+    instead of its whole plan (the bug that produced
+    "actions shape (1000, 20) != logits shape (1000,)").
+    """
+    if applied is None:
+        return None
+    task_index = min(int(env_index) // max(int(envs_per_task), 1), len(applied) - 1)
+    value = applied[task_index]
+    return None if value is None else np.asarray(value)
+
+
 def mask_from_observation(packed: Any, feasible_indices: Sequence[int]) -> np.ndarray:
     """Static feasibility mask read from the obs v3 feasibility channels.
 
