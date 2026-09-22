@@ -13,6 +13,12 @@ Rules
   4. entropy is computed over the VALID actions only.
   5. dead-end guard: if no action is feasible the mask is dropped (all allowed)
      and the event is counted; the distribution is never empty.
+  6. the shield is HARD-DEADLINE ONLY. `feasible_*` is proof feasibility and is
+     defined for soft/firm deadlines as well; masking those would turn a priced
+     lateness into an impossible action. Soft -> objective, firm -> constraint
+     channel, hard -> shield.
+  7. a runtime (prefix-dependent) shield must be passed explicitly by the caller
+     and stored with the batch; it can never be derived from the observation.
 
 The mask itself must be a pure function of the state (observation / prefix), so
 that rollout and update reconstruct the same mask.
@@ -69,19 +75,54 @@ def intersect_masks(base: Any, shield: Any) -> np.ndarray:
     return np.logical_and(base, shield)
 
 
+def static_base_mask(observations: Any) -> np.ndarray:
+    """Proof-feasibility mask from the obs v3 channels, IGNORING deadline type.
+
+    This is a *signal* mask, not a shield: with a soft/firm deadline an action
+    can miss the deadline and still be the optimal choice (the tardiness term
+    prices it). Only `observation_mask` decides what may be shielded.
+    """
+    from .encoder_obs import feasibility_channel_indices
+
+    return mask_from_observation(observations, feasibility_channel_indices())
+
+
 def observation_mask(observations: Any, mode: Any = None) -> np.ndarray | None:
-    """Static mask read from obs v3 feasibility channels, or None when mode is off.
+    """Shield mask read from obs v3, or None when masking is off.
 
     Ordering is (UE, MEC, HELPER) == action ids (0, 1, 2), matching
-    `Location.to_action()`. Raises for obs v1/v2, which carry no feasibility
-    channels: a missing mask must fail loudly, never degrade to "no mask".
+    `Location.to_action()`.
+
+    Hard deadlines only. `feasible_*` is proof feasibility under the task
+    deadline and is defined for soft and firm deadlines too; masking those would
+    silently turn a priced lateness into an impossible action and destroy the
+    soft/firm curriculum stages. A task without a deadline, or with a soft/firm
+    one, is therefore fully unmasked.
+
+    `runtime` mode is deliberately NOT derivable from the observation: the shield
+    depends on the decoded prefix, and the environment currently consumes a whole
+    20-action plan at once, so it cannot return a per-prefix mask. Callers must
+    pass the env shield explicitly; deriving a static mask here and calling it
+    "runtime" is exactly the silent-degradation bug this raises on.
+
+    Raises for obs v1/v2: a missing mask must fail loudly, never mean "no mask".
     """
     resolved = resolve_mask_mode(mode)
     if resolved == MASK_MODE_OFF:
         return None
-    from .encoder_obs import feasibility_channel_indices
+    if resolved == MASK_MODE_RUNTIME:
+        raise ValueError(
+            "runtime shield masks cannot be derived from the observation; pass "
+            "the env shield explicitly (per-prefix masking needs token-by-token "
+            "env stepping, which is not implemented)"
+        )
+    from .encoder_obs import hard_deadline_channel_index
 
-    return mask_from_observation(observations, feasibility_channel_indices())
+    packed = np.asarray(observations, dtype=np.float64)
+    base = static_base_mask(packed)
+    hard = packed[..., hard_deadline_channel_index()] > 0.5
+    # hard deadline -> proof mask; no/soft/firm deadline -> everything allowed
+    return np.logical_or(base, np.logical_not(hard[..., None]))
 
 
 @dataclass(frozen=True)

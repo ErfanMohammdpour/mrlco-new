@@ -266,23 +266,64 @@ class TestTest6MaskModeAndFeed(unittest.TestCase):
         with self.assertRaises(eo.EncoderGraphError):
             observation_mask(packed, mode="static")
 
-    def test_static_mask_matches_action_order(self):
+    def _hard_obs(self, *, hard=True, feasible=(True, True, True)):
+        """Packed obs with proof-feasibility and the hard-deadline flag set."""
         eo.set_obs_version("v3")
         packed = np.zeros((1, 2, eo.PACKED_DIM))
         idx = eo.feasibility_channel_indices()
-        # only HELPER (action 2) feasible everywhere
-        packed[..., idx[2]] = 1.0
+        for a, ch in enumerate(idx):
+            packed[..., ch] = 1.0 if feasible[a] else 0.0
+        packed[..., eo.hard_deadline_channel_index()] = 1.0 if hard else 0.0
+        return packed
+
+    def test_static_mask_matches_action_order(self):
+        packed = self._hard_obs(hard=True, feasible=(False, False, True))
         mask = observation_mask(packed, mode="static")
         np.testing.assert_array_equal(mask, np.array([[[False, False, True]] * 2]))
 
-    def test_runtime_mode_intersects_with_the_shield(self):
-        eo.set_obs_version("v3")
-        packed = np.ones((1, 2, eo.PACKED_DIM))
-        base = observation_mask(packed, mode="runtime")
-        shield = np.zeros((1, 2, 3), dtype=bool)
-        shield[..., 0] = True                       # env says UE only
+    def test_soft_deadline_is_not_shielded(self):
+        # proof says MEC is unreachable in time, but a soft deadline only prices
+        # that lateness -- masking it would change the optimisation problem
+        packed = self._hard_obs(hard=False, feasible=(True, False, False))
+        mask = observation_mask(packed, mode="static")
+        np.testing.assert_array_equal(mask, np.ones((1, 2, 3), dtype=bool))
+
+    def test_hard_deadline_is_shielded(self):
+        packed = self._hard_obs(hard=True, feasible=(True, False, False))
+        mask = observation_mask(packed, mode="static")
+        np.testing.assert_array_equal(
+            mask, np.array([[[True, False, False]] * 2])
+        )
+
+    def test_static_base_mask_ignores_deadline_type(self):
+        # the featurised signal stays available for soft/firm; only the SHIELD
+        # is gated, so the policy can still learn to price lateness
+        packed = self._hard_obs(hard=False, feasible=(True, False, True))
+        from env.mec_offloaing_envs.scheduler.masking import static_base_mask
+
+        base = static_base_mask(packed)
+        np.testing.assert_array_equal(
+            base, np.array([[[True, False, True]] * 2])
+        )
+
+    def test_runtime_mode_refuses_to_derive_a_mask(self):
+        packed = self._hard_obs(hard=True, feasible=(True, True, True))
+        with self.assertRaises(ValueError):
+            observation_mask(packed, mode="runtime")
+
+    def test_runtime_shield_is_intersected_explicitly(self):
+        # what a future token-by-token runtime implementation must do: the
+        # explicit env shield ANDs with the static base, never replaces it
+        packed = self._hard_obs(hard=True, feasible=(True, True, False))
+        from env.mec_offloaing_envs.scheduler.masking import static_base_mask
+
+        base = static_base_mask(packed)
+        shield = np.ones((1, 2, 3), dtype=bool)
+        shield[..., 0] = False                      # env says UE not allowed
         merged = intersect_masks(base, shield)
-        np.testing.assert_array_equal(merged, shield)
+        np.testing.assert_array_equal(
+            merged, np.array([[[False, True, False]] * 2])
+        )
 
     def test_intersect_rejects_shape_mismatch(self):
         with self.assertRaises(ValueError):
@@ -306,6 +347,17 @@ class TestTest6MaskModeAndFeed(unittest.TestCase):
         sampler_src = (repo / "samplers" / "seq2seq_meta_sampler.py").read_text()
         self.assertIn('running_paths[idx]["feasible"]', sampler_src)
         self.assertIn('path_dict["feasible"]', sampler_src)
+
+        # critic must read the RAW logits: a -1e9 entry inside the dense layer
+        # contaminates vf for the valid actions too (audit blocker 1)
+        self.assertEqual(policy_src.count("dense(self.decoder_logits_raw"), 1)
+        self.assertEqual(policy_src.count("dense(self.sample_decoder_logits_raw"), 1)
+        self.assertEqual(policy_src.count("dense(self.greedy_decoder_logits_raw"), 1)
+        self.assertNotIn("dense(self.decoder_logits,", policy_src)
+        self.assertNotIn("dense(self.sample_decoder_logits,", policy_src)
+        self.assertNotIn("dense(self.greedy_decoder_logits,", policy_src)
+        # teacher-forced prediction must follow the shield, not the raw argmax
+        self.assertIn("tf.argmax(self.decoder_logits, axis=-1", policy_src)
 
         ppo_src = (repo / "meta_algos" / "ppo_offloading.py").read_text()
         mrclo_src = (repo / "meta_algos" / "MRLCO.py").read_text()

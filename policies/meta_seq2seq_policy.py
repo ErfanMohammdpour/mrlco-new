@@ -316,11 +316,18 @@ class Seq2SeqNetwork():
                 self.decoder_logits_raw, self.feasible_mask
             )
             self.pi = tf.nn.softmax(self.decoder_logits)
-            self.q = tf.compat.v1.layers.dense(self.decoder_logits, self.n_features, activation=None,
+            # The critic must NOT read the masked logits: a single -1e9 entry
+            # enters every q output through the dense layer, so vf would reach
+            # ~1e8 even for the valid actions. Mask the SUPPORT (pi), not the
+            # critic features. In off mode decoder_logits_raw IS decoder_logits,
+            # so this stays byte-exact for the legacy path.
+            self.q = tf.compat.v1.layers.dense(self.decoder_logits_raw, self.n_features, activation=None,
                                      reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
             self.vf = tf.reduce_sum(self.pi * self.q, axis=-1)
 
-            self.decoder_prediction = self.decoder_outputs.sample_id
+            # Teacher-forced prediction follows the masked policy, so BC/label
+            # diagnostics cannot report an action the shield forbids.
+            self.decoder_prediction = tf.argmax(self.decoder_logits, axis=-1, output_type=tf.int32)
 
             self.sample_softmax_temperature = tf.compat.v1.placeholder_with_default(
                 tf.constant(1.0, dtype=tf.float32),
@@ -341,7 +348,7 @@ class Seq2SeqNetwork():
                 self.sample_decoder_logits_raw, self.feasible_mask
             )
             self.sample_pi = tf.nn.softmax(self.sample_decoder_logits)
-            self.sample_q = tf.compat.v1.layers.dense(self.sample_decoder_logits, self.n_features,
+            self.sample_q = tf.compat.v1.layers.dense(self.sample_decoder_logits_raw, self.n_features,
                                             activation=None, reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
 
             self.sample_vf = tf.reduce_sum(self.sample_pi*self.sample_q, axis=-1)
@@ -364,7 +371,7 @@ class Seq2SeqNetwork():
                 self.greedy_decoder_logits_raw, self.feasible_mask
             )
             self.greedy_pi = tf.nn.softmax(self.greedy_decoder_logits)
-            self.greedy_q = tf.compat.v1.layers.dense(self.greedy_decoder_logits, self.n_features, activation=None, reuse=tf.compat.v1.AUTO_REUSE,
+            self.greedy_q = tf.compat.v1.layers.dense(self.greedy_decoder_logits_raw, self.n_features, activation=None, reuse=tf.compat.v1.AUTO_REUSE,
                                      name="qvalue_layer")
             self.greedy_vf = tf.reduce_sum(self.greedy_pi * self.greedy_q, axis=-1)
 

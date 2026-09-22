@@ -6,14 +6,32 @@ ROOT="${MARGO_ROOT:-/opt/margo/mrlco-new}"
 cd "$ROOT"
 
 gpu_run() {
+  # MARGO_OBS_VERSION / MARGO_MASK_MODE are forwarded only when set on the host,
+  # so v1/v2 flows keep their defaults while ⑥b smoke runs stay reproducible.
   docker run --rm --gpus all \
     -e MARGO_ALLOW_GPU=1 \
+    ${MARGO_OBS_VERSION:+-e MARGO_OBS_VERSION="$MARGO_OBS_VERSION"} \
+    ${MARGO_MASK_MODE:+-e MARGO_MASK_MODE="$MARGO_MASK_MODE"} \
     -e PYTHONPATH=/work \
     -e TF_FORCE_GPU_ALLOW_GROWTH=true \
     -e TF_CPP_MIN_LOG_LEVEL=2 \
     -v "$ROOT":/work -w /work \
     "$IMAGE" \
     "$@"
+}
+
+gpu_run_masked() {
+  # Explicit v3 + mask mode for the ⑥b smoke; no reliance on the host env.
+  docker run --rm --gpus all \
+    -e MARGO_ALLOW_GPU=1 \
+    -e MARGO_OBS_VERSION=v3 \
+    -e MARGO_MASK_MODE="${1:?mask mode required: off|static|runtime}" \
+    -e PYTHONPATH=/work \
+    -e TF_FORCE_GPU_ALLOW_GROWTH=true \
+    -e TF_CPP_MIN_LOG_LEVEL=2 \
+    -v "$ROOT":/work -w /work \
+    "$IMAGE" \
+    "${@:2}"
 }
 
 gpu_run_v2() {
@@ -51,6 +69,15 @@ for d in device_lib.list_local_devices():
     ;;
   smoke)
     gpu_run python spec/phase4_campaign.py --gpu-smoke --seed 0 --i-allow-gpu
+    ;;
+  mask-smoke)
+    # ⑥b gate: legacy parity, then the static shield. Both must exit 0.
+    gpu_run_masked off python -m spec.masked_ppo_smoke --mask-mode off
+    gpu_run_masked static python -m spec.masked_ppo_smoke --mask-mode static
+    ;;
+  mask-runtime)
+    # Must fail loudly: runtime shields cannot be derived from the observation.
+    gpu_run_masked runtime python -m spec.masked_ppo_smoke --mask-mode runtime || true
     ;;
   audit5)
     gpu_run python spec/phase4_campaign.py --learning-probe --seed 0 --i-allow-gpu

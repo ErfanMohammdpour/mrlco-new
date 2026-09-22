@@ -405,6 +405,11 @@ def feasibility_channel_indices() -> tuple[int, int, int]:
     Used by the policy to build the static mask directly from the observation, so
     that rollout and update construct the identical mask with no extra plumbing.
     Raises for v1/v2, which have no feasibility channels.
+
+    NOTE: these channels are *proof* feasibility under the task deadline -- they
+    are defined for every deadline type (soft/firm/hard). Turning them into a
+    hard action shield is only legitimate for hard deadlines; see
+    `masking.observation_mask` and `hard_deadline_channel_index`.
     """
     if OBS_VERSION != "v3":
         raise EncoderGraphError(
@@ -414,6 +419,19 @@ def feasibility_channel_indices() -> tuple[int, int, int]:
         FEATURE_NAMES.index(name)
         for name in ("feasible_ue", "feasible_mec", "feasible_helper")
     )
+
+
+def hard_deadline_channel_index() -> int:
+    """Index of `deadline_is_hard` in the ACTIVE schema (v3 only).
+
+    A soft/firm deadline penalises tardiness, it does not make an action
+    impossible, so the shield is gated on this channel.
+    """
+    if OBS_VERSION != "v3":
+        raise EncoderGraphError(
+            "deadline channels exist only in obs v3 (active %r)" % OBS_VERSION
+        )
+    return FEATURE_NAMES.index("deadline_is_hard")
 
 
 def _deadline_block(

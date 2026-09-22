@@ -183,9 +183,9 @@ runtime shield can be added later without touching the PPO loss again.
 
 ## 8. Test status (local, non-TF)
 
-- `tests/test_masking.py`: **28 passed** (19 reference-semantics + 9 mode/wiring).
+- `tests/test_masking.py`: **32 passed** (19 reference-semantics + 13 mode/shield/wiring).
 - Full non-TF scheduler suite (excluding the two TF modules that require `tensorflow`):
-  **390 passed, 5 skipped**.
+  **394 passed, 5 skipped**.
 - Two failures found while writing the tests were fixed and are worth recording because both were
   real interface traps:
   - the ratio-collapse test originally used a single mask argument, so both log-probs shared the
@@ -269,3 +269,90 @@ loudly otherwise): `spec/pair_sup.py`, `spec/rewrite_mec.py`,
 `spec/pair_head.py`, `comprehensive_encoder_verification.py`. Wiring them is
 mechanical (`feasibility_feed`) but belongs to commit 4/6 when those scripts are
 actually used with v3.
+
+---
+
+## 12. Post-audit P0 fixes (external audit of `08d74d8`)
+
+An independent audit of the branch found three blockers. All three were verified
+in the code and are fixed here; the audit's positive findings (mask applied at the
+real sampling site, stored mask replayed at update, both update paths covered)
+were confirmed.
+
+### P0-1 critic contaminated by `-1e9` (real, most severe)
+
+`q = dense(masked_logits)` was wrong: a dense layer mixes *all* three logits, so a
+single masked entry at `-1e9` reaches the `q` of the valid actions too and
+`vf = sum(masked_pi * q)` lands around `1e8`-`1e9`. The value clip becomes
+meaningless and `vf_loss` explodes. Fixed by masking the **support** and not the
+critic features:
+
+    q  = dense(raw_logits)          # train / sample / greedy
+    vf = sum(masked_pi * q)
+
+In `off` mode `decoder_logits_raw is decoder_logits`, so the legacy path is
+untouched. The smoke now asserts `max|vf| < 1e3` and that `vf` equals
+`(masked_pi * q).sum(-1)` in numpy — a direct regression test for this blocker.
+The auditor's longer-term suggestion (critic from the decoder hidden state rather
+than the policy logits) is recorded as a separate design item; it changes the
+architecture and is out of scope for ⑥b.
+
+### P0-2 smoke ratio test used the wrong prefix (real)
+
+The smoke fed all-zero `decoder_inputs` while `old_logits` came from the
+autoregressive sample decoder and `new_logits` from the teacher-forced train
+decoder, so the identity could fail for reasons unrelated to masking. Fixed with
+the same shifted-action prefix the real PPO update uses
+(`[0, a_0, ..., a_{T-2}]`). The smoke also now: runs an **actual** Adam step on a
+PPO-shaped loss (clipped surrogate + value clip) and asserts finite losses, a
+bounded value loss, non-empty finite gradients and moved parameters. The ratio
+check is named `ratio_identity_before_first_update` — after an update the ratio is
+expected to leave 1, so no metric may require `ratio≈1` during training.
+
+### P0-3 soft/firm deadlines were silently hard-shielded (real)
+
+`static_bounds.feasible_by_deadline` returns proof feasibility for *any* deadline
+type, and `observation_mask` turned it straight into a shield. A task with a soft
+deadline therefore lost actions that merely incur tardiness — contradicting the
+locked curriculum (soft -> objective, firm -> constraint channel, hard -> shield).
+Fixed in `masking.observation_mask`:
+
+    mask = proof_mask OR NOT hard_deadline      # hard => proof mask; else all allowed
+
+`static_base_mask()` keeps the featurised proof signal available for soft/firm (the
+policy can still learn to price lateness); only the shield is gated. Feature names
+are unchanged because renaming `feasible_*` would break the v3 schema and stats
+file, so the distinction is documented instead: these are *proof* channels, not
+shield channels.
+
+### P0-4 runtime mode no longer degrades silently
+
+`observation_mask(mode="runtime")` now raises: the shield is prefix-dependent and
+the environment consumes a whole decoded plan at once, so a per-prefix mask cannot
+exist yet. A caller must pass the env shield explicitly; `intersect_masks` is the
+documented way to combine it with the static base. No call site feeds such a shield
+yet, so `runtime` is formally **reserved/unsupported**, not "working".
+
+### P0-5 smaller items from the audit
+
+- `network.decoder_prediction` (teacher-forced argmax) now comes from the **masked**
+  logits, so BC/label diagnostics cannot report a shield-forbidden action. In `off`
+  mode this equals the previous `sample_id` (argmax of the same logits).
+- `spec/kish_gpu.sh` now forwards `MARGO_OBS_VERSION` / `MARGO_MASK_MODE` when set on
+  the host, and has explicit `mask-smoke` (off + static) and `mask-runtime` targets.
+  Previously the launcher passed neither, and `phase4_train_driver` forces
+  `MARGO_OBS_VERSION=v2` at several entry points — in mask mode those paths now fail
+  loudly through `observation_mask` instead of silently ignoring the shield.
+- Smoke CLI: `--mask-mode {off,static,runtime}`, `--obs-version v3`; the script sets
+  the env vars itself before importing, so the command is reproducible.
+- Wiring-completeness test also asserts the critic reads raw logits (no
+  `dense(self.*decoder_logits,` may reappear).
+
+Still open and explicitly NOT claimed: the `train` decoder's `TrainingHelper` feeds
+targets (teacher forcing), so `decoder_logits` are computed from ground-truth
+actions — correct for the PPO importance ratio, which is what PPO uses; and the
+remaining unwired decode call sites (`spec/pair_sup.py`, `spec/rewrite_mec.py`,
+`spec/cavia_loop.py`, `spec/best_of_k.py`, `spec/oracle_dist.py`,
+`spec/pair_head.py`, `comprehensive_encoder_verification.py`) still require
+`MARGO_MASK_MODE=off`. Metrics (`mask/*`, `policy/*`, `critic/*`) are the next
+commit, before any 500-iteration run.
