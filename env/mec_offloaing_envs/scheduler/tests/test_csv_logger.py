@@ -37,6 +37,28 @@ if "joblib" not in sys.modules:
 from utils.logger import CSVOutputFormat  # noqa: E402
 
 
+# The real trainer key set, taken from the failing off-mode run: one key ends
+# with a comma and another is a whitespace spacer. Before the fix the header had
+# 47 fields against 43 in the row.
+REAL_KEYS = (
+    "Average greedy latency,", "mask/active_rate", "mask/forced_rate",
+    "mask/all_invalid_rate", "policy/invalid_action_rate",
+    "policy/argmax_masked_rate", "policy/entropy_valid", "critic/value_abs_max",
+    "inner_update_mode", "PolicyExecTime", "EnvExecTime", "AverageDiscountedReturn",
+    "AverageReturn", "NumTrajs", "StdReturn", "MaxReturn", "MinReturn",
+    "Average energy", " ", "Itr", "Average reward", "Average latency", "split_role",
+    "seed", "split_version", "support_graphs_per_meta_task",
+    "support_trajectories_per_meta_task", "query_graph_count", "k_steps",
+    "outer_update_count", "entropy_coefficient", "value_clip_epsilon",
+    "ppo_batch_size_trajectories", "meta_batch_size_distributions",
+    "inner_learning_rate", "outer_learning_rate", "outer_update_method",
+    "hyperparameter_provenance.policy", "validation_query_composite_objective_k0",
+    "validation_query_composite_objective", "validation_query_mean_latency_k0",
+    "validation_query_mean_latency_k3", "checkpoint_selection_metric",
+    "checkpoint_is_best_val", "mask/late_arrival",
+)
+
+
 class TestCsvAlignment(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="csv_logger_"))
@@ -115,6 +137,34 @@ class TestCsvAlignment(unittest.TestCase):
         by_row = [dict(zip(header, row)) for row in rows]
         self.assertEqual(by_row[0]["Average greedy latency,"], "1.0")
         self.assertEqual(by_row[1]["mask/active_rate"], "0.0")
+
+    def test_trainer_shaped_keys_stay_aligned(self):
+        """Replay of the real key set, with a late-arriving key added mid-run."""
+        writer = CSVOutputFormat(str(self.path))
+        first_row = {k: ("publication" if k == "inner_update_mode" else 1.0) for k in REAL_KEYS}
+        writer.writekvs({k: v for k, v in first_row.items() if k != "mask/late_arrival"})
+        second_row = dict(first_row)
+        second_row["mask/active_rate"] = 0.0
+        second_row["policy/entropy_valid"] = 0.31908559799194336
+        second_row["critic/value_abs_max"] = 80.0
+        writer.writekvs(second_row)
+        writer.close()
+
+        with self.path.open() as handle:
+            raw = list(csv.reader(handle))
+        header, rows = raw[0], raw[1:]
+        self.assertEqual(len(header), len(REAL_KEYS), header)
+        self.assertIn("Average greedy latency,", header)
+        self.assertNotIn("", header)
+        for row in rows:
+            self.assertEqual(len(row), len(header), row)
+        by_row = [dict(zip(header, row)) for row in rows]
+        self.assertEqual(by_row[0]["mask/active_rate"], "1.0")
+        self.assertEqual(by_row[1]["mask/active_rate"], "0.0")
+        self.assertEqual(by_row[1]["policy/entropy_valid"], "0.31908559799194336")
+        self.assertEqual(by_row[1]["critic/value_abs_max"], "80.0")
+        self.assertEqual(by_row[1]["inner_update_mode"], "publication")
+        self.assertEqual(by_row[1]["mask/late_arrival"], "1.0")
 
     def test_commas_in_values_do_not_break_columns(self):
         writer = CSVOutputFormat(str(self.path))
