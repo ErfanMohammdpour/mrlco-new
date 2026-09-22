@@ -38,7 +38,16 @@ def main() -> int:
     ap.add_argument("--graphs", type=int, default=120)
     ap.add_argument("--deadline-factor", type=float, default=1.05)
     ap.add_argument("--out", type=str, required=True)
-    ap.add_argument("--ckpt", type=str, default=None, help="optional policy checkpoint")
+    ap.add_argument("--ckpt", type=str, default=None, help="optional policy checkpoint dir")
+    ap.add_argument(
+        "--obs-version", type=str, default="v3",
+        help=(
+            "obs version used to BUILD the encoder. A checkpoint trained with "
+            "v1/v2 has a different packed width and cannot consume v3 obs; pass "
+            "--obs-version v1 together with a v1/v2 checkpoint for a trained "
+            "baseline without deadline features."
+        ),
+    )
     args = ap.parse_args()
 
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
@@ -47,7 +56,7 @@ def main() -> int:
 
     from env.mec_offloaing_envs.scheduler import encoder_obs as eo
 
-    eo.set_obs_version("v3")
+    eo.set_obs_version(str(args.obs_version))
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
@@ -67,9 +76,12 @@ def main() -> int:
     packed_dim = int(loose.shape[2])
     with tf.compat.v1.Graph().as_default():
         ph = tf.compat.v1.placeholder(tf.float32, [None, 20, packed_dim], name="obs")
+        # Scope MUST be "encoder" to match the variable names stored by the policy
+        # (policies/meta_seq2seq_policy.py builds it with scope_name="encoder").
+        # Using a different scope makes a checkpoint restore silently impossible.
         enc = create_graph2seq_encoder(
             encoder_inputs=ph, encoder_units=128, num_layers=2,
-            is_bidirectional=False, mode="train", scope_name="dump_encoder",
+            is_bidirectional=False, mode="train", scope_name="encoder",
         )
         node_h = enc[0]
         state = enc[1]
@@ -80,9 +92,30 @@ def main() -> int:
         with tf.compat.v1.Session() as sess:
             if args.ckpt:
                 ckpt = tf.train.latest_checkpoint(args.ckpt)
-                saver = tf.compat.v1.train.Saver()
+                if ckpt is None:
+                    raise SystemExit("no checkpoint found under %s" % args.ckpt)
+                enc_vars = [
+                    v for v in tf.compat.v1.global_variables()
+                    if v.name.startswith("encoder/")
+                ]
+                if not enc_vars:
+                    raise SystemExit("no encoder/ variables were built; scope mismatch")
+                reader = tf.compat.v1.train.NewCheckpointReader(ckpt)
+                stored = set(reader.get_variable_to_shape_map().keys())
+                missing = [v.name for v in enc_vars if v.name.split(":")[0] not in stored]
+                print(
+                    "checkpoint=%s  encoder vars=%d  missing_in_ckpt=%d"
+                    % (ckpt, len(enc_vars), len(missing))
+                )
+                if missing:
+                    print(
+                        "NOTE: %d encoder variables are absent from the checkpoint "
+                        "(e.g. %s). They keep their random init; treat the probe as "
+                        "PARTIAL." % (len(missing), missing[:3])
+                    )
+                saver = tf.compat.v1.train.Saver(var_list=enc_vars)
                 saver.restore(sess, ckpt)
-                print("restored", ckpt)
+                print("restored encoder variables")
             else:
                 sess.run(tf.compat.v1.global_variables_initializer())
             out = {}
