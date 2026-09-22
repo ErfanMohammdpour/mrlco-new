@@ -161,6 +161,24 @@ def _train(seed, n_itr, run_dir, audit=False, print_action_choices=False, parall
     from meta_trainer import build_frozen_primary_stack
     import tensorflow as tf
 
+    # Constrained V2V/energy budgets: set MARGO_CONSTRAINTS=/path/to/constraints.yaml.
+    # Unset / "off" -> constraint_spec is None and every training path is unchanged.
+    from spec.constraints_config import constraints_from_env
+
+    constraint_spec, constraint_dual_lr = constraints_from_env()
+    if constraint_spec is not None:
+        print(
+            "[constraints] %s  budgets=%s  dual_lr=%s"
+            % (run_dir, list(constraint_spec.active_names), constraint_dual_lr)
+        )
+        payload_path = run_dir / "config.resolved.json"
+        if payload_path.exists():
+            payload = json.loads(payload_path.read_text())
+            payload["constraints"] = constraint_spec.as_dict()
+            payload["constraint_dual_lr"] = float(constraint_dual_lr)
+            text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+            payload_path.write_text(text)
+
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir=str(run_dir / "logs"), format_strs=["stdout", "log", "csv"])
     writer = TrainAuditWriter(run_dir) if audit else None
@@ -175,6 +193,8 @@ def _train(seed, n_itr, run_dir, audit=False, print_action_choices=False, parall
         learning_mode=learning_mode,
         vocab_size=int(vocab_size),
         use_energy=bool(use_energy),
+        constraints=constraint_spec,
+        constraint_dual_lr=constraint_dual_lr,
     )
     bc_stats = None
     with tf.compat.v1.Session() as sess:

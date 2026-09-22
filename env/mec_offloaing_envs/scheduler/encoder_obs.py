@@ -10,7 +10,15 @@ Feature z-score uses frozen meta_train statistics only.
 Obs version:
   v1 (default): FEATURE_DIM=11, PACKED_DIM=50 — Phases 1–3.
   v2: FEATURE_DIM=15, PACKED_DIM=54 — Phase 4 resource axis.
-  Select with env MARGO_OBS_VERSION=v2 before importing policies, or call set_obs_version.
+  v3: FEATURE_DIM=31, PACKED_DIM=70 — deadline + feasibility awareness (⑤a).
+      Adds, per task: deadline presence/type one-hot, slack ratio against the
+      optimistic bound, criticality class one-hot, tardiness weight, and per
+      ACTION the static optimistic ready bound plus its feasibility flag.  Without
+      these the policy is structurally blind to deadlines and the shield becomes
+      the only source of feasibility information — see
+      reports/PRE_PPO_ARCHITECTURE_REVIEW.md.
+  Select with env MARGO_OBS_VERSION=v2|v3 before importing policies, or call
+  set_obs_version.  v1/v2 stay byte-identical; only v3 needs a resource model.
 """
 
 from __future__ import annotations
@@ -61,11 +69,39 @@ RESOURCE_FEATURE_NAMES: tuple[str, ...] = (
 )
 FEATURE_NAMES_V2: tuple[str, ...] = FEATURE_NAMES_V1 + RESOURCE_FEATURE_NAMES
 
+# --- v3: deadline / criticality / feasibility awareness ---------------------
+# All of these are bounded by construction (0/1, clipped ratios), so they are NOT
+# z-scored: their frozen stats rows are identity. That also keeps the v3 stats
+# file derivable from the v2 one without inventing corpus statistics.
+DEADLINE_FEATURE_NAMES: tuple[str, ...] = (
+    "has_deadline",
+    "deadline_is_soft",
+    "deadline_is_firm",
+    "deadline_is_hard",
+    "slack_ratio_min_lb",
+    "criticality_low",
+    "criticality_medium",
+    "criticality_high",
+    "tardiness_weight_scaled",
+    "return_hop_over_min_lb",
+    "lb_ue_log1p",
+    "feasible_ue",
+    "lb_mec_log1p",
+    "feasible_mec",
+    "lb_helper_log1p",
+    "feasible_helper",
+)
+FEATURE_NAMES_V3: tuple[str, ...] = FEATURE_NAMES_V2 + DEADLINE_FEATURE_NAMES
+NON_STANDARDIZED_FEATURES: tuple[str, ...] = (
+    "is_root",
+    "is_sink",
+) + DEADLINE_FEATURE_NAMES
+
 # Mutable active schema (default v1). Policies import these names at load time —
 # set MARGO_OBS_VERSION before importing graph2seq / policies for v2 jobs.
 FEATURE_NAMES: tuple[str, ...] = FEATURE_NAMES_V1
 STANDARDIZE_FEATURES: frozenset[str] = frozenset(
-    name for name in FEATURE_NAMES if name not in ("is_root", "is_sink")
+    name for name in FEATURE_NAMES if name not in NON_STANDARDIZED_FEATURES
 )
 FEATURE_DIM = len(FEATURE_NAMES)
 PACKED_DIM = FEATURE_DIM + 2 * MAX_NEIGH + 1
@@ -74,6 +110,7 @@ OBS_VERSION = "v1"
 _SPEC_DIR = Path(__file__).resolve().parents[3] / "spec"
 _DEFAULT_STATS_PATH = _SPEC_DIR / "encoder_feature_stats.json"
 _DEFAULT_STATS_PATH_V2 = _SPEC_DIR / "encoder_feature_stats_v2.json"
+_DEFAULT_STATS_PATH_V3 = _SPEC_DIR / "encoder_feature_stats_v3.json"
 _STATS_CACHE = None  # type: ignore[var-annotated]
 _STATS_CACHE_VERSION: str | None = None
 
@@ -87,14 +124,16 @@ def set_obs_version(version: str) -> None:
     global FEATURE_NAMES, STANDARDIZE_FEATURES, FEATURE_DIM, PACKED_DIM, OBS_VERSION
     global _STATS_CACHE, _STATS_CACHE_VERSION
     version = str(version).lower().strip()
-    if version not in ("v1", "v2"):
-        raise EncoderGraphError("obs version must be v1 or v2, got %r" % version)
+    if version not in ("v1", "v2", "v3"):
+        raise EncoderGraphError("obs version must be v1, v2 or v3, got %r" % version)
     if version == "v1":
         FEATURE_NAMES = FEATURE_NAMES_V1
-    else:
+    elif version == "v2":
         FEATURE_NAMES = FEATURE_NAMES_V2
+    else:
+        FEATURE_NAMES = FEATURE_NAMES_V3
     STANDARDIZE_FEATURES = frozenset(
-        name for name in FEATURE_NAMES if name not in ("is_root", "is_sink")
+        name for name in FEATURE_NAMES if name not in NON_STANDARDIZED_FEATURES
     )
     FEATURE_DIM = len(FEATURE_NAMES)
     PACKED_DIM = FEATURE_DIM + 2 * MAX_NEIGH + 1
@@ -271,7 +310,12 @@ def load_feature_stats(path: str | Path | None = None) -> FeatureStats:
 def default_feature_stats() -> FeatureStats:
     global _STATS_CACHE, _STATS_CACHE_VERSION
     if _STATS_CACHE is None or _STATS_CACHE_VERSION != OBS_VERSION:
-        path = _DEFAULT_STATS_PATH_V2 if OBS_VERSION == "v2" else _DEFAULT_STATS_PATH
+        if OBS_VERSION == "v3":
+            path = _DEFAULT_STATS_PATH_V3
+        elif OBS_VERSION == "v2":
+            path = _DEFAULT_STATS_PATH_V2
+        else:
+            path = _DEFAULT_STATS_PATH
         _STATS_CACHE = load_feature_stats(path)
         _STATS_CACHE_VERSION = OBS_VERSION
     return _STATS_CACHE
@@ -298,6 +342,26 @@ def resource_log_vector_from_cluster(resource_cluster: Any) -> np.ndarray:
         [math.log(ul), math.log(v2v), math.log(mec), math.log(ue)],
         dtype=np.float64,
     )
+
+
+def resource_log_vector_from_config(resources: Any) -> np.ndarray:
+    """[log UL_bps, log V2V_bps, log MEC_CPU, log UE_CPU] from a ResourceConfig.
+
+    Mirrors `resource_log_vector_from_cluster` so obs v2/v3 can be built from the
+    scheduler config directly (radio- and energy-model aware).
+    """
+    from .model import Location
+
+    values = (
+        float(resources.hop_rate("MEC_UL")),
+        float(resources.hop_rate("V2V")),
+        float(resources.cpu_rate(Location.MEC)),
+        float(resources.cpu_rate(Location.UE)),
+    )
+    for name, val in zip(("ul", "v2v", "mec", "ue"), values):
+        if not (val > 0.0) or not math.isfinite(val):
+            raise EncoderGraphError("bad resource rate %s=%s" % (name, val))
+    return np.asarray([math.log(v) for v in values], dtype=np.float64)
 
 
 def resource_ctx_from_vec(resource_vec: Sequence[float], stats: FeatureStats | None = None) -> np.ndarray:
@@ -335,10 +399,75 @@ def _task_depths(dag: CanonicalDAG) -> dict[int, int]:
     return {tid: depth(tid) for tid in dag.tasks}
 
 
+def _deadline_block(
+    dag: CanonicalDAG,
+    order: Sequence[int],
+    bounds: Any,
+    resources: Any,
+    cycles_per_bit: float | None,
+) -> np.ndarray:
+    """[N, len(DEADLINE_FEATURE_NAMES)] bounded deadline/feasibility features."""
+    from .model import Location
+    from .static_bounds import ACTION_LOCATIONS, deadline_vector
+
+    n = len(order)
+    out = np.zeros((n, len(DEADLINE_FEATURE_NAMES)), dtype=np.float64)
+    idx = {name: i for i, name in enumerate(DEADLINE_FEATURE_NAMES)}
+    dl = deadline_vector(dag, order)
+    deadlines = [d for d, _t in dl]
+    slack = bounds.min_slack_ratio(deadlines)
+    feas = bounds.feasible_by_deadline(deadlines)
+    scale = max(float(bounds.max_ready_lb), 1e-9)
+
+    for pos, tid in enumerate(order):
+        task = dag.tasks[int(tid)]
+        deadline, dtype = dl[pos]
+        row = out[pos]
+        if deadline is None or dtype == "none":
+            row[idx["has_deadline"]] = 0.0
+        else:
+            row[idx["has_deadline"]] = 1.0
+            if dtype in ("soft", "firm", "hard"):
+                row[idx["deadline_is_%s" % dtype]] = 1.0
+        row[idx["slack_ratio_min_lb"]] = slack[pos]
+        cls = str(task.criticality_class)
+        if cls in ("low", "medium", "high"):
+            row[idx["criticality_%s" % cls]] = 1.0
+        # log1p keeps the coefficient bounded for large weights
+        row[idx["tardiness_weight_scaled"]] = float(
+            min(1.0, math.log1p(max(0.0, float(task.tardiness_weight))) / math.log1p(10.0))
+        )
+        # unavoidable return cost for a sink, relative to the best achievable ready time
+        out_bytes = int(task.task_output_bytes)
+        if bounds.is_sink[pos]:
+            cheapest_return = min(
+                _transfer_lb(out_bytes, loc, Location.UE, resources)
+                for loc in ACTION_LOCATIONS
+            )
+            row[idx["return_hop_over_min_lb"]] = float(
+                min(4.0, cheapest_return / max(bounds.min_ready_lb[pos], 1e-9))
+            )
+        for action, name in ((0, "ue"), (1, "mec"), (2, "helper")):
+            lb = float(bounds.ready_lb[pos][action])
+            row[idx["lb_%s_log1p" % name]] = float(
+                min(4.0, math.log1p(max(0.0, lb) / scale * 10.0))
+            )
+            row[idx["feasible_%s" % name]] = 1.0 if feas[pos][action] else 0.0
+    return out
+
+
+def _transfer_lb(nbytes: int, src: Any, dst: Any, resources: Any) -> float:
+    from .feasibility import transfer_lower_bound
+
+    return transfer_lower_bound(int(nbytes), src, dst, resources)
+
+
 def raw_node_features(
     dag: CanonicalDAG,
     decoder_order: Sequence[Any],
     resource_vec: Sequence[float] | None = None,
+    resources: Any = None,
+    cycles_per_bit: float | None = None,
 ) -> np.ndarray:
     order = _decoder_ids(decoder_order)
     if len(order) != len(set(order)):
@@ -381,16 +510,31 @@ def raw_node_features(
         row[name_index["is_root"]] = 1.0 if indeg == 0 else 0.0
         row[name_index["is_sink"]] = 1.0 if outdeg == 0 else 0.0
 
-    if OBS_VERSION == "v2":
+    if OBS_VERSION in ("v2", "v3"):
         if resource_vec is None:
-            raise EncoderGraphError("obs v2 requires resource_vec [4]")
+            raise EncoderGraphError("obs %s requires resource_vec [4]" % OBS_VERSION)
         rv = np.asarray(resource_vec, dtype=np.float64).reshape(4)
         if not np.all(np.isfinite(rv)):
             raise EncoderGraphError("resource_vec must be finite")
         for j, name in enumerate(RESOURCE_FEATURE_NAMES):
             rows[:, name_index[name]] = rv[j]
     elif resource_vec is not None:
-        raise EncoderGraphError("resource_vec only valid for obs v2")
+        raise EncoderGraphError("resource_vec only valid for obs v2/v3")
+
+    if OBS_VERSION == "v3":
+        if resources is None:
+            raise EncoderGraphError(
+                "obs v3 requires the scheduler ResourceConfig (static bounds for "
+                "deadline/feasibility features)"
+            )
+        from .static_bounds import static_action_bounds
+
+        bounds = static_action_bounds(
+            dag, order, resources, cycles_per_bit=cycles_per_bit
+        )
+        rows[:, name_index[DEADLINE_FEATURE_NAMES[0]]:] = _deadline_block(
+            dag, order, bounds, resources, cycles_per_bit
+        )
     return rows
 
 
@@ -535,6 +679,8 @@ def encode_canonical_dag(
     enforce_task_count: bool = False,
     resource_vec: Sequence[float] | None = None,
     resource_cluster: Any = None,
+    resources: Any = None,
+    cycles_per_bit: float | None = None,
 ) -> np.ndarray:
     order = _decoder_ids(decoder_order)
     if enforce_task_count:
@@ -543,7 +689,15 @@ def encode_canonical_dag(
         stats = default_feature_stats()
     if resource_vec is None and resource_cluster is not None:
         resource_vec = resource_log_vector_from_cluster(resource_cluster)
-    raw = raw_node_features(dag, order, resource_vec=resource_vec)
+    if resource_vec is None and resources is not None:
+        resource_vec = resource_log_vector_from_config(resources)
+    raw = raw_node_features(
+        dag,
+        order,
+        resource_vec=resource_vec,
+        resources=resources,
+        cycles_per_bit=cycles_per_bit,
+    )
     features = stats.standardize(raw)
     fw, bw, _, _ = neighbor_index_tables(dag, order)
     return pack_observation(features, fw, bw)
@@ -555,14 +709,23 @@ def encode_task_graph(
     stats: FeatureStats | None = None,
     resource_vec: Sequence[float] | None = None,
     resource_cluster: Any = None,
+    resources: Any = None,
+    cycles_per_bit: float | None = None,
 ) -> np.ndarray:
+    dag = to_canonical_dag(task_graph)
+    if resources is None and resource_cluster is not None:
+        from .adapter import resource_config_from_cluster
+
+        resources = resource_config_from_cluster(resource_cluster)
     return encode_canonical_dag(
-        to_canonical_dag(task_graph),
+        dag,
         decoder_order,
         stats=stats,
         enforce_task_count=True,
         resource_vec=resource_vec,
         resource_cluster=resource_cluster,
+        resources=resources,
+        cycles_per_bit=cycles_per_bit,
     )
 
 

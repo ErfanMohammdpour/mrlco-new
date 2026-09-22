@@ -32,12 +32,22 @@ def to_canonical_dag(task_graph: Any) -> CanonicalDAG:
     for i, task in enumerate(task_graph.task_list):
         is_root = len(task_graph.pre_task_sets[i]) == 0
         external = int(task.processing_data_size) if is_root else 0
+        # Per-task physics/deadline fields are optional on the legacy task
+        # object; absent attributes keep the schema defaults (global
+        # cycles_per_bit, no deadline).
         tasks.append(
             CanonicalTask(
                 task_id=i,
                 compute_workload_bytes=int(task.processing_data_size),
                 task_output_bytes=int(task.transmission_data_size),
                 external_input_bytes=external,
+                cycles_per_bit=getattr(task, "cycles_per_bit", None),
+                deadline_s=getattr(task, "deadline_s", None),
+                deadline_type=str(getattr(task, "deadline_type", "none")),
+                criticality_class=str(getattr(task, "criticality_class", "medium")),
+                tardiness_weight=float(
+                    getattr(task, "tardiness_weight", getattr(task, "criticality", 1.0))
+                ),
             )
         )
     return CanonicalDAG.from_records(tasks, _raw_edges_from_task_graph(task_graph))

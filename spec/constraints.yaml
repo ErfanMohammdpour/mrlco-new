@@ -1,0 +1,60 @@
+# MARGO constrained-training profile (V2V + energy budgets)
+#
+# Usage (GPU host):
+#   MARGO_CONSTRAINTS=spec/constraints.yaml python meta_trainer.py
+#   python -c "from spec.constraints_config import load_constraints as l; print(l()[0].as_dict())"
+#
+# Semantics: constrained MDP / Lagrangian.
+#   minimize  J = 0.5*L_norm + 0.5*E_norm      (unchanged objective)
+#   s.t.      E[c_i] <= b_i                    (budgets below)
+#   reward   -= sum_i lambda_i * max(0, (c_i - b_i)/scale_i)
+#   lambda_i <- max(0, lambda_i + dual_lr * mean_batch((c_i - b_i)/scale_i))
+#
+# Budgets ending in `_frac_of_all_ue` are relative to the episode-local all-UE
+# plan energy (a pure local plan), so they stay comparable across graph sizes.
+# Delete a key to switch that constraint off; set mode: off to disable all.
+#
+# Calibration reference (measured with spec/energy_reward_audit.py, dist 1):
+#   E_MEC / E_UE      ~ 0.03    (MEC compute is out of scope -> radio only)
+#   E_HELPER / E_UE   ~ 0.76    (helper CPU at rho_helper=0.7 W)
+#   mixed greedy plan == 100% below L_ref_min, so latency budgets are tight.
+
+status: proposal_not_frozen
+requires: [ADR-013, phase6_gate]      # do not report as a paper result yet
+
+dual_lr: 0.05
+
+constraints:
+  mode: lagrangian
+  attribution: terminal               # terminal | telescoped
+
+  # --- MEC server capacity (THE binding one) -------------------------------
+  # Measured: with MEC compute outside the energy scope (ADR-001) an all-MEC plan
+  # is the argmin of BOTH latency and mobile energy, so energy/V2V budgets alone
+  # are satisfied trivially by "send everything to MEC" (audit: 12/12 graphs).
+  # A MEC-share cap is what makes the constrained problem non-degenerate and
+  # forces the policy to spread the DAG across all three tiers.
+  mec_task_fraction_max: 0.50
+
+  # --- mobile-device energy ------------------------------------------------
+  # UE may spend at most 60% of what an all-local plan would spend.
+  ue_energy_frac_of_all_ue: 0.60
+
+  # --- V2V / helper side ---------------------------------------------------
+  # The helper vehicle is a shared, battery-limited resource: cap the energy the
+  # helper pays (its own compute + its own radio).
+  helper_energy_frac_of_all_ue: 0.35
+  # ...and cap how often V2V is used at all (fairness/availability).
+  v2v_task_fraction_max: 0.15
+  # ...and cap the half-duplex airtime the UE+helper pair occupies.
+  # Measured on dist 1: a 15% V2V *task* share already consumes 27-54% of the
+  # makespan as V2V airtime, because each helper task needs two V2V hops (input +
+  # return) over a 5 Mbps channel that serializes all V2V traffic.  So the
+  # airtime budget is the physically meaningful lever; the task-share cap is the
+  # fairness/availability one.  Keep this above the task-share cap or V2V becomes
+  # unusable.
+  v2v_airtime_frac_of_makespan: 0.60
+
+  # --- optional global / deadline constraints (off unless set) -------------
+  # total_energy_frac_of_all_ue: 0.75
+  # deadline_frac_of_all_mec: 1.10

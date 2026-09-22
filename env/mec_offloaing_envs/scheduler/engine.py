@@ -16,6 +16,7 @@ from .model import (
     TransferRecord,
 )
 from .resources import ResourceConfig
+from .energy_model import hop_energy_fields
 from .routes import HOP_TO_RESOURCE, hop_destination, route
 
 
@@ -82,24 +83,16 @@ def schedule(
     finish: dict[int, float] = {}
     start: dict[int, float] = {}
     loc_out: dict[int, Location] = {}
+    # ②A: when a task's OUTPUT becomes usable by each consumer.
+    deliveries: dict[int, list[float]] = {tid: [] for tid in graph.tasks}
 
     def add_energy_hop(hop: str, duration: float, src_loc: Location) -> None:
-        if hop == "MEC_UL":
-            energy.ue_mec_uplink_joules += duration * resources.ptx_mec_w
-        elif hop == "MEC_DL":
-            energy.ue_mec_downlink_joules += duration * resources.prx_mec_w
-        elif hop == "V2V":
-            # Both endpoints are mobile (UE + HELPER) → tx + rx each hop.
-            if src_loc == Location.UE:
-                energy.ue_v2v_tx_joules += duration * resources.ptx_v2v_w
-                energy.helper_v2v_rx_joules += duration * resources.prx_v2v_w
-            elif src_loc == Location.HELPER:
-                energy.helper_v2v_tx_joules += duration * resources.ptx_v2v_w
-                energy.ue_v2v_rx_joules += duration * resources.prx_v2v_w
-            else:
-                # MEC_DL then V2V: data at UE sending to HELPER
-                energy.ue_v2v_tx_joules += duration * resources.ptx_v2v_w
-                energy.helper_v2v_rx_joules += duration * resources.prx_v2v_w
+        """Delegates to energy_model.hop_energy_fields so the legacy and
+        physical_v1 (TX-payer, optional RX) accounting never diverge."""
+        for field_name, joules in hop_energy_fields(
+            hop, duration, src_loc, resources
+        ).items():
+            setattr(energy, field_name, getattr(energy, field_name) + joules)
 
     def move_bytes(
         nbytes: int,
@@ -157,19 +150,18 @@ def schedule(
         ):
             src = edge.src_task_id
             hops = route(loc_out[src], loc)
-            ready = max(
-                ready,
-                move_bytes(
-                    edge.edge_output_bytes,
-                    hops,
-                    finish[src],
-                    loc_out[src],
-                    src,
-                    tid,
-                ),
+            arrival = move_bytes(
+                edge.edge_output_bytes,
+                hops,
+                finish[src],
+                loc_out[src],
+                src,
+                tid,
             )
+            ready = max(ready, arrival)
+            deliveries[src].append(arrival)
 
-        dur = task.compute_workload_bytes / resources.cpu_rate(loc)
+        dur = task.compute_workload_bytes / resources.cpu_rate_for_task(loc, task)
         res_name = _cpu_resource(loc)
         s, e = cals[res_name].reserve(dur, ready)
         if dur > 0.0:
@@ -180,39 +172,83 @@ def schedule(
         finish[tid] = e
         loc_out[tid] = loc
 
-        if loc == Location.UE:
-            energy.ue_local_cpu_joules += (
-                dur * resources.rho_ue * (resources.f_l**resources.zeta)
-            )
-        elif loc == Location.HELPER:
-            energy.helper_compute_joules += (
-                dur * resources.rho_helper * (resources.f_v2v**resources.zeta)
-            )
-        # Location.MEC: mec_compute_joules_optional stays 0 in v0.1 — no frozen
-        # MEC compute power coefficient (field present for API completeness).
+        # Compute energy: legacy = duration*rho*f^zeta (MEC compute = 0);
+        # physical_v1 = kappa * C * f^2 on every tier, including MEC.
+        cpu_field = resources.compute_energy_field(loc)
+        setattr(
+            energy,
+            cpu_field,
+            getattr(energy, cpu_field)
+            + resources.compute_energy_joules(
+                loc, task.compute_workload_bytes, dur, task.cycles_per_bit
+            ),
+        )
 
     result_at_ue = 0.0
     for tid in sorted(graph.sinks(), key=lambda x: (decoder_rank[x], x)):
         out_b = int(graph.tasks[tid].task_output_bytes)
         hops = route(loc_out[tid], Location.UE)
         if hops:
-            result_at_ue = max(
-                result_at_ue,
-                move_bytes(out_b, hops, finish[tid], loc_out[tid], tid, None),
-            )
+            returned = move_bytes(out_b, hops, finish[tid], loc_out[tid], tid, None)
         else:
-            result_at_ue = max(result_at_ue, finish[tid])
+            returned = finish[tid]
+        deliveries[tid].append(returned)
+        result_at_ue = max(result_at_ue, returned)
 
-    task_records = {
-        tid: TaskExecutionRecord(
+    global_xi = getattr(
+        getattr(resources, "energy_model", None), "cycles_per_bit", None
+    )
+    task_records: dict[int, TaskExecutionRecord] = {}
+    soft_sum = 0.0
+    soft_norm_sum = 0.0
+    tardiness_values: list[float] = []
+    firm_miss = 0
+    hard_miss = 0
+    n_typed = 0
+    for tid in graph.tasks:
+        task = graph.tasks[tid]
+        # ②A.1: two distinct availability notions.
+        #   first_available     = earliest arrival at ANY consumer (diagnostic)
+        #   all_consumers_ready = arrival at EVERY required consumer
+        #                         (max over successors; UE return for a sink)
+        #                       -> PRIMARY deadline basis: the output is not
+        #                       usable while one consumer still cannot read it.
+        seen = sorted(deliveries[tid])
+        first_available = seen[0] if seen else finish[tid]
+        all_consumers_ready = seen[-1] if seen else finish[tid]
+        deadline = task.deadline_s
+        tardiness = 0.0
+        if deadline is not None:
+            tardiness = max(0.0, all_consumers_ready - float(deadline))
+        dtype = task.deadline_type
+        if dtype != "none":
+            n_typed += 1
+            tardiness_values.append(tardiness)
+            if dtype == "soft":
+                w = float(task.tardiness_weight)
+                soft_sum += w * tardiness
+                if deadline and float(deadline) > 0.0:
+                    soft_norm_sum += w * tardiness / float(deadline)
+            elif dtype == "firm":
+                if tardiness > 0.0:
+                    firm_miss += 1
+            elif dtype == "hard":
+                if tardiness > 0.0:
+                    hard_miss += 1
+        task_records[tid] = TaskExecutionRecord(
             task_id=tid,
             location=locs[tid],
             start=start[tid],
             finish=finish[tid],
             output_location=loc_out[tid],
+            first_available=first_available,
+            all_consumers_ready=all_consumers_ready,
+            deadline_s=deadline,
+            deadline_type=dtype,
+            criticality_class=str(task.criticality_class),
+            tardiness_weight=float(task.tardiness_weight),
+            tardiness_s=tardiness,
         )
-        for tid in graph.tasks
-    }
 
     return ScheduleResult(
         tasks=task_records,
@@ -222,4 +258,13 @@ def schedule(
         makespan_seconds=result_at_ue,
         terminal_return_time=result_at_ue,
         topo_order=order,
+        soft_tardiness_s=soft_sum,
+        soft_tardiness_normalized=soft_norm_sum,
+        firm_miss_count=firm_miss,
+        firm_miss_rate=(firm_miss / n_typed) if n_typed else 0.0,
+        hard_miss_count=hard_miss,
+        hard_miss_rate=(hard_miss / n_typed) if n_typed else 0.0,
+        hard_feasible=(hard_miss == 0),
+        mean_tardiness_s=(sum(tardiness_values) / len(tardiness_values)) if tardiness_values else 0.0,
+        max_tardiness_s=max(tardiness_values) if tardiness_values else 0.0,
     )

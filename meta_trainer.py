@@ -55,6 +55,10 @@ class Trainer(object):
         self.validation_interval = int(validation_interval)
         self.held_out_evaluator = held_out_evaluator
         self.best_val_composite = None
+        # ②B-2 lexicographic selection state (None -> legacy composite path)
+        self.best_selection_key = None
+        self.objective_spec = getattr(self, "objective_spec", None)
+        self.objective_reference_summary = None
         self.ckpt_dir = ckpt_dir
         self.write_training_report = bool(write_training_report)
         self.audit_writer = audit_writer
@@ -107,8 +111,41 @@ class Trainer(object):
         logger.logkv("validation_query_mean_latency_k3", k3["query_mean_latency"])
         logger.logkv("checkpoint_selection_metric", "validation_query_composite_objective")
         composite = k3["validation_query_composite_objective"]
-        if self.best_val_composite is None or composite > self.best_val_composite:
-            self.best_val_composite = composite
+        # --- ②B: plan-level objective + lexicographic feasibility gate -------
+        # objective_mode="off" (default) keeps the legacy composite path exactly.
+        # "log_only" logs J and the constraint channels without changing the winner.
+        # "lexicographic" applies: feasible checkpoints first, then min J.
+        objective_mode = str(getattr(self, "objective_mode", "off"))
+        lexicographic_winner = None
+        if objective_mode != "off" and self.objective_spec is not None:
+            from spec.objective_selection import objective_log_kvs
+
+            obj = self._validation_plan_objective(k3)
+            if obj is None:
+                logger.logkv("objective/unavailable", 1)
+                if objective_mode == "lexicographic":
+                    # never fall back to the legacy scalar silently
+                    logger.logkv("checkpoint_is_best_val_lexicographic", 0)
+            else:
+                for key, value in objective_log_kvs(obj).items():
+                    logger.logkv(key, value)
+                if objective_mode == "lexicographic":
+                    key_now = obj.selection_key()
+                    if self.best_selection_key is None or key_now < self.best_selection_key:
+                        self.best_selection_key = key_now
+                        lexicographic_winner = True
+                    else:
+                        lexicographic_winner = False
+                    logger.logkv("checkpoint_is_best_val_lexicographic",
+                                 1 if lexicographic_winner else 0)
+        if objective_mode == "lexicographic" and lexicographic_winner is not None:
+            save = bool(lexicographic_winner)
+        else:
+            save = self.best_val_composite is None or composite > self.best_val_composite
+        if save:
+            self.best_val_composite = max(
+                composite, self.best_val_composite if self.best_val_composite is not None else composite
+            )
             self.policy.core_policy.save_variables(
                 save_path=self._ckpt_path("meta_model_best_val.ckpt")
             )
@@ -117,6 +154,22 @@ class Trainer(object):
             logger.logkv("checkpoint_is_best_val", 0)
         self.algo.sync_task_policies_from_core()
         return k0, k3
+
+    def _validation_plan_objective(self, metrics):
+        """②B: per-graph objective aggregation for one validation measurement.
+
+        Requires per-graph payloads: `validation_per_graph_plans` = list of
+        (ScheduleResult, ReferenceRanges). Ratio-of-means is deliberately NOT
+        supported: mean energy under mean budget can hide a per-episode violation.
+        Returns None when the evaluator does not provide per-graph results, in
+        which case lexicographic selection refuses to pick a winner.
+        """
+        from spec.objective_selection import objective_from_plans
+
+        plans = metrics.get("validation_per_graph_plans")
+        if not plans:
+            return None
+        return objective_from_plans(plans, self.objective_spec)
 
     def train(self):
         """MRLCO training: inner k=3 on support, one outer mean-PG, val every 50."""
@@ -282,6 +335,23 @@ class Trainer(object):
             logger.logkv('split_role', 'meta_train_support')
             self._log_protocol_fields(itr, FROZEN_K_STEPS)
 
+            # --- Lagrangian dual ascent (constrained V2V/energy budgets) ----
+            # The env observed every trajectory's signed constraint cost during
+            # this iteration; one dual step per outer iteration closes the loop.
+            # Inert (no log keys, no state change) when constraints are off.
+            controller = getattr(self.env, "constraint_controller", None)
+            if controller is not None and controller.spec.enabled:
+                diag = controller.dual_step()
+                for key, value in diag.items():
+                    logger.logkv(key, value)
+                last_costs = getattr(self.env, "last_constraint_costs", None)
+                if last_costs is not None and last_costs.active:
+                    logger.logkv("constraint/total_violation", last_costs.total_violation)
+                    self._audit(itr, "constraints", {
+                        "lambdas": {n: l for n, l in zip(controller.names, controller.lambdas)},
+                        "costs": last_costs.as_dict(),
+                    })
+
             if itr % self.validation_interval == 0:
                 k0, k3 = self._run_validation(itr)
                 self._audit(itr, "validation", {"k0": k0, "k3": k3})
@@ -354,7 +424,12 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                parallel=False, reward_mode="publication",
                                learning_mode="publication",
                                bc_kl_coef=0.0, critic_warmup_iters=0,
-                               vocab_size=3, use_energy=True):
+                               vocab_size=3, use_energy=True,
+                               constraints=None, constraint_dual_lr=0.05,
+                               shaping_discount=0.99,
+                               reference_range="candidate_panel",
+                               objective_mode="off",
+                               objective_spec=None):
     """Frozen v0.1 train+val stack. Caller must set CUDA_VISIBLE_DEVICES before importing TF."""
     from env.mec_offloaing_envs.offloading_env import Resources
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
@@ -424,7 +499,46 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
         'rho_v2v': 0.7,
         'f_v2v': 1.0,
         'normalize_energy': True,
+        # Discount-consistent shaping: r_t = J_{t-1} - gamma * J_t with the SAME
+        # gamma as PPO/GAE below, so the shaped return aligns with the final
+        # schedule objective. 1.0 = historical delta-form rewards.
+        'shaping_discount': float(shaping_discount),
+        # Normalization reference bounds:
+        #   "candidate_panel" (default, corrected): three pure plans + greedy_from_mec
+        #   "pure_location"  (MARGO-SPEC-v0.1): reproduces the pre-fix numbers
+        'reference_range': str(reference_range),
     }
+    if not 0.0 < float(shaping_discount) <= 1.0:
+        raise ValueError("shaping_discount must be in (0, 1], got %r" % (shaping_discount,))
+    if str(reference_range) not in ("candidate_panel", "pure_location"):
+        raise ValueError(
+            "reference_range must be candidate_panel or pure_location, got %r"
+            % (reference_range,)
+        )
+
+    # Constrained-MDP layer (V2V + energy budgets). None / mode="off" keeps the
+    # unconstrained primary path byte-for-byte unchanged.
+    constraint_controller = None
+    if constraints is not None:
+        from env.mec_offloaing_envs.scheduler.constraints import (
+            ConstraintController,
+            ConstraintSpec,
+        )
+
+        spec = (
+            constraints
+            if isinstance(constraints, ConstraintSpec)
+            else ConstraintSpec.from_dict(dict(constraints))
+        )
+        if spec.enabled:
+            constraint_controller = ConstraintController(
+                spec=spec, dual_lr=float(constraint_dual_lr)
+            )
+            ENERGY_CONFIG['constraints'] = spec.as_dict()
+            print(
+                "[constraints] lagrangian mode, budgets=%s, dual_lr=%s"
+                % (list(spec.active_names), constraint_dual_lr)
+            )
 
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
@@ -433,6 +547,7 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                  v2v_bandwidth=5.0,
                                  use_energy=USE_ENERGY,
                                  energy_config=ENERGY_CONFIG)
+    resource_cluster.constraint_controller = constraint_controller
 
     train_paths = meta_train_graph_prefixes()
     assert_train_prefixes(train_paths)
@@ -557,6 +672,26 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                         audit_writer=audit_writer,
                         critic_warmup_iters=warmup,
                         bc_policy=bc_policy)
+    # ②B: attach the plan-level objective config (log_only / lexicographic).
+    if str(objective_mode) not in ("off", "log_only", "lexicographic"):
+        raise ValueError(
+            "objective_mode must be off, log_only, or lexicographic; got %r"
+            % (objective_mode,)
+        )
+    trainer.objective_mode = str(objective_mode)
+    if objective_spec is not None:
+        from env.mec_offloaing_envs.scheduler.objective import ObjectiveSpec
+
+        trainer.objective_spec = (
+            objective_spec
+            if isinstance(objective_spec, ObjectiveSpec)
+            else ObjectiveSpec.from_dict(dict(objective_spec))
+        )
+        print(
+            "[objective] mode=%s spec=%s (per-graph evaluation required; "
+            "the evaluator must emit validation_per_graph_plans)"
+            % (trainer.objective_mode, trainer.objective_spec.as_dict())
+        )
     return trainer, algo
 
 
@@ -565,10 +700,20 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir="./meta_offloading20_log-inner_step1/", format_strs=['stdout', 'log', 'csv'])
+
+    # MARGO_CONSTRAINTS=/abs/path/to/constraints.yaml (or an empty value / "off")
+    from spec.constraints_config import constraints_from_env
+
+    constraint_spec, dual_lr = constraints_from_env()
+    if constraint_spec is not None:
+        print("[constraints] loaded from %s" % os.environ.get("MARGO_CONSTRAINTS"))
+
     trainer, algo = build_frozen_primary_stack(
         seed=0,
         n_itr=3500,
         ckpt_dir="./meta_model_inner_step1",
+        constraints=constraint_spec,
+        constraint_dual_lr=dual_lr,
     )
     with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())

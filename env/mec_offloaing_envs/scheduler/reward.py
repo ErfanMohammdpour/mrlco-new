@@ -11,6 +11,15 @@ from dataclasses import dataclass
 from typing import Any
 
 from .adapter import schedule_via_adapter, validate_plan
+from .constraints import (
+    ATTRIBUTION_TELESCOPED,
+    EMPTY_COSTS,
+    ConstraintCosts,
+    ConstraintMetrics,
+    ConstraintSpec,
+    costs_from_metrics,
+    evaluate_constraints,
+)
 from .energy_api import (
     ENERGY_WEIGHT,
     LATENCY_WEIGHT,
@@ -41,6 +50,8 @@ class TelescopingRewardResult:
     final_result: ScheduleResult
     final_per_task_energy: list[float]
     j_report_value: float | None  # None unless compute_j_report=True
+    constraint_costs: ConstraintCosts = EMPTY_COSTS  # EMPTY unless constraints enabled
+    constraint_penalty: float = 0.0  # sum_i lambda_i * violation_i actually applied
 
     @property
     def final_makespan(self) -> float:
@@ -72,6 +83,25 @@ def provisional_plan(
     return list(zip(order, actions))
 
 
+def _all_ue_constraint_metrics(refs: ReferenceRanges, n_tasks: int) -> ConstraintMetrics:
+    """P_0 (all-UE) metrics, derived from the reference ranges — no extra schedule.
+
+    The all-UE plan has no radio and no helper work, so its UE energy IS `E_ue`
+    and its makespan IS `L_ue`.
+    """
+    return ConstraintMetrics(
+        ue_energy_j=float(refs.E_ue),
+        helper_energy_j=0.0,
+        total_energy_j=float(refs.E_ue),
+        helper_compute_j=0.0,
+        v2v_airtime_s=0.0,
+        v2v_task_fraction=0.0,
+        makespan_s=float(refs.L_ue),
+        n_tasks=int(n_tasks),
+        n_helper_tasks=0,
+    )
+
+
 def telescoping_token_rewards(
     task_graph: Any,
     plan: Sequence[tuple[int, int]],
@@ -83,17 +113,38 @@ def telescoping_token_rewards(
     refs: ReferenceRanges | None = None,
     compute_j_report: bool = False,
     latency_ref: str = LATENCY_REF_L_SCALE,
+    constraints: ConstraintSpec | None = None,
+    duals: Sequence[float] | None = None,
+    discount: float = 1.0,
+    reference_mode: str = "pure_location",
 ) -> TelescopingRewardResult:
     """Post-hoc telescoping with completion policy all_UE.
 
     Schedules P_1..P_N (P_0 metrics reused from pure-location all_UE refs).
     Deltas are unclipped. Token reward (publication):
 
-        r_t = -(w_L * (L_t - L_{t-1}) / L_scale + w_E * (E_t - E_{t-1}) / E_scale)
+        r_t = J_{t-1} - discount * J_t
+        J_t = w_L * L_t / L_scale + w_E * E_t / E_scale        (potential)
+
+    With `discount=1.0` this is exactly the historical form
+    `-(w_L * (L_t - L_{t-1}) / L_scale + w_E * (E_t - E_{t-1}) / E_scale)`.
+    With `discount=gamma<1` the shaping becomes potential-based
+    (`F = gamma*Phi(s') - Phi(s)`, `Phi = -J`) and the discounted return
+    telescopes exactly:  `sum_t gamma^(t-1) r_t = J_0 - gamma^N J_N`
+    so maximising the PPO return is maximising the final schedule objective.
 
     Diagnostic `latency_ref=l_mec` (not v0.1 publication):
 
-        r_t = - (L_t - L_{t-1}) / T_allMEC
+        J_t = L_t / T_allMEC
+
+    Constrained mode (`constraints.enabled`) adds the Lagrangian penalty
+    `- sum_i lambda_i * max(0, (c_i - b_i)/scale_i)`:
+
+    * `attribution="terminal"` (default): the whole penalty lands on the last
+      token — exact plan-level constraint semantics.
+    * `attribution="telescoped"`: the penalty is spread over tokens as deltas of
+      the *signed* cost, so `sum_t r_t` equals the unconstrained return minus
+      `sum_i lambda_i * (signed_i(P_N) - signed_i(P_0))`.
 
     Publication mode freezes w_L/w_E at 0.5/0.5. Training path leaves
     `compute_j_report=False` to avoid clip_and_log warning floods.
@@ -102,7 +153,17 @@ def telescoping_token_rewards(
     n = len(decoder_order)
     if latency_ref not in (LATENCY_REF_L_SCALE, LATENCY_REF_L_MEC):
         raise ValueError("latency_ref must be l_scale or l_mec, got %r" % (latency_ref,))
+    discount = float(discount)
+    if not 0.0 < discount <= 1.0:
+        raise ValueError("discount must be in (0, 1], got %s" % discount)
     diagnostic_tmec = latency_ref == LATENCY_REF_L_MEC
+    constrained = bool(constraints is not None and constraints.enabled)
+    lagrangian = [float(l) for l in (duals or [])]
+    if constrained and len(lagrangian) != len(constraints.active_names):
+        raise ValueError(
+            "duals length %d != active constraints %d"
+            % (len(lagrangian), len(constraints.active_names))
+        )
 
     if diagnostic_tmec:
         lw, ew = 1.0, 0.0
@@ -121,32 +182,61 @@ def telescoping_token_rewards(
         ew = 0.0
 
     if refs is None:
-        refs = compute_reference_ranges(task_graph, resources)
+        refs = compute_reference_ranges(task_graph, resources, mode=reference_mode)
 
     # Reuse all_UE reference metrics as P_0 — no extra schedule call.
     makespans: list[float] = [refs.L_ue]
     energies: list[float] = [refs.E_ue]
     final_result: ScheduleResult | None = None
+    prefix_signed: list[tuple[float, ...]] = []
+    if constrained and constraints.attribution == ATTRIBUTION_TELESCOPED:
+        base = costs_from_metrics(_all_ue_constraint_metrics(refs, n), refs, constraints)
+        prefix_signed.append(base.signed)
 
     for t in range(1, n + 1):
         prov = provisional_plan(decoder_order, actions[:t], fill=FILL_UNASSIGNED)
         result, _, _ = schedule_via_adapter(task_graph, prov, resources)
         makespans.append(result.makespan_seconds)
         energies.append(result.total_mobile_joules)
+        if constrained and constraints.attribution == ATTRIBUTION_TELESCOPED:
+            costs_t = evaluate_constraints(result, resources, refs, constraints)
+            prefix_signed.append(costs_t.signed)
         if t == n:
             final_result = result
 
     assert final_result is not None
 
+    # -- token rewards: potential-based telescoping --------------------------
+    # J_t is the provisional-plan objective (unclipped). Offsets cancel in the
+    # differences, so r_t = J_{t-1} - discount*J_t reduces to the historical
+    # delta form when discount == 1.
     denom_l = max(float(refs.L_mec), 1e-12) if diagnostic_tmec else refs.L_scale
+    potentials: list[float] = []
+    for t in range(n + 1):
+        j_t = lw * (makespans[t] / denom_l)
+        if include_energy:
+            j_t += ew * (energies[t] / refs.E_scale)
+        potentials.append(j_t)
+
     rewards: list[float] = []
     for t in range(1, n + 1):
-        delta_l = makespans[t] - makespans[t - 1]
-        delta_e = energies[t] - energies[t - 1]
-        term = lw * (delta_l / denom_l)
-        if include_energy:
-            term += ew * (delta_e / refs.E_scale)
-        rewards.append(-term)
+        rewards.append(potentials[t - 1] - discount * potentials[t])
+
+    # -- constraints ---------------------------------------------------------
+    final_costs = EMPTY_COSTS
+    penalty_applied = 0.0
+    if constrained:
+        final_costs = evaluate_constraints(final_result, resources, refs, constraints)
+        if constraints.attribution == ATTRIBUTION_TELESCOPED:
+            for t in range(1, n + 1):
+                step_penalty = 0.0
+                for lam, prev, cur in zip(lagrangian, prefix_signed[t - 1], prefix_signed[t]):
+                    step_penalty += lam * (cur - prev)
+                rewards[t - 1] -= step_penalty
+                penalty_applied += step_penalty
+        else:
+            penalty_applied = final_costs.penalty(lagrangian)
+            rewards[-1] -= penalty_applied
 
     energy_map = attribute_energy_by_task(final_result, resources)
     per_task = [float(energy_map.get(tid, 0.0)) for tid in decoder_order]
@@ -162,6 +252,8 @@ def telescoping_token_rewards(
         final_result=final_result,
         final_per_task_energy=per_task,
         j_report_value=j_val,
+        constraint_costs=final_costs,
+        constraint_penalty=float(penalty_applied),
     )
 
 
@@ -174,12 +266,30 @@ def expected_episode_return(
     latency_weight: float = LATENCY_WEIGHT,
     energy_weight: float = ENERGY_WEIGHT,
     latency_ref: str = LATENCY_REF_L_SCALE,
+    discount: float = 1.0,
 ) -> float:
-    """Closed form of sum_t r_t. Diagnostic l_mec uses T_allMEC, no energy term."""
+    """Closed form of the (optionally discounted) token-reward sum.
+
+    `discount=1`: `-(w_L*(L_N-L_0)/L_scale + w_E*(E_N-E_0)/E_scale)`.
+    `discount=gamma`: `J_0 - gamma^N * J_N` with `J_t = w_L*L_t/L_scale(+E term)`.
+    Diagnostic l_mec uses T_allMEC, no energy term.
+    """
+    n = len(makespans) - 1
+    discount = float(discount)
     if latency_ref == LATENCY_REF_L_MEC:
         denom = max(float(refs.L_mec), 1e-12)
-        return -((makespans[-1] - makespans[0]) / denom)
-    term = latency_weight * ((makespans[-1] - makespans[0]) / refs.L_scale)
-    if include_energy:
-        term += energy_weight * ((energies[-1] - energies[0]) / refs.E_scale)
-    return -term
+        j0 = makespans[0] / denom
+        jn = makespans[-1] / denom
+        return float(j0 - (discount ** n) * jn if discount != 1.0 else -(jn - j0))
+    denom_l = refs.L_scale
+
+    def _potential(idx: int) -> float:
+        j_t = latency_weight * (makespans[idx] / denom_l)
+        if include_energy:
+            j_t += energy_weight * (energies[idx] / refs.E_scale)
+        return j_t
+
+    j0, jn = _potential(0), _potential(n)
+    if discount == 1.0:
+        return float(-(jn - j0))
+    return float(j0 - (discount ** n) * jn)

@@ -27,13 +27,23 @@ model:
   # Encoder architecture freeze is Phase 2. Not copied from MR-LCO 2x256 LSTM.
 
 energy:
-  primary_scope: total_mobile_joules
+  # AUTHORITATIVE accounting boundary for the research configuration. Must agree
+  # with `energy_model.energy_scope`; `scheduler/energy_model.py` raises on
+  # mismatch. total_mobile_joules is still produced as a secondary boundary and
+  # is what MARGO-SPEC-v0.1 numbers reported.
+  accounting_primary_scope: system
+  legacy_scope_aliases:
+    total_mobile_joules: true
   log_optional_mec_compute: true
+  # DEPRECATED — LEGACY OBJECTIVE ONLY. In the constrained formulation energy is
+  # a constraint channel (see spec/constraints.yaml), never a weighted objective
+  # term. Kept so MARGO-SPEC-v0.1 runs reproduce byte-for-byte.
   objective_weights:
+    status: legacy_only
     latency_weight: 0.5
     energy_weight: 0.5
   normalization:
-    method: pure_location_reference_range
+    method: candidate_panel_or_pure_location
     out_of_range: clip_and_log
 
 task_data_model:
@@ -103,8 +113,122 @@ split:
 reward_attribution:
   method: post_hoc_telescoping
   completion_policy: all_UE
-  formula: r_t = -(0.5 * (L_t - L_{t-1}) / L_scale + 0.5 * (E_t - E_{t-1}) / E_scale)
+  formula: r_t = J_{t-1} - gamma * J_t     # discount-consistent potential shaping
   reference: OBJECTIVE_AND_ENERGY.md#6
+
+# ---------------------------------------------------------------------------
+# Physical energy model (approved 2026-09-21). Primary research configuration.
+#
+#   C_i = D_i * cycles_per_bit          (cycles; cycles_per_bit is a TASK property)
+#   T_cpu(i,x) = C_i / f_x              (s)
+#   E_cpu(i,x) = kappa_x * C_i * f_x^2  (J)   == (kappa_x f_x^3) * T_cpu
+#
+# Three accounting boundaries are kept SIMULTANEOUSLY and never overwritten:
+#   total_requester_joules = E_UE
+#   total_mobile_joules    = E_UE + E_helper
+#   total_system_joules    = E_UE + E_helper + E_MEC_compute + E_MEC_tx   <- primary
+#
+# Code default stays "legacy" so every existing run/tool reproduces its exact
+# previous numbers; opt in via ResourceConfig.from_frozen_yaml(model="physical_v1")
+# (or model=None to honour this file), or energy_model="physical_v1" in
+# build_frozen_primary_stack.
+# ---------------------------------------------------------------------------
+energy_model:
+  model: physical_v1
+  energy_scope: system
+  cycles_per_bit: 300.0          # Zhao2018 Table I; sweep 300 / 500 / 1000
+  include_rx_energy: false       # no literature-pinned p_rx -> primary is TX-only
+  tiers:
+    ue:
+      f_hz: 1.0e9
+      kappa: 1.0e-27
+      source: >-
+        chosen inside the verified band (kappa 1e-28..1e-26, f 0.2..2.5 GHz);
+        kappa=1e-27 matches the Gu2025/Liang2024 vehicle tier. NOT imported from
+        Liu2023, which is fully offloaded and has no UE-local tier.
+    helper:
+      f_hz: 1.5e9
+      kappa: 5.0e-27
+      source: >-
+        Liu et al., Digital Communications and Networks 9(6):1399-1410, 2023,
+        Table 1 (F_j in [1,2] GHz, gamma_j = 5e-27); that paper's objective
+        contains the service-vehicle compute energy (Eq. 15).
+    mec:
+      f_hz: 10.0e9
+      kappa: 1.0e-27
+      source: >-
+        Liu et al., DCN 9(6), 2023, Table 1 (F_m = 10 GHz, gamma_m = 1e-27);
+        frequency double-sourced with Zhao et al. arXiv:1807.02311 Table I.
+  radio:
+    ue_tx_w: 1.0                 # 30 dBm, Liu2023 Table 1
+    mec_tx_w: 3.162              # 35 dBm, Zhao2018 Table I (separate provenance)
+    helper_tx_w: 1.0             # assumed equal to the UE class; no helper TX published
+    ue_rx_w: null                # NOT literature-pinned; needed only if include_rx_energy
+    helper_rx_w: null
+  # Sensitivity only — NOT part of the primary dynamic model:
+  server_static_power_w: null    # P_MEC_total = P_idle + kappa f^3 (Mao COMST 2017 idle-share)
+  server_utilization_model: false  # P_MEC(u) = P_idle + (P_max - P_idle) * u
+  provenance: >-
+    primary V2X calibration; per-parameter provenance inline. kappa > 0 for every
+    tier is mandatory here: a zero MEC compute coefficient is exactly the
+    asymmetry this model removes. Note the implied dynamic power
+    kappa_MEC * f_MEC^3 = 1 kW, which is why the static/idle-power sensitivity
+    exists. The legacy normalized model (rho=1, f=1, zeta=2) stays available for
+    byte-exact reproduction of MARGO-SPEC-v0.1 numbers.
+
+# ---------------------------------------------------------------------------
+# ④ RADIO_MODEL_V1 — explicit radio physics.
+#
+#   R = B * eta                    (eta model; eta in bit/s/Hz)
+#   R = B * log2(1 + SINR_linear)  (SINR model)
+#   bytes/s = R / 8
+#
+# Bandwidth is a frequency span, NOT a throughput: the old "7 Mbps" table hid an
+# implicit 1 bit/s/Hz.  Code default stays "legacy" (byte-exact reproduction);
+# pass model="physical_v1" (or None to honour this file) to opt in.
+# ---------------------------------------------------------------------------
+radio_model:
+  model: physical_v1
+  links:
+    v2i_ul:
+      bandwidth_hz: 10.0e6
+      rate_model: eta
+      spectral_efficiency: 1.5
+      assumption: false
+      source: >-
+        bandwidth 10 MHz from Liu et al., DCN 9(6):1399-1410, 2023, Table 1;
+        spectral efficiency 1.5 bit/s/Hz from Michailidis et al., Sensors
+        21(13):4392, 2021, Table 2 (r_t = 1.5 bps/Hz).
+    v2i_dl:
+      bandwidth_hz: 10.0e6
+      rate_model: eta
+      spectral_efficiency: 1.5
+      assumption: false
+      source: >-
+        same anchors as v2i_ul; the verified papers use one V2I link in each
+        direction with equal bandwidth.
+    v2v:
+      bandwidth_hz: 10.0e6
+      rate_model: eta
+      spectral_efficiency: 1.5
+      assumption: true
+      source: >-
+        ASSUMPTION: no V2V/PC5-specific bandwidth or spectral efficiency was
+        verified in the reviewed literature. Bandwidth is taken equal to the V2I
+        anchor and eta equal to the Mi21 value; treat as an assumed link and
+        sweep it (see spec/radio_model_report.json).
+  # Alternative formulation, same interface. Set rate_model: sinr per link and
+  # provide sinr_db (linear SINR = 10^(dB/10)); noise is folded into sinr_db, so
+  # this remains an explicit assumption rather than a hidden default.
+  sinr_example:
+    rate_model: sinr
+    sinr_db: 10.0
+    note: "illustrative only; primary uses the eta form above"
+  provenance: >-
+    primary V2X radio calibration; every link carries its own source and an
+    explicit assumption flag. The effective rate is what the scheduler, the
+    feasibility lower bound and the energy model all consume, so changing it
+    changes deadline feasibility: re-run the ③ soundness suite afterwards.
 
 learning:
   inner_optimizer:

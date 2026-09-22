@@ -201,6 +201,35 @@ class OffloadingEnvironment(MetaEnv):
         self.min_running_time_batchs = []
         self.graph_file_paths = graph_file_paths
 
+        # --- constrained-MDP layer (V2V / energy budgets) -------------------
+        # Off by default: `ConstraintSpec()` has mode="off" and every reward
+        # path below is then bit-identical to the unconstrained training path.
+        from env.mec_offloaing_envs.scheduler.constraints import (
+            ConstraintController,
+            ConstraintSpec,
+        )
+
+        self.constraint_spec = ConstraintSpec.from_config(
+            getattr(resource_cluster, "energy_config", None)
+        )
+        self.constraint_controller = getattr(resource_cluster, "constraint_controller", None)
+        if self.constraint_spec.enabled and self.constraint_controller is None:
+            self.constraint_controller = ConstraintController(spec=self.constraint_spec)
+        if self.constraint_controller is not None:
+            # keep the two objects consistent whatever order they were built in
+            self.constraint_spec = self.constraint_controller.spec
+        self.last_constraint_costs = None
+
+        # Discount-consistent telescoping: r_t = J_{t-1} - shaping_discount * J_t.
+        # Must equal the PPO discount so that the shaped return stays aligned with
+        # the final schedule objective (sum_t gamma^(t-1) r_t = J_0 - gamma^N J_N).
+        # 1.0 reproduces the historical delta-form rewards exactly.
+        self.shaping_discount = float(
+            (getattr(resource_cluster, "energy_config", None) or {}).get(
+                "shaping_discount", 1.0
+            )
+        )
+
         # load all the task graphs into the evnironment
         for graph_file_path in graph_file_paths:
             encoder_batchs, encoder_lengths, task_graph_batchs, decoder_full_lengths, max_running_time_batchs, min_running_time_batchs = \
@@ -464,10 +493,31 @@ class OffloadingEnvironment(MetaEnv):
         return -(cost - min_time) / (max_time - min_time)
     
     def get_reference_ranges(self, task_graph):
-        """Episode-local L/E ranges from all_UE / all_MEC / all_HELPER schedules."""
+        """Episode-local L/E ranges; cached per task-graph object.
+
+        `reference_range` in `energy_config` selects the construction:
+          "pure_location"   -> all_UE / all_MEC / all_HELPER  (MARGO-SPEC-v0.1)
+          "candidate_panel" -> plus greedy_from_mec (fixes the clipped-j_report
+                               inversion; costs one extra local search per graph,
+                               so it is cached here and never recomputed per step)
+        """
         from env.mec_offloaing_envs.scheduler.energy_api import compute_reference_ranges
 
-        return compute_reference_ranges(task_graph, self.scheduler_resources)
+        cache = getattr(self, "_refs_cache", None)
+        if cache is None:
+            cache = {}
+            self._refs_cache = cache
+        key = id(task_graph)
+        hit = cache.get(key)
+        if hit is None:
+            mode = str(
+                (getattr(self.resource_cluster, "energy_config", None) or {}).get(
+                    "reference_range", "pure_location"
+                )
+            )
+            hit = compute_reference_ranges(task_graph, self.scheduler_resources, mode=mode)
+            cache[key] = hit
+        return hit
 
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):
@@ -489,6 +539,11 @@ class OffloadingEnvironment(MetaEnv):
             self.resource_cluster.reset()
             plan = action_sequence_batch[i]
 
+            duals = (
+                self.constraint_controller.lambdas
+                if self.constraint_controller is not None
+                else None
+            )
             out = telescoping_token_rewards(
                 task_graph,
                 plan,
@@ -496,7 +551,15 @@ class OffloadingEnvironment(MetaEnv):
                 include_energy=include_energy,
                 compute_j_report=False,
                 latency_ref=latency_ref,
+                refs=self.get_reference_ranges(task_graph),
+                constraints=self.constraint_spec,
+                duals=duals,
+                discount=getattr(self, "shaping_discount", 1.0),
             )
+            if out.constraint_costs.active:
+                self.last_constraint_costs = out.constraint_costs
+                if self.constraint_controller is not None:
+                    self.constraint_controller.observe(out.constraint_costs)
             target_batch.append(np.asarray(out.rewards, dtype=float))
             task_finish_time_batch.append(out.final_makespan)
             if include_energy:

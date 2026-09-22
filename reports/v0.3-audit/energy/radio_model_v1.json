@@ -1,0 +1,108 @@
+{
+  "radio": {
+    "model": "physical_v1",
+    "links": {
+      "v2i_ul": {
+        "bandwidth_hz": 10000000.0,
+        "rate_model": "eta",
+        "spectral_efficiency": 1.5,
+        "sinr_db": null,
+        "effective_rate_bps": 15000000.0,
+        "effective_rate_bytes_per_second": 1875000.0,
+        "assumption": false,
+        "source": "bandwidth 10 MHz from Liu et al., DCN 9(6):1399-1410, 2023, Table 1; spectral efficiency 1.5 bit/s/Hz from Michailidis et al., Sensors 21(13):4392, 2021, Table 2 (r_t = 1.5 bps/Hz)."
+      },
+      "v2i_dl": {
+        "bandwidth_hz": 10000000.0,
+        "rate_model": "eta",
+        "spectral_efficiency": 1.5,
+        "sinr_db": null,
+        "effective_rate_bps": 15000000.0,
+        "effective_rate_bytes_per_second": 1875000.0,
+        "assumption": false,
+        "source": "same anchors as v2i_ul; the verified papers use one V2I link in each direction with equal bandwidth."
+      },
+      "v2v": {
+        "bandwidth_hz": 10000000.0,
+        "rate_model": "eta",
+        "spectral_efficiency": 1.5,
+        "sinr_db": null,
+        "effective_rate_bps": 15000000.0,
+        "effective_rate_bytes_per_second": 1875000.0,
+        "assumption": true,
+        "source": "ASSUMPTION: no V2V/PC5-specific bandwidth or spectral efficiency was verified in the reviewed literature. Bandwidth is taken equal to the V2I anchor and eta equal to the Mi21 value; treat as an assumed link and sweep it (see spec/radio_model_report.json)."
+      }
+    },
+    "assumed_links": [
+      "v2v"
+    ],
+    "provenance": "primary V2X radio calibration; every link carries its own source and an explicit assumption flag. The effective rate is what the scheduler, the feasibility lower bound and the energy model all consume, so changing it changes deadline feasibility: re-run the \u2462 soundness suite afterwards."
+  },
+  "audit": {
+    "MEC_UL": {
+      "bandwidth_hz": 10000000.0,
+      "rate_model": "eta",
+      "spectral_efficiency": 1.5,
+      "sinr_db": null,
+      "effective_rate_bps": 15000000.0,
+      "effective_rate_bytes_per_second": 1875000.0,
+      "assumption": false,
+      "source": "bandwidth 10 MHz from Liu et al., DCN 9(6):1399-1410, 2023, Table 1; spectral efficiency 1.5 bit/s/Hz from Michailidis et al., Sensors 21(13):4392, 2021, Table 2 (r_t = 1.5 bps/Hz).",
+      "legacy_bytes_per_second": 917504.0,
+      "physical_bytes_per_second": 1875000.0,
+      "speedup": 2.0435878208705356,
+      "transfer_s_legacy": 1.1428571428571428,
+      "transfer_s_physical": 0.5592405333333333
+    },
+    "MEC_DL": {
+      "bandwidth_hz": 10000000.0,
+      "rate_model": "eta",
+      "spectral_efficiency": 1.5,
+      "sinr_db": null,
+      "effective_rate_bps": 15000000.0,
+      "effective_rate_bytes_per_second": 1875000.0,
+      "assumption": false,
+      "source": "same anchors as v2i_ul; the verified papers use one V2I link in each direction with equal bandwidth.",
+      "legacy_bytes_per_second": 917504.0,
+      "physical_bytes_per_second": 1875000.0,
+      "speedup": 2.0435878208705356,
+      "transfer_s_legacy": 1.1428571428571428,
+      "transfer_s_physical": 0.5592405333333333
+    },
+    "V2V": {
+      "bandwidth_hz": 10000000.0,
+      "rate_model": "eta",
+      "spectral_efficiency": 1.5,
+      "sinr_db": null,
+      "effective_rate_bps": 15000000.0,
+      "effective_rate_bytes_per_second": 1875000.0,
+      "assumption": true,
+      "source": "ASSUMPTION: no V2V/PC5-specific bandwidth or spectral efficiency was verified in the reviewed literature. Bandwidth is taken equal to the V2I anchor and eta equal to the Mi21 value; treat as an assumed link and sweep it (see spec/radio_model_report.json).",
+      "legacy_bytes_per_second": 655360.0,
+      "physical_bytes_per_second": 1875000.0,
+      "speedup": 2.86102294921875,
+      "transfer_s_legacy": 1.6,
+      "transfer_s_physical": 0.5592405333333333
+    },
+    "median_makespan_legacy": {
+      "all_UE": 1407.225341796875,
+      "all_MEC": 489.65295758928573,
+      "all_HELPER": 1651.9611328125
+    },
+    "median_makespan_radio_only": {
+      "all_UE": 1407.225341796875,
+      "all_MEC": 282.63291048489583,
+      "all_HELPER": 1476.2336575302083
+    },
+    "median_makespan_physical": {
+      "all_UE": 3541.3985280000006,
+      "all_MEC": 453.6913237333333,
+      "all_HELPER": 2429.9406677333336
+    },
+    "radio_only_makespan_speedup": {
+      "all_UE": 1.0,
+      "all_MEC": 1.7324697139806486,
+      "all_HELPER": 1.119037710856891
+    }
+  }
+}

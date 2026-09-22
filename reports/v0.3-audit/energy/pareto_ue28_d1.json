@@ -1,0 +1,523 @@
+{
+  "model": {
+    "model": "physical_v1",
+    "energy_scope": "system",
+    "cycles_per_bit": 300.0,
+    "include_rx_energy": false,
+    "tiers": {
+      "helper": {
+        "f_hz": 1500000000.0,
+        "kappa": 5e-27,
+        "implied_dynamic_power_w": 16.875,
+        "source": "Liu et al., Digital Communications and Networks 9(6):1399-1410, 2023, Table 1 (F_j in [1,2] GHz, gamma_j = 5e-27); that paper's objective contains the service-vehicle compute energy (Eq. 15)."
+      },
+      "mec": {
+        "f_hz": 10000000000.0,
+        "kappa": 1e-27,
+        "implied_dynamic_power_w": 1000.0000000000001,
+        "source": "Liu et al., DCN 9(6), 2023, Table 1 (F_m = 10 GHz, gamma_m = 1e-27); frequency double-sourced with Zhao et al. arXiv:1807.02311 Table I."
+      },
+      "ue": {
+        "f_hz": 1000000000.0,
+        "kappa": 1e-28,
+        "implied_dynamic_power_w": 0.09999999999999999,
+        "source": "chosen inside the verified band (kappa 1e-28..1e-26, f 0.2..2.5 GHz); kappa=1e-27 matches the Gu2025/Liang2024 vehicle tier. NOT imported from Liu2023, which is fully offloaded and has no UE-local tier."
+      }
+    },
+    "radio_w": {
+      "ue_tx_w": 1.0,
+      "mec_tx_w": 3.162,
+      "helper_tx_w": 1.0,
+      "ue_rx_w": null,
+      "helper_rx_w": null
+    },
+    "server_static_power_w": null,
+    "server_utilization_model": false,
+    "provenance": "primary V2X calibration; per-parameter provenance inline. kappa > 0 for every tier is mandatory here: a zero MEC compute coefficient is exactly the asymmetry this model removes. Note the implied dynamic power kappa_MEC * f_MEC^3 = 1 kW, which is why the static/idle-power sensitivity exists. The legacy normalized model (rho=1, f=1, zeta=2) stays available for byte-exact reproduction of MARGO-SPEC-v0.1 numbers."
+  },
+  "preset": "ue28",
+  "scope": "system",
+  "dist": 1,
+  "rows": [
+    {
+      "graph": "random.20.0.gv",
+      "families": {
+        "all_UE": {
+          "T": 3052.5652992,
+          "E_requester": 305.25652992000005,
+          "E_mobile": 305.25652992000005,
+          "E_system": 305.25652992000005,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 601.63778836,
+          "E_requester": 345.6294642857143,
+          "E_mobile": 345.6294642857143,
+          "E_system": 306228.8564914286,
+          "E_mec_compute": 305256.52992,
+          "E_mec_tx": 626.6971071428571
+        },
+        "all_HELPER": {
+          "T": 2198.5388453,
+          "E_requester": 483.88124999999997,
+          "E_mobile": 35102.715866000006,
+          "E_system": 35102.715866000006,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 557.2082606142857,
+          "E_requester": 345.09330432571426,
+          "E_mobile": 345.09330432571426,
+          "E_system": 285987.7032959328,
+          "E_mec_compute": 284808.31487999996,
+          "E_mec_tx": 834.2951116071429
+        },
+        "twopt": {
+          "T": 492.76587765142864,
+          "E_requester": 530.1122899028571,
+          "E_mobile": 2529.2571499028572,
+          "E_system": 258965.97722151,
+          "E_mec_compute": 255577.12895999997,
+          "E_mec_tx": 859.5911116071429
+        }
+      }
+    },
+    {
+      "graph": "random.20.1.gv",
+      "families": {
+        "all_UE": {
+          "T": 3466.99776,
+          "E_requester": 346.69977600000004,
+          "E_mobile": 346.69977600000004,
+          "E_system": 346.69977600000004,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 716.3749226571429,
+          "E_requester": 510.45479910714283,
+          "E_mobile": 510.45479910714283,
+          "E_system": 347903.8592589286,
+          "E_mec_compute": 346699.776,
+          "E_mec_tx": 693.6284598214286
+        },
+        "all_HELPER": {
+          "T": 2530.4677775000005,
+          "E_requester": 714.63671875,
+          "E_mobile": 40025.470893749996,
+          "E_system": 40025.470893749996,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 594.2623800285714,
+          "E_requester": 534.5842408,
+          "E_mobile": 4501.2431108,
+          "E_system": 275678.11473669286,
+          "E_mec_compute": 270493.9008,
+          "E_mec_tx": 682.9708258928572
+        },
+        "twopt": {
+          "T": 594.2623800285714,
+          "E_requester": 534.5842408,
+          "E_mobile": 4501.2431108,
+          "E_system": 275678.11473669286,
+          "E_mec_compute": 270493.9008,
+          "E_mec_tx": 682.9708258928572
+        }
+      }
+    },
+    {
+      "graph": "random.20.10.gv",
+      "families": {
+        "all_UE": {
+          "T": 3951.2391696000004,
+          "E_requester": 395.12391696,
+          "E_mobile": 395.12391696,
+          "E_system": 395.12391696,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 704.695013803362,
+          "E_requester": 484.22991071428567,
+          "E_mobile": 484.22991071428567,
+          "E_system": 396005.95187964285,
+          "E_mec_compute": 395123.91696,
+          "E_mec_tx": 397.8050089285714
+        },
+        "all_HELPER": {
+          "T": 2834.7891339,
+          "E_requester": 677.921875,
+          "E_mobile": 45305.493783000005,
+          "E_system": 45305.493783000005,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 632.9625172142858,
+          "E_requester": 506.67429746285717,
+          "E_mobile": 506.67429746285717,
+          "E_system": 354498.32003567717,
+          "E_mec_compute": 353498.72664,
+          "E_mec_tx": 492.91909821428567
+        },
+        "twopt": {
+          "T": 550.678099747564,
+          "E_requester": 501.5190680104213,
+          "E_mobile": 4563.952271510421,
+          "E_system": 313429.7065990105,
+          "E_mec_compute": 308561.51064000005,
+          "E_mec_tx": 304.24368749999996
+        }
+      }
+    },
+    {
+      "graph": "random.20.11.gv",
+      "families": {
+        "all_UE": {
+          "T": 2891.7055488,
+          "E_requester": 289.17055488000005,
+          "E_mobile": 289.17055488000005,
+          "E_system": 289.17055488000005,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 540.2303573085715,
+          "E_requester": 160.37723214285714,
+          "E_mobile": 160.37723214285714,
+          "E_system": 290052.37629071425,
+          "E_mec_compute": 289170.55488,
+          "E_mec_tx": 721.4441785714286
+        },
+        "all_HELPER": {
+          "T": 2083.4138454999998,
+          "E_requester": 224.528125,
+          "E_mobile": 33075.640549,
+          "E_system": 33075.640549,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 489.0654325657143,
+          "E_requester": 266.5726738885714,
+          "E_mobile": 2726.7262518885714,
+          "E_system": 236279.912506085,
+          "E_mec_compute": 232932.80255999998,
+          "E_mec_tx": 620.3836941964286
+        },
+        "twopt": {
+          "T": 471.38847586285715,
+          "E_requester": 266.5726738885714,
+          "E_mobile": 2367.9491168885716,
+          "E_system": 239044.89467376357,
+          "E_mec_compute": 236034.29376,
+          "E_mec_tx": 642.6517968750001
+        }
+      }
+    },
+    {
+      "graph": "random.20.12.gv",
+      "families": {
+        "all_UE": {
+          "T": 3615.7992960000006,
+          "E_requester": 361.57992959999996,
+          "E_mobile": 361.57992959999996,
+          "E_system": 361.57992959999996,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 599.2302253428571,
+          "E_requester": 217.76227678571428,
+          "E_mobile": 217.76227678571428,
+          "E_system": 362202.03615580354,
+          "E_mec_compute": 361579.9295999999,
+          "E_mec_tx": 404.34427901785716
+        },
+        "all_HELPER": {
+          "T": 2589.2549074999997,
+          "E_requester": 304.8671875,
+          "E_mobile": 41161.63583,
+          "E_system": 41161.63583,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 515.0373939285714,
+          "E_requester": 283.5186889857142,
+          "E_mobile": 1190.2337989857142,
+          "E_system": 332729.23398782493,
+          "E_mec_compute": 330957.61919999996,
+          "E_mec_tx": 581.3809888392857
+        },
+        "twopt": {
+          "T": 515.0373939285714,
+          "E_requester": 283.5186889857142,
+          "E_mobile": 1190.2337989857142,
+          "E_system": 332729.23398782493,
+          "E_mec_compute": 330957.61919999996,
+          "E_mec_tx": 581.3809888392857
+        }
+      }
+    },
+    {
+      "graph": "random.20.13.gv",
+      "families": {
+        "all_UE": {
+          "T": 4189.231103999999,
+          "E_requester": 418.9231103999999,
+          "E_mobile": 418.9231103999999,
+          "E_system": 418.9231103999999,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 634.0427261142856,
+          "E_requester": 182.16796875,
+          "E_mobile": 182.16796875,
+          "E_system": 419876.79578169656,
+          "E_mec_compute": 418923.1104000001,
+          "E_mec_tx": 771.5174129464285
+        },
+        "all_HELPER": {
+          "T": 2917.5629235,
+          "E_requester": 255.03515625,
+          "E_mobile": 47725.48038875001,
+          "E_system": 47725.48038875001,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 526.3409868714285,
+          "E_requester": 205.81367462857145,
+          "E_mobile": 1413.5655521285712,
+          "E_system": 362348.54243427154,
+          "E_mec_compute": 360177.2544000001,
+          "E_mec_tx": 757.7224821428571
+        },
+        "twopt": {
+          "T": 526.3409868714285,
+          "E_requester": 205.81367462857145,
+          "E_mobile": 1413.5655521285712,
+          "E_system": 362348.54243427154,
+          "E_mec_compute": 360177.2544000001,
+          "E_mec_tx": 757.7224821428571
+        }
+      }
+    },
+    {
+      "graph": "random.20.14.gv",
+      "families": {
+        "all_UE": {
+          "T": 4367.794171199999,
+          "E_requester": 436.77941711999995,
+          "E_mobile": 436.77941711999995,
+          "E_system": 436.77941711999995,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 755.8721444462192,
+          "E_requester": 577.3214285714286,
+          "E_mobile": 577.3214285714286,
+          "E_system": 437999.8032405357,
+          "E_mec_compute": 436779.41712,
+          "E_mec_tx": 643.0646919642857
+        },
+        "all_HELPER": {
+          "T": 3195.6695511247067,
+          "E_requester": 808.25,
+          "E_mobile": 50230.65630100001,
+          "E_system": 50230.65630100001,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 617.9093416285714,
+          "E_requester": 566.967658760505,
+          "E_mobile": 4451.416348760506,
+          "E_system": 357906.31215358194,
+          "E_mec_compute": 352547.63472000003,
+          "E_mec_tx": 907.2610848214285
+        },
+        "twopt": {
+          "T": 601.3010826999999,
+          "E_requester": 654.2152410615122,
+          "E_mobile": 6516.302412561512,
+          "E_system": 347905.1762603294,
+          "E_mec_compute": 340357.11960000003,
+          "E_mec_tx": 1031.7542477678571
+        }
+      }
+    },
+    {
+      "graph": "random.20.15.gv",
+      "families": {
+        "all_UE": {
+          "T": 3156.3350015999995,
+          "E_requester": 315.63350016000004,
+          "E_mobile": 315.63350016000004,
+          "E_system": 315.63350016000004,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 610.2745774485714,
+          "E_requester": 244.5022321428571,
+          "E_mobile": 244.5022321428571,
+          "E_system": 316655.3991488393,
+          "E_mec_compute": 315633.50016,
+          "E_mec_tx": 777.3967566964285
+        },
+        "all_HELPER": {
+          "T": 2237.5014594000004,
+          "E_requester": 342.303125,
+          "E_mobile": 36195.270330499996,
+          "E_system": 36195.270330499996,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 490.31979688571425,
+          "E_requester": 330.6708970914285,
+          "E_mobile": 1741.1597065914286,
+          "E_system": 295067.29809944856,
+          "E_mec_compute": 292331.51999999996,
+          "E_mec_tx": 994.6183928571429
+        },
+        "twopt": {
+          "T": 490.31979688571425,
+          "E_requester": 330.6708970914285,
+          "E_mobile": 1741.1597065914286,
+          "E_system": 295067.29809944856,
+          "E_mec_compute": 292331.51999999996,
+          "E_mec_tx": 994.6183928571429
+        }
+      }
+    },
+    {
+      "graph": "random.20.16.gv",
+      "families": {
+        "all_UE": {
+          "T": 2828.568576,
+          "E_requester": 282.8568576,
+          "E_mobile": 282.8568576,
+          "E_system": 282.8568576,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 423.36078904285716,
+          "E_requester": 95.8984375,
+          "E_mobile": 95.8984375,
+          "E_system": 283387.98275178584,
+          "E_mec_compute": 282856.8576000001,
+          "E_mec_tx": 435.22671428571425
+        },
+        "all_HELPER": {
+          "T": 1965.9076964999997,
+          "E_requester": 134.2578125,
+          "E_mobile": 32148.354292500004,
+          "E_system": 32148.354292500004,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 395.7348727142857,
+          "E_requester": 137.32555898571428,
+          "E_mobile": 1292.2776089857143,
+          "E_system": 269627.5676005036,
+          "E_mec_compute": 267863.65440000006,
+          "E_mec_tx": 471.6355915178571
+        },
+        "twopt": {
+          "T": 366.02220935714286,
+          "E_requester": 125.14125164285716,
+          "E_mobile": 1185.8735291428573,
+          "E_system": 247461.46204566074,
+          "E_mec_compute": 245739.72480000003,
+          "E_mec_tx": 535.8637165178571
+        }
+      }
+    },
+    {
+      "graph": "random.20.17.gv",
+      "families": {
+        "all_UE": {
+          "T": 4356.8578511999995,
+          "E_requester": 435.68578512,
+          "E_mobile": 435.68578512,
+          "E_system": 435.68578512,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "all_MEC": {
+          "T": 768.5898224919335,
+          "E_requester": 551.5699397495815,
+          "E_mobile": 551.5699397495815,
+          "E_system": 436827.5197740353,
+          "E_mec_compute": 435685.78512,
+          "E_mec_tx": 590.1647142857142
+        },
+        "all_HELPER": {
+          "T": 3088.8317961247067,
+          "E_requester": 772.197915649414,
+          "E_mobile": 50048.14874164941,
+          "E_system": 50048.14874164941,
+          "E_mec_compute": 0.0,
+          "E_mec_tx": 0.0
+        },
+        "greedy_from_mec": {
+          "T": 610.8333483428571,
+          "E_requester": 571.6438604947907,
+          "E_mobile": 2372.2405304947906,
+          "E_system": 384163.0623514769,
+          "E_mec_compute": 381018.1116,
+          "E_mec_tx": 772.7102209821429
+        },
+        "twopt": {
+          "T": 595.1487984,
+          "E_requester": 427.41778162571427,
+          "E_mobile": 2228.014451625714,
+          "E_system": 363109.88740082213,
+          "E_mec_compute": 360432.43488,
+          "E_mec_tx": 449.43806919642856
+        }
+      }
+    }
+  ],
+  "dominance": {
+    "all_UE>all_MEC": 0,
+    "all_UE>all_HELPER": 0,
+    "all_UE>greedy_from_mec": 0,
+    "all_UE>twopt": 0,
+    "all_MEC>all_UE": 0,
+    "all_MEC>all_HELPER": 0,
+    "all_MEC>greedy_from_mec": 0,
+    "all_MEC>twopt": 0,
+    "all_HELPER>all_UE": 0,
+    "all_HELPER>all_MEC": 0,
+    "all_HELPER>greedy_from_mec": 0,
+    "all_HELPER>twopt": 0,
+    "greedy_from_mec>all_UE": 0,
+    "greedy_from_mec>all_MEC": 10,
+    "greedy_from_mec>all_HELPER": 0,
+    "greedy_from_mec>twopt": 0,
+    "twopt>all_UE": 0,
+    "twopt>all_MEC": 10,
+    "twopt>all_HELPER": 0,
+    "twopt>greedy_from_mec": 5
+  },
+  "pareto_front_counts": {
+    "all_UE": 10,
+    "all_MEC": 0,
+    "all_HELPER": 10,
+    "greedy_from_mec": 5,
+    "twopt": 10
+  },
+  "verdict": "SOME FAMILY NEVER PARETO-OPTIMAL: all_MEC"
+}
