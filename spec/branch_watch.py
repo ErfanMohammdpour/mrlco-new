@@ -123,7 +123,9 @@ def log_entries(rev_range=None, rev=None):
         args.append(rev)
     else:
         return []
-    out = _git(*args, check=False)
+    # check=True: a failed log (unknown object, corrupt state) must raise, never
+    # return an empty list that reads as "no new commits"
+    out = _git(*args)
     entries = []
     for line in out.splitlines():
         sha, _, subject = line.partition(" ")
@@ -181,6 +183,15 @@ def check(remote, branch, state, state_path):
         return result
 
     ancestor = is_ancestor(previous, head)
+    if ancestor is None:
+        # previous is unknown here (fake/corrupt marker, or an object that was
+        # never fetched). Logging would fail and return nothing, so the report
+        # would claim "no new commits" and then advance past real commits.
+        raise RuntimeError(
+            "cannot compare previous %s with head %s: previous is not a commit "
+            "known to this repository; fix or delete %s"
+            % (previous, head, state_path)
+        )
     if ancestor is False:
         # force-push / rebase: a range is still computable, but flag it loudly
         result["history_rewritten"] = True

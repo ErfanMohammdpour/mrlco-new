@@ -129,6 +129,29 @@ class TestBranchWatch(unittest.TestCase):
             "marker advanced although the fetch failed",
         )
 
+    def test_unknown_previous_sha_is_an_error(self):
+        """Corrupt/fake marker: must fail loud, never advance past real commits."""
+        _git(self.work, "commit", "-q", "--allow-empty", "-m", "second")
+        _git(self.work, "push", "-q", "origin", "main")
+        self._run()                                    # state now valid
+        state = json.loads(self.state.read_text())
+        key = list(state)[0]
+        fake = "0" * 39 + "1"
+        state[key]["sha"] = fake
+        self.state.write_text(json.dumps(state))
+
+        _git(self.work, "commit", "-q", "--allow-empty", "-m", "third")
+        _git(self.work, "push", "-q", "origin", "main")
+        proc = self._run()
+        self.assertNotEqual(proc.returncode, 0, "unknown previous SHA must not exit 0")
+        report = self._report(proc)
+        self.assertIn("error", report)
+        self.assertIn("cannot compare previous", report["error"])
+        after = json.loads(self.state.read_text())
+        self.assertEqual(
+            after[key]["sha"], fake, "marker advanced although previous was unknown"
+        )
+
     def test_stale_ref_plus_failed_fetch_is_still_an_error(self):
         """Second variant of the bug: a stale tracking ref must not look like 'no news'."""
         self._run()                                    # creates the tracking ref

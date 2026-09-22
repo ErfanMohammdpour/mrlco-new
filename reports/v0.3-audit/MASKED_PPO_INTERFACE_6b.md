@@ -408,6 +408,24 @@ commit is reported; the marker only advances after a report; a force-push sets
 `history_rewritten`; and a failed fetch — with and without a stale tracking ref —
 exits non-zero and leaves the marker untouched. Non-TF suite: **400 passed, 5 skipped**.
 
+### 13.5 corrupt/unknown marker is fatal too (audit round 3)
+
+`git merge-base --is-ancestor` returns neither 0 nor 1 when `previous` is not a
+commit known to the repository (fake or corrupt marker, or an object that was never
+fetched). The code read that as "not rewritten", then `git log` failed inside
+`check=False` and returned an empty list, so the run printed `new_commits: []`,
+exited 0 and advanced the marker past real commits. Both halves are now fatal:
+an undecidable comparison raises `cannot compare previous ... with head ...`, and
+`log_entries` uses `check=True` so a failed log can never masquerade as "no new
+commits". Reproduced with the auditor's fake marker: exit 1, `state_advanced:
+false`, marker untouched. Test 7 covers it.
+
+The runtime smoke now also asserts the required message substring
+(`runtime shield masks cannot be derived`), not merely that a `ValueError` was
+raised, so an unrelated error cannot make the runtime gate look green.
+
+Non-TF suite: **401 passed, 5 skipped**.
+
 Order from here is unchanged: `mask-smoke` on kish, then the `mask/*`, `policy/*`,
 `critic/*` metrics commit, then the no-deadline 500-iteration sanity run — in which
 `active_rate = forced_rate = all_invalid_rate = invalid_action_rate =

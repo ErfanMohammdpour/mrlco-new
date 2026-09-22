@@ -136,12 +136,15 @@ def main(argv=None):
                 masking_mod.observation_mask(obs, mode="runtime")
             except ValueError as exc:
                 caught = exc
+            required = "runtime shield masks cannot be derived"
+            message = str(caught) if caught is not None else ""
             check(
                 "runtime_mask_is_not_derived_from_obs",
-                caught is not None,
+                caught is not None and required in message,
                 {
                     "exception": type(caught).__name__ if caught is not None else None,
-                    "message": str(caught) if caught is not None else "no error raised",
+                    "message": message or "no error raised",
+                    "required_substring": required,
                 },
             )
             report = {
