@@ -62,7 +62,9 @@ def check_rows(header, rows):
     """Violations for one CSV snapshot (pure: no filesystem, no docker)."""
     violations = []
     if not header:
-        return [{"check": "csv_header_missing"}]
+        # startup: the file exists but nothing has been logged yet. A run that
+        # never logs anything is caught by the stall and disappearance rules.
+        return []
     if len(set(header)) != len(header):
         violations.append({"check": "csv_header_duplicate_keys", "detail": header})
     if any(str(k) == "" for k in header):
@@ -168,18 +170,37 @@ def read_snapshot(csv_path):
     return raw[0], raw[1:], mtime
 
 
-def find_container(mode):
+def matches_mode(command_text, mode):
+    """True when a container's argument string runs the given mask mode."""
+    text = " ".join(str(command_text or "").split())
+    return ("--mode %s" % mode) in text
+
+
+def _container_args(cid):
     proc = subprocess.run(
-        ["docker", "ps", "--filter", "ancestor=%s" % IMAGE,
-         "--format", "{{.ID}} {{.Command}}"],
+        ["docker", "inspect", "-f", "{{join .Config.Cmd \" \"}}", cid],
+        capture_output=True, text=True, check=False,
+    )
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.strip()
+
+
+def find_container(mode):
+    """Container ids running spec.mask_sanity in `mode`.
+
+    `docker ps --format {{.Command}}` shows the image ENTRYPOINT (the nvidia
+    wrapper), so the mode has to be read from `.Config.Cmd` instead.
+    """
+    proc = subprocess.run(
+        ["docker", "ps", "--filter", "ancestor=%s" % IMAGE, "--format", "{{.ID}}"],
         capture_output=True, text=True, check=False,
     )
     if proc.returncode != 0:
         return []
     hits = []
-    for line in proc.stdout.splitlines():
-        cid, _, command = line.partition(" ")
-        if "--mode %s" % mode in command:
+    for cid in proc.stdout.split():
+        if matches_mode(_container_args(cid), mode):
             hits.append(cid.strip())
     return hits
 

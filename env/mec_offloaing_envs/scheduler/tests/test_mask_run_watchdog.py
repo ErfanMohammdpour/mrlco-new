@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
 from spec.mask_run_watchdog import (  # noqa: E402
     check_rows,
     disappeared_violation,
+    matches_mode,
     stall_violation,
 )
 from spec.mask_sanity import METRIC_KEYS  # noqa: E402
@@ -88,6 +89,32 @@ class TestCsvSnapshotChecks(unittest.TestCase):
     def test_empty_snapshot_is_not_a_violation_by_itself(self):
         # startup produces no rows for ~25 minutes; only a stall rule may fire
         self.assertEqual(check_rows(HEADER, []), [])
+
+    def test_missing_csv_is_not_a_violation(self):
+        # the file does not exist yet at container start
+        self.assertEqual(check_rows([], []), [])
+
+
+class TestContainerMatching(unittest.TestCase):
+    """docker ps reports the ENTRYPOINT, so matching has to use .Config.Cmd."""
+
+    def test_real_container_cmd(self):
+        cmd = "python -m spec.mask_sanity --mode static --itr 500 --seed 0 --i-allow-gpu"
+        self.assertTrue(matches_mode(cmd, "static"))
+        self.assertFalse(matches_mode(cmd, "off"))
+
+    def test_off_is_not_matched_by_static(self):
+        self.assertFalse(matches_mode("--mode off", "static"))
+
+    def test_entrypoint_only_text_matches_nothing(self):
+        self.assertFalse(matches_mode("/opt/nvidia/nvidia_entrypoint.sh", "off"))
+
+    def test_extra_whitespace_is_tolerated(self):
+        self.assertTrue(matches_mode("python  -m   spec.mask_sanity   --mode   off", "off"))
+
+    def test_empty_text(self):
+        self.assertFalse(matches_mode("", "off"))
+        self.assertFalse(matches_mode(None, "off"))
 
 
 class TestDisappearanceRule(unittest.TestCase):
