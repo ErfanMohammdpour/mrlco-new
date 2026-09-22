@@ -129,12 +129,30 @@ def main(argv=None):
 
         # ---- runtime mode must refuse to degrade into a static shield ----
         if mask_mode == "runtime":
+            # Runtime mode is expected to fail loudly. This script catches that
+            # ValueError and exits 0, so the shell must NOT swallow its status.
+            caught = None
             try:
                 masking_mod.observation_mask(obs, mode="runtime")
-                check("runtime_mask_is_not_derived_from_obs", False, "no error raised")
-            except ValueError:
-                check("runtime_mask_is_not_derived_from_obs", True)
-            print(json.dumps({"mask_mode": mask_mode, "checks": checks, "failures": failures}, indent=2))
+            except ValueError as exc:
+                caught = exc
+            check(
+                "runtime_mask_is_not_derived_from_obs",
+                caught is not None,
+                {
+                    "exception": type(caught).__name__ if caught is not None else None,
+                    "message": str(caught) if caught is not None else "no error raised",
+                },
+            )
+            report = {
+                "mask_mode": mask_mode,
+                "obs_version": eo.OBS_VERSION,
+                "obs_dim": int(eo.PACKED_DIM),
+                "expected": "ValueError from observation_mask(mode='runtime')",
+                "checks": checks,
+                "failures": failures,
+            }
+            print(json.dumps(report, indent=2, sort_keys=True, default=str))
             return 1 if failures else 0
 
         actions, logits, values = policy.get_actions(obs)
@@ -276,10 +294,18 @@ def main(argv=None):
         )
         total_loss = surr_obj + 0.5 * vf_loss
         params = network.get_trainable_variables()
-        grads = [g for g in tf.gradients(total_loss, params) if g is not None]
+        # keep (grad, var) pairs together: filtering the list would misalign them
+        grads_and_vars = [
+            (g, v) for g, v in zip(tf.gradients(total_loss, params), params) if g is not None
+        ]
+        grads = [g for g, _v in grads_and_vars]
         check("gradient_list_is_non_empty", len(grads) > 0, {"n_grads": len(grads)})
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=5e-4, name="smoke_adam")
-        train_op = optimizer.minimize(total_loss, var_list=params)
+        train_op = optimizer.apply_gradients(grads_and_vars)
+        # ONLY the Adam slots are initialised below: a global re-init would wipe
+        # the policy weights that produced old_logits / old_v, making the step
+        # inconsistent with the rollout it is supposed to replay.
+        slot_init = tf.compat.v1.variables_initializer(optimizer.variables())
 
         train_feed = {
             policy.obs: obs,
@@ -293,7 +319,7 @@ def main(argv=None):
             ret_ph: np.zeros(obs.shape[:2], dtype=np.float32),
         }
         train_feed.update(mask_feed(obs))
-        sess.run(tf.compat.v1.global_variables_initializer())
+        sess.run(slot_init)
         before = sess.run(params)
         # grads BEFORE the step, in their own run, so the update cannot race them
         grads_before = sess.run(grads, feed_dict=train_feed)

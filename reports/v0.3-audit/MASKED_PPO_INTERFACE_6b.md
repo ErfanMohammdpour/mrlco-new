@@ -356,3 +356,51 @@ remaining unwired decode call sites (`spec/pair_sup.py`, `spec/rewrite_mec.py`,
 `spec/pair_head.py`, `comprehensive_encoder_verification.py`) still require
 `MARGO_MASK_MODE=off`. Metrics (`mask/*`, `policy/*`, `critic/*`) are the next
 commit, before any 500-iteration run.
+
+---
+
+## 13. Audit round 2 — gate and watcher fixes (`1f7edbd` review)
+
+The P0 fixes in section 12 were confirmed correct by the second audit round. Three
+defects in the *gate tooling* (not in the shield) were reported and are fixed:
+
+### 13.1 `branch_watch` lost commits (definite bug)
+
+`git ls-remote` reveals a SHA without fetching its objects, so `git log prev..head`
+printed nothing for the new head, the report showed `new_commits: []`, and the
+marker was advanced anyway — the commit disappeared from the feed permanently. The
+reproduction (synthetic bare remote, push a second commit) previously produced
+exactly that. Fixed by always fetching the head into
+`refs/remotes/<remote>/<branch>` before computing the log, and by treating a failed
+fetch as fatal **even when a stale tracking ref still resolves** (the second
+variant of the same bug: stale ref compares equal to the marker and reports "no
+new commits"). The marker is now advanced only after a report is computed, so a
+failed run retries next time.
+
+Force-push / rebase is detected with `git merge-base --is-ancestor` and reported as
+`history_rewritten: true` with an explanatory note; the range listing still shows
+what is new. Verified end to end against a synthetic remote: first look, new
+commit, force-push (`history_rewritten: true`), fetch failure with a stale ref
+(exit 1, marker untouched), and the real `erfan/phase4-eval`.
+
+### 13.2 `mask-runtime` swallowed every failure
+
+`gpu_run_masked runtime ... || true` would have hidden an import error, a CUDA
+failure or a missing image behind a green exit code. Removed. The smoke itself
+catches the expected `ValueError` and exits 0, and now records the caught exception
+type and message in the JSON report, so a green run is evidence rather than
+silence.
+
+### 13.3 the smoke re-initialised the whole graph
+
+The Adam step was preceded by a second `global_variables_initializer()`, which
+wiped the weights that produced `old_logits` / `old_v`; the "PPO-shaped update" was
+therefore not replaying the rollout it had just sampled. Now only the Adam slot
+variables are initialised. Related fix: gradients are kept paired with their
+variables (`[(g, v) ...]`) instead of filtering a gradient list against the full
+parameter list, which would have silently applied gradients to the wrong variables.
+
+Order from here is unchanged: `mask-smoke` on kish, then the `mask/*`, `policy/*`,
+`critic/*` metrics commit, then the no-deadline 500-iteration sanity run — in which
+`active_rate = forced_rate = all_invalid_rate = invalid_action_rate =
+argmax_masked_rate = 0` is the expected result, not a failure.

@@ -76,8 +76,10 @@ for d in device_lib.list_local_devices():
     gpu_run_masked static python -m spec.masked_ppo_smoke --mask-mode static
     ;;
   mask-runtime)
-    # Must fail loudly: runtime shields cannot be derived from the observation.
-    gpu_run_masked runtime python -m spec.masked_ppo_smoke --mask-mode runtime || true
+    # Expected to exit 0: the smoke itself catches the required ValueError and
+    # reports it in the JSON. No `|| true` here -- that would also hide an
+    # import error, a CUDA failure or a missing image.
+    gpu_run_masked runtime python -m spec.masked_ppo_smoke --mask-mode runtime
     ;;
   audit5)
     gpu_run python spec/phase4_campaign.py --learning-probe --seed 0 --i-allow-gpu
