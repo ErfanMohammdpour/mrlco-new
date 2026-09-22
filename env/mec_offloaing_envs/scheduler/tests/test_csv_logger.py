@@ -98,13 +98,31 @@ class TestCsvAlignment(unittest.TestCase):
                 orders.append(handle.readline().strip())
         self.assertEqual(len(set(orders)), 1, orders)
 
+    def test_comma_in_a_key_does_not_split_the_header(self):
+        """The real trainer logs a key that ends with a comma."""
+        writer = CSVOutputFormat(str(self.path))
+        writer.writekvs({"Average greedy latency,": 1.0, "a": 2.0})
+        writer.writekvs({"Average greedy latency,": 3.0, "a": 4.0, "mask/active_rate": 0.0})
+        writer.close()
+
+        with self.path.open() as handle:
+            raw = list(csv.reader(handle))
+        header, rows = raw[0], raw[1:]
+        self.assertEqual(len(header), 3, header)
+        self.assertIn("Average greedy latency,", header)
+        for row in rows:
+            self.assertEqual(len(row), len(header), row)
+        by_row = [dict(zip(header, row)) for row in rows]
+        self.assertEqual(by_row[0]["Average greedy latency,"], "1.0")
+        self.assertEqual(by_row[1]["mask/active_rate"], "0.0")
+
     def test_commas_in_values_do_not_break_columns(self):
         writer = CSVOutputFormat(str(self.path))
         writer.writekvs({"note": "a,b", "x": 1})
         writer.close()
         header, rows = self._read()
         self.assertEqual(len(rows[0]), len(header))
-        self.assertEqual(dict(zip(header, rows[0]))["note"], "a;b")
+        self.assertEqual(dict(zip(header, rows[0]))["note"], "a,b")
 
 
 if __name__ == "__main__":

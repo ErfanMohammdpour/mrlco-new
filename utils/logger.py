@@ -114,6 +114,18 @@ class CSVOutputFormat(KVWriter):
         self.keys = []
         self.sep = ','
 
+    def _quote(self, text):
+        """Quote a field when it contains the separator, a quote or a newline.
+
+        Some keys legitimately end with a comma ('Average greedy latency,'); written
+        unquoted they split the header into an extra column while the data row keeps
+        one field, so every later column shifts.
+        """
+        text = str(text)
+        if self.sep in text or '"' in text or '\n' in text:
+            return '"' + text.replace('"', '""') + '"'
+        return text
+
     def writekvs(self, kvs):
         # Add our current row to the history. New keys must be appended in a
         # DETERMINISTIC order (the previous set-difference made the column order
@@ -127,20 +139,15 @@ class CSVOutputFormat(KVWriter):
             previous = self.file.readlines()
             self.file.seek(0)
             self.file.truncate()
-            self.file.write(self.sep.join(self.keys) + '\n')
+            self.file.write(self.sep.join(self._quote(k) for k in self.keys) + '\n')
             pad = self.sep * len(extra_keys)
             for line in previous[1:]:
                 self.file.write(line.rstrip('\n') + pad + '\n')
         row = []
         for k in self.keys:
             v = kvs.get(k)
-            if k in kvs and v is not None:
-                text = str(v)
-            else:
-                text = ''
-            if self.sep in text:
-                text = text.replace(self.sep, ';')
-            row.append(text)
+            text = str(v) if (k in kvs and v is not None) else ''
+            row.append(self._quote(text))
         self.file.write(self.sep.join(row) + '\n')
         self.file.flush()
 

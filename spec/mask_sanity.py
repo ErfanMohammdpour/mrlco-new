@@ -239,14 +239,28 @@ def validate_progress_csv(rd, itr):
                 "rows": 0}
 
     with csv_path.open() as handle:
-        reader = csv.DictReader(handle)
-        header = list(reader.fieldnames or [])
-        rows = list(reader)
+        raw_rows = list(csv.reader(handle))
+    if not raw_rows:
+        return {"failures": [{"check": "progress_csv_not_empty", "detail": str(csv_path)}],
+                "rows": 0}
+    header = list(raw_rows[0])
+    rows = [dict(zip(header, row)) for row in raw_rows[1:]]
+    ragged_rows = [
+        i for i, row in enumerate(raw_rows[1:]) if len(row) != len(header)
+    ]
+    if ragged_rows:
+        failures.append(
+            {
+                "check": "csv_row_field_count",
+                "detail": {"rows": ragged_rows[:5], "header_fields": len(header),
+                           "row_fields": [len(raw_rows[1 + i]) for i in ragged_rows[:5]]},
+            }
+        )
 
     if len(set(header)) != len(header):
         failures.append({"check": "csv_header_unique", "detail": header})
-    if any(not str(k).strip() for k in header):
-        failures.append({"check": "csv_header_no_blank_keys", "detail": header})
+    if any(str(k) == "" for k in header):
+        failures.append({"check": "csv_header_no_empty_keys", "detail": header})
     for key in METRIC_KEYS:
         if key not in header:
             failures.append({"check": "metric_column_present", "detail": key})
