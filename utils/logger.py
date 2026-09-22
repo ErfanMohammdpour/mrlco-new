@@ -115,29 +115,33 @@ class CSVOutputFormat(KVWriter):
         self.sep = ','
 
     def writekvs(self, kvs):
-        # Add our current row to the history
-        extra_keys = kvs.keys() - self.keys
+        # Add our current row to the history. New keys must be appended in a
+        # DETERMINISTIC order (the previous set-difference made the column order
+        # depend on hash iteration) and the rewritten header must be padded onto
+        # every existing row with the file truncated, otherwise stale bytes from
+        # the longer previous header survive and shift every later column.
+        extra_keys = [k for k in kvs.keys() if k not in self.keys]
         if extra_keys:
             self.keys.extend(extra_keys)
             self.file.seek(0)
-            lines = self.file.readlines()
+            previous = self.file.readlines()
             self.file.seek(0)
-            for (i, k) in enumerate(self.keys):
-                if i > 0:
-                    self.file.write(',')
-                self.file.write(k)
-            self.file.write('\n')
-            for line in lines[1:]:
-                self.file.write(line[:-1])
-                self.file.write(self.sep * len(extra_keys))
-                self.file.write('\n')
-        for (i, k) in enumerate(self.keys):
-            if i > 0:
-                self.file.write(',')
+            self.file.truncate()
+            self.file.write(self.sep.join(self.keys) + '\n')
+            pad = self.sep * len(extra_keys)
+            for line in previous[1:]:
+                self.file.write(line.rstrip('\n') + pad + '\n')
+        row = []
+        for k in self.keys:
             v = kvs.get(k)
-            if v is not None:
-                self.file.write(str(v))
-        self.file.write('\n')
+            if k in kvs and v is not None:
+                text = str(v)
+            else:
+                text = ''
+            if self.sep in text:
+                text = text.replace(self.sep, ';')
+            row.append(text)
+        self.file.write(self.sep.join(row) + '\n')
         self.file.flush()
 
     def close(self):

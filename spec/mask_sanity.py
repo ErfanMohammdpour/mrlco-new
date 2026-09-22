@@ -243,6 +243,10 @@ def validate_progress_csv(rd, itr):
         header = list(reader.fieldnames or [])
         rows = list(reader)
 
+    if len(set(header)) != len(header):
+        failures.append({"check": "csv_header_unique", "detail": header})
+    if any(not str(k).strip() for k in header):
+        failures.append({"check": "csv_header_no_blank_keys", "detail": header})
     for key in METRIC_KEYS:
         if key not in header:
             failures.append({"check": "metric_column_present", "detail": key})
