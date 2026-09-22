@@ -1,0 +1,141 @@
+{
+  "clean_tree": true,
+  "gpu": "NVIDIA GeForce RTX 4090, 24564 MiB",
+  "host": "kish-ai",
+  "image": "margo-phase4-tf115-nv2212",
+  "note": "container entrypoint prints an NVIDIA banner on stdout before the JSON",
+  "python": "3.8",
+  "runs": {
+    "metrics_off": {
+      "command": "python -m spec.mask_metric_smoke --mask-mode off",
+      "exit_code": 0,
+      "failures": [],
+      "metrics": {
+        "all_valid": {
+          "critic/value_abs_max": 0.6399959921836853,
+          "mask/active_rate": 0.0,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.0511695653499966,
+          "policy/invalid_action_rate": 0.0
+        },
+        "dead_end": {
+          "critic/value_abs_max": 0.6398284435272217,
+          "mask/active_rate": 0.0,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.049998088478894,
+          "policy/invalid_action_rate": 0.0
+        },
+        "forced": {
+          "critic/value_abs_max": 0.6282259225845337,
+          "mask/active_rate": 0.0,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.0509390284914417,
+          "policy/invalid_action_rate": 0.0
+        },
+        "hard_partial": {
+          "critic/value_abs_max": 0.6193207502365112,
+          "mask/active_rate": 0.0,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.0519121054691087,
+          "policy/invalid_action_rate": 0.0
+        },
+        "no_deadline": {
+          "critic/value_abs_max": 0.5685588121414185,
+          "mask/active_rate": 0.0,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.0555263055818318,
+          "policy/invalid_action_rate": 0.0
+        }
+      },
+      "n_checks": 86,
+      "ok": true
+    },
+    "metrics_static": {
+      "command": "python -m spec.mask_metric_smoke --mask-mode static",
+      "exit_code": 0,
+      "failures": [],
+      "metrics": {
+        "all_valid": {
+          "critic/value_abs_max": 0.23157985508441925,
+          "mask/active_rate": 0.0,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.0659751537056716,
+          "policy/invalid_action_rate": 0.0
+        },
+        "dead_end": {
+          "critic/value_abs_max": 0.24582527577877045,
+          "mask/active_rate": 0.25,
+          "mask/all_invalid_rate": 0.25,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.0791047842971064,
+          "policy/invalid_action_rate": 0.0
+        },
+        "forced": {
+          "critic/value_abs_max": 0.2811393439769745,
+          "mask/active_rate": 0.5,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.5,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 0.5343325771215885,
+          "policy/invalid_action_rate": 0.0
+        },
+        "hard_partial": {
+          "critic/value_abs_max": 0.21756583452224731,
+          "mask/active_rate": 0.35,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.3375,
+          "policy/entropy_valid": 0.9419533385176233,
+          "policy/invalid_action_rate": 0.0
+        },
+        "no_deadline": {
+          "critic/value_abs_max": 0.20374006032943726,
+          "mask/active_rate": 0.0,
+          "mask/all_invalid_rate": 0.0,
+          "mask/forced_rate": 0.0,
+          "policy/argmax_masked_rate": 0.0,
+          "policy/entropy_valid": 1.0781168102852097,
+          "policy/invalid_action_rate": 0.0
+        }
+      },
+      "n_checks": 69,
+      "ok": true
+    },
+    "smoke_off": {
+      "command": "python -m spec.masked_ppo_smoke --mask-mode off",
+      "exit_code": 0,
+      "failures": [],
+      "n_checks": 18,
+      "ok": true
+    },
+    "smoke_runtime": {
+      "command": "python -m spec.masked_ppo_smoke --mask-mode runtime",
+      "exit_code": 0,
+      "failures": [],
+      "n_checks": 2,
+      "ok": true
+    },
+    "smoke_static": {
+      "command": "python -m spec.masked_ppo_smoke --mask-mode static",
+      "exit_code": 0,
+      "failures": [],
+      "n_checks": 21,
+      "ok": true
+    }
+  },
+  "sha": "a636a6a34267cbb706e4d283010b93a3b09c7624",
+  "tf": "1.15.5"
+}

@@ -459,3 +459,93 @@ argmax_masked_rate = 0` is the expected result, not a failure.
 `critic/*` metrics commit, then the no-deadline 500-iteration sanity run — in which
 `active_rate = forced_rate = all_invalid_rate = invalid_action_rate =
 argmax_masked_rate = 0` is the expected result, not a failure.
+
+---
+
+## 14. Metrics commit (`9ef887e`, fixups in `a636a6a`)
+
+### 14.1 Definitions as implemented
+
+`scheduler/mask_metrics.py` is the frozen numpy definition; `reasoning` is below,
+and every claim there is covered by `tests/test_mask_metrics.py` (25 tests).
+
+    valid_count = pre_guard.sum(-1)
+    dead_end    = valid_count == 0
+    post_guard  = where(dead_end[..., None], True, pre_guard)
+
+    mask/active_rate           = mean(any(~pre_guard, axis=-1))
+    mask/forced_rate           = mean(valid_count == 1)
+    mask/all_invalid_rate      = mean(valid_count == 0)      # PRE-guard
+    policy/invalid_action_rate = mean(action outside post_guard)
+    policy/argmax_masked_rate  = count(valid_count > 0 and argmax(raw) closed
+                                       by pre_guard) / total_tokens
+    policy/entropy_valid       = mean entropy over post_guard support (nats)
+    critic/value_abs_max       = max |values| over the iteration
+
+Conventions worth stating explicitly, because each is a way to get the numbers
+wrong: `all_invalid_rate` is measured **before** the dead-end guard; an
+all-invalid row is **not** an invalid action (the guard frees it, so
+`invalid_action_rate` must stay 0); `argmax_masked_rate` uses the **raw** logits
+(masked argmax is unrecoverable), excludes all-invalid rows from the numerator
+and divides by **every** token; entropy is never normalised by `log(valid_count)`;
+and in `off` mode the five rates are defined as `0.0` while entropy and value
+remain real.
+
+Counts are integers and merge exactly, so rates stay **token-weighted** across
+paths and meta tasks of unequal length, while `value_abs_max` merges as a running
+maximum. A missing mask in an active mode, a mis-shaped mask, an empty batch, an
+out-of-range action or any non-finite input raises instead of logging a number.
+
+### 14.2 Where the data comes from
+
+`get_actions` now also fetches `sample_decoder_logits_raw` and `sample_pi` **in
+the same `sess.run`** as the actions and values, exposing them as
+`last_raw_logits` / `last_sample_pi`. The public 3-tuple return is unchanged, and
+in `off` mode no mask placeholder, masking op or counter node is created
+(`dead_end_rows` is simply `None`). Samplers store `raw_logits` next to
+`feasible`, both sample processors build the accumulator from the stored batch,
+and `meta_trainer` merges the per-task accumulators and logs all seven keys every
+iteration. The update never rebuilds a mask — asserted by a wiring test.
+
+The cross-check against the TF distribution must use `last_sample_pi`, not a
+second `sess.run`: the sample decoder draws its own next input token, so a replay
+follows a different path (found the hard way: ~5e-4 entropy drift that looked
+like a metric bug).
+
+### 14.3 kish results (`a636a6a`, clean tree, TF 1.15.5, RTX 4090)
+
+    smoke_off 18 checks  failures=[]      metrics_off 86 checks  failures=[]
+    smoke_static 21      failures=[]      metrics_static 69 checks failures=[]
+    smoke_runtime 2      failures=[]
+
+Static-mode scenario metrics (rates, nat entropy, value magnitude):
+
+| scenario | active | forced | all_invalid | invalid_action | argmax_masked | entropy | value_abs_max |
+|---|---|---|---|---|---|---|---|
+| all_valid | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 1.0660 | 0.232 |
+| no_deadline | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 1.0781 | 0.204 |
+| hard_partial | 0.350 | 0.000 | 0.000 | 0.000 | 0.338 | 0.9420 | 0.218 |
+| forced | 0.500 | 0.500 | 0.000 | 0.000 | 0.000 | 0.5343 | 0.281 |
+| dead_end | 0.250 | 0.000 | 0.250 | 0.000 | 0.000 | 1.0791 | 0.246 |
+
+Acceptance: no-deadline and all-valid give exactly zero for all five rates in
+both modes; `hard_partial` shows `active_rate > 0` with `invalid_action_rate == 0`;
+`forced` gives `forced_rate = 0.5` (the pattern forces one action on half the
+slots); `dead_end` gives `all_invalid_rate = 0.25` with `invalid_action_rate == 0`
+and finite logits/values/entropy. `argmax_masked_rate = 0.338` on `hard_partial`
+is the measurement that a masked argmax could not have produced: it counts the
+tokens whose **raw** argmax sits on the closed action, and it respects
+`argmax_masked_rate <= active_rate` (0.338 <= 0.350). Entropy is measured over
+the post-guard support: `forced` drops to 0.534 while the free scenarios sit near
+the uniform value of 1.066.
+
+Evidence: `reports/v0.3-audit/mask_smoke/kish_a636a6a_metrics_evidence.json`
+(all five runs, every check, every metric value, SHA and environment).
+
+### 14.4 Known limitations
+
+- The metric smoke uses synthetic packed observations and an untrained policy, so
+  it validates the plumbing and the definitions, not learning behaviour.
+- `mask/*` rates describe the *stored* mask. A runtime shield, when it exists,
+  must be stored the same way or these numbers become meaningless.
+- The 500-iteration sanity run has not been started.
