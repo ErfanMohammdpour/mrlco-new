@@ -77,6 +77,35 @@ class PPO:
         )
         self.build_graph()
 
+    def _feasible_mask_ph(self):
+        return getattr(self.policy, "feasible_mask", None)
+
+    def _feasible_batch(self, task_samples, pick, n_rows, n_slots):
+        """Stored rollout mask for the selected rows (None when masking is off)."""
+        ph = self._feasible_mask_ph()
+        if ph is None:
+            return None
+        if "feasible" not in task_samples or task_samples["feasible"] is None:
+            raise ValueError(
+                "masking is active but the batch has no 'feasible' entry; the "
+                "rollout mask must be stored, never recomputed at update time"
+            )
+        feasible = np.asarray(task_samples["feasible"], dtype=np.float32)
+        if feasible.ndim == 2:
+            feasible = feasible[None, ...]
+        if feasible.shape[0] != n_rows:
+            raise ValueError(
+                "feasible rows %d != trajectory rows %d" % (feasible.shape[0], n_rows)
+            )
+        feasible = feasible[pick]
+        want = (feasible.shape[0], n_slots, self.policy.action_dim)
+        if tuple(feasible.shape[1:]) != want[1:]:
+            raise ValueError(
+                "feasible mask shape %s != expected %s"
+                % (tuple(feasible.shape), want)
+            )
+        return feasible
+
     def build_graph(self):
         new_logits = self.policy.network.decoder_logits
         self.decoder_inputs = self.policy.decoder_inputs
@@ -151,6 +180,9 @@ class PPO:
         else:
             pick = select_support_rows(n, self.support_trajectories, self.rng)
         actions = np.asarray(task_samples["actions"])[pick]
+        feasible = self._feasible_batch(
+            task_samples, pick, n, observations.shape[1]
+        )
         observations = observations[pick]
         logits = np.asarray(task_samples["logits"], dtype=np.float32)[pick]
         advantages = np.asarray(task_samples["advantages"], dtype=np.float32)[pick]
@@ -185,6 +217,8 @@ class PPO:
                     self.advs: advantages[idx],
                     self.r: returns[idx],
                 }
+                if feasible is not None:
+                    feed_dict[self._feasible_mask_ph()] = feasible[idx]
                 _, value_loss, policy_loss = sess.run(
                     [self._train, self.vf_loss, self.surr_obj], feed_dict=feed_dict
                 )

@@ -64,13 +64,10 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         paths = self._compute_advantages(paths, all_path_baselines)
 
         path_data = self._append_path_data(paths)
-        
-        # Handle optional energy data
-        if len(path_data) == 9:  # Includes energy
-            observations, actions, logits, rewards, returns, values, advantages, finish_time, energy = path_data
-        else:
-            observations, actions, logits, rewards, returns, values, advantages, finish_time = path_data
-            energy = None
+        (
+            observations, actions, logits, rewards, returns, values,
+            advantages, finish_time, energy, feasible,
+        ) = path_data
 
         decoder_full_lengths = np.array(observations.shape[0] * [observations.shape[1]])
         # Diagnostic POMO: A_i = R_i - mean_graph(R). Skip global adv-norm (would mix graphs).
@@ -102,6 +99,11 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         if energy is not None:
             samples_data['energy'] = energy
 
+        # Feasibility mask travels with the batch: the PPO update must use the
+        # rollout mask, never a recomputation (MASKED_PPO_INTERFACE_6b).
+        if feasible is not None:
+            samples_data['feasible'] = feasible
+
         return samples_data, paths
 
     def _append_path_data(self, paths):
@@ -112,12 +114,19 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         returns = np.array([path["returns"] for path in paths])
         values = np.array([path["values"] for path in paths])
         advantages = np.array([path["advantages"] for path in paths])
+        has_feasible = all(p.get("feasible") is not None for p in paths)
+        feasible = (
+            np.array([p["feasible"] for p in paths]) if has_feasible else None
+        )
         finish_time = np.array([path["finish_time"] for path in paths])
         
         # Handle energy if present (optional, for logging)
         if "energy" in paths[0] and paths[0]["energy"] is not None:
             energy = np.array([path["energy"] for path in paths])
-            return observations, actions, logits, rewards, returns, values, advantages, finish_time, energy
         else:
-            return observations, actions, logits, rewards, returns, values, advantages, finish_time
+            energy = None
+        return (
+            observations, actions, logits, rewards, returns, values,
+            advantages, finish_time, energy, feasible,
+        )
 

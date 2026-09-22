@@ -43,6 +43,11 @@ def policy_feed(core_policy, obs, fl, shift=None, acts=None, reach=None):
     ph = getattr(core_policy, "reachability_mask", None)
     if ph is not None and reach is not None:
         fd[ph] = reach
+    # ⑥b feasibility shield: no-op unless MARGO_MASK_MODE enables it, in which
+    # case every decode runs on the same masked distribution the PPO update uses.
+    from policies.meta_seq2seq_policy import feasibility_feed
+
+    fd.update(feasibility_feed(core_policy, obs))
     return fd
 
 

@@ -281,21 +281,57 @@ class MRLCO:
     def _frozen_bc_logits(self, bc_policy, obs_b, shift_b, actions_b):
         sess = tf.compat.v1.get_default_session()
         decoder_full_length = np.array([obs_b.shape[1]] * obs_b.shape[0], dtype=np.int32)
-        return sess.run(
-            bc_policy.network.decoder_logits,
-            feed_dict={
-                bc_policy.obs: obs_b,
-                bc_policy.decoder_inputs: shift_b,
-                bc_policy.decoder_targets: actions_b,
-                bc_policy.decoder_full_length: decoder_full_length,
-            },
-        )
+        feed_dict = {
+            bc_policy.obs: obs_b,
+            bc_policy.decoder_inputs: shift_b,
+            bc_policy.decoder_targets: actions_b,
+            bc_policy.decoder_full_length: decoder_full_length,
+        }
+        # The BC reference stays UNMASKED: all-feasible is the byte-exact legacy
+        # distribution, and the KL is driven by the masked policy side (p=0 on
+        # infeasible actions contributes nothing).
+        mask_ph = getattr(bc_policy, "feasible_mask", None)
+        if mask_ph is not None:
+            feed_dict[mask_ph] = np.ones(
+                (obs_b.shape[0], obs_b.shape[1], bc_policy.action_dim), dtype=np.float32
+            )
+        return sess.run(bc_policy.network.decoder_logits, feed_dict=feed_dict)
+
+    def _mask_ph(self, task_id):
+        return getattr(self.policy.meta_policies[task_id], "feasible_mask", None)
+
+    def _feasible_batch(self, task_samples, pick, n_rows, n_slots, task_id):
+        """Stored rollout mask for the selected rows (None when masking is off)."""
+        if self._mask_ph(task_id) is None:
+            return None
+        if "feasible" not in task_samples or task_samples["feasible"] is None:
+            raise ValueError(
+                "masking is active but task %d batch has no 'feasible' entry; the "
+                "rollout mask must be stored, never recomputed at update time" % task_id
+            )
+        feasible = np.asarray(task_samples["feasible"], dtype=np.float32)
+        if feasible.ndim == 2:
+            feasible = feasible[None, ...]
+        if feasible.shape[0] != n_rows:
+            raise ValueError(
+                "feasible rows %d != trajectory rows %d" % (feasible.shape[0], n_rows)
+            )
+        feasible = feasible[pick]
+        want = (feasible.shape[0], n_slots, self.policy.action_dim)
+        if tuple(feasible.shape[1:]) != want[1:]:
+            raise ValueError(
+                "feasible mask shape %s != expected %s"
+                % (tuple(feasible.shape), want)
+            )
+        return feasible
 
     def UpdatePPOTargetPerTask(self, task_samples, task_id, batch_size=20, update_mode="publication", bc_policy=None):
         self.reset_inner_optimizer(task_id)
         observations = np.asarray(task_samples["observations"])
-        pick = self._pick_support_rows(task_samples, observations.shape[0])
+        n_rows = observations.shape[0]
+        pick = self._pick_support_rows(task_samples, n_rows)
         actions = np.asarray(task_samples["actions"])[pick]
+        feasible = self._feasible_batch(task_samples, pick, n_rows, observations.shape[1], task_id)
         observations = observations[pick]
         logits = np.asarray(task_samples["logits"], dtype=np.float32)[pick]
         advantages = np.asarray(task_samples["advantages"], dtype=np.float32)[pick]
@@ -331,6 +367,8 @@ class MRLCO:
                     self.advs[task_id]: advantages[idx],
                     self.r[task_id]: returns[idx],
                 }
+                if feasible is not None:
+                    feed_dict[self._mask_ph(task_id)] = feasible[idx]
                 fetches = [train_op, self.vf_loss[task_id], self.surr_obj[task_id]]
                 if update_mode == "kl_bc":
                     feed_dict[self.bc_logits[task_id]] = self._frozen_bc_logits(

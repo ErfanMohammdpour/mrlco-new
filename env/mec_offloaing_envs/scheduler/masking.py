@@ -20,6 +20,7 @@ that rollout and update reconstruct the same mask.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Sequence
 
@@ -27,6 +28,60 @@ import numpy as np
 
 NEG_LARGE = -1e9
 N_ACTIONS = 3
+
+# --- mask mode -----------------------------------------------------------------
+# "off"     : legacy behaviour, no masking anywhere (byte-exact reproduction)
+# "static"  : mask derived from the obs v3 feasibility channels (state-only)
+# "runtime" : static base AND an env-provided shield mask, stored with the batch
+MASK_MODE_OFF = "off"
+MASK_MODE_STATIC = "static"
+MASK_MODE_RUNTIME = "runtime"
+MASK_MODES = (MASK_MODE_OFF, MASK_MODE_STATIC, MASK_MODE_RUNTIME)
+MASK_MODE_ENV_VAR = "MARGO_MASK_MODE"
+DEFAULT_MASK_MODE = MASK_MODE_OFF
+
+
+def resolve_mask_mode(value: Any = None, env: Any = None) -> str:
+    """Resolve the mask mode from an explicit value, else $MARGO_MASK_MODE, else off."""
+    if value is None:
+        environ = os.environ if env is None else env
+        value = environ.get(MASK_MODE_ENV_VAR, DEFAULT_MASK_MODE)
+    mode = str(value).strip().lower() or DEFAULT_MASK_MODE
+    if mode not in MASK_MODES:
+        raise ValueError(
+            "mask mode must be one of %s, got %r" % (", ".join(MASK_MODES), value)
+        )
+    return mode
+
+
+def mask_mode_active(mode: Any = None) -> bool:
+    return resolve_mask_mode(mode) != MASK_MODE_OFF
+
+
+def intersect_masks(base: Any, shield: Any) -> np.ndarray:
+    """AND of two masks that must agree on shape (no silent broadcasting)."""
+    base = normalise_mask(base)
+    shield = normalise_mask(shield)
+    if base.shape != shield.shape:
+        raise ValueError(
+            "mask shapes differ: %s vs %s" % (base.shape, shield.shape)
+        )
+    return np.logical_and(base, shield)
+
+
+def observation_mask(observations: Any, mode: Any = None) -> np.ndarray | None:
+    """Static mask read from obs v3 feasibility channels, or None when mode is off.
+
+    Ordering is (UE, MEC, HELPER) == action ids (0, 1, 2), matching
+    `Location.to_action()`. Raises for obs v1/v2, which carry no feasibility
+    channels: a missing mask must fail loudly, never degrade to "no mask".
+    """
+    resolved = resolve_mask_mode(mode)
+    if resolved == MASK_MODE_OFF:
+        return None
+    from .encoder_obs import feasibility_channel_indices
+
+    return mask_from_observation(observations, feasibility_channel_indices())
 
 
 @dataclass(frozen=True)

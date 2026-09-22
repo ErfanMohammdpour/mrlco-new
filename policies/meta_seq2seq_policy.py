@@ -11,6 +11,75 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.framework import ops
 from tensorflow.python.ops.distributions import categorical
 from policies.distributions.categorical_pd import CategoricalPd
+
+from env.mec_offloaing_envs.scheduler import masking as _masking
+
+NEG_LARGE_LOGIT = float(_masking.NEG_LARGE)
+
+
+def broadcast_like(value, reference):
+    """Broadcast `value` to the shape of `reference` (TF 1.14+ or reshape)."""
+    if hasattr(tf, "broadcast_to"):
+        return tf.broadcast_to(value, tf.shape(reference))
+    return tf.reshape(value, tf.shape(reference))
+
+
+def feasibility_feed(policy, observations, feasible_mask=None):
+    """feed_dict entries for the ⑥b feasibility shield ({} when masking is off).
+
+    In "static" mode the mask is a pure function of the observation, so any code
+    path that can build a policy feed can also build the mask without knowing the
+    obs schema. In "runtime" mode the caller must pass the env shield mask, which
+    is stored with the batch so the PPO update replays exactly that mask.
+    """
+    ph = getattr(policy, "feasible_mask", None)
+    if ph is None:
+        return {}
+    observations = np.asarray(observations)
+    if feasible_mask is None:
+        feasible_mask = _masking.observation_mask(
+            observations, mode=getattr(policy, "mask_mode", None)
+        )
+    if feasible_mask is None:
+        raise ValueError(
+            "masking mode %r is active but no feasible mask was supplied; the "
+            "runtime shield must be stored with the batch"
+            % getattr(policy, "mask_mode", None)
+        )
+    return {ph: policy.check_feasible_mask(feasible_mask, observations)}
+
+
+def mask_logits_tf(logits, feasible_mask, time=None):
+    """Mirror of scheduler.masking.apply_mask: mask BEFORE softmax.
+
+    `feasible_mask` is [B, T, A] with >0.5 == feasible (None == no masking, i.e.
+    the legacy graph). Inside the decoder loop the per-step logits are [B, A],
+    so the caller passes `time` and the matching mask slice is gathered; the
+    full [B, T, A] logits used by PPO need no slicing.
+
+    Rows where nothing is feasible are left unmasked -- the dead-end guard -- so
+    the distribution stays finite and normalised; the guard count is returned so
+    it is logged instead of silently changing the policy.
+
+    Returns (masked_logits, dead_end_rows).
+    """
+    if feasible_mask is None:
+        return logits, tf.constant(0, dtype=tf.int32)
+    feasible = tf.cast(feasible_mask, tf.float32) > 0.5
+    if feasible.shape.ndims is not None and logits.shape.ndims is not None:
+        if feasible.shape.ndims == 3 and logits.shape.ndims == 2:
+            if time is None:
+                raise ValueError(
+                    "per-step logits [B, A] need the decode `time` to slice the "
+                    "mask [B, T, A]; got none"
+                )
+            feasible = tf.gather(feasible, time, axis=1)
+    feasible = broadcast_like(feasible, logits)
+    any_valid = tf.reduce_any(feasible, axis=-1, keepdims=True)
+    dead_end_rows = tf.reduce_sum(tf.cast(tf.logical_not(any_valid), tf.int32))
+    safe = tf.logical_or(feasible, tf.logical_not(any_valid))
+    fill = tf.fill(tf.shape(logits), tf.cast(NEG_LARGE_LOGIT, logits.dtype))
+    return tf.where(safe, logits, fill), dead_end_rows
 import utils as U
 from utils.utils import zipsame
 
@@ -48,11 +117,17 @@ class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddi
         softmax_temperature=None,
         seed=None,
         top_p=None,
+        feasible_mask=None,
+        greedy=False,
     ):
         super(FixedSequenceLearningSampleEmbedingHelper, self).__init__(
             embedding, start_tokens, end_token, softmax_temperature, seed
         )
         self._top_p = top_p
+        # Masking the sampling distribution is what actually shields the
+        # environment: `sample_decoder_prediction` comes from here, not from pi.
+        self._feasible_mask = feasible_mask
+        self._greedy = bool(greedy)
         self._sequence_length = ops.convert_to_tensor(
             sequence_length, name="sequence_length")
         if self._sequence_length.get_shape().ndims != 1:
@@ -62,7 +137,7 @@ class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddi
 
     def sample(self, time, outputs, state, name=None):
         """sample for SampleEmbeddingHelper."""
-        del time, state  # unused by sample_fn
+        del state  # unused by sample_fn
         # Outputs are logits, we sample instead of argmax (greedy).
         if not isinstance(outputs, ops.Tensor):
             raise TypeError("Expected outputs to be a single Tensor, got: %s" %
@@ -71,6 +146,12 @@ class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddi
             logits = outputs
         else:
             logits = outputs / self._softmax_temperature
+
+        if self._feasible_mask is not None:
+            logits, _dead_end = mask_logits_tf(logits, self._feasible_mask, time=time)
+
+        if self._greedy:
+            return tf.argmax(logits, axis=-1, output_type=tf.int32)
 
         def _plain():
             return categorical.Categorical(logits=logits).sample(seed=self._seed)
@@ -111,6 +192,7 @@ class Seq2SeqNetwork():
                  decoder_targets,
                  dist_ids=None,
                  reachability_mask=None,
+                 feasible_mask=None,
                  ctx_obs=None,
                  ctx_acts=None,
                  ctx_t=None,
@@ -139,6 +221,9 @@ class Seq2SeqNetwork():
         self.encoder_inputs = encoder_inputs
         self.decoder_inputs = decoder_inputs
         self.decoder_targets = decoder_targets
+        self.feasible_mask = feasible_mask
+        self.dead_end_rows = tf.constant(0, dtype=tf.int32)
+        self.sample_dead_end_rows = tf.constant(0, dtype=tf.int32)
 
         self.decoder_full_length = decoder_full_length
         self.enable_cavia = bool(getattr(hparams, "enable_cavia", False))
@@ -226,7 +311,10 @@ class Seq2SeqNetwork():
             # training decoder
             self.decoder_outputs, self.decoder_state = self.create_decoder(hparams, self.encoder_outputs,
                                                                            self.encoder_state, model="train")
-            self.decoder_logits = self.decoder_outputs.rnn_output
+            self.decoder_logits_raw = self.decoder_outputs.rnn_output
+            self.decoder_logits, self.dead_end_rows = mask_logits_tf(
+                self.decoder_logits_raw, self.feasible_mask
+            )
             self.pi = tf.nn.softmax(self.decoder_logits)
             self.q = tf.compat.v1.layers.dense(self.decoder_logits, self.n_features, activation=None,
                                      reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
@@ -248,7 +336,10 @@ class Seq2SeqNetwork():
             # sample decoder
             self.sample_decoder_outputs, self.sample_decoder_state = self.create_decoder(hparams, self.encoder_outputs,
                                                                            self.encoder_state, model="sample")
-            self.sample_decoder_logits = self.sample_decoder_outputs.rnn_output
+            self.sample_decoder_logits_raw = self.sample_decoder_outputs.rnn_output
+            self.sample_decoder_logits, self.sample_dead_end_rows = mask_logits_tf(
+                self.sample_decoder_logits_raw, self.feasible_mask
+            )
             self.sample_pi = tf.nn.softmax(self.sample_decoder_logits)
             self.sample_q = tf.compat.v1.layers.dense(self.sample_decoder_logits, self.n_features,
                                             activation=None, reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
@@ -268,7 +359,10 @@ class Seq2SeqNetwork():
             # greedy decoder
             self.greedy_decoder_outputs, self.greedy_decoder_state = self.create_decoder(hparams, self.encoder_outputs,
                                                                            self.encoder_state, model="greedy")
-            self.greedy_decoder_logits = self.greedy_decoder_outputs.rnn_output
+            self.greedy_decoder_logits_raw = self.greedy_decoder_outputs.rnn_output
+            self.greedy_decoder_logits, _greedy_dead_end = mask_logits_tf(
+                self.greedy_decoder_logits_raw, self.feasible_mask
+            )
             self.greedy_pi = tf.nn.softmax(self.greedy_decoder_logits)
             self.greedy_q = tf.compat.v1.layers.dense(self.greedy_decoder_logits, self.n_features, activation=None, reuse=tf.compat.v1.AUTO_REUSE,
                                      name="qvalue_layer")
@@ -482,12 +576,23 @@ class Seq2SeqNetwork():
         with tf.compat.v1.variable_scope("decoder", reuse=tf.compat.v1.AUTO_REUSE) as decoder_scope:
             embed = self._decoder_token_embed if self.enable_oracle_dist else self.embeddings
             if model == "greedy":
-                helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
-                    embed,
-                    # Batchsize * Start_token
-                    start_tokens=tf.fill([tf.size(self.decoder_full_length)], self.start_token),
-                    end_token=self.end_token
-                )
+                if self.feasible_mask is None:
+                    helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(
+                        embed,
+                        # Batchsize * Start_token
+                        start_tokens=tf.fill([tf.size(self.decoder_full_length)], self.start_token),
+                        end_token=self.end_token
+                    )
+                else:
+                    # Identical decoding rule (argmax of the logits) with masking.
+                    helper = FixedSequenceLearningSampleEmbedingHelper(
+                        sequence_length=self.decoder_full_length,
+                        embedding=embed,
+                        start_tokens=tf.fill([tf.size(self.decoder_full_length)], self.start_token),
+                        end_token=self.end_token,
+                        feasible_mask=self.feasible_mask,
+                        greedy=True,
+                    )
 
             elif model == "sample":
                 helper = FixedSequenceLearningSampleEmbedingHelper(
@@ -497,6 +602,7 @@ class Seq2SeqNetwork():
                     end_token=self.end_token,
                     softmax_temperature=self.sample_softmax_temperature,
                     top_p=self.sample_top_p,
+                    feasible_mask=self.feasible_mask,
                 )
 
             elif model == "train":
@@ -569,8 +675,22 @@ class Seq2SeqPolicy():
         self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
         self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
         self.decoder_full_length = tf.compat.v1.placeholder(shape=[None], dtype=tf.int32, name="decoder_full_length"+name)
+        # Feasibility shield (⑥b). Built only when masking is enabled so the
+        # legacy graph stays byte-exact: a real placeholder that is never fed
+        # would break every existing code path that does not know about masks.
+        self.mask_mode = _masking.resolve_mask_mode()
+        self.feasible_mask = None
+        if self.mask_mode != _masking.MASK_MODE_OFF:
+            self.feasible_mask = tf.compat.v1.placeholder(
+                shape=[None, None, vocab_size],
+                dtype=tf.float32,
+                name="feasible_mask_ph_" + name,
+            )
         self.encoder_type = str(encoder_type)
         self.readout_type = str(readout_type)
+        # Mask actually applied by the last get_actions call, so the sampler can
+        # store exactly what the rollout used (never a recomputation).
+        self.last_feasible_mask = None
         self.reachability_mask = None
         if self.encoder_type == "dagformer":
             self.reachability_mask = tf.compat.v1.placeholder(
@@ -642,6 +762,7 @@ class Seq2SeqPolicy():
                  decoder_targets=self.decoder_targets,name = name,
                  dist_ids=self.dist_ids,
                  reachability_mask=self.reachability_mask,
+                 feasible_mask=self.feasible_mask,
                  ctx_obs=self.ctx_obs,
                  ctx_acts=self.ctx_acts,
                  ctx_t=self.ctx_t,
@@ -651,15 +772,50 @@ class Seq2SeqPolicy():
 
         self._dist = CategoricalPd(vocab_size)
 
-    def get_actions(self, observations):
+    def expected_mask_shape(self, observations):
+        return (int(observations.shape[0]), int(observations.shape[1]), int(self.action_dim))
+
+    def check_feasible_mask(self, feasible_mask, observations):
+        feasible_mask = np.asarray(feasible_mask, dtype=np.float32)
+        want = self.expected_mask_shape(observations)
+        if tuple(feasible_mask.shape) != want:
+            raise ValueError(
+                "feasible mask shape %s != expected %s (one row per logits row)"
+                % (tuple(feasible_mask.shape), want)
+            )
+        return feasible_mask
+
+    def mask_feed(self, feasible_mask):
+        """feed_dict entry for the mask placeholder ({} when masking is off)."""
+        if self.feasible_mask is None:
+            return {}
+        return {self.feasible_mask: np.asarray(feasible_mask, dtype=np.float32)}
+
+    def get_actions(self, observations, feasible_mask=None):
         sess = tf.compat.v1.get_default_session()
+        observations = np.asarray(observations)
 
         decoder_full_length = np.array( [observations.shape[1]] * observations.shape[0] , dtype=np.int32)
+
+        feed_dict = {self.obs: observations, self.decoder_full_length: decoder_full_length}
+        self.last_feasible_mask = None
+        if self.feasible_mask is not None:
+            if feasible_mask is None:
+                # static mode: the mask is a pure function of the observation
+                feasible_mask = _masking.observation_mask(observations, mode=self.mask_mode)
+            if feasible_mask is None:
+                raise ValueError(
+                    "masking mode %r is active but no feasible mask was supplied"
+                    % self.mask_mode
+                )
+            feasible_mask = self.check_feasible_mask(feasible_mask, observations)
+            feed_dict.update(self.mask_feed(feasible_mask))
+            self.last_feasible_mask = feasible_mask
 
         actions, logits, v_value = sess.run([self.network.sample_decoder_prediction,
                                              self.network.sample_decoder_logits,
                                              self.network.sample_vf],
-                                            feed_dict={self.obs: observations, self.decoder_full_length: decoder_full_length})
+                                            feed_dict=feed_dict)
 
         return actions, logits, v_value
 
@@ -722,6 +878,7 @@ class MetaSeq2SeqPolicy():
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
         self.action_dim = vocab_size
+        self.last_feasible_masks = None
         self.encoder_type = str(encoder_type)
         self.readout_type = str(readout_type)
 
@@ -751,18 +908,31 @@ class MetaSeq2SeqPolicy():
         self._dist = CategoricalPd(vocab_size)
 
 
-    def get_actions(self, observations):
+    def get_actions(self, observations, feasible_masks=None):
         assert len(observations) == self.meta_batch_size
+        if feasible_masks is not None and len(feasible_masks) != self.meta_batch_size:
+            raise ValueError(
+                "feasible_masks must have one entry per meta task (%d)" % self.meta_batch_size
+            )
 
         meta_actions = []
         meta_logits = []
         meta_v_values = []
+        applied_masks = []
         for i, obser_per_task in enumerate(observations):
-            action, logits, v_value = self.meta_policies[i].get_actions(obser_per_task)
+            action, logits, v_value = self.meta_policies[i].get_actions(
+                obser_per_task,
+                None if feasible_masks is None else feasible_masks[i],
+            )
 
             meta_actions.append(np.array(action))
             meta_logits.append(np.array(logits))
             meta_v_values.append(np.array(v_value))
+            applied_masks.append(self.meta_policies[i].last_feasible_mask)
+
+        self.last_feasible_masks = (
+            None if all(m is None for m in applied_masks) else applied_masks
+        )
 
         return meta_actions, meta_logits, meta_v_values
 

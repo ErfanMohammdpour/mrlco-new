@@ -183,9 +183,9 @@ runtime shield can be added later without touching the PPO loss again.
 
 ## 8. Test status (local, non-TF)
 
-- `tests/test_masking.py`: **19 passed**.
+- `tests/test_masking.py`: **28 passed** (19 reference-semantics + 9 mode/wiring).
 - Full non-TF scheduler suite (excluding the two TF modules that require `tensorflow`):
-  **381 passed, 5 skipped**.
+  **390 passed, 5 skipped**.
 - Two failures found while writing the tests were fixed and are worth recording because both were
   real interface traps:
   - the ratio-collapse test originally used a single mask argument, so both log-probs shared the
@@ -211,3 +211,61 @@ feasibility model, not a policy issue — treat it as a build failure.
 No entropy-coefficient change, no clip-ratio change, no reward change, no decoder width change, no
 encoder change, no runtime shield activation. Commit 2 ships the plumbing plus counters only; the
 PPO log-prob/entropy correction (commit 3) and dead-end wiring (commit 4) use the same interface.
+
+---
+
+## 11. Commit 2 implementation notes (what actually landed)
+
+Implemented exactly the four edits above plus the sampler/environment side. The
+guiding choice was **fail loud, never silently degrade**:
+
+- `MARGO_MASK_MODE` (`off|static|runtime`, default `off`) is resolved **at policy
+  construction**. In `off` the mask is `None`, so `mask_logits_tf` returns the raw
+  logits tensor and the graph is the legacy graph — no extra placeholder, no extra
+  op, byte-exact reproduction. In `static`/`runtime` a real `feasible_mask`
+  placeholder is created; code paths that do not know about masks now fail loudly
+  instead of silently running unmasked.
+- The mask is applied to **all three decoders** (train / sample / greedy) *and*
+  inside the sampling helper. The helper is the site that actually shields the
+  environment: `sample_decoder_prediction` comes from
+  `FixedSequenceLearningSampleEmbedingHelper.sample`, not from `pi`. Inside the
+  decoder loop the per-step logits are `[B, A]`, so the helper passes `time` and
+  the mask is gathered at that step (`tf.gather(mask, time, axis=1)`) — a 3-D mask
+  broadcast onto 2-D logits would have failed at runtime.
+- `pi`, `q`, `vf`, `entropy`, `neglogp` and both `CategoricalPd` log-likelihoods
+  are built from the **masked** logits, so the value head and the importance ratio
+  agree with the sampling distribution by construction.
+- The dead-end guard is in-graph too, and its count is exposed as
+  `network.dead_end_rows` / `network.sample_dead_end_rows` for later logging.
+- **The sampler stores the mask the policy reports it used** (`last_feasible_mask`
+  / `last_feasible_masks`), rather than recomputing it. `path_dict["feasible"]` is
+  threaded through both sample processors into `samples_data["feasible"]`, and
+  `PPO.UpdatePPOTarget` / `MRLCO.UpdatePPOTargetPerTask` raise if the key is
+  missing while masking is active. This is the §1 invariant enforced in code.
+- Feed builders were centralised: `policies.meta_seq2seq_policy.feasibility_feed`
+  is now used by `spec/bc_greedy_mec.policy_feed`, so BC/phase-4 scripts and the
+  context baselines get the shield without per-script changes.
+- The frozen BC reference in the KL term is fed an **all-feasible** mask, i.e. the
+  unmasked legacy distribution: `p=0` on infeasible actions makes those entries
+  contribute nothing to `KL(pi_new || pi_BC)`.
+
+Verification available locally: `masking.py` semantics, the wiring-completeness
+test (`test_tf_wiring_covers_every_decoder`), and `py_compile` on every edited
+module. The graph itself cannot be built here (no TF), so
+`spec/masked_ppo_smoke.py` is the gate to run on kish:
+
+    MARGO_OBS_VERSION=v3 MARGO_MASK_MODE=off    python -m spec.masked_ppo_smoke
+    MARGO_OBS_VERSION=v3 MARGO_MASK_MODE=static python -m spec.masked_ppo_smoke
+
+It checks placeholder/mode agreement, shapes, `sampled_actions_are_feasible`,
+`infeasible_probability_is_zero`, `probabilities_sum_to_one`,
+`ratio_identity_with_fixed_mask` (max deviation < 1e-5), the dead-end guard count,
+`infeasible_action_logp_is_neg_large`, and finite gradients, and exits non-zero on
+any failure so it can gate a commit.
+
+Known unwired call sites (they must run with `MARGO_MASK_MODE=off`, and now fail
+loudly otherwise): `spec/pair_sup.py`, `spec/rewrite_mec.py`,
+`spec/cavia_loop.py`, `spec/best_of_k.py`, `spec/oracle_dist.py`,
+`spec/pair_head.py`, `comprehensive_encoder_verification.py`. Wiring them is
+mechanical (`feasibility_feed`) but belongs to commit 4/6 when those scripts are
+actually used with v3.

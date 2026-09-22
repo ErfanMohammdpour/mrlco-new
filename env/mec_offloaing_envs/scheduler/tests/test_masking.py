@@ -8,6 +8,7 @@ be verified without TensorFlow.
 
 from __future__ import annotations
 
+import os
 import sys
 import types
 import unittest
@@ -26,15 +27,22 @@ import numpy as np  # noqa: E402
 
 from env.mec_offloaing_envs.scheduler import encoder_obs as eo  # noqa: E402
 from env.mec_offloaing_envs.scheduler.masking import (  # noqa: E402
+    MASK_MODE_OFF,
+    MASK_MODE_RUNTIME,
+    MASK_MODE_STATIC,
     NEG_LARGE,
     apply_mask,
     dead_end_guard,
     distribution,
     entropy_valid,
+    intersect_masks,
     likelihood_ratio,
     mask_from_observation,
+    mask_mode_active,
     masked_log_softmax,
     masked_softmax,
+    observation_mask,
+    resolve_mask_mode,
     sample,
 )
 
@@ -215,6 +223,95 @@ class TestTest5MaskIsDeterministicFromState(unittest.TestCase):
         packed = np.ones((2, 20, eo.PACKED_DIM))
         mask = mask_from_observation(packed, idx)
         self.assertEqual(mask.shape, (2, 20, 3))
+
+
+class TestTest6MaskModeAndFeed(unittest.TestCase):
+    """Mode resolution and the feed-level contract used by the TF plumbing."""
+
+    def setUp(self):
+        self._saved = eo.OBS_VERSION
+        self._env_saved = os.environ.pop("MARGO_MASK_MODE", None)
+
+    def tearDown(self):
+        eo.set_obs_version(self._saved)
+        if self._env_saved is not None:
+            os.environ["MARGO_MASK_MODE"] = self._env_saved
+        else:
+            os.environ.pop("MARGO_MASK_MODE", None)
+
+    def test_default_is_off(self):
+        self.assertEqual(resolve_mask_mode(), MASK_MODE_OFF)
+        self.assertFalse(mask_mode_active())
+
+    def test_explicit_and_env_resolution(self):
+        self.assertEqual(resolve_mask_mode("STATIC "), MASK_MODE_STATIC)
+        os.environ["MARGO_MASK_MODE"] = "runtime"
+        self.assertEqual(resolve_mask_mode(), MASK_MODE_RUNTIME)
+        self.assertTrue(mask_mode_active())
+        # an explicit value always wins over the environment
+        self.assertEqual(resolve_mask_mode("off"), MASK_MODE_OFF)
+
+    def test_unknown_mode_is_rejected(self):
+        with self.assertRaises(ValueError):
+            resolve_mask_mode("sometimes")
+
+    def test_off_mode_returns_no_mask(self):
+        eo.set_obs_version("v3")
+        packed = np.ones((2, 20, eo.PACKED_DIM))
+        self.assertIsNone(observation_mask(packed, mode="off"))
+
+    def test_active_mode_without_v3_fails_loudly(self):
+        eo.set_obs_version("v1")
+        packed = np.ones((2, 20, eo.PACKED_DIM))
+        with self.assertRaises(eo.EncoderGraphError):
+            observation_mask(packed, mode="static")
+
+    def test_static_mask_matches_action_order(self):
+        eo.set_obs_version("v3")
+        packed = np.zeros((1, 2, eo.PACKED_DIM))
+        idx = eo.feasibility_channel_indices()
+        # only HELPER (action 2) feasible everywhere
+        packed[..., idx[2]] = 1.0
+        mask = observation_mask(packed, mode="static")
+        np.testing.assert_array_equal(mask, np.array([[[False, False, True]] * 2]))
+
+    def test_runtime_mode_intersects_with_the_shield(self):
+        eo.set_obs_version("v3")
+        packed = np.ones((1, 2, eo.PACKED_DIM))
+        base = observation_mask(packed, mode="runtime")
+        shield = np.zeros((1, 2, 3), dtype=bool)
+        shield[..., 0] = True                       # env says UE only
+        merged = intersect_masks(base, shield)
+        np.testing.assert_array_equal(merged, shield)
+
+    def test_intersect_rejects_shape_mismatch(self):
+        with self.assertRaises(ValueError):
+            intersect_masks(np.ones((1, 2, 3), dtype=bool), np.ones((2, 3), dtype=bool))
+
+    def test_tf_wiring_covers_every_decoder(self):
+        """Wiring completeness guard: no decoder may bypass the mask.
+
+        TensorFlow is unavailable locally, so instead of building the graph we
+        assert the masking helper is applied at every decoder output site and
+        that the sampler stores the mask it actually used.
+        """
+        repo = Path(__file__).resolve().parents[4]
+        policy_src = (repo / "policies" / "meta_seq2seq_policy.py").read_text()
+        self.assertGreaterEqual(policy_src.count("mask_logits_tf("), 4)
+        for attr in ("decoder_logits_raw", "sample_decoder_logits_raw", "greedy_decoder_logits_raw"):
+            self.assertIn(attr, policy_src)
+        self.assertIn("self.last_feasible_mask = feasible_mask", policy_src)
+        self.assertIn("feasibility_feed", policy_src)
+
+        sampler_src = (repo / "samplers" / "seq2seq_meta_sampler.py").read_text()
+        self.assertIn('running_paths[idx]["feasible"]', sampler_src)
+        self.assertIn('path_dict["feasible"]', sampler_src)
+
+        ppo_src = (repo / "meta_algos" / "ppo_offloading.py").read_text()
+        mrclo_src = (repo / "meta_algos" / "MRLCO.py").read_text()
+        for src, label in ((ppo_src, "ppo_offloading"), (mrclo_src, "MRLCO")):
+            self.assertIn("feasible", src, label)
+            self.assertIn("never recomputed at update time", src, label)
 
 
 if __name__ == "__main__":

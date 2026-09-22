@@ -90,6 +90,10 @@ class Seq2SeqMetaSampler(Sampler):
             obs_per_task = np.array(obses)
 
             actions, logits, values = policy.get_actions(obs_per_task)
+            # The mask the rollout actually used: store it, never recompute it at
+            # update time, otherwise the PPO importance ratio stops being a
+            # likelihood ratio (see reports/MASKED_PPO_INTERFACE_6b.md).
+            applied_masks = getattr(policy, "last_feasible_masks", None)
             policy_time += time.time() - t
 
             # step environments
@@ -121,6 +125,12 @@ class Seq2SeqMetaSampler(Sampler):
                 
                 # append new samples to running paths
                 # handling
+                env_mask = None
+                if applied_masks is not None:
+                    task_mask = applied_masks[min(idx // self.envs_per_task, len(applied_masks) - 1)]
+                    if task_mask is not None:
+                        env_mask = np.asarray(task_mask)[idx % self.envs_per_task]
+
                 for i, (single_ob, single_ac, single_logit, single_reward, single_value, single_task_finish_time) \
                         in enumerate(zip(observation, action, logit, reward, value, task_finish_times)):
                     running_paths[idx]["observations"]= single_ob
@@ -129,6 +139,8 @@ class Seq2SeqMetaSampler(Sampler):
                     running_paths[idx]["rewards"] = single_reward
                     running_paths[idx]["finish_time"] = single_task_finish_time
                     running_paths[idx]["values"] = single_value
+                    if env_mask is not None:
+                        running_paths[idx]["feasible"] = np.asarray(env_mask)[i]
                     
                     # Store energy if enabled (energy_info[i] is the energy list for trajectory i)
                     if energy_info is not None and i < len(energy_info):
@@ -142,6 +154,10 @@ class Seq2SeqMetaSampler(Sampler):
                         finish_time = np.squeeze(np.asarray(running_paths[idx]["finish_time"])),
                         values  = np.squeeze(np.asarray(running_paths[idx]["values"]))
                     )
+                    if "feasible" in running_paths[idx]:
+                        path_dict["feasible"] = np.squeeze(
+                            np.asarray(running_paths[idx]["feasible"])
+                        )
                     
                     # Add energy to path if available
                     if "energy" in running_paths[idx]:

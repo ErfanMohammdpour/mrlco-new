@@ -71,6 +71,8 @@ class Seq2SeqSampler(Sampler):
             obs_per_task = np.array(obses)
 
             actions, logits, values = policy.get_actions(obs_per_task)
+            # Keep the exact mask the rollout used (see MASKED_PPO_INTERFACE_6b).
+            applied_mask = getattr(policy, "last_feasible_mask", None)
             policy_time += time.time() - t
 
             # step environments
@@ -130,6 +132,9 @@ class Seq2SeqSampler(Sampler):
                     running_paths["energy"] = energy if isinstance(energy, (list, np.ndarray)) else [energy]
                 else:
                     running_paths["energy"] = None
+
+                if applied_mask is not None:
+                    running_paths["feasible"] = np.asarray(applied_mask)[i]
                 
                 # handling
                 path_dict = dict(
@@ -144,6 +149,11 @@ class Seq2SeqSampler(Sampler):
                 # Add energy to path if available
                 if running_paths["energy"] is not None:
                     path_dict["energy"] = np.asarray(running_paths["energy"])
+
+                if running_paths.get("feasible") is not None:
+                    path_dict["feasible"] = np.squeeze(
+                        np.asarray(running_paths["feasible"])
+                    )
                 
                 paths.append(path_dict)
 
