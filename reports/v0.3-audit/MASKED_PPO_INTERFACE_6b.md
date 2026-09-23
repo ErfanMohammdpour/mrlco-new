@@ -628,3 +628,85 @@ Inspection commands:
     cat runs/mask_sanity_v3/static/seed_0/watchdog_status.json
     tail -2 runs/mask_sanity_v3/static/seed_0/logs/progress.csv
     cat /tmp/ts_static.exit
+
+---
+
+## 16. Mid-run analysis at iteration 250/500 (~17 h in)
+
+### 16.1 What the runs are doing
+
+Both modes are at the halfway mark, from the frozen tree at `7fa31f2d`, with the
+watchdog reporting `ok` and `violations=[]` continuously:
+
+| | off | static |
+|---|---|---|
+| iterations | 250 / 500 | 250 / 500 |
+| five control rates | 0.0 in all 252 rows | 0.0 in all 250 rows |
+| entropy at itr 250 | 0.0261 | 0.0104 |
+| value_abs_max at itr 250 | 1.031 | 0.983 |
+| max value_abs_max so far | 1.64 | 1.19 |
+
+Pace is a median **217-221 s/iteration** with a heavy iteration every 50
+(1170-1350 s). That is not a stall: validation and checkpoint selection run only
+every 50 iterations, which is exactly when `validation_query_composite_objective`
+appears in the CSV. The watchdog's stall threshold was raised from 30 to 45
+minutes so the heaviest observed step (22.5 min) cannot trigger a false kill.
+
+### 16.2 Convergence: the deadline-free optimum is all-MEC
+
+Action mix from the stage audit, `obtain_samples_ppo`:
+
+| iteration | MEC | Local | V2V |
+|---|---|---|---|
+| 1 | 0.411 | 0.441 | 0.148 |
+| 25 | 0.966 | 0.029 | 0.005 |
+| 50 | 0.993 | 0.006 | 0.001 |
+| 150 | 0.998 | 0.002 | 0.001 |
+| 250 | 0.996-0.998 | 0.0013-0.0027 | 0.0007-0.0012 |
+
+Return rises 0.55 -> 0.95 within 25 iterations and plateaus at 0.93-0.96;
+validation composite reaches 0.9519/0.9521 (off, itr 50/100) and 0.9527/0.9522
+(static) and then stays flat, with one dip in off (0.9222 at itr 200, 0.9468 at
+250). This matches the earlier audit finding that MEC is the best pure action in
+100/100 graphs, and it is why a deadline-free dataset cannot exercise the shield:
+the policy never needs the other two actions, so an all-True static mask changes
+nothing.
+
+Policy latency settles at ~638-642 against a greedy baseline of 611.4, i.e. the
+trained policy is ~4-5% *slower* than greedy on this dataset -- consistent with
+the Pareto audit in which all-MEC is dominated by greedy/2-opt. The 500-iteration
+pair is a pipeline and stability test, not evidence of a policy win.
+
+### 16.3 The most useful number: the noise floor
+
+The mask is inert here, so the two runs should be identical up to nondeterminism.
+Measured over the 250 shared iterations:
+
+| series | off mean | static mean | mean abs diff | p95 | max | corr |
+|---|---|---|---|---|---|---|
+| AverageReturn | 0.9298 | 0.9373 | 0.0085 (0.9%) | 0.049 | **0.112** | 0.957 |
+| AverageDiscountedReturn | 0.8528 | 0.8598 | 0.0078 | 0.048 | 0.102 | 0.957 |
+| Average latency | 642.6 | 638.4 | 5.5 (0.8%) | 31.7 | 89.2 | 0.968 |
+| Average energy | 101.9 | 83.8 | 20.4 (13%) | 112.0 | 278.9 | 0.957 |
+| entropy_valid | 0.0798 | 0.0608 | 0.030 | 0.173 | 0.389 | 0.948 |
+| Average greedy latency | 611.4307 | 611.4307 | **0.0000** | 0.0 | 0.0 | **1.000** |
+
+The greedy baseline is bit-identical between the two runs, so the divergence comes
+from the parallel sampling/optimization path (asynchronous env workers, thread
+scheduling), not from the data or the environment. Two nominally identical runs
+therefore differ by ~1% on average and up to 11% in the tail.
+
+**Consequence for the real experiment:** a single-seed off-vs-static comparison on
+a hard-deadline dataset cannot be interpreted below roughly the p95 of this noise
+floor (~5%). The shield comparison needs multiple seeds per condition, and should
+run sequentially rather than in parallel if the effect size is small.
+
+### 16.4 Verdict on continuing
+
+Continue both runs to completion. They cost only wall time on an otherwise idle
+GPU, they are guarded by the watchdog, and finishing yields a crash-free
+500-iteration artifact with the seven metrics logged every iteration plus a
+better noise-floor estimate. What they cannot yield is shield evidence, which
+needs the deadline-aware dataset and a multi-seed design; that is the next
+experiment, not this one. Nothing else should be started on this GPU meanwhile,
+or the noise floor measured here stops applying.
