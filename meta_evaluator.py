@@ -576,13 +576,30 @@ if __name__ == "__main__":
         'normalize_energy': True,  # Whether to normalize energy rewards
     }
 
+    from env.mec_offloaing_envs.scheduler.primary_config import evaluator_scheduler_config
+    from env.mec_offloaing_envs.scheduler.resources import resolved_config_sha256
+
+    scheduler_config = evaluator_scheduler_config()
+    print(
+        "[meta-evaluator] scheduler_config timing=%s radio_timing=%s energy=%s "
+        "radio=%s scope=%s sha=%s"
+        % (
+            scheduler_config.timing_model,
+            scheduler_config.radio_timing_model,
+            getattr(scheduler_config.energy_model, "model", None),
+            getattr(scheduler_config.radio_model, "model", None),
+            scheduler_config.energy_scope,
+            resolved_config_sha256(scheduler_config)[:12],
+        )
+    )
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0,
                                  v2v_process_capable=(1.0 * 1024 * 1024),  # Same as UE
                                  v2v_bandwidth=5.0,  # Lower than MEC
                                  use_energy=True,  # Enable energy optimization
-                                 energy_config=ENERGY_CONFIG)
+                                 energy_config=ENERGY_CONFIG,
+                                 scheduler_config=scheduler_config)
 
     from spec.split_loader import graph_indices_for_role, meta_test_distribution_ids, support_query_tasks
 

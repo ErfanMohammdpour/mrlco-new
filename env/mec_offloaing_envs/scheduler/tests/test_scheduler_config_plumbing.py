@@ -43,6 +43,7 @@ from env.mec_offloaing_envs.scheduler.resources import (  # noqa: E402
 from env.mec_offloaing_envs.scheduler.static_bounds import static_action_bounds  # noqa: E402
 from env.mec_offloaing_envs.scheduler.primary_config import (  # noqa: E402
     PRIMARY_SCHEDULER_AXES,
+    evaluator_scheduler_config,
     resolved_primary_scheduler_config,
 )
 
@@ -230,6 +231,49 @@ class TestFingerprint(unittest.TestCase):
             self.assertIn(key, blob)
         self.assertEqual(blob["energy_scope"], "system")
         self.assertIn("mec", blob["physical_tiers"])
+
+
+class TestEvaluatorParity(unittest.TestCase):
+    """Train, validation and the held-out evaluator must share one contract."""
+
+    def test_primary_evaluator_uses_the_train_fingerprint(self):
+        train = resolved_primary_scheduler_config()
+        validation = resolved_primary_scheduler_config()
+        evaluator = evaluator_scheduler_config()
+        self.assertEqual(
+            resolved_config_sha256(evaluator), resolved_config_sha256(train)
+        )
+        self.assertEqual(
+            resolved_config_sha256(evaluator), resolved_config_sha256(validation)
+        )
+        self.assertEqual(
+            (evaluator.timing_model, evaluator.energy_model.model, evaluator.energy_scope),
+            (train.timing_model, train.energy_model.model, train.energy_scope),
+        )
+
+    def test_explicit_config_is_forwarded_untouched(self):
+        cfg = resolved_primary_scheduler_config()
+        self.assertIs(evaluator_scheduler_config(cfg), cfg)
+
+    def test_standalone_requires_every_axis(self):
+        with self.assertRaises(ValueError) as ctx:
+            evaluator_scheduler_config(standalone=True, standalone_axes={"energy_scope": "system"})
+        self.assertIn("must state every axis explicitly", str(ctx.exception))
+
+    def test_standalone_with_all_axes_is_explicit_and_distinct(self):
+        axes = dict(PRIMARY_SCHEDULER_AXES)
+        axes["timing_model"] = TIMING_PHYSICAL
+        standalone = evaluator_scheduler_config(standalone=True, standalone_axes=axes)
+        self.assertEqual(standalone.timing_model, TIMING_PHYSICAL)
+        self.assertNotEqual(
+            resolved_config_sha256(standalone),
+            resolved_config_sha256(resolved_primary_scheduler_config()),
+        )
+
+    def test_combined_arguments_are_rejected(self):
+        cfg = resolved_primary_scheduler_config()
+        with self.assertRaises(ValueError):
+            evaluator_scheduler_config(cfg, standalone=True)
 
 
 class TestConflicts(unittest.TestCase):
