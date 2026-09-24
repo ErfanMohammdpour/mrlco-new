@@ -375,6 +375,12 @@ class ScheduleResult:
     max_tardiness_s: float = 0.0
     # Which availability notion the deadline was checked against.
     deadline_basis: str = "all_consumers_ready"
+    # --- 4.2a provenance for exact per-task energy attribution (additive, so old
+    # positional constructions keep working). The canonical tasks the engine
+    # actually scheduled, plus the fingerprint of the resolved scheduler config,
+    # so attribution can never be recomputed under a different config.
+    graph_tasks: dict[int, "CanonicalTask"] = field(default_factory=dict)
+    scheduler_config_sha256: str = ""
 
     def deadline_metrics(self) -> dict[str, float]:
         return {

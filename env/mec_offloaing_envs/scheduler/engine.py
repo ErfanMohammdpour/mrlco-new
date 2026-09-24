@@ -49,6 +49,20 @@ def _cpu_resource(loc: Location) -> str:
     }[loc]
 
 
+def _resolved_config_fingerprint(resources: Any) -> str:
+    """Fingerprint of the resolved scheduler config, or "" when unavailable.
+
+    Never raises: a legacy ResourceConfig built by hand has no source hash, and
+    the attribution layer decides what to do about a missing fingerprint.
+    """
+    try:
+        from .resources import resolved_config_sha256
+
+        return str(resolved_config_sha256(resources))
+    except Exception:
+        return ""
+
+
 def schedule(
     graph: CanonicalDAG,
     decoder_order: Sequence[int],
@@ -267,4 +281,8 @@ def schedule(
         hard_feasible=(hard_miss == 0),
         mean_tardiness_s=(sum(tardiness_values) / len(tardiness_values)) if tardiness_values else 0.0,
         max_tardiness_s=max(tardiness_values) if tardiness_values else 0.0,
+        # a stable copy owned by the result: attribution must not depend on the
+        # caller's dict, and the tasks are frozen so sharing them is safe
+        graph_tasks={int(tid): graph.tasks[tid] for tid in sorted(graph.tasks)},
+        scheduler_config_sha256=_resolved_config_fingerprint(resources),
     )
