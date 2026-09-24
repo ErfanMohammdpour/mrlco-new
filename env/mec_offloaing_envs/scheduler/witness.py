@@ -190,6 +190,7 @@ def find_witness(
     max_pair_rounds: int = 3,
     max_pairs: int = 60,
     relaxed_lb_s: float | None = None,
+    seed_actions: Sequence[int] | None = None,
 ) -> WitnessResult:
     """Deterministic witness search followed by a real replay.
 
@@ -211,12 +212,33 @@ def find_witness(
 
     evaluations = 0
     metric = lambda result: miss_first_score(result, big_m)  # noqa: E731
+    order = [int(t) for t in task_graph.prioritize_sequence]
+
+    # the anchored plan the deadlines were derived from is checked FIRST: if it
+    # still meets every deadline there is nothing to search for
+    if seed_actions is not None:
+        seed = [int(a) for a in seed_actions]
+        if len(seed) != len(order):
+            raise ValueError(
+                "seed_actions length %d != task count %d" % (len(seed), len(order))
+            )
+        result, table = replay_plan(task_graph, seed, resources)
+        evaluations += 1
+        if int(result.hard_miss_count) == 0:
+            return WitnessResult(
+                found=True,
+                actions=tuple(seed),
+                makespan_s=float(result.makespan_seconds),
+                hard_miss_count=0,
+                method="anchored_seed",
+                evaluations=evaluations,
+                per_task=table,
+            )
 
     plan, result = greedy_from_mec_plan(
         task_graph, resources, max_passes=max_passes, actions=ACTION_SET, metric_fn=metric
     )
     evaluations += max_passes * len(plan) * (len(ACTION_SET) - 1) + 1
-    order = [int(t) for t in task_graph.prioritize_sequence]
     actions = [action for _tid, action in plan]
     best_score = metric(result)
     method = "greedy_from_mec"

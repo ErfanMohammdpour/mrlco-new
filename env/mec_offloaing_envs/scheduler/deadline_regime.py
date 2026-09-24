@@ -602,6 +602,7 @@ def build_regime_with_witness(
     (the labelled bucket). Excluded graphs are returned with a reason; nothing is
     silently dropped and nothing is certified by a lower bound.
     """
+    from .adapter import to_canonical_dag
     from .witness import find_fastest_plan, find_witness
 
     if not allow_infeasible and regime == "infeasible_labelled":
@@ -635,7 +636,9 @@ def build_regime_with_witness(
             anchor_ready_s=list(fastest.ready_s),
         )
         stamp_task_graph(task_graph, entry, regime_name=regime)
-        witness = find_witness(task_graph, resources, **kwargs)
+        witness = find_witness(
+            task_graph, resources, seed_actions=list(fastest.actions), **kwargs
+        )
         entry = _dc_replace(entry, witness={
             **witness.as_dict(),
             "fastest_plan_makespan_s": float(fastest.makespan_s),
