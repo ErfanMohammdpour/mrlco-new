@@ -6,6 +6,10 @@ from utils import logger
 
 from env.mec_offloaing_envs.scheduler.mask_metrics import merge as merge_mask_metrics
 from env.mec_offloaing_envs.scheduler.mask_metrics import rates as mask_metric_rates
+from env.mec_offloaing_envs.scheduler.primary_config import (  # noqa: E402
+    PRIMARY_SCHEDULER_AXES,
+    resolved_primary_scheduler_config,
+)
 from spec.eval_protocol import protocol_log_kvs
 from spec.train_audit import health_verdict, task_spec_records
 
@@ -450,7 +454,9 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                shaping_discount=0.99,
                                reference_range="candidate_panel",
                                objective_mode="off",
-                               objective_spec=None):
+                               objective_spec=None,
+                               scheduler_config=None,
+                               strict_scheduler_config=False):
     """Frozen v0.1 train+val stack. Caller must set CUDA_VISIBLE_DEVICES before importing TF."""
     from env.mec_offloaing_envs.offloading_env import Resources
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
@@ -561,13 +567,33 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                 % (list(spec.active_names), constraint_dual_lr)
             )
 
+    if strict_scheduler_config and scheduler_config is None:
+        raise ValueError(
+            "strict_scheduler_config=True requires a resolved scheduler_config; "
+            "the legacy cluster rebuild silently drops the energy/timing models"
+        )
+    if scheduler_config is not None:
+        from env.mec_offloaing_envs.scheduler.resources import resolved_config_sha256
+
+        print(
+            "[scheduler-config] timing=%s radio_timing=%s energy=%s radio=%s scope=%s sha=%s"
+            % (
+                scheduler_config.timing_model,
+                scheduler_config.radio_timing_model,
+                getattr(scheduler_config.energy_model, "model", None),
+                getattr(scheduler_config.radio_model, "model", None),
+                scheduler_config.energy_scope,
+                resolved_config_sha256(scheduler_config)[:12],
+            )
+        )
     resource_cluster = Resources(mec_process_capable=(10.0 * 1024 * 1024),
                                  mobile_process_capable=(1.0 * 1024 * 1024),
                                  bandwidth_up=7.0, bandwidth_dl=7.0,
                                  v2v_process_capable=(1.0 * 1024 * 1024),
                                  v2v_bandwidth=5.0,
                                  use_energy=USE_ENERGY,
-                                 energy_config=ENERGY_CONFIG)
+                                 energy_config=ENERGY_CONFIG,
+        scheduler_config=scheduler_config)
     resource_cluster.constraint_controller = constraint_controller
 
     train_paths = meta_train_graph_prefixes()

@@ -23,7 +23,10 @@ class Resources(object):
     def __init__(self, mec_process_capable,
                   mobile_process_capable, bandwidth_up = 7.0, bandwidth_dl = 7.0,
                   v2v_process_capable=None, v2v_bandwidth=5.0,
-                  use_energy=False, energy_config=None):
+                  use_energy=False, energy_config=None, scheduler_config=None):
+        # resolved scheduler config (timing/accounting/scope axes). None keeps the
+        # legacy rebuild path alive; primary training paths require it.
+        self.scheduler_config = scheduler_config
         self.mec_process_capable = mec_process_capable
         self.mobile_process_capable = mobile_process_capable
         self.mobile_process_available_time = 0.0

@@ -79,7 +79,63 @@ def validate_plan(task_graph: Any, plan: Sequence[tuple[int, int]]) -> tuple[lis
     return decoder_order, actions
 
 
-def resource_config_from_cluster(resource_cluster: Any) -> ResourceConfig:
+class SchedulerConfigError(ValueError):
+    """A resolved scheduler config is missing, dropped or inconsistent."""
+
+
+def _check_cluster_consistency(resource_cluster: Any, config: ResourceConfig) -> None:
+    """Legacy-facing rate fields on `Resources` must agree with the config.
+
+    No silent "config wins": a mismatch means the process would schedule with one
+    set of rates while the env reports another.
+    """
+    mbps_to_Bps = 1024.0 * 1024.0 / 8.0
+    checks = (
+        ("mec_process_capable", float(resource_cluster.mec_process_capable),
+         config.mec_cpu_bytes_per_second),
+        ("mobile_process_capable", float(resource_cluster.mobile_process_capable),
+         config.ue_cpu_bytes_per_second),
+        ("v2v_process_capable", float(resource_cluster.v2v_process_capable),
+         config.helper_cpu_bytes_per_second),
+        ("bandwidth_up", float(resource_cluster.bandwidth_up) * mbps_to_Bps,
+         config.mec_uplink_bytes_per_second),
+        ("bandwidth_dl", float(resource_cluster.bandwidth_dl) * mbps_to_Bps,
+         config.mec_downlink_bytes_per_second),
+        ("v2v_bandwidth", float(resource_cluster.v2v_bandwidth) * mbps_to_Bps,
+         config.v2v_bytes_per_second),
+    )
+    for name, actual, expected in checks:
+        if abs(float(actual) - float(expected)) > 1e-9 * max(1.0, abs(expected)):
+            raise SchedulerConfigError(
+                "Resources.%s disagrees with scheduler_config (%r != %r)"
+                % (name, actual, expected)
+            )
+
+
+def resource_config_from_cluster(
+    resource_cluster: Any, *, strict: bool = False
+) -> ResourceConfig:
+    """Return the scheduler config for this cluster.
+
+    With `Resources.scheduler_config` set, the SAME immutable object is returned:
+    nothing is reconstructed from `energy_config` or rate fields, so no model, spec
+    or hash can be dropped. `strict=True` (primary production paths) refuses the
+    legacy fallback outright.
+    """
+    resolved = getattr(resource_cluster, "scheduler_config", None)
+    if resolved is not None:
+        if not isinstance(resolved, ResourceConfig):
+            raise SchedulerConfigError(
+                "Resources.scheduler_config must be a ResourceConfig, got %r"
+                % type(resolved).__name__
+            )
+        _check_cluster_consistency(resource_cluster, resolved)
+        return resolved
+    if strict:
+        raise SchedulerConfigError(
+            "no scheduler_config on this cluster: primary training/validation "
+            "paths must be given a resolved config, not the legacy fallback"
+        )
     cfg = resource_cluster.energy_config or {}
     mbps_to_Bps = 1024.0 * 1024.0 / 8.0
     return ResourceConfig(
@@ -98,7 +154,14 @@ def resource_config_from_cluster(resource_cluster: Any) -> ResourceConfig:
         prx_v2v_w=float(cfg.get("prx_v2v", 0.03)),
         rho_helper=float(cfg.get("rho_v2v", 0.7)),
         f_v2v=float(cfg.get("f_v2v", 1.0)),
+        # provenance: this object was rebuilt from legacy fields, not resolved
+        energy_scope=str(cfg.get("energy_scope", "") or ""),
     )
+
+
+def legacy_adapter_fallback(config: ResourceConfig) -> bool:
+    """True when the config came from the legacy cluster-rebuild path."""
+    return not config.source_config_sha256 and config.timing_model == "legacy_frozen_rates"
 
 
 def shaped_latency_deltas(result: ScheduleResult, decoder_order: Sequence[int]) -> list[float]:

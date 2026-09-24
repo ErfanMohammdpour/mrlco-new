@@ -108,6 +108,12 @@ class ResourceConfig:
                 "timing_model=%r requires a PHYSICAL tier source, got %r"
                 % (TIMING_PHYSICAL, getattr(self.timing_tiers, "model", None))
             )
+        declared = str(getattr(self.energy_model, "energy_scope", "") or "")
+        if self.energy_scope and declared and self.energy_scope != declared:
+            raise ValueError(
+                "energy_scope conflict: ResourceConfig=%r, energy_model=%r"
+                % (self.energy_scope, declared)
+            )
         if self.energy_scope and self.energy_scope not in ENERGY_SCOPES:
             raise ValueError(
                 "energy_scope must be one of %s, got %r"
@@ -313,6 +319,77 @@ class ResourceConfig:
             energy_scope=declared_scope,
             source_config_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         )
+
+
+RESOLVED_CONFIG_SCHEMA = "resolved_scheduler_config_v1"
+
+
+def canonical_provenance(
+    config: "ResourceConfig", overrides: Any = None
+) -> dict:
+    """Stable, hashable description of a resolved config.
+
+    Not a hash of the yaml: overrides can change the resolved result, so the
+    canonical form records every scheduling/accounting-relevant field, the
+    physical tier and radio parameters, and which overrides were applied.
+    """
+    energy = getattr(config, "energy_model", None)
+    radio = getattr(config, "radio_model", None)
+    tiers = {}
+    for name, tier in sorted(getattr(energy, "tiers", {}).items()):
+        tiers[name] = {
+            "f_hz": float(getattr(tier, "f_hz", 0.0)),
+            "kappa": float(getattr(tier, "kappa", 0.0)),
+        }
+    radio_params = {
+        key: float(getattr(radio, key))
+        for key in ("ue_tx_w", "mec_tx_w", "helper_tx_w")
+        if getattr(radio, key, None) is not None
+    }
+    timing_tiers = getattr(config, "timing_tiers", None)
+    return {
+        "schema": RESOLVED_CONFIG_SCHEMA,
+        "timing_model": config.timing_model,
+        "radio_timing_model": config.radio_timing_model,
+        "energy_model": str(getattr(energy, "model", "") or ""),
+        "radio_model": str(getattr(radio, "model", "") or ""),
+        "energy_scope": str(config.energy_scope or getattr(energy, "energy_scope", "") or ""),
+        "cycles_per_bit": float(getattr(energy, "cycles_per_bit", 0.0) or 0.0),
+        "timing_tiers_model": str(getattr(timing_tiers, "model", "") or ""),
+        "legacy_frozen_rates": {
+            "ue_cpu_bytes_per_second": float(config.ue_cpu_bytes_per_second),
+            "mec_cpu_bytes_per_second": float(config.mec_cpu_bytes_per_second),
+            "helper_cpu_bytes_per_second": float(config.helper_cpu_bytes_per_second),
+            "mec_uplink_bytes_per_second": float(config.mec_uplink_bytes_per_second),
+            "mec_downlink_bytes_per_second": float(config.mec_downlink_bytes_per_second),
+            "v2v_bytes_per_second": float(config.v2v_bytes_per_second),
+        },
+        "legacy_power": {
+            "rho_ue": float(config.rho_ue),
+            "f_l": float(config.f_l),
+            "zeta": float(config.zeta),
+            "rho_helper": float(config.rho_helper),
+            "f_v2v": float(config.f_v2v),
+            "ptx_mec_w": float(config.ptx_mec_w),
+            "prx_mec_w": float(config.prx_mec_w),
+            "ptx_v2v_w": float(config.ptx_v2v_w),
+            "prx_v2v_w": float(config.prx_v2v_w),
+        },
+        "physical_tiers": tiers,
+        "radio_parameters": radio_params,
+        "source_config_sha256": str(config.source_config_sha256 or ""),
+        "overrides": dict(overrides or {}),
+    }
+
+
+def resolved_config_sha256(config: "ResourceConfig", overrides: Any = None) -> str:
+    """sha256 of the canonical provenance. Equal semantics -> equal hash."""
+    import hashlib
+    import json as _json
+
+    blob = canonical_provenance(config, overrides=overrides)
+    text = _json.dumps(blob, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _select_energy_model(doc: dict, model: str | None) -> EnergyModelSpec:

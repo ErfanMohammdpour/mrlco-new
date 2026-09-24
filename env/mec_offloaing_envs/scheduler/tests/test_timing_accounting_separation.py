@@ -48,15 +48,24 @@ YAML = Path(__file__).resolve().parents[4] / "spec" / "frozen_experiment.yaml"
 XI = 300.0
 
 
-def config(timing=TIMING_LEGACY, accounting=MODEL_LEGACY, scope=SCOPE_SYSTEM,
+def config(timing=TIMING_LEGACY, accounting=MODEL_LEGACY, scope=None,
            radio_timing=TIMING_LEGACY, radio_accounting=MODEL_LEGACY):
+    """scope=None leaves the accounting model's own boundary declaration.
+
+    Asking for system scope on top of the LEGACY accounting model is a declared
+    conflict (the legacy model is the mobile boundary), so these fixtures only
+    state a scope when the accounting model can honour it.
+    """
+    kwargs = {}
+    if scope is not None:
+        kwargs["energy_scope"] = scope
     return ResourceConfig.from_frozen_yaml(
         YAML,
         energy_model=accounting,
         radio_model=radio_accounting,
         timing_model=timing,
         radio_timing_model=radio_timing,
-        energy_scope=scope,
+        **kwargs,
     )
 
 
@@ -140,7 +149,7 @@ class TestEndToEndInvariance(unittest.TestCase):
         self.graph = dag()
         self.order = [0, 1, 2, 3]
         self.a = config()                                  # legacy / legacy
-        self.b = config(accounting=MODEL_PHYSICAL)         # legacy timing, physical energy
+        self.b = config(accounting=MODEL_PHYSICAL, scope=SCOPE_SYSTEM)  # legacy timing, physical energy
 
     def _schedule(self, res, action):
         out, _, per_task = schedule_via_adapter(
