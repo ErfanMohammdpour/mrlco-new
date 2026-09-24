@@ -277,9 +277,13 @@ class Trainer():
                     task_id = task_graph.prioritize_sequence[idx]
                     plan.append((int(task_id), int(action)))
             from env.mec_offloaing_envs.scheduler import schedule_via_adapter
+            from env.mec_offloaing_envs.scheduler.energy_scope import (
+                SCOPE_MOBILE,
+                energy_scalar,
+            )
 
             result, _, _ = schedule_via_adapter(task_graph, plan, env.scheduler_resources)
-            total_energy += result.total_mobile_joules
+            total_energy += energy_scalar(result, scope=SCOPE_MOBILE)
         
         return total_energy / len(finish_times) if len(finish_times) > 0 else 0.0
     
@@ -289,6 +293,10 @@ class Trainer():
             return 0.0
 
         from env.mec_offloaing_envs.scheduler import schedule_via_adapter
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            SCOPE_MOBILE,
+            energy_scalar,
+        )
 
         total_energy = 0.0
         env = self.env
@@ -303,7 +311,7 @@ class Trainer():
                 result, _, _ = schedule_via_adapter(
                     task_graphs[plan_idx], plan, env.scheduler_resources
                 )
-                total_energy += result.total_mobile_joules
+                total_energy += energy_scalar(result, scope=SCOPE_MOBILE)
                 total_plans += 1
         return total_energy / total_plans if total_plans > 0 else 0.0
     

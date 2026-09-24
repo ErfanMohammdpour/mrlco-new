@@ -46,6 +46,10 @@ from env.mec_offloaing_envs.scheduler import (  # noqa: E402
     schedule_via_adapter,
     telescoping_token_rewards,
 )
+from env.mec_offloaing_envs.scheduler.energy_scope import (  # noqa: E402
+    SCOPE_MOBILE,
+    energy_scalar,
+)
 
 DEFAULT_DATA = ROOT / "env" / "mec_offloaing_envs" / "data" / "meta_offloading_20"
 MBPS_TO_BPS = 1024.0 * 1024.0 / 8.0
@@ -105,7 +109,7 @@ def audit_graph(path: Path, resources: ResourceConfig, cluster: _FrozenCluster) 
     plan_metrics = {}
     for name, result in rows.items():
         L = float(result.makespan_seconds)
-        E = float(result.total_mobile_joules)
+        E = energy_scalar(result, scope=SCOPE_MOBILE)
         lat_term = 0.5 * (L - refs.L_ue) / refs.L_scale
         en_term = 0.5 * (E - refs.E_ue) / refs.E_scale
         plan_metrics[name] = {
@@ -133,7 +137,7 @@ def audit_graph(path: Path, resources: ResourceConfig, cluster: _FrozenCluster) 
         )
         bd = attribute_energy_by_task(res, resources)
         energy_mix[label] = {
-            "total": float(res.total_mobile_joules),
+            "total": energy_scalar(res, scope=SCOPE_MOBILE),
             "sum_by_task": float(sum(bd.values())),
         }
 

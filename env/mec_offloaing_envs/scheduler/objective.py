@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .energy_api import ReferenceRanges
+from .energy_scope import SCOPE_SYSTEM, energy_scalar
 from .model import ScheduleResult
 from .validate import require_finite, require_nonneg_float
 
@@ -230,7 +231,10 @@ def evaluate_plan_objective(
             firm_count += 1
         elif rec.deadline_type == "soft":
             soft_count += 1
-    energy = float(result.energy.total_system_joules)
+    # SYSTEM boundary (E2.1): the numerator is explicit. Its budget/reference
+    # still comes from the mobile-built `refs` until 4.3 aligns them on system;
+    # that mismatch is recorded in the consumer inventory, never hidden.
+    energy = energy_scalar(result, scope=SCOPE_SYSTEM)
     budget = spec.energy_budget(refs)
     c_e_raw = (energy / budget) - 1.0 if budget > 0 else float("inf")
     c_e = min(max(0.0, c_e_raw), spec.cost_cap)

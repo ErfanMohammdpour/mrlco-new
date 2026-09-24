@@ -24,11 +24,12 @@ from .energy_api import (
     ENERGY_WEIGHT,
     LATENCY_WEIGHT,
     ReferenceRanges,
-    attribute_energy_by_task,
+    attribute_scoped_energy_by_task,
     compute_reference_ranges,
     j_report,
     require_publication_weights,
 )
+from .energy_scope import SCOPE_MOBILE, energy_scalar
 from .model import ScheduleResult
 from .resources import ResourceConfig
 
@@ -197,7 +198,7 @@ def telescoping_token_rewards(
         prov = provisional_plan(decoder_order, actions[:t], fill=FILL_UNASSIGNED)
         result, _, _ = schedule_via_adapter(task_graph, prov, resources)
         makespans.append(result.makespan_seconds)
-        energies.append(result.total_mobile_joules)
+        energies.append(energy_scalar(result, scope=SCOPE_MOBILE))
         if constrained and constraints.attribution == ATTRIBUTION_TELESCOPED:
             costs_t = evaluate_constraints(result, resources, refs, constraints)
             prefix_signed.append(costs_t.signed)
@@ -238,7 +239,9 @@ def telescoping_token_rewards(
             penalty_applied = final_costs.penalty(lagrangian)
             rewards[-1] -= penalty_applied
 
-    energy_map = attribute_energy_by_task(final_result, resources)
+    energy_map = attribute_scoped_energy_by_task(
+        final_result, resources, scope=SCOPE_MOBILE
+    )
     per_task = [float(energy_map.get(tid, 0.0)) for tid in decoder_order]
     j_val = (
         j_report(makespans[-1], energies[-1], refs) if compute_j_report else None

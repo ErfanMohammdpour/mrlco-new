@@ -2,7 +2,7 @@
 
 Motivation (measured — see `spec/energy_reward_audit.py`):
 
-* `total_mobile_joules` = UE + HELPER and MEC compute is free (ADR-001), so an
+* the MOBILE boundary = UE + HELPER and MEC compute is free (ADR-001), so an
   all-MEC plan costs only ~3% of the all-UE plan.  A scalar 0.5/0.5 objective
   therefore does not express "keep the mobile devices' energy under a budget";
   it just tilts the search.
@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .energy_api import ReferenceRanges
+from .energy_scope import SCOPE_MOBILE, SCOPE_REQUESTER, energy_scalar
 from .model import Location, ScheduleResult
 from .resources import ResourceConfig
 from .validate import require_finite, require_nonneg_float
@@ -248,8 +249,15 @@ class ConstraintMetrics:
 
 
 def measure_metrics(result: ScheduleResult) -> ConstraintMetrics:
-    """Read the plan-level metrics straight off a canonical `ScheduleResult`."""
+    """Read the plan-level metrics straight off a canonical `ScheduleResult`.
+
+    Boundary quantities come from the scope accessor only: `c_ue` is the
+    REQUESTER boundary, `c_total` the MOBILE boundary and helper work is the
+    difference of the two. `helper_compute_j` is a component, not a boundary.
+    """
     energy = result.energy
+    requester = energy_scalar(result, scope=SCOPE_REQUESTER)
+    mobile = energy_scalar(result, scope=SCOPE_MOBILE)
     n_tasks = len(result.tasks)
     n_helper = sum(1 for rec in result.tasks.values() if rec.location == Location.HELPER)
     n_mec = sum(1 for rec in result.tasks.values() if rec.location == Location.MEC)
@@ -258,9 +266,9 @@ def measure_metrics(result: ScheduleResult) -> ConstraintMetrics:
         if transfer.hop == "V2V":
             airtime += float(transfer.end - transfer.start)
     return ConstraintMetrics(
-        ue_energy_j=float(energy.total_ue_joules),
-        helper_energy_j=float(energy.total_helper_joules),
-        total_energy_j=float(energy.total_mobile_joules),
+        ue_energy_j=requester,
+        helper_energy_j=max(0.0, mobile - requester),
+        total_energy_j=mobile,
         helper_compute_j=float(energy.helper_compute_joules),
         v2v_airtime_s=float(airtime),
         v2v_task_fraction=(float(n_helper) / float(n_tasks)) if n_tasks else 0.0,

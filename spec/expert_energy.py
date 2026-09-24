@@ -13,6 +13,7 @@ from env.mec_offloaing_envs.scheduler.energy_api import (
     j_lambda,
     lambda_tag,
 )
+from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_MOBILE, energy_scalar
 from spec.bc_greedy_mec import BC_MAX_PASSES
 from spec.expert_profiles import _graph_picks, profile_cache_path
 from spec.hamming2_probe import _gv_path, _n_non
@@ -51,7 +52,7 @@ def _metric_for_lambda(lam, refs):
         return float(
             j_lambda(
                 result.makespan_seconds,
-                result.total_mobile_joules,
+                energy_scalar(result, scope=SCOPE_MOBILE),
                 refs,
                 lam,
                 clip=False,
@@ -68,7 +69,7 @@ def _score_j(tg, resources, acts, refs, lam):
     plan = list(zip(order, [int(a) for a in acts]))
     result, _, _ = schedule_via_adapter(tg, plan, resources)
     t = float(result.makespan_seconds)
-    e = float(result.total_mobile_joules)
+    e = energy_scalar(result, scope=SCOPE_MOBILE)
     if abs(float(lam) - 1.0) <= 1e-12:
         j = t
     else:
@@ -129,7 +130,7 @@ def run_expert_energy_for_profile(profile_id, lam, split="meta_train", max_graph
         )
         actions = [int(a) for _, a in plan]
         t_g = float(result.makespan_seconds)
-        e_g = float(result.total_mobile_joules)
+        e_g = energy_scalar(result, scope=SCOPE_MOBILE)
         j0 = float(score_fn(actions))
         out = iterate_2opt(actions, j0, score_fn)
         t_ex, e_ex, j_ex, _ = _score_j(tg, resources, out["actions"], refs, lam)

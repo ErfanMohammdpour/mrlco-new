@@ -50,6 +50,10 @@ def _slice_graphs(env, dist_id, graph_indices):
 def _schedule_batch(tgs, actions, resources, objective, refs_cache, cache_prefix):
     from env.mec_offloaing_envs.scheduler.adapter import schedule_via_adapter
     from env.mec_offloaing_envs.scheduler.energy_api import compute_reference_ranges
+    from env.mec_offloaing_envs.scheduler.energy_scope import (
+        SCOPE_MOBILE,
+        energy_scalar,
+    )
 
     actions = np.asarray(actions, dtype=np.int32)
     costs = []
@@ -70,7 +74,9 @@ def _schedule_batch(tgs, actions, resources, objective, refs_cache, cache_prefix
                 refs_cache[key] = compute_reference_ranges(tg, resources)
             refs = refs_cache[key]
         cost, t, e = objective.cost(
-            result.makespan_seconds, result.energy.total_mobile_joules, refs
+            result.makespan_seconds,
+            energy_scalar(result, scope=SCOPE_MOBILE),
+            refs,
         )
         costs.append(cost)
         ts.append(t)

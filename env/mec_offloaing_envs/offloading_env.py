@@ -596,6 +596,10 @@ class OffloadingEnvironment(MetaEnv):
 
     def greedy_solution(self):
         """Greedy plan search; each candidate is scored by the canonical engine."""
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            SCOPE_MOBILE,
+            energy_scalar,
+        )
         from env.mec_offloaing_envs.scheduler.greedy import greedy_plan
 
         result_plan = []
@@ -614,7 +618,7 @@ class OffloadingEnvironment(MetaEnv):
                 )
                 plan_batchs.append(plan)
                 finish_time_plan.append(scheduled.makespan_seconds)
-                energy_plan.append(scheduled.total_mobile_joules)
+                energy_plan.append(energy_scalar(scheduled, scope=SCOPE_MOBILE))
             finish_time_batchs.append(finish_time_plan)
             result_plan.append(plan_batchs)
             energy_batchs.append(energy_plan)
