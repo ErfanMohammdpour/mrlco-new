@@ -710,3 +710,90 @@ better noise-floor estimate. What they cannot yield is shield evidence, which
 needs the deadline-aware dataset and a multi-seed design; that is the next
 experiment, not this one. Nothing else should be started on this GPU meanwhile,
 or the noise floor measured here stops applying.
+
+---
+
+## 17. Final result: both 500-iteration runs completed clean
+
+### 17.1 Completion
+
+| | off | static |
+|---|---|---|
+| iterations | 500 / 500 | 500 / 500 |
+| exit code | 0 | 0 |
+| validator failures | `[]` | `[]` |
+| started (UTC) | 2026-09-22 21:09:40 | 2026-09-22 21:09:40 |
+| finished (UTC) | 2026-09-24 06:25:23 | 2026-09-24 07:05:49 |
+| wall time | **33.26 h** | **33.44 h** |
+| frozen SHA | 7fa31f2d (dirty=False) | 7fa31f2d (dirty=False) |
+| live preflight | 30000 tasks, 0 deadlines | 30000 tasks, 0 deadlines |
+| CSV | 500 rows, 43 fields | 500 rows, 43 fields |
+| watchdog violations | none, over the whole run | none, over the whole run |
+| five control rates | `{0.0}` in every row | `{0.0}` in every row |
+
+Timing: median **217 s** (off) / **222 s** (static) per iteration, mean 237/242 s,
+with **exactly nine** heavy iterations each (at 50, 100, ..., 450, up to 1507 s)
+-- validation and checkpoint selection, which is why the ten
+`validation_query_composite_objective` rows appear at 0..450. Audit output is
+8.5 GB per run; 410 GB free.
+
+### 17.2 What ran correctly for 500 iterations
+
+* the masked-softmax support never admitted an infeasible action
+  (`policy/invalid_action_rate = 0.0` in all 1000 rows across both modes);
+* every metric stayed finite, the largest `critic/value_abs_max` seen was 1.64
+  (off) / 1.22 (static) against a 1000 limit -- the `-1e9` critic contamination
+  from audit round 1 is empirically dead over a long run, not just in a smoke;
+* the CSV stayed aligned (43 fields, header == every row) after the logger fixes;
+* nothing crashed, stalled or had to be killed; the watchdog reported `finished`
+  for both.
+
+### 17.3 Learning outcome on this dataset
+
+Return 0.55 -> 0.93/0.94 by iteration 25, then a plateau: final `AverageReturn`
+0.9541 (off) / 0.9591 (static). Validation composite reaches ~0.952 by iteration
+50 and then oscillates in 0.921-0.954 (off) / 0.921-0.954 (static).
+
+The policy collapses onto MEC: final action mix **MEC 0.987 (off) / 0.996
+(static)**, entropy mean 0.051/0.039 with a minimum of 0.0030/0.0059. The run's
+own audit flags this at the last iteration
+(`audit health itr 499 ok=False flags=['action_collapse_MEC_0.987'|'0.996']`).
+Policy latency settles at 637.7/636.5 against a greedy baseline of 611.4, so the
+trained policy is ~4% slower than greedy here, matching the earlier Pareto audit
+in which all-MEC is dominated by greedy/2-opt.
+
+With zero deadlines in the dataset the static shield is inert, exactly as
+predicted in section 15; these runs are a stability result, not shield evidence.
+
+### 17.4 Noise floor, now over all 500 iterations
+
+| series | off mean | static mean | mean abs diff | p50 | p95 | max | corr |
+|---|---|---|---|---|---|---|---|
+| AverageReturn | 0.9354 | 0.9376 | 0.0105 (1.19%) | 0.0040 | 0.0457 | **0.1344** | 0.874 |
+| Average latency | 637.72 | 636.53 | 7.20 (1.09%) | 1.66 | 28.70 | 153.23 | 0.934 |
+| Average energy | 90.13 | 84.47 | 25.33 (26.6%) | 10.34 | 107.98 | 278.91 | 0.862 |
+| entropy_valid | 0.0507 | 0.0394 | 0.0233 | 0.0125 | 0.0610 | 0.3894 | 0.943 |
+| critic/value_abs_max | 1.0043 | 0.9870 | 0.0702 | 0.0436 | 0.1787 | 0.8317 | 0.396 |
+
+The greedy baseline stays bit-identical between the two runs (corr 1.000,
+difference 0.0), so all of this is nondeterminism in the parallel
+sampling/optimization path. The divergence **grows with training**: compared with
+the halfway measurement the tail worsened (max 11.2% -> 13.4%) and the return
+correlation fell (0.957 -> 0.874), which is what a collapsing policy does to
+trajectories that start from the same seed.
+
+**Methodological consequence:** a single-seed off-vs-static comparison on a
+hard-deadline dataset cannot be interpreted below roughly **5%** (p95), and the
+tail reaches 13%, so the shield experiment needs several seeds and sequential
+execution, with this table as the significance reference.
+
+### 17.5 Verdict
+
+The ⑥b gate is complete: contract, policy plumbing, metrics, validator, watchdog
+and the 500-iteration stability run are all green, with the frozen configuration
+untouched (`7fa31f2d`) and the tree clean. What is still missing is the science,
+not the engineering: the shield's effect has to be measured on a deadline-aware
+dataset (hard deadlines, some tasks where MEC is proof-infeasible) with multiple
+seeds, and compared against the noise floor above.
+
+Evidence: `reports/v0.3-audit/mask_smoke/final500/{off,static}_{config.json,progress.csv}`.
