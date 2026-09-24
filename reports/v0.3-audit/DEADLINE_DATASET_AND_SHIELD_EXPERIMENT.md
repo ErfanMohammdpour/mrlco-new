@@ -221,8 +221,9 @@ gate still fails, on two independent counts:
    `graphs_with_mec_closure = 0`. The action the policy actually collapses onto can
    never be closed.
 
-The mechanism is measurable, not speculative. Over 600 tasks of three
-distributions: MEC has the strictly smallest `ready_lb` in **600/600** cases, and
+The mechanism is measurable, not speculative -- but it describes the RELAXATION,
+not reality: over 600 tasks MEC has the strictly smallest `ready_lb` in **600/600**
+cases, and
 `UE/MEC` ranges 1.12-10.0 (mean 4.86), `HELPER/MEC` 1.31-10.0. So any deadline that
 closes MEC also closes UE and HELPER, the row becomes all-invalid, and the
 dead-end guard drops the mask: a deadline-based static shield cannot express
@@ -251,31 +252,64 @@ H1/H2 search does move tasks off MEC when contention or the root upload makes it
 worthwhile, while the final policy in the 500-iteration run collapsed to 98.7-99.6%
 MEC.
 
-### 9.4 Consequences for the shield experiment
+### 9.4 Consequences -- corrected (audit round)
 
-The planned pilot (`off` vs `static` on a deadline regime) cannot be run as
-designed: with no regime passing the gate, `off` and `static` would again be the
-same run. Three honest options, in the order I would try them:
+An external audit found a factual error and a wrong framing here, and both are
+accepted.
 
-1. **Runtime / prefix shield.** The only mechanism that can close MEC is a mask
-   computed from the actual prefix state (`suffix.dag_lower_bound_masks` with real
-   transfers and contention). That needs the environment to hand the scheduler
-   back per decoded token, which is the token-by-token stepping gap already
-   documented in `MASKED_PPO_INTERFACE_6b.md` §13.4, and the mask must travel with
-   the batch as `MARGO_MASK_MODE=runtime` expects.
-2. **Reframe the claim.** The shield is a safety net, and on this workload it is
-   provably almost never needed: MEC dominates every task's lower bound, so a
-   deadline that forbids MEC forbids the instance. That is a legitimate result to
-   report -- and it is the opposite of the assumption behind the pilot.
-3. **Change the physics, not the shield.** If the intended story needs MEC to be
-   deadline-infeasible while other actions survive, the model must make remote
-   execution pay an unavoidable cost that local execution does not (uplink of the
-   task input on a contention-limited link, RSU admission/queueing, or MEC
-   capacity limits). That is a modelling change with its own audit, not a dataset
-   knob.
+**Correction: the runtime/prefix proof layer is NOT queue-aware either.** This
+section previously described `suffix.dag_lower_bound_masks` as using "real
+transfers and contention". It does not. `suffix.dag_lower_bound_ready` documents
+*zero resource contention*, and `SuffixContext` carries only prior decisions,
+parent finishes and parent locations -- no calendars, no next-free slot per CPU,
+no MEC_UL/MEC_DL/V2V reservations. A runtime shield built on today's code would
+be queue-blind as well; a real one must carry the resource calendar state.
 
-Nothing here changes the frozen training path: `off` mode is untouched, the `.gv`
-files are unmodified, and the sidecars are separate artifacts.
+**Correction: the gate failure does not show that MEC is truly best.** It shows
+the static mask cannot see congestion. The engine has six independent
+single-capacity non-preemptive calendars, so Local, MEC and HELPER run in
+parallel and only tasks sharing a resource serialise. Under a MEC-heavy prefix
+MEC becomes the *slowest* choice although it is the fastest per task: the audit's
+synthetic check on 20 independent tasks gives all-MEC 20 s versus 18 s for a mixed
+plan, and for the 20th task after 19 MEC choices the ready times are Local 10 s /
+MEC 20 s / Helper 10 s while the static bound still reports MEC 1 s. The project's
+own diagnostics agree: all-MEC latency 627.85 versus expert mixed 447.89, and a BC
+model on the same encoder/decoder reaches 464.27 with a 20.2 / 74.7 / 5.1
+(Local/MEC/V2V) mix, beating all-MEC on 99.2% of train graphs.
+
+So the earlier phrasing "the environment gives no reason for Local/V2V" was too
+strong and is withdrawn: mixed plans genuinely win, and the MEC collapse is an
+exploration and semantics problem, not a property of the physics. Contributing
+factors, in the order the evidence supports: a per-task MEC advantage with a
+*collective* mixed advantage that needs several tokens changed together; an
+action space grown from 2^20 to 3^20 (~3325x); `entropy_coefficient = 0`; and
+canonical scheduling semantics that make MEC chains cheap -- explicit output
+residency (MEC to MEC costs nothing), root-only upload, sink-only return, a
+separate single-capacity downlink calendar, against upstream MRLCO re-uploading
+and downlinking per remote task. "I only added the graph, V2V and energy" is
+therefore not behaviourally true: residency, routing and the queues changed the
+problem, and reproducing upstream numbers needs the legacy scheduler as an
+explicit control.
+
+**Revised options, in order:** (1) a real runtime shield -- carry the six
+calendars' reservation state in the prefix, compute the mask from actual
+reservations, store it with the batch: an execution-interface change, not a
+physics change, and the only mechanism that can close a congested MEC; (2) keep
+the static shield but present it as a weak safety proof that cannot capture
+congestion-induced violations, and measure the deadline miss rate as a constraint
+without claiming a hard guarantee; (3) change the physics only if the story needs
+per-task MEC infeasibility, with its own audit.
+
+**Authorized next steps (no training), in order:** (1) energy plumbing with a
+latency-only objective and a system-energy constraint, `log_only` first and legacy
+byte-exact; (2) a real queue/parallelism audit on the dataset with the actual
+scheduler -- waiting time and utilisation per resource, MEC and UL/DL queue delay,
+UE/MEC/Helper overlap, all-MEC versus greedy mixed, and a per-token counterfactual
+under a fixed prefix; (3) an upstream-parity diagnostic evaluating one plan with
+both schedulers and decomposing the difference (repeated upload, same-location
+residency, sink-only return, downlink serialisation, V2V, energy); (4) a conscious
+runtime-shield decision; then (5) a one-iteration smoke, (6) a short pilot, and
+(7) the 200/500 runs once the gates pass.
 
 ### 9.5 Energy plumbing: still open
 
@@ -285,5 +319,8 @@ drop points: `adapter.py:82-101` builds `ResourceConfig` without `energy_model` 
 `total_system_joules == total_mobile_joules`); `energy_scope` is parsed but has
 zero production consumers; and reward/reference-ranges/step-log/constraints read
 `total_mobile_joules` while the log-only objective reads `total_system_joules`
-and the constraint `ue` channel reads `total_requester_joules`. Commit 4 is the
-threading + canonical-accessor fix, with legacy kept byte-exact.
+and the constraint `ue` channel reads `total_requester_joules`;
+`constraints.py:250-271` sets `total_energy_j = energy.total_mobile_joules`, the
+line that must become system energy under the agreed contract (latency-only
+objective, system energy as a constraint, logged first). Commit 4 is the threading
++ canonical-accessor fix, with legacy kept byte-exact.
