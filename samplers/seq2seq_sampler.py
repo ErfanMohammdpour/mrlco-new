@@ -84,9 +84,12 @@ class Seq2SeqSampler(Sampler):
 
             #  stack agent_infos and if no infos were provided (--> None) create empty dicts
             new_samples = 0
-            # Handle energy if enabled (env_infos is a tuple (task_finish_time, energy_batch) when energy enabled)
-            if isinstance(env_infos, tuple) and len(env_infos) == 2:
-                task_finish_times_batch, energy_batch = env_infos
+            # Handle energy if enabled (env_infos is a tuple (task_finish_time,
+            # energy_batch[, energy_telemetry]) when energy enabled)
+            telemetry_batch = None
+            if isinstance(env_infos, tuple) and len(env_infos) >= 2:
+                task_finish_times_batch, energy_batch = env_infos[0], env_infos[1]
+                telemetry_batch = env_infos[2] if len(env_infos) > 2 else None
             else:
                 task_finish_times_batch = env_infos
                 energy_batch = None
@@ -134,6 +137,9 @@ class Seq2SeqSampler(Sampler):
                 else:
                     running_paths["energy"] = None
 
+                if telemetry_batch is not None and i < len(telemetry_batch):
+                    running_paths["energy_telemetry"] = telemetry_batch[i]
+
                 if applied_mask is not None:
                     running_paths["feasible"] = np.asarray(applied_mask)[i]
                 if applied_raw is not None:
@@ -152,6 +158,8 @@ class Seq2SeqSampler(Sampler):
                 # Add energy to path if available
                 if running_paths["energy"] is not None:
                     path_dict["energy"] = np.asarray(running_paths["energy"])
+                if running_paths.get("energy_telemetry") is not None:
+                    path_dict["energy_telemetry"] = running_paths["energy_telemetry"]
 
                 if running_paths.get("feasible") is not None:
                     path_dict["feasible"] = np.squeeze(

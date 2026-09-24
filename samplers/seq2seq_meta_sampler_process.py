@@ -78,6 +78,7 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         advantages = path_data["advantages"]
         finish_time = path_data["finish_time"]
         energy = path_data["energy"]
+        energy_telemetry = path_data["energy_telemetry"]
         feasible = path_data["feasible"]
         raw_logits = path_data["raw_logits"]
 
@@ -110,6 +111,11 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
         # Add energy if available
         if energy is not None:
             samples_data['energy'] = energy
+
+        # Scoped telemetry is additive: `Average energy` stays the legacy MOBILE
+        # per-task metric and the new columns come from the same rollout result.
+        if energy_telemetry is not None:
+            samples_data['energy_telemetry'] = energy_telemetry
 
         # Feasibility mask travels with the batch: the PPO update must use the
         # rollout mask, never a recomputation (MASKED_PPO_INTERFACE_6b).
@@ -167,6 +173,10 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
             energy = np.array([path["energy"] for path in paths])
         else:
             energy = None
+        has_telemetry = all(p.get("energy_telemetry") is not None for p in paths)
+        energy_telemetry = (
+            [p["energy_telemetry"] for p in paths] if has_telemetry else None
+        )
         has_raw = all(p.get("raw_logits") is not None for p in paths)
         if os.environ.get("MARGO_SHAPE_DEBUG"):
             print("[shape-debug] n_paths=%d" % len(paths), flush=True)
@@ -185,6 +195,7 @@ class Seq2SeqMetaSamplerProcessor(SampleProcessor):
             "advantages": advantages,
             "finish_time": finish_time,
             "energy": energy,
+            "energy_telemetry": energy_telemetry,
             "feasible": feasible,
             "raw_logits": raw_logits,
         }

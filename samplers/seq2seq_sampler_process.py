@@ -60,6 +60,7 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         advantages = path_data["advantages"]
         finish_time = path_data["finish_time"]
         energy = path_data["energy"]
+        energy_telemetry = path_data["energy_telemetry"]
         feasible = path_data["feasible"]
         raw_logits = path_data["raw_logits"]
 
@@ -92,6 +93,8 @@ class Seq2SeSamplerProcessor(SampleProcessor):
         # Add energy if available
         if energy is not None:
             samples_data['energy'] = energy
+        if energy_telemetry is not None:
+            samples_data['energy_telemetry'] = energy_telemetry
 
         # Feasibility mask travels with the batch: the PPO update must use the
         # rollout mask, never a recomputation (MASKED_PPO_INTERFACE_6b).
@@ -175,6 +178,10 @@ class Seq2SeSamplerProcessor(SampleProcessor):
             energy = np.array([path["energy"] for path in paths])
         else:
             energy = None
+        has_telemetry = all(p.get("energy_telemetry") is not None for p in paths)
+        energy_telemetry = (
+            [p["energy_telemetry"] for p in paths] if has_telemetry else None
+        )
         has_raw = all(p.get("raw_logits") is not None for p in paths)
         raw_logits = self._stack(paths, "raw_logits") if has_raw else None
         return {
@@ -187,6 +194,7 @@ class Seq2SeSamplerProcessor(SampleProcessor):
             "advantages": advantages,
             "finish_time": finish_time,
             "energy": energy,
+            "energy_telemetry": energy_telemetry,
             "feasible": feasible,
             "raw_logits": raw_logits,
         }

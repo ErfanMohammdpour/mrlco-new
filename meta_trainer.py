@@ -6,6 +6,11 @@ from utils import logger
 
 from env.mec_offloaing_envs.scheduler.mask_metrics import merge as merge_mask_metrics
 from env.mec_offloaing_envs.scheduler.mask_metrics import rates as mask_metric_rates
+from env.mec_offloaing_envs.scheduler.energy_telemetry import (
+    aggregate_energy_telemetry,
+    collect_energy_telemetry,
+    telemetry_csv_kvs,
+)
 from env.mec_offloaing_envs.scheduler.primary_config import (  # noqa: E402
     PRIMARY_SCHEDULER_AXES,
     resolved_primary_scheduler_config,
@@ -351,6 +356,14 @@ class Trainer(object):
                 else:
                     print(f"Average energy per iteration {itr}: 0.0 (no energy data)")
                     avg_energies.append(0.0)
+
+                # Scoped telemetry from the same rollout results. Missing in
+                # old/telemetry-off runs -> no new columns, exactly as before.
+                telemetry_rows = collect_energy_telemetry(new_samples_data)
+                if telemetry_rows:
+                    telemetry = aggregate_energy_telemetry(telemetry_rows)
+                    for key, value in telemetry_csv_kvs(telemetry).items():
+                        logger.logkv(key, value)
             else:
                 avg_energies.append(None)
 
@@ -534,6 +547,9 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
         #   "candidate_panel" (default, corrected): three pure plans + greedy_from_mec
         #   "pure_location"  (MARGO-SPEC-v0.1): reproduces the pre-fix numbers
         'reference_range': str(reference_range),
+        # 4.2c scoped telemetry: additive CSV columns from the SAME rollout
+        # result. It never changes the reward or the schedule.
+        'energy_telemetry': True,
     }
     if not 0.0 < float(shaping_discount) <= 1.0:
         raise ValueError("shaping_discount must be in (0, 1], got %r" % (shaping_discount,))

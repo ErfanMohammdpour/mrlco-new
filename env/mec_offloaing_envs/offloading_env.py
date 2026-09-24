@@ -223,6 +223,15 @@ class OffloadingEnvironment(MetaEnv):
             self.constraint_spec = self.constraint_controller.spec
         self.last_constraint_costs = None
 
+        # 4.2c scoped telemetry: opt-in. OFF by default, so the legacy info tuple
+        # and every sampler path are unchanged unless the trainer asks for it.
+        self.energy_telemetry_enabled = bool(
+            (getattr(resource_cluster, "energy_config", None) or {}).get(
+                "energy_telemetry", False
+            )
+        )
+        self.last_energy_telemetry = None
+
         # Discount-consistent telescoping: r_t = J_{t-1} - shaping_discount * J_t.
         # Must equal the PPO discount so that the shaped return stays aligned with
         # the final schedule objective (sum_t gamma^(t-1) r_t = J_0 - gamma^N J_N).
@@ -383,8 +392,12 @@ class OffloadingEnvironment(MetaEnv):
         
         if self.resource_cluster.use_energy:
             reward_batch, task_finish_time, energy_batch = result
-            # Include energy in info for logging
-            info = (task_finish_time, energy_batch)
+            # Include energy in info for logging. The legacy 2-tuple stays intact;
+            # telemetry is appended as a third element only when it was enabled.
+            if self.energy_telemetry_enabled and self.last_energy_telemetry is not None:
+                info = (task_finish_time, energy_batch, self.last_energy_telemetry)
+            else:
+                info = (task_finish_time, energy_batch)
         else:
             reward_batch, task_finish_time = result
             info = task_finish_time
@@ -546,6 +559,7 @@ class OffloadingEnvironment(MetaEnv):
         target_batch = []
         task_finish_time_batch = []
         energy_batch = []
+        telemetry_batch = [] if self.energy_telemetry_enabled else None
         include_energy = bool(self.resource_cluster.use_energy)
         reward_mode = getattr(self.resource_cluster, "reward_mode", "publication")
         latency_ref = LATENCY_REF_L_MEC if reward_mode == "latency_over_all_mec" else "l_scale"
@@ -582,6 +596,18 @@ class OffloadingEnvironment(MetaEnv):
                 energy_batch.append(out.final_per_task_energy)
             else:
                 energy_batch.append([])
+            if telemetry_batch is not None:
+                # pure post-processing of the SAME result the reward came from:
+                # no second schedule, no replay.
+                from env.mec_offloaing_envs.scheduler.energy_telemetry import (
+                    build_energy_telemetry,
+                )
+
+                telemetry_batch.append(
+                    build_energy_telemetry(out.final_result, self.scheduler_resources)
+                )
+
+        self.last_energy_telemetry = telemetry_batch
 
         target_batch = np.array(target_batch, dtype=object)
         # Prefer numeric ndarray when all sequences share length.

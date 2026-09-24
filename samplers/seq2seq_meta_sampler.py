@@ -116,16 +116,21 @@ class Seq2SeqMetaSampler(Sampler):
             new_samples = 0
             for idx, observation, action, logit, reward, value, done, env_info in zip(itertools.count(), obses, actions, logits,
                                                                                     rewards, values, dones, env_infos):
-                # Handle energy in env_info (backward compatible)
+                # Handle energy in env_info (backward compatible). With scoped
+                # telemetry enabled the env appends a third element; the legacy
+                # 2-tuple path is untouched.
                 if hasattr(self.env, 'resource_cluster') and self.env.resource_cluster.use_energy:
-                    if isinstance(env_info, tuple) and len(env_info) == 2:
-                        task_finish_times, energy_info = env_info
+                    if isinstance(env_info, tuple) and len(env_info) >= 2:
+                        task_finish_times, energy_info = env_info[0], env_info[1]
+                        telemetry_info = env_info[2] if len(env_info) > 2 else None
                     else:
                         task_finish_times = env_info
                         energy_info = None
+                        telemetry_info = None
                 else:
                     task_finish_times = env_info
                     energy_info = None
+                    telemetry_info = None
                 
                 # append new samples to running paths
                 # handling
@@ -158,6 +163,10 @@ class Seq2SeqMetaSampler(Sampler):
                     if energy_info is not None and i < len(energy_info):
                         running_paths[idx]["energy"] = energy_info[i]
 
+                    # Scoped telemetry travels with the same trajectory record.
+                    if telemetry_info is not None and i < len(telemetry_info):
+                        running_paths[idx]["energy_telemetry"] = telemetry_info[i]
+
                     path_dict = dict(
                         observations=np.squeeze(np.asarray(running_paths[idx]["observations"])),
                         actions=np.squeeze(np.asarray(running_paths[idx]["actions"])),
@@ -178,6 +187,8 @@ class Seq2SeqMetaSampler(Sampler):
                     # Add energy to path if available
                     if "energy" in running_paths[idx]:
                         path_dict["energy"] = np.asarray(running_paths[idx]["energy"])
+                    if running_paths[idx].get("energy_telemetry") is not None:
+                        path_dict["energy_telemetry"] = running_paths[idx]["energy_telemetry"]
                     
                     paths[idx // self.envs_per_task].append(path_dict)
 
