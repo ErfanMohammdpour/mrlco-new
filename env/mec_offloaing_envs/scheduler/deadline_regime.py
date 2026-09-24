@@ -39,6 +39,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from dataclasses import replace as _dc_replace
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -402,6 +403,7 @@ def generate_graph_deadlines(
     class_weights: Mapping[str, float] | None = None,
     content_sha256: str = "",
     graph_key_name: str = "",
+    anchor_ready_s: Sequence[float] | None = None,
 ) -> GraphDeadlines:
     """EFT/LFT-based deadlines for one graph. Pure: reads the DAG, writes nothing."""
     if order is None:
@@ -449,11 +451,31 @@ def generate_graph_deadlines(
     classes = _criticality_from_depth(depths, sinks)
     weights = dict(DEFAULT_CLASS_WEIGHTS if class_weights is None else class_weights)
 
+    # Effective deadlines are ANCHORED to a real schedule when one is supplied:
+    # the contention-free relaxation cannot certify feasibility, so kappa scales
+    # the witness's own ready times and alpha interpolates back towards the LB.
+    # Without a witness the pure relaxation deadlines are used (calibration only).
+    anchored = anchor_ready_s is not None
+    if anchored:
+        anchor = [float(v) for v in anchor_ready_s]
+        if len(anchor) != len(order):
+            raise DeadlineRegimeError(
+                "anchor_ready_s length %d != task count %d" % (len(anchor), len(order))
+            )
+        if any((not math.isfinite(v)) or v < 0.0 for v in anchor):
+            raise DeadlineRegimeError("anchor_ready_s must be finite and >= 0")
+
     tasks: dict[int, TaskDeadline] = {}
     floor = max(1e-9, 1e-6 * max(graph_lb, 1e-9))
     clamped = 0
+    relaxed: list[float] = []
     for i, tid in enumerate(order):
-        deadline = eft[i] + float(alpha) * (lft[i] - eft[i])
+        relaxed_deadline = eft[i] + float(alpha) * (lft[i] - eft[i])
+        relaxed.append(relaxed_deadline)
+        if anchored:
+            deadline = eft[i] + float(alpha) * (float(kappa) * anchor[i] - eft[i])
+        else:
+            deadline = relaxed_deadline
         if not math.isfinite(deadline) or deadline < floor:
             deadline = floor
             clamped += 1
@@ -478,6 +500,10 @@ def generate_graph_deadlines(
             ),
             "clamped_tasks": float(clamped),
             "deadline_floor": float(floor),
+            "anchored_to_witness": 1.0 if anchored else 0.0,
+            "relaxed_deadline_min": float(min(relaxed)) if relaxed else 0.0,
+            "relaxed_deadline_max": float(max(relaxed)) if relaxed else 0.0,
+            "witness_ready_max": float(max(anchor_ready_s)) if anchored else 0.0,
         },
     )
 
@@ -544,6 +570,108 @@ def build_regime(
         seed=int(seed),
         generator_commit=generator_commit,
     )
+
+
+def build_regime_with_witness(
+    graphs: Iterable[tuple[int, Any, Any]],
+    *,
+    regime: str,
+    kappa: float,
+    alpha: float,
+    deadline_type: str,
+    resources: ResourceConfig,
+    cycles_per_bit: float,
+    seed: int = 0,
+    class_weights: Mapping[str, float] | None = None,
+    source_manifest_sha256: str = "",
+    generator_commit: str = "",
+    witness_kwargs: Mapping[str, Any] | None = None,
+    allow_infeasible: bool = False,
+) -> tuple[DeadlineRegime, list[dict[str, Any]]]:
+    """Two-stage generation: fastest plan first, then deadlines anchored to it.
+
+    `graphs` yields `(distribution_id, path, task_graph)`. For every graph the
+    builder
+
+      1. finds a fastest plan with the REAL scheduler (`witness.find_fastest_plan`),
+      2. generates deadlines anchored to that plan's `all_consumers_ready` times,
+      3. stamps them and searches for a plan that meets every hard deadline
+         (`witness.find_witness`),
+
+    and keeps the graph only when step 3 succeeds -- unless `allow_infeasible`
+    (the labelled bucket). Excluded graphs are returned with a reason; nothing is
+    silently dropped and nothing is certified by a lower bound.
+    """
+    from .witness import find_fastest_plan, find_witness
+
+    if not allow_infeasible and regime == "infeasible_labelled":
+        raise DeadlineRegimeError(
+            "infeasible_labelled must be built with allow_infeasible=True"
+        )
+    kwargs = dict(witness_kwargs or {})
+    accepted: dict[str, GraphDeadlines] = {}
+    excluded: list[dict[str, Any]] = []
+    for dist_id, path, task_graph in graphs:
+        key = graph_key(dist_id, path)
+        digest = file_sha256(path)
+        if regime == "none":
+            accepted[key] = GraphDeadlines(key, digest, {}, {})
+            continue
+
+        dag = to_canonical_dag(task_graph)
+        order = [int(t) for t in task_graph.prioritize_sequence]
+        fastest = find_fastest_plan(task_graph, resources, **kwargs)
+        entry = generate_graph_deadlines(
+            dag,
+            kappa=kappa,
+            alpha=alpha,
+            deadline_type=deadline_type,
+            resources=resources,
+            cycles_per_bit=cycles_per_bit,
+            order=order,
+            class_weights=class_weights,
+            content_sha256=digest,
+            graph_key_name=key,
+            anchor_ready_s=list(fastest.ready_s),
+        )
+        stamp_task_graph(task_graph, entry, regime_name=regime)
+        witness = find_witness(task_graph, resources, **kwargs)
+        entry = _dc_replace(entry, witness={
+            **witness.as_dict(),
+            "fastest_plan_makespan_s": float(fastest.makespan_s),
+            "fastest_plan_actions": [int(a) for a in fastest.actions],
+        })
+        if witness.found or allow_infeasible:
+            accepted[key] = entry
+            if not witness.found:
+                excluded.append({"graph": key, "kept": True, "reason": witness.reason})
+        else:
+            excluded.append({"graph": key, "kept": False, "reason": witness.reason})
+
+    if not accepted:
+        raise DeadlineRegimeError(
+            "no graph produced a usable sidecar entry (all %d failed the witness "
+            "check)" % len(excluded)
+        )
+
+    energy = getattr(resources, "energy_model", None)
+    radio = getattr(resources, "radio_model", None)
+    built = DeadlineRegime(
+        regime=regime,
+        kappa=kappa,
+        alpha=alpha,
+        deadline_type=deadline_type,
+        cycles_per_bit=cycles_per_bit,
+        graphs=accepted,
+        source_manifest_sha256=source_manifest_sha256,
+        resources_sha256=resources_sha256(resources),
+        energy_model=str(getattr(energy, "model", "") or ""),
+        radio_model=str(getattr(radio, "model", "") or ""),
+        energy_scope=str(getattr(energy, "energy_scope", "") or ""),
+        seed=int(seed),
+        generator_commit=generator_commit,
+    )
+    return built, excluded
 
 
 # --------------------------------------------------------------------------- #
