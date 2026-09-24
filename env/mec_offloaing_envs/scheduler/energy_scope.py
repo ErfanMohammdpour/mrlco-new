@@ -88,3 +88,65 @@ def configured_energy_scalar(result_or_breakdown: Any, resources: Any) -> float:
             "resources carry no energy_scope; refusing to guess a boundary"
         )
     return energy_scalar(result_or_breakdown, scope=scope)
+
+
+# --------------------------------------------------------------------------- #
+# Reference-range scope contract (E1.2, additive: the v2 dataclass and the
+# construction/cache wiring land separately, so nothing existing changes here).
+# --------------------------------------------------------------------------- #
+REFERENCE_SCHEMA_VERSION = "energy_reference_ranges_v2"
+
+
+class EnergyReferenceMismatch(ValueError):
+    """A reference object was used under a different scope or scheduler config."""
+
+
+def require_reference_scope(
+    refs: Any,
+    *,
+    expected_scope: str,
+    expected_scheduler_config_sha256: str | None = None,
+) -> str:
+    """Validate that `refs` was built for the requested boundary. No coercion.
+
+    `E_ue/E_mec/E_helper` are PLAN names, not boundaries: a reference built under
+    the mobile boundary must never silently normalise a system-scoped objective or
+    constraint. Legacy reference objects without the metadata may only be accepted
+    when the caller explicitly asks for the mobile boundary AND passes no expected
+    fingerprint -- which is exactly the compatibility path, never a primary one.
+    """
+    if expected_scope not in ENERGY_SCOPES:
+        raise EnergyReferenceMismatch(
+            "expected_scope must be one of %s, got %r"
+            % (list(ENERGY_SCOPES), expected_scope)
+        )
+    declared = str(getattr(refs, "energy_scope", "") or "")
+    if not declared:
+        if expected_scope != SCOPE_MOBILE:
+            raise EnergyReferenceMismatch(
+                "reference object carries no energy_scope metadata; it may only be "
+                "used as the legacy mobile boundary, not as %r" % expected_scope
+            )
+        if expected_scheduler_config_sha256:
+            raise EnergyReferenceMismatch(
+                "reference object carries no scheduler fingerprint; refusing a "
+                "strict comparison against %s" % expected_scheduler_config_sha256[:12]
+            )
+        return SCOPE_MOBILE
+    if declared != expected_scope:
+        raise EnergyReferenceMismatch(
+            "reference energy_scope %r != required %r" % (declared, expected_scope)
+        )
+    if expected_scheduler_config_sha256:
+        found = str(getattr(refs, "scheduler_config_sha256", "") or "")
+        if not found:
+            raise EnergyReferenceMismatch(
+                "reference object has no scheduler_config_sha256; strict comparison "
+                "against %s is impossible" % expected_scheduler_config_sha256[:12]
+            )
+        if found != expected_scheduler_config_sha256:
+            raise EnergyReferenceMismatch(
+                "reference scheduler_config_sha256 %s != required %s"
+                % (found[:12], expected_scheduler_config_sha256[:12])
+            )
+    return declared

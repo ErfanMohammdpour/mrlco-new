@@ -130,3 +130,82 @@ class TestConfiguredScalar(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestReferenceScopeContract(unittest.TestCase):
+    """E1.2 scope guard: plan names are not boundaries."""
+
+    class Refs:
+        def __init__(self, scope="", sha=""):
+            self.energy_scope = scope
+            self.scheduler_config_sha256 = sha
+
+    def test_matching_scope_passes(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import require_reference_scope
+
+        self.assertEqual(
+            require_reference_scope(self.Refs(SCOPE_SYSTEM), expected_scope=SCOPE_SYSTEM),
+            SCOPE_SYSTEM,
+        )
+
+    def test_scope_mismatch_raises(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            EnergyReferenceMismatch,
+            require_reference_scope,
+        )
+
+        with self.assertRaises(EnergyReferenceMismatch):
+            require_reference_scope(self.Refs(SCOPE_MOBILE), expected_scope=SCOPE_SYSTEM)
+
+    def test_metadata_free_reference_is_mobile_only(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            EnergyReferenceMismatch,
+            require_reference_scope,
+        )
+
+        refs = self.Refs()
+        self.assertEqual(
+            require_reference_scope(refs, expected_scope=SCOPE_MOBILE), SCOPE_MOBILE
+        )
+        with self.assertRaises(EnergyReferenceMismatch):
+            require_reference_scope(refs, expected_scope=SCOPE_SYSTEM)
+
+    def test_strict_fingerprint_requires_metadata(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            EnergyReferenceMismatch,
+            require_reference_scope,
+        )
+
+        with self.assertRaises(EnergyReferenceMismatch):
+            require_reference_scope(
+                self.Refs(SCOPE_MOBILE), expected_scope=SCOPE_MOBILE,
+                expected_scheduler_config_sha256="a" * 64,
+            )
+        with self.assertRaises(EnergyReferenceMismatch):
+            require_reference_scope(
+                self.Refs(SCOPE_MOBILE, "b" * 64), expected_scope=SCOPE_MOBILE,
+                expected_scheduler_config_sha256="a" * 64,
+            )
+        self.assertEqual(
+            require_reference_scope(
+                self.Refs(SCOPE_MOBILE, "a" * 64), expected_scope=SCOPE_MOBILE,
+                expected_scheduler_config_sha256="a" * 64,
+            ),
+            SCOPE_MOBILE,
+        )
+
+    def test_invalid_expected_scope_raises(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            EnergyReferenceMismatch,
+            require_reference_scope,
+        )
+
+        with self.assertRaises(EnergyReferenceMismatch):
+            require_reference_scope(self.Refs(SCOPE_SYSTEM), expected_scope="solar")
+
+    def test_schema_constant(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            REFERENCE_SCHEMA_VERSION,
+        )
+
+        self.assertEqual(REFERENCE_SCHEMA_VERSION, "energy_reference_ranges_v2")
