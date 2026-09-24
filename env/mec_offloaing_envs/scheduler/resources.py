@@ -58,6 +58,9 @@ class ResourceConfig:
     # tier source for timing_model="physical_rates" only; required in that case so
     # nothing is inferred from the energy model behind the caller's back
     timing_tiers: Any | None = None
+    # radio parameter source for radio_timing_model="physical_rates", independent
+    # of the radio ACCOUNTING model
+    radio_timing_spec: Any | None = None
     # requested accounting scope (provenance + validation; consumers use the
     # canonical accessor, never a hidden default)
     energy_scope: str = ""
@@ -95,9 +98,15 @@ class ResourceConfig:
                 "timing_model=%r requires timing_tiers; refusing to infer the "
                 "rate source from the energy model" % TIMING_PHYSICAL
             )
-        if self.radio_timing_model == TIMING_PHYSICAL and self.radio_model is None:
+        if self.radio_timing_model == TIMING_PHYSICAL and self.radio_timing_spec is None:
             raise ValueError(
-                "radio_timing_model=%r requires a radio_model" % TIMING_PHYSICAL
+                "radio_timing_model=%r requires radio_timing_spec; the radio "
+                "ACCOUNTING model is not a rate source" % TIMING_PHYSICAL
+            )
+        if self.timing_is_physical and not getattr(self.timing_tiers, "is_physical", False):
+            raise ValueError(
+                "timing_model=%r requires a PHYSICAL tier source, got %r"
+                % (TIMING_PHYSICAL, getattr(self.timing_tiers, "model", None))
             )
         if self.energy_scope and self.energy_scope not in ENERGY_SCOPES:
             raise ValueError(
@@ -121,7 +130,7 @@ class ResourceConfig:
         physical hop energy must not change hop durations.
         """
         if self.radio_timing_model == TIMING_PHYSICAL:
-            return self.radio_model.rate_for_hop(hop)
+            return self.radio_timing_spec.rate_for_hop(hop)
         return {
             "MEC_UL": self.mec_uplink_bytes_per_second,
             "MEC_DL": self.mec_downlink_bytes_per_second,
@@ -289,7 +298,18 @@ class ResourceConfig:
             radio_model=resolved_radio,
             timing_model=resolved_timing,
             radio_timing_model=resolved_radio_timing,
-            timing_tiers=resolved_energy if resolved_timing == TIMING_PHYSICAL else None,
+            # the timing sources are resolved from the yaml's physical parameter
+            # blocks, INDEPENDENTLY of which accounting model was selected
+            timing_tiers=(
+                EnergyModelSpec.from_dict({**doc.get("energy_model", {}), "model": MODEL_PHYSICAL})
+                if resolved_timing == TIMING_PHYSICAL
+                else None
+            ),
+            radio_timing_spec=(
+                RadioModelSpec.from_dict({**doc.get("radio_model", {}), "model": RADIO_PHYSICAL})
+                if resolved_radio_timing == TIMING_PHYSICAL
+                else None
+            ),
             energy_scope=declared_scope,
             source_config_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         )

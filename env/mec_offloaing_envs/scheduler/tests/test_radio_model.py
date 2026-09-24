@@ -126,6 +126,7 @@ def _resources(radio_model="legacy", energy_model="legacy"):
         radio_model=radio,
         timing_model=TIMING_LEGACY,
         radio_timing_model=TIMING_PHYSICAL if radio_model == RADIO_PHYSICAL else TIMING_LEGACY,
+        radio_timing_spec=radio if radio_model == RADIO_PHYSICAL else None,
     )
 
 

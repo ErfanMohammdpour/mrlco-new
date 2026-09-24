@@ -129,13 +129,10 @@ def transfer_lower_bound(
 
 
 def _cpu_rate(resources: ResourceConfig, location: Location, cycles_per_bit) -> float:
-    if getattr(resources, "physical", False):
-        from .energy_model import tier_for_location
-
-        spec = resources.energy_model
-        xi = float(spec.cycles_per_bit) if cycles_per_bit is None else float(cycles_per_bit)
-        return spec.tier(tier_for_location(location)).cpu_rate_bytes_per_second(xi)
-    return resources.cpu_rate(location)
+    """Timing-only rate. `resources.physical` is an ACCOUNTING predicate and must
+    never select a rate, otherwise physical energy silently moves the bounds, the
+    masks and observation v3 while the schedule stays put."""
+    return resources.cpu_rate_bytes_per_second(location, cycles_per_bit)
 
 
 def start_lower_bound(
