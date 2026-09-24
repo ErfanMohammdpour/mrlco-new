@@ -38,6 +38,10 @@ from env.mec_offloaing_envs.scheduler import (  # noqa: E402
     ResourceConfig,
     schedule,
 )
+from env.mec_offloaing_envs.scheduler.resources import (  # noqa: E402
+    TIMING_LEGACY,
+    TIMING_PHYSICAL,
+)
 from env.mec_offloaing_envs.scheduler.feasibility import transfer_lower_bound  # noqa: E402
 from env.mec_offloaing_envs.scheduler.model import Location  # noqa: E402
 from env.mec_offloaing_envs.scheduler.objective import (  # noqa: E402
@@ -120,6 +124,8 @@ def _resources(radio_model="legacy", energy_model="legacy"):
         f_v2v=base.f_v2v,
         energy_model=base.energy_model,
         radio_model=radio,
+        timing_model=TIMING_LEGACY,
+        radio_timing_model=TIMING_PHYSICAL if radio_model == RADIO_PHYSICAL else TIMING_LEGACY,
     )
 
 

@@ -105,6 +105,10 @@ def _spec(**overrides):
 
 
 def _resources(spec=None, model="legacy"):
+    from env.mec_offloaing_envs.scheduler.resources import (
+        TIMING_LEGACY,
+        TIMING_PHYSICAL,
+    )
     base = ResourceConfig.from_frozen_yaml(model=model)
     if spec is None:
         return base
@@ -123,6 +127,9 @@ def _resources(spec=None, model="legacy"):
         ptx_v2v_w=base.ptx_v2v_w,
         prx_v2v_w=base.prx_v2v_w,
         rho_helper=base.rho_helper,
+        timing_model=TIMING_PHYSICAL if spec is not None else TIMING_LEGACY,
+        radio_timing_model=TIMING_LEGACY,   # no radio model in these fixtures
+        timing_tiers=spec,
         f_v2v=base.f_v2v,
         energy_model=spec,
     )

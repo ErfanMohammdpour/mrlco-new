@@ -12,7 +12,22 @@ from .model import Location
 from .validate import require_nonneg_float, require_positive_rate
 
 
+# --------------------------------------------------------------------------- #
+# Independent axes. Timing (rates -> durations -> schedule) and energy accounting
+# must be switchable separately: turning on physical ENERGY must never silently
+# change CPU/radio rates, makespan, start/finish times, calendar intervals or
+# action feasibility. `model="legacy"|"physical_v1"` remains the coarse switch for
+# old callers; the explicit kwargs below win and are recorded in provenance.
+# --------------------------------------------------------------------------- #
+TIMING_LEGACY = "legacy_frozen_rates"
+TIMING_PHYSICAL = "physical_rates"
+TIMING_MODELS = (TIMING_LEGACY, TIMING_PHYSICAL)
+ENERGY_SCOPES = ("requester", "mobile", "system")
+
+
 @dataclass(frozen=True)
+
+
 class ResourceConfig:
     ue_cpu_bytes_per_second: float
     mec_cpu_bytes_per_second: float
@@ -36,6 +51,18 @@ class ResourceConfig:
     # None -> legacy Mbps table. A physical RadioModelSpec derives the hop
     # rate from bandwidth_hz * spectral_efficiency (or SINR).
     radio_model: Any | None = None
+    # --- independent timing axis (rates). Default: the frozen byte-rate table,
+    # i.e. the schedule does not move when the energy model changes.
+    timing_model: str = TIMING_LEGACY
+    radio_timing_model: str = TIMING_LEGACY
+    # tier source for timing_model="physical_rates" only; required in that case so
+    # nothing is inferred from the energy model behind the caller's back
+    timing_tiers: Any | None = None
+    # requested accounting scope (provenance + validation; consumers use the
+    # canonical accessor, never a hidden default)
+    energy_scope: str = ""
+    # hash of the yaml/document this config was resolved from, when applicable
+    source_config_sha256: str = ""
 
     def __post_init__(self) -> None:
         require_positive_rate("ue_cpu_bytes_per_second", self.ue_cpu_bytes_per_second)
@@ -53,9 +80,33 @@ class ResourceConfig:
         require_nonneg_float("prx_v2v_w", self.prx_v2v_w)
         require_nonneg_float("rho_helper", self.rho_helper)
         require_nonneg_float("f_v2v", self.f_v2v)
+        if self.timing_model not in TIMING_MODELS:
+            raise ValueError(
+                "timing_model must be one of %s, got %r"
+                % (", ".join(TIMING_MODELS), self.timing_model)
+            )
+        if self.radio_timing_model not in TIMING_MODELS:
+            raise ValueError(
+                "radio_timing_model must be one of %s, got %r"
+                % (", ".join(TIMING_MODELS), self.radio_timing_model)
+            )
+        if self.timing_model == TIMING_PHYSICAL and self.timing_tiers is None:
+            raise ValueError(
+                "timing_model=%r requires timing_tiers; refusing to infer the "
+                "rate source from the energy model" % TIMING_PHYSICAL
+            )
+        if self.radio_timing_model == TIMING_PHYSICAL and self.radio_model is None:
+            raise ValueError(
+                "radio_timing_model=%r requires a radio_model" % TIMING_PHYSICAL
+            )
+        if self.energy_scope and self.energy_scope not in ENERGY_SCOPES:
+            raise ValueError(
+                "energy_scope must be one of %s, got %r"
+                % (", ".join(ENERGY_SCOPES), self.energy_scope)
+            )
 
     def cpu_rate(self, loc: Location) -> float:
-        if self.energy_model is not None and self.energy_model.is_physical:
+        if self.timing_is_physical:
             return self.cpu_rate_bytes_per_second(loc)
         return {
             Location.UE: self.ue_cpu_bytes_per_second,
@@ -64,8 +115,12 @@ class ResourceConfig:
         }[loc]
 
     def hop_rate(self, hop: str) -> float:
-        """Effective throughput [bytes/s]. physical radio uses B*eta (or SINR)."""
-        if self.radio_model is not None and self.radio_model.is_physical:
+        """Effective throughput [bytes/s], from the RADIO TIMING axis.
+
+        Radio energy accounting (`radio_model`) is a separate axis: enabling
+        physical hop energy must not change hop durations.
+        """
+        if self.radio_timing_model == TIMING_PHYSICAL:
             return self.radio_model.rate_for_hop(hop)
         return {
             "MEC_UL": self.mec_uplink_bytes_per_second,
@@ -73,10 +128,19 @@ class ResourceConfig:
             "V2V": self.v2v_bytes_per_second,
         }[hop]
 
-    # -- physical_v1 aware helpers (legacy path untouched) ----------------
+    # -- axis predicates --------------------------------------------------
     @property
     def physical(self) -> bool:
+        """True when ENERGY ACCOUNTING is physical. Never used for rates."""
         return self.energy_model is not None and self.energy_model.is_physical
+
+    @property
+    def timing_is_physical(self) -> bool:
+        return self.timing_model == TIMING_PHYSICAL
+
+    @property
+    def radio_timing_is_physical(self) -> bool:
+        return self.radio_timing_model == TIMING_PHYSICAL
 
     def cpu_rate_bytes_per_second(
         self, loc: "Location", cycles_per_bit: float | None = None
@@ -87,21 +151,26 @@ class ResourceConfig:
         `cycles_per_bit` carries a per-task override when the task provides one;
         None means "use the episode-global cycles_per_bit".
         """
-        if self.physical:
+        if self.timing_is_physical:
             from .energy_model import tier_for_location
 
+            source = self.timing_tiers
             xi = (
-                float(self.energy_model.cycles_per_bit)
+                float(source.cycles_per_bit)
                 if cycles_per_bit is None
                 else float(cycles_per_bit)
             )
-            return self.energy_model.tier(tier_for_location(loc)).cpu_rate_bytes_per_second(xi)
+            return source.tier(tier_for_location(loc)).cpu_rate_bytes_per_second(xi)
         return self.cpu_rate(loc)
 
     def cpu_rate_for_task(self, loc: "Location", task: Any) -> float:
         """Per-task rate (physical_v1 honours task.cycles_per_bit)."""
         xi = None
-        if self.physical and task is not None and getattr(task, "cycles_per_bit", None) is not None:
+        if (
+            self.timing_is_physical
+            and task is not None
+            and getattr(task, "cycles_per_bit", None) is not None
+        ):
             xi = float(task.cycles_per_bit)
         return self.cpu_rate_bytes_per_second(loc, xi)
 
@@ -143,6 +212,9 @@ class ResourceConfig:
         model: str | None = "legacy",
         energy_model: str | None = None,
         radio_model: str | None = None,
+        timing_model: str | None = None,
+        radio_timing_model: str | None = None,
+        energy_scope: str | None = None,
     ) -> "ResourceConfig":
         """Build the frozen resource config.
 
@@ -157,14 +229,46 @@ class ResourceConfig:
         `energy_model` / `radio_model` override the two switches INDEPENDENTLY, so
         a radio-only audit (legacy compute physics, physical radio) is possible
         without conflating the two changes. When omitted they follow `model`.
+
+        TIMING is a separate axis. `model="physical_v1"` keeps its historical
+        meaning (physical accounting AND physical rates) for existing callers,
+        while an explicit `timing_model=TIMING_LEGACY` gives physical accounting on
+        the frozen rate table -- the mode the energy-constraint experiment needs.
+        `model=None` honours the yaml for ACCOUNTING only and keeps timing legacy
+        unless `timing_model` asks otherwise: nothing is inferred silently.
         """
         import yaml
 
         if path is None:
             path = Path(__file__).resolve().parents[3] / "spec" / "frozen_experiment.yaml"
-        doc = yaml.safe_load(path.read_text())
+        import hashlib
+
+        text = path.read_text()
+        doc = yaml.safe_load(text)
         rates = doc["resource_rates"]
         power = doc["power"]
+        resolved_energy = _select_energy_model(
+            doc, model if energy_model is None else energy_model
+        )
+        resolved_radio = _select_radio_model(
+            doc, model if radio_model is None else radio_model
+        )
+        coarse_physical = model == MODEL_PHYSICAL
+        resolved_timing = (
+            timing_model
+            if timing_model is not None
+            else (TIMING_PHYSICAL if coarse_physical else TIMING_LEGACY)
+        )
+        resolved_radio_timing = (
+            radio_timing_model
+            if radio_timing_model is not None
+            else (TIMING_PHYSICAL if coarse_physical else TIMING_LEGACY)
+        )
+        declared_scope = (
+            energy_scope
+            if energy_scope is not None
+            else str(getattr(resolved_energy, "energy_scope", "") or "")
+        )
         return cls(
             ue_cpu_bytes_per_second=float(rates["ue_cpu_bytes_per_second"]),
             mec_cpu_bytes_per_second=float(rates["mec_cpu_bytes_per_second"]),
@@ -181,12 +285,13 @@ class ResourceConfig:
             prx_v2v_w=float(power["prx_v2v_w"]),
             rho_helper=float(power["rho_helper"]),
             f_v2v=float(power["f_v2v"]),
-            energy_model=_select_energy_model(
-                doc, model if energy_model is None else energy_model
-            ),
-            radio_model=_select_radio_model(
-                doc, model if radio_model is None else radio_model
-            ),
+            energy_model=resolved_energy,
+            radio_model=resolved_radio,
+            timing_model=resolved_timing,
+            radio_timing_model=resolved_radio_timing,
+            timing_tiers=resolved_energy if resolved_timing == TIMING_PHYSICAL else None,
+            energy_scope=declared_scope,
+            source_config_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         )
 
 

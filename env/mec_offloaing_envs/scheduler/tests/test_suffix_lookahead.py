@@ -66,6 +66,10 @@ SMALL = 2048
 
 
 def _resources(physical: bool = True):
+    from env.mec_offloaing_envs.scheduler.resources import (
+        TIMING_LEGACY,
+        TIMING_PHYSICAL,
+    )
     from env.mec_offloaing_envs.scheduler.energy_model import (
         MODEL_PHYSICAL,
         SCOPE_SYSTEM,
@@ -104,6 +108,9 @@ def _resources(physical: bool = True):
         prx_v2v_w=base.prx_v2v_w,
         rho_helper=base.rho_helper,
         f_v2v=base.f_v2v,
+        timing_model=TIMING_PHYSICAL if spec is not None else TIMING_LEGACY,
+        radio_timing_model=TIMING_LEGACY,   # no radio model in these fixtures
+        timing_tiers=spec,
         energy_model=spec,
     )
 
