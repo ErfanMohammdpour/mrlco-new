@@ -171,3 +171,119 @@ reward terms, no simultaneous obs+reward+PPO changes. One variable at a time.
 4. Pilot size: 1 seed x 200 iterations x 2 modes, sequential (~27 h) — accept?
 5. Turn on `physical_v1` in the same pilot, or keep legacy for the pilot and
    isolate energy afterwards?
+
+---
+
+## 9. Implementation report (no training, CPU only)
+
+Commits: `de70131` (schema/generator/stamper), `78efd56` (witness + anchoring),
+`f831e69` (mask breakdown + gate rules + sweeper), plus the evidence commit.
+Local suite `544 passed, 5 skipped`; 64 new tests; `py_compile` clean.
+
+### 9.1 What is standard now
+
+* `schema deadline_regime_v1` with a content hash per graph, the dataset manifest
+  hash, a scheduling-relevant resource hash, model provenance, seed, policies, and
+  per task `deadline_s` / `deadline_type` / `criticality_class` / `tardiness_weight`.
+* a stamper that fails loudly on coverage mismatch, hash mismatch, non-finite or
+  non-positive deadlines, an unknown type, a duplicate id, and on stamping a
+  different regime over an already stamped graph; idempotent for the same one;
+  regime `none` writes nothing and is asserted byte-exact against the legacy path.
+* a witness pipeline that uses the REAL scheduler (`schedule_via_adapter`, six
+  single-capacity calendars) and stores, per graph, the witness actions, makespan,
+  and per-task finish / all_consumers_ready / deadline / slack / missed.
+* `build_regime_with_witness`: find a fastest plan, anchor the deadlines to it
+  (`d_i = EFT_i + alpha * (kappa * W_i - EFT_i)`), stamp, then certify with a
+  miss-first search seeded by that plan. Graphs without a witness are returned with
+  a reason instead of being kept.
+* a sweep + gate report per split, with the action-closure breakdown and two
+  fully-worked example graphs.
+
+### 9.2 The gate result: no regime passes, and the reason is structural
+
+Anchored sweep (alpha = 1.0, limit 8 per distribution, all three splits):
+
+| regime | kappa | split | witness rate | active | forced | all-invalid | UE closed | MEC closed | HELPER closed | gate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| loose_hard | 1.05 | meta_train | 1.000 | 0.042 | 0.030 | 0.000 | 0.030 | **0.000** | 0.042 | fail |
+| loose_hard | 1.05 | validation | 1.000 | 0.055 | 0.045 | 0.000 | 0.045 | **0.000** | 0.055 | fail |
+| loose_hard | 1.05 | meta_test | 1.000 | 0.016 | 0.015 | 0.000 | 0.015 | **0.000** | 0.016 | fail |
+| loose_hard | 1.25 | all three | 1.000 | 0.028 | 0.022 | 0.000 | 0.022 | **0.000** | 0.028 | fail |
+| (alpha = 0.5 probe) | 1.10 | meta_train | **0.000** | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | no graphs |
+
+`witness_rate = 1.000` with `kappa = 1.05` and `alpha = 1.0` is by construction:
+the deadlines come from a real plan and that plan is replayed as the witness. The
+gate still fails, on two independent counts:
+
+1. **`active_rate` is 0.016-0.055, below the 0.05 floor** (and far below the
+   0.10-0.30 preferred band), so the shield would almost never fire.
+2. **`mec_closed_rate = 0.0000` in every configuration and every split**, and
+   `graphs_with_mec_closure = 0`. The action the policy actually collapses onto can
+   never be closed.
+
+The mechanism is measurable, not speculative. Over 600 tasks of three
+distributions: MEC has the strictly smallest `ready_lb` in **600/600** cases, and
+`UE/MEC` ranges 1.12-10.0 (mean 4.86), `HELPER/MEC` 1.31-10.0. So any deadline that
+closes MEC also closes UE and HELPER, the row becomes all-invalid, and the
+dead-end guard drops the mask: a deadline-based static shield cannot express
+"MEC forbidden, something else allowed". On top of that the relaxation is loose
+relative to reality -- in the worked example MEC's bound is 7.58 s while the
+achievable plan reaches that task at 119.2 s -- so a deadline anchored to any
+achievable schedule (125.1 s) leaves every action open.
+
+Lowering `alpha` to create pressure destroys the instance instead: at
+`alpha = 0.5`, `kappa = 1.10` **zero** graphs certify a witness, because the
+deadlines fall below what any plan can achieve. The two knobs pull in opposite
+directions and there is no window where the shield both exists and bites.
+
+### 9.3 Worked example (regime `loose_hard`, kappa 1.05, alpha 1.0)
+
+(graph `1/random.20.0.gv`, witness method `anchored_seed`, makespan 427.58 s)
+
+| task | ready_lb MEC | ready_lb UE | deadline | witness action | actual ready | slack |
+|---|---|---|---|---|---|---|
+| 3 | 7.58 | 75.83 | 125.11 | 0 (UE) | 119.16 | 5.96 |
+| 4 | 6.06 | 60.64 | 115.52 | 1 (MEC) | 110.02 | 5.50 |
+| 2 | 5.43 | 54.26 | 272.48 | 0 (UE) | 259.50 | 12.98 |
+
+The witness is mixed-action in ~100% of graphs, which is itself informative: the
+H1/H2 search does move tasks off MEC when contention or the root upload makes it
+worthwhile, while the final policy in the 500-iteration run collapsed to 98.7-99.6%
+MEC.
+
+### 9.4 Consequences for the shield experiment
+
+The planned pilot (`off` vs `static` on a deadline regime) cannot be run as
+designed: with no regime passing the gate, `off` and `static` would again be the
+same run. Three honest options, in the order I would try them:
+
+1. **Runtime / prefix shield.** The only mechanism that can close MEC is a mask
+   computed from the actual prefix state (`suffix.dag_lower_bound_masks` with real
+   transfers and contention). That needs the environment to hand the scheduler
+   back per decoded token, which is the token-by-token stepping gap already
+   documented in `MASKED_PPO_INTERFACE_6b.md` §13.4, and the mask must travel with
+   the batch as `MARGO_MASK_MODE=runtime` expects.
+2. **Reframe the claim.** The shield is a safety net, and on this workload it is
+   provably almost never needed: MEC dominates every task's lower bound, so a
+   deadline that forbids MEC forbids the instance. That is a legitimate result to
+   report -- and it is the opposite of the assumption behind the pilot.
+3. **Change the physics, not the shield.** If the intended story needs MEC to be
+   deadline-infeasible while other actions survive, the model must make remote
+   execution pay an unavoidable cost that local execution does not (uplink of the
+   task input on a contention-limited link, RSU admission/queueing, or MEC
+   capacity limits). That is a modelling change with its own audit, not a dataset
+   knob.
+
+Nothing here changes the frozen training path: `off` mode is untouched, the `.gv`
+files are unmodified, and the sidecars are separate artifacts.
+
+### 9.5 Energy plumbing: still open
+
+The recon for commit 4 is complete and confirms the audit suspicion with exact
+drop points: `adapter.py:82-101` builds `ResourceConfig` without `energy_model` /
+`radio_model`, so every train/val env runs legacy (MEC compute energy = 0,
+`total_system_joules == total_mobile_joules`); `energy_scope` is parsed but has
+zero production consumers; and reward/reference-ranges/step-log/constraints read
+`total_mobile_joules` while the log-only objective reads `total_system_joules`
+and the constraint `ue` channel reads `total_requester_joules`. Commit 4 is the
+threading + canonical-accessor fix, with legacy kept byte-exact.
