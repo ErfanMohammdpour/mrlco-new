@@ -496,31 +496,44 @@ class OffloadingEnvironment(MetaEnv):
         return -(cost - min_time) / (max_time - min_time)
     
     def get_reference_ranges(self, task_graph):
-        """Episode-local L/E ranges; cached per task-graph object.
+        """Episode-local L/E ranges; cached by content key, not object id.
 
         `reference_range` in `energy_config` selects the construction:
           "pure_location"   -> all_UE / all_MEC / all_HELPER  (MARGO-SPEC-v0.1)
           "candidate_panel" -> plus greedy_from_mec (fixes the clipped-j_report
                                inversion; costs one extra local search per graph,
                                so it is cached here and never recomputed per step)
+
+        The cache key binds graph content, reference mode, energy boundary and the
+        resolved scheduler fingerprint. A hit whose declared boundary or
+        fingerprint does not match fails loud: no silent fallback, no recompute.
         """
-        from env.mec_offloaing_envs.scheduler.energy_api import compute_reference_ranges
+        from env.mec_offloaing_envs.scheduler.energy_cache import (
+            get_or_build_reference_ranges,
+        )
+        from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_MOBILE
 
         cache = getattr(self, "_refs_cache", None)
         if cache is None:
             cache = {}
             self._refs_cache = cache
-        key = id(task_graph)
-        hit = cache.get(key)
-        if hit is None:
-            mode = str(
-                (getattr(self.resource_cluster, "energy_config", None) or {}).get(
-                    "reference_range", "pure_location"
-                )
+        mode = str(
+            (getattr(self.resource_cluster, "energy_config", None) or {}).get(
+                "reference_range", "pure_location"
             )
-            hit = compute_reference_ranges(task_graph, self.scheduler_resources, mode=mode)
-            cache[key] = hit
-        return hit
+        )
+        # 4.2 keeps every consumer on the mobile boundary; 4.3 flips the two
+        # intended consumers (reward/objective) to `system` together with this.
+        scope = SCOPE_MOBILE
+        return get_or_build_reference_ranges(
+            cache,
+            graph=task_graph,
+            order=[int(tid) for tid in task_graph.prioritize_sequence],
+            reference_mode=mode,
+            energy_scope=scope,
+            resources=self.scheduler_resources,
+            panel_max_passes=2,
+        )
 
     def get_reward_batch_step_by_step(self, action_sequence_batch, task_graph_batch,
                                       max_running_time_batch, min_running_time_batch):

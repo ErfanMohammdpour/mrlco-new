@@ -29,7 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from typing import Any, Mapping, Sequence
+from typing import Any, MutableMapping, Mapping, Sequence
 
 from .energy_model import SCOPE_SYSTEM
 from .energy_scope import ENERGY_SCOPES
@@ -46,8 +46,24 @@ def _finite(value: Any, name: str) -> float:
     return number
 
 
+def _canonical_graph(graph: Any) -> Any:
+    """Content view of either a CanonicalDAG or a legacy OffloadingTaskGraph."""
+    tasks = getattr(graph, "tasks", None)
+    if isinstance(tasks, Mapping) and tasks and getattr(graph, "edges", None) is not None:
+        return graph
+    from .adapter import to_canonical_dag
+
+    try:
+        return to_canonical_dag(graph)
+    except Exception as exc:  # legacy graph without the adapter's required attrs
+        raise ValueError(
+            "graph is neither a CanonicalDAG nor a legacy task graph: %r" % (exc,)
+        ) from exc
+
+
 def scheduling_graph_fingerprint(graph: Any, order: Sequence[int]) -> str:
     """Content hash of everything in the graph that a reference result depends on."""
+    graph = _canonical_graph(graph)
     tasks = getattr(graph, "tasks", None)
     if not isinstance(tasks, Mapping) or not tasks:
         raise ValueError("graph must expose a non-empty `tasks` mapping")
@@ -130,3 +146,53 @@ def primary_scope_of(resources: Any) -> str:
             % (scope, SCOPE_SYSTEM)
         )
     return scope
+
+
+def get_or_build_reference_ranges(
+    cache: MutableMapping[str, Any],
+    *,
+    graph: Any,
+    order: Sequence[int],
+    reference_mode: str,
+    energy_scope: str,
+    resources: Any,
+    panel_max_passes: int = 0,
+    panel_extra: Any = None,
+) -> Any:
+    """Cache-resolved SCOPED reference ranges, with a fail-loud hit guard.
+
+    The key binds graph content, reference mode, boundary, panel and the resolved
+    scheduler fingerprint, so a hit is exactly the object the caller asked for.
+    We still re-validate the declared metadata on a hit: a mutated or poisoned
+    cache must raise, never return a differently-scoped reference silently.
+    """
+    from .energy_api import compute_scoped_reference_ranges
+    from .energy_scope import require_reference_scope
+
+    key = reference_ranges_cache_key(
+        graph=graph,
+        order=order,
+        reference_mode=reference_mode,
+        energy_scope=energy_scope,
+        resources=resources,
+        panel_max_passes=panel_max_passes,
+        panel_extra=panel_extra,
+    )
+    hit = cache.get(key)
+    if hit is None:
+        hit = compute_scoped_reference_ranges(
+            graph,
+            resources,
+            energy_scope=energy_scope,
+            mode=reference_mode,
+            panel_extra=panel_extra,
+            panel_max_passes=panel_max_passes,
+        )
+        cache[key] = hit
+        return hit
+    require_reference_scope(
+        hit,
+        expected_scope=energy_scope,
+        expected_scheduler_config_sha256=resolved_config_sha256(resources),
+    )
+    return hit

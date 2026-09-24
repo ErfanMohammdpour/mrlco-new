@@ -12,8 +12,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from .energy_model import hop_energy_fields
+from .energy_scope import (
+    ENERGY_SCOPES,
+    REFERENCE_SCHEMA_VERSION,
+    SCOPE_MOBILE,
+    energy_scalar,
+)
 from .model import EnergyBreakdown, Location, ScheduleResult
-from .resources import ResourceConfig
+from .resources import ResourceConfig, resolved_config_sha256
 from .validate import require_finite
 
 logger = logging.getLogger(__name__)
@@ -83,14 +89,27 @@ def require_publication_weights(latency_weight: float, energy_weight: float) -> 
     return frozen_lw, frozen_ew
 
 
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(c in "0123456789abcdef" for c in value.lower())
+
+
 @dataclass(frozen=True)
 class ReferenceRanges:
-    """Episode-local reference ranges.
+    """Episode-local reference ranges (schema `energy_reference_ranges_v2`).
 
     `L_ref_min/max` and `E_ref_min/max` come from the pure-location plans
     (MARGO-SPEC-v0.1). When `reference_mode="candidate_panel"` the `*_panel_*`
     fields carry the min/max over the wider candidate panel and are used for
     normalization instead.
+
+    `E_ue/E_mec/E_helper` are PLAN energies, not boundaries: each is the total
+    energy of the all-UE / all-MEC / all-HELPER plan measured at `energy_scope`.
+    The v2 aliases `plan_all_*_energy_j` say this explicitly; the historical names
+    stay for compatibility. An object with an empty `energy_scope` is a
+    METADATA-FREE legacy object: it may only be consumed as the legacy mobile
+    boundary (see `energy_scope.require_reference_scope`), never as a primary
+    reference. Primary references always carry both `energy_scope` and
+    `scheduler_config_sha256`.
     """
 
     L_ue: float
@@ -108,24 +127,58 @@ class ReferenceRanges:
     L_panel_max: float | None = None
     E_panel_min: float | None = None
     E_panel_max: float | None = None
+    # --- v2 scope contract (E1.2) -----------------------------------------
+    # boundary the three plan energies were measured at; empty = legacy object
+    energy_scope: str = ""
+    # resolved scheduler config fingerprint; required whenever energy_scope is set
+    scheduler_config_sha256: str = ""
+    schema_version: str = REFERENCE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         for name in ("L_ue", "L_mec", "L_helper", "E_ue", "E_mec", "E_helper"):
-            require_finite(name, getattr(self, name))
+            value = require_finite(name, getattr(self, name))
+            if value < 0.0:
+                raise ValueError("%s must be non-negative, got %r" % (name, value))
         if self.reference_mode not in REFERENCE_MODES:
             raise ValueError(
                 "reference_mode must be one of %s, got %r"
                 % (REFERENCE_MODES, self.reference_mode)
+            )
+        if self.schema_version != REFERENCE_SCHEMA_VERSION:
+            raise ValueError(
+                "schema_version must be %r, got %r"
+                % (REFERENCE_SCHEMA_VERSION, self.schema_version)
+            )
+        scope = str(self.energy_scope or "")
+        if scope and scope not in ENERGY_SCOPES:
+            raise ValueError(
+                "energy_scope must be one of %s, got %r" % (list(ENERGY_SCOPES), scope)
+            )
+        sha = str(self.scheduler_config_sha256 or "")
+        if scope and not _is_sha256(sha):
+            raise ValueError(
+                "a scoped reference requires a 64-hex scheduler_config_sha256; "
+                "primary references are never metadata-free"
+            )
+        if not scope and sha:
+            raise ValueError(
+                "scheduler_config_sha256 without energy_scope is half metadata; "
+                "refusing it"
             )
         # Derived extrema are always ordered; still assert finite scales usable.
         require_finite("L_ref_min", self.L_ref_min)
         require_finite("L_ref_max", self.L_ref_max)
         require_finite("E_ref_min", self.E_ref_min)
         require_finite("E_ref_max", self.E_ref_max)
+        if self.L_ref_min > self.L_ref_max + 1e-12:
+            raise ValueError("L_ref_min must be <= L_ref_max")
+        if self.E_ref_min > self.E_ref_max + 1e-12:
+            raise ValueError("E_ref_min must be <= E_ref_max")
         for name in ("L_panel_min", "L_panel_max", "E_panel_min", "E_panel_max"):
             value = getattr(self, name)
             if value is not None:
-                require_finite(name, value)
+                if require_finite(name, value) < 0.0:
+                    raise ValueError("%s must be non-negative, got %r" % (name, value))
         if self.reference_mode == REFERENCE_MODE_PANEL and (
             self.L_panel_min is None
             or self.L_panel_max is None
@@ -133,6 +186,31 @@ class ReferenceRanges:
             or self.E_panel_max is None
         ):
             raise ValueError("candidate_panel mode requires the *_panel_* fields")
+        if self.L_panel_min is not None and self.L_panel_min > self.L_panel_max + 1e-12:  # type: ignore[operator]
+            raise ValueError("L_panel_min must be <= L_panel_max")
+        if self.E_panel_min is not None and self.E_panel_min > self.E_panel_max + 1e-12:  # type: ignore[operator]
+            raise ValueError("E_panel_min must be <= E_panel_max")
+
+    # -- scope contract -----------------------------------------------------
+    @property
+    def is_primary(self) -> bool:
+        """True iff the object carries the full v2 metadata (scope + fingerprint)."""
+        return bool(self.energy_scope) and bool(self.scheduler_config_sha256)
+
+    @property
+    def plan_all_ue_energy_j(self) -> float:
+        """Energy of the all-UE plan at `energy_scope`."""
+        return float(self.E_ue)
+
+    @property
+    def plan_all_mec_energy_j(self) -> float:
+        """Energy of the all-MEC plan at `energy_scope`."""
+        return float(self.E_mec)
+
+    @property
+    def plan_all_helper_energy_j(self) -> float:
+        """Energy of the all-HELPER plan at `energy_scope`."""
+        return float(self.E_helper)
 
     # -- bounds actually used for normalization ----------------------------
     @property
@@ -190,15 +268,21 @@ def pure_location_plan(decoder_order: Sequence[int], action: int) -> list[tuple[
     return [(int(tid), int(action)) for tid in decoder_order]
 
 
-def compute_reference_ranges(
+def compute_scoped_reference_ranges(
     task_graph: Any,
     resources: ResourceConfig,
     *,
+    energy_scope: str,
     mode: str = REFERENCE_MODE_PURE,
     panel_extra: Sequence[Sequence[tuple[int, int]]] | None = None,
     panel_max_passes: int = 2,
 ) -> ReferenceRanges:
-    """Schedule the reference plans; derive L/E ref min/max.
+    """Schedule the reference plans and measure L/E at an EXPLICIT boundary.
+
+    `energy_scope` is mandatory (E1.2): `E_ue/E_mec/E_helper` are the plan
+    energies at that boundary, and the returned object records the boundary plus
+    the resolved scheduler fingerprint so a later consumer can never silently
+    normalise a differently-scoped objective.
 
     `mode="pure_location"` (default, MARGO-SPEC-v0.1): all_UE / all_MEC / all_HELPER.
     `mode="candidate_panel"`: the three pure plans PLUS `greedy_from_mec` (and any
@@ -208,6 +292,12 @@ def compute_reference_ranges(
     """
     from .adapter import schedule_via_adapter, validate_plan
 
+    scope = str(energy_scope or "")
+    if scope not in ENERGY_SCOPES:
+        raise ValueError(
+            "energy_scope is required and must be one of %s, got %r"
+            % (list(ENERGY_SCOPES), energy_scope)
+        )
     if mode not in REFERENCE_MODES:
         raise ValueError("mode must be one of %s, got %r" % (REFERENCE_MODES, mode))
 
@@ -232,7 +322,10 @@ def compute_reference_ranges(
     metrics: dict[str, tuple[float, float]] = {}
     for name, plan in plans:
         result, _, _ = schedule_via_adapter(task_graph, plan, resources)
-        metrics[name] = (result.makespan_seconds, result.total_mobile_joules)
+        metrics[name] = (
+            result.makespan_seconds,
+            energy_scalar(result, scope=scope),
+        )
 
     latencies = [m[0] for m in metrics.values()]
     energies = [m[1] for m in metrics.values()]
@@ -249,6 +342,32 @@ def compute_reference_ranges(
         E_panel_max=max(energies),
         source=REFERENCE_MODE_PANEL if mode == REFERENCE_MODE_PANEL else "pure_location_reference_range",
         reference_mode=mode,
+        energy_scope=scope,
+        scheduler_config_sha256=str(resolved_config_sha256(resources)),
+    )
+
+
+def compute_reference_ranges(
+    task_graph: Any,
+    resources: ResourceConfig,
+    *,
+    mode: str = REFERENCE_MODE_PURE,
+    panel_extra: Sequence[Sequence[tuple[int, int]]] | None = None,
+    panel_max_passes: int = 2,
+) -> ReferenceRanges:
+    """LEGACY/compatibility wrapper: the MOBILE boundary only.
+
+    Every number is identical to the pre-4.2 reference ranges. New code must call
+    `compute_scoped_reference_ranges(..., energy_scope=...)` explicitly; 4.3
+    switches the two intended consumers to `system`.
+    """
+    return compute_scoped_reference_ranges(
+        task_graph,
+        resources,
+        energy_scope=SCOPE_MOBILE,
+        mode=mode,
+        panel_extra=panel_extra,
+        panel_max_passes=panel_max_passes,
     )
 
 
@@ -288,23 +407,33 @@ def lambda_tag(lam: float) -> str:
 
 def j_lambda(
     makespan_seconds: float,
-    total_mobile_joules: float,
+    energy_joules: float,
     refs: ReferenceRanges,
     lam: float,
     *,
     clip: bool = True,
+    energy_scope: str | None = None,
 ) -> float:
     """J_λ = λ T_norm + (1−λ) E_norm. Search uses clip=False; report uses clip=True.
+
+    `energy_joules` must be measured at the boundary `refs` was built for. When
+    `energy_scope` is given the reference object is validated against it (a
+    metadata-free legacy reference is accepted only as `mobile`); otherwise the
+    boundary declared by `refs` is used, defaulting to legacy mobile.
 
     Normalization bounds follow `refs.reference_mode`: pure-location plans by
     default, or the wider candidate panel when the reference ranges were built
     with `mode="candidate_panel"`.
     """
+    from .energy_scope import require_reference_scope
+
     lam = float(lam)
     if lam < 0.0 or lam > 1.0:
         raise ValueError("lambda must be in [0,1], got %s" % lam)
+    scope = str(energy_scope or getattr(refs, "energy_scope", "") or SCOPE_MOBILE)
+    require_reference_scope(refs, expected_scope=scope)
     t = require_finite("T", makespan_seconds)
-    e = require_finite("E", total_mobile_joules)
+    e = require_finite("E", energy_joules)
     if clip:
         t_n = normalize(t, refs.L_min, refs.L_max, name="L", out_of_range=refs.out_of_range)
         e_n = normalize(e, refs.E_min, refs.E_max, name="E", out_of_range=refs.out_of_range)
@@ -314,9 +443,22 @@ def j_lambda(
     return lam * t_n + (1.0 - lam) * e_n
 
 
-def j_report(makespan_seconds: float, total_mobile_joules: float, refs: ReferenceRanges) -> float:
+def j_report(
+    makespan_seconds: float,
+    energy_joules: float,
+    refs: ReferenceRanges,
+    *,
+    energy_scope: str | None = None,
+) -> float:
     """Scientific composite: 0.5 * L_norm + 0.5 * E_norm (clipped)."""
-    return j_lambda(makespan_seconds, total_mobile_joules, refs, LATENCY_WEIGHT, clip=True)
+    return j_lambda(
+        makespan_seconds,
+        energy_joules,
+        refs,
+        LATENCY_WEIGHT,
+        clip=True,
+        energy_scope=energy_scope,
+    )
 
 
 def _add_transfer_components(
