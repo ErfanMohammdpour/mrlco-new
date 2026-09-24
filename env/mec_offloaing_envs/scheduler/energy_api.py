@@ -6,6 +6,7 @@ Reward telescoping (§6) lives in `reward.py`.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -330,6 +331,42 @@ def _add_transfer_components(
         setattr(bd, field_name, getattr(bd, field_name) + joules)
 
 
+class EnergyAttributionError(ValueError):
+    """Attribution could not be performed exactly under the given config."""
+
+
+# absolute + relative tolerance for the component identity check. The sums are
+# built from the SAME components the engine produced, so the tolerance only
+# absorbs float addition order (never a modelling difference).
+ATTRIBUTION_RTOL = 1e-9
+ATTRIBUTION_ATOL = 1e-9
+
+
+def _attribution_fingerprint_guard(result: ScheduleResult, resources: ResourceConfig) -> bool:
+    """Return True when legacy approximate reconstruction is allowed.
+
+    A result scheduled under one config must never be attributed under another:
+    the numbers would look valid and be wrong. Physical accounting requires the
+    exact path, so a missing fingerprint or task metadata is fatal there.
+    """
+    from .resources import resolved_config_sha256
+
+    result_sha = str(getattr(result, "scheduler_config_sha256", "") or "")
+    config_sha = str(resolved_config_sha256(resources))
+    if result_sha and config_sha and result_sha != config_sha:
+        raise EnergyAttributionError(
+            "scheduler config mismatch: result was scheduled with %s but attribution "
+            "was given %s" % (result_sha[:12], config_sha[:12])
+        )
+    physical = bool(getattr(resources, "physical", False))
+    if physical and not result_sha:
+        raise EnergyAttributionError(
+            "physical accounting requires a result that records its scheduler config "
+            "fingerprint; refusing to reconstruct"
+        )
+    return not physical
+
+
 def attribute_energy_components_by_task(
     result: ScheduleResult,
     resources: ResourceConfig,
@@ -339,39 +376,126 @@ def attribute_energy_components_by_task(
     Owner rule matches scalar attribution: compute → executor; transfer → dst if
     present else src (sink return). Component-wise sum equals episode breakdown.
     """
-    # Every scheduled task gets a breakdown, including zero-mobile (e.g. internal MEC).
+    allow_legacy_reconstruction = _attribution_fingerprint_guard(result, resources)
+    graph_tasks = dict(getattr(result, "graph_tasks", {}) or {})
+    if graph_tasks and set(graph_tasks) != set(result.tasks):
+        raise EnergyAttributionError(
+            "graph_tasks %s and scheduled tasks %s differ"
+            % (sorted(graph_tasks), sorted(result.tasks))
+        )
+    if not graph_tasks and not allow_legacy_reconstruction:
+        raise EnergyAttributionError(
+            "result carries no graph_tasks metadata; exact attribution is impossible"
+        )
+
     out: dict[int, EnergyBreakdown] = {tid: EnergyBreakdown() for tid in result.tasks}
     for tid, rec in result.tasks.items():
-        dur = rec.finish - rec.start
-        task = result.graph_tasks.get(tid) if hasattr(result, "graph_tasks") else None
-        workload = float(getattr(task, "compute_workload_bytes", 0.0)) if task else None
-        if workload is None:
-            # ScheduleResult does not carry workloads; fall back to the rate that
-            # produced `dur` so C is recovered consistently for either model.
+        dur = float(rec.finish) - float(rec.start)
+        if not math.isfinite(dur) or dur < 0.0:
+            raise EnergyAttributionError(
+                "task %s has an invalid duration %r" % (tid, dur)
+            )
+        task = graph_tasks.get(tid)
+        if task is None:
+            if not allow_legacy_reconstruction:
+                raise EnergyAttributionError(
+                    "task %s has no canonical metadata; refusing to reconstruct "
+                    "workload from duration" % tid
+                )
             workload = dur * resources.cpu_rate(rec.location)
+            cycles_per_bit = None
+        else:
+            workload = float(task.compute_workload_bytes)
+            cycles_per_bit = getattr(task, "cycles_per_bit", None)
         field_name = resources.compute_energy_field(rec.location)
-        setattr(
-            out[tid],
-            field_name,
-            getattr(out[tid], field_name)
-            + resources.compute_energy_joules(rec.location, workload, dur),
+        joules = resources.compute_energy_joules(
+            rec.location, workload, dur, cycles_per_bit
         )
+        if not math.isfinite(joules) or joules < 0.0:
+            raise EnergyAttributionError(
+                "task %s produced an invalid compute energy %r" % (tid, joules)
+            )
+        setattr(out[tid], field_name, getattr(out[tid], field_name) + joules)
 
     for t in result.transfers:
         owner = t.dst_task_id if t.dst_task_id is not None else t.src_task_id
         if owner is None:
-            continue
-        _add_transfer_components(out[owner], t.hop, t.end - t.start, t.src_location, resources)
+            raise EnergyAttributionError(
+                "transfer %r has neither a source nor a destination task" % (t,)
+            )
+        owner = int(owner)
+        if owner not in out:
+            raise EnergyAttributionError(
+                "transfer owner %s is not a scheduled task" % owner
+            )
+        duration = float(t.end) - float(t.start)
+        if not math.isfinite(duration) or duration < 0.0:
+            raise EnergyAttributionError(
+                "transfer on hop %s has an invalid duration %r" % (t.hop, duration)
+            )
+        _add_transfer_components(out[owner], t.hop, duration, t.src_location, resources)
+
+    _require_component_identity(result, out)
     return out
+
+
+def _require_component_identity(
+    result: ScheduleResult, per_task: dict[int, EnergyBreakdown]
+) -> None:
+    """Component-wise identity against the episode breakdown, before any scoping."""
+    for field_name in sorted(EnergyBreakdown.COMPONENT_FIELDS):
+        attributed = sum(float(getattr(bd, field_name)) for bd in per_task.values())
+        episode = float(getattr(result.energy, field_name))
+        if not math.isfinite(attributed) or attributed < 0.0:
+            raise EnergyAttributionError(
+                "attributed %s is invalid: %r" % (field_name, attributed)
+            )
+        tolerance = ATTRIBUTION_ATOL + ATTRIBUTION_RTOL * max(abs(episode), 1.0)
+        if abs(attributed - episode) > tolerance:
+            raise EnergyAttributionError(
+                "component identity failed for %s: attributed %.12g != episode %.12g "
+                "(delta %.3g)" % (field_name, attributed, episode, attributed - episode)
+            )
+
+
+def attribute_scoped_energy_by_task(
+    result: ScheduleResult,
+    resources: ResourceConfig,
+    *,
+    scope: str,
+) -> dict[int, float]:
+    """Per-task joules at the requested boundary. `scope` is mandatory."""
+    from .energy_scope import energy_scalar
+
+    components = attribute_energy_components_by_task(result, resources)
+    values = {tid: energy_scalar(bd, scope=scope) for tid, bd in components.items()}
+    for tid, value in values.items():
+        if not math.isfinite(value) or value < 0.0:
+            raise EnergyAttributionError(
+                "task %s has an invalid %s energy %r" % (tid, scope, value)
+            )
+    return values
+
+
+def attribute_mobile_energy_by_task(
+    result: ScheduleResult, resources: ResourceConfig
+) -> dict[int, float]:
+    """Explicit mobile-boundary wrapper (legacy semantics)."""
+    from .energy_scope import SCOPE_MOBILE
+
+    return attribute_scoped_energy_by_task(result, resources, scope=SCOPE_MOBILE)
 
 
 def attribute_energy_by_task(
     result: ScheduleResult,
     resources: ResourceConfig,
 ) -> dict[int, float]:
-    """Per-task mobile energy scalar; sum equals total_mobile_joules."""
-    comps = attribute_energy_components_by_task(result, resources)
-    return {tid: bd.total_mobile_joules for tid, bd in comps.items()}
+    """LEGACY/compatibility: per-task MOBILE energy.
+
+    Kept so existing callers keep their exact numbers; new code must use
+    attribute_scoped_energy_by_task(..., scope=...) or attribute_mobile_energy_by_task.
+    """
+    return attribute_mobile_energy_by_task(result, resources)
 
 
 def transfers_for_task(result: ScheduleResult, task_id: int) -> list:
