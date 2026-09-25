@@ -1,0 +1,20 @@
+{
+  "checked_at": "2026-09-24T06:26:18+00:00",
+  "containers": [],
+  "csv_fields": 43,
+  "csv_rows": 500,
+  "exit_file": "/tmp/ts_off.exit",
+  "last_row": {
+    "critic/value_abs_max": "1.0299123525619507",
+    "mask/active_rate": "0.0",
+    "mask/all_invalid_rate": "0.0",
+    "mask/forced_rate": "0.0",
+    "policy/argmax_masked_rate": "0.0",
+    "policy/entropy_valid": "0.017736211441997187",
+    "policy/invalid_action_rate": "0.0"
+  },
+  "mode": "off",
+  "row_age_seconds": 55.1,
+  "verdict": "finished",
+  "violations": []
+}

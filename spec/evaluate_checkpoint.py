@@ -110,8 +110,15 @@ def main(argv=None) -> int:
         help="LABEL=PATH, or the bare word true_init",
     )
     parser.add_argument("--json", required=True)
+    parser.add_argument(
+        "--one", default=None,
+        help="evaluate exactly one LABEL=PATH (or true_init) in this process; "
+             "each label should run as its own process for full graph isolation",
+    )
     parser.add_argument("--fingerprint", default="")
     args = parser.parse_args(argv)
+    if args.one:
+        args.checkpoint = [args.one]
 
     trainer, algo = _build_stack()
     held = trainer.held_out_evaluator

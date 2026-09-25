@@ -88,6 +88,11 @@ for d in device_lib.list_local_devices():
       --i-allow-gpu --reward-mode latency_only --objective-mode log_only \
       --constraints-scenario total_small
     ;;
+  checkpoint-eval)
+    # P1 read-only checkpoint evaluation; forwards --one LABEL=PATH --json PATH
+    shift
+    gpu_run python -m spec.evaluate_checkpoint "$@"
+    ;;
   pilot-a-long-1000)
     # P2 long latency-only PPO/meta-learning diagnostic (1000 iters).
     # Independent run dir: never overlaps runs/mask_sanity_v3.

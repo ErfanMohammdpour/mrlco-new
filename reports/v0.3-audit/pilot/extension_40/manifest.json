@@ -1,0 +1,92 @@
+{
+  "checkpoint_25": {
+    "label": "final_itr24",
+    "origin": "original 25-iteration run (checkpoint preserved before the extension overwrote the run dir)",
+    "path": "meta_model_final_itr24.ckpt",
+    "sha256": "ef24d7b18c06d70bea8a1ab406d9eef229436d21a31445a9d3e9e7cd158e9088"
+  },
+  "checkpoint_40": {
+    "label": "final_itr39",
+    "origin": "independent 40-iteration restart same seed/config",
+    "path": "raw/seed_0/ckpt/meta_model_final.ckpt",
+    "sha256": "2332d5f3b52aca598a1d438c16d13eec727463f01a18caa9b25af6a89fde8fc4"
+  },
+  "checkpoint_format": "joblib dict variable-name -> value (Policy.save_variables); not a TF .index/.meta/.data Saver checkpoint",
+  "code_sha_note": "delta above 64a15db is the P2 runner commit; evaluation uses 64a15db",
+  "evaluation_code_sha": "64a15db7b6dcf86bb52860b990a83085cf7754f5",
+  "execution_kind": "independent restart (NOT a resume)",
+  "exit": 0,
+  "files": [
+    {
+      "bytes": 3785,
+      "relative_path": "manifest.json",
+      "sha256": "a61b6368e2c838564c0f8da46305e598a2c81e119eaad32aaf038a55ab384b2f"
+    },
+    {
+      "bytes": 3375729,
+      "relative_path": "meta_model_final_itr24.ckpt",
+      "sha256": "ef24d7b18c06d70bea8a1ab406d9eef229436d21a31445a9d3e9e7cd158e9088"
+    },
+    {
+      "bytes": 249,
+      "relative_path": "raw/meta.txt",
+      "sha256": "545ff3f3e5a9fb95d33816e1b2d164f5e5dafcfd2a831d3c815fecfea1cd919a"
+    },
+    {
+      "bytes": 71,
+      "relative_path": "raw/pilot-a-extend.exit",
+      "sha256": "44faa511150dca001a9964e293402e4a1706b6050deef32b8f05a9de95f266d7"
+    },
+    {
+      "bytes": 144788,
+      "relative_path": "raw/pilot-a-extend.log",
+      "sha256": "f6ccaee108537521f7fc3807e61750c66e87ccdc97d2f9651ce1c0f66ebc79d0"
+    },
+    {
+      "bytes": 138106,
+      "relative_path": "raw/seed_0/audit/health.jsonl",
+      "sha256": "760e5101dfa63c31ce569265f7ca53a78d8bed4ffdd5f353830e339e9538ba1d"
+    },
+    {
+      "bytes": 3375729,
+      "relative_path": "raw/seed_0/ckpt/meta_model_best_val.ckpt",
+      "sha256": "bf2b0f1795d033cacf5adb6151e1e993bf418c0a43e99bba377a65427fa4f0a5"
+    },
+    {
+      "bytes": 3375729,
+      "relative_path": "raw/seed_0/ckpt/meta_model_final.ckpt",
+      "sha256": "2332d5f3b52aca598a1d438c16d13eec727463f01a18caa9b25af6a89fde8fc4"
+    },
+    {
+      "bytes": 3427,
+      "relative_path": "raw/seed_0/config.resolved.json",
+      "sha256": "a11f1ab670ea2774cba0126754bedaa494d35bf6b0047113f1f1b4d6e741fef2"
+    },
+    {
+      "bytes": 127577,
+      "relative_path": "raw/seed_0/logs/log.txt",
+      "sha256": "42fe045361b8e0e1377eca4082d3a872ea30aef8d36dd53950ddc972d73f6cd8"
+    },
+    {
+      "bytes": 29719,
+      "relative_path": "raw/seed_0/logs/progress.csv",
+      "sha256": "b627f32b33c2916b17940a042fee1973b52eaa5a52ed8009ac66e9f6a0ffd76b"
+    },
+    {
+      "bytes": 532,
+      "relative_path": "raw/seed_0/watchdog_status.json",
+      "sha256": "fb4ec29d75acb4ffd4322aba43d6b99c4ed5c2f6cfe978cefebe117840975a85"
+    }
+  ],
+  "finished_utc": "2026-09-25T23:20:01Z",
+  "full_audit_note": "the 8.4 GB audit/iter_* blobs were NOT transferred or committed; they remain on Kish under the run dir. audit/health.jsonl (140 KB) is included.",
+  "iterations": 40,
+  "run_dir_on_kish": "/opt/margo/mrlco-new-6b/runs/mask_sanity_v3/off/seed_0",
+  "schema": "extension_40_snapshot_v1",
+  "started_utc": "2026-09-25T20:57:50Z",
+  "training_code_sha": "fe90a11617baf030ebfef3dd3c8d07ad9e29c74b",
+  "trajectory_note": "final_itr24 and final_itr39 are two independent deterministic runs with different budgets, NOT one trajectory and NOT a checkpoint continuation",
+  "validation_note": "validation_interval=50 > 40 iterations; only itr 0 validation exists; PASS is not claimed",
+  "validation_points": 1,
+  "wall_s": 8528
+}
