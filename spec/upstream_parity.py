@@ -78,6 +78,10 @@ UPSTREAM_REL = Path("env") / "mec_offloaing_envs" / "offloading_env.py"
 UPSTREAM_SCHEDULER_SYMBOL = "get_scheduling_cost_step_by_step"
 UPSTREAM_RESOURCES_SYMBOL = "Resources"
 DEFAULT_UPSTREAM_ROOT = Path("/tmp/upstream_metarl")
+# Byte-identical vendored copy of the upstream scheduler file, so the parity
+# diagnostic is reproducible without network access; never imported, only
+# AST-extracted. A live clone (explicit root or /tmp/upstream_metarl) wins.
+FIXTURE_UPSTREAM_ROOT = Path(__file__).resolve().parent / "fixtures" / "upstream_metarl"
 DEFAULT_JSON = (
     Path("reports") / "v0.3-audit" / "upstream_parity" / "upstream_parity_evidence.json"
 )
@@ -976,9 +980,18 @@ def build_evidence(
 
     # --- upstream availability -------------------------------------------------
     requested = Path(upstream_root) if upstream_root is not None else None
+    allow_fixture = requested is None
     if requested is None:
         env_root = os.environ.get("MARGO_UPSTREAM_METARL")
         requested = Path(env_root) if env_root else DEFAULT_UPSTREAM_ROOT
+    upstream_source = "clone"
+    if (
+        allow_fixture
+        and not (requested / UPSTREAM_REL).is_file()
+        and (FIXTURE_UPSTREAM_ROOT / UPSTREAM_REL).is_file()
+    ):
+        requested = FIXTURE_UPSTREAM_ROOT
+        upstream_source = "vendored_fixture"
     upstream_root_resolved = str(requested)
     upstream_error: str | None = None
     plugin: dict[str, Any] | None = None
@@ -1165,6 +1178,7 @@ def build_evidence(
         "generated_by": "spec/upstream_parity.py",
         "upstream_available": upstream_available,
         "upstream_root": upstream_root_resolved,
+        "upstream_source": upstream_source,
         "upstream_error": upstream_error,
         "contract": contract,
         "schedulers": schedulers,
