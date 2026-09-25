@@ -179,116 +179,150 @@ class GraphEntry:
     path: str | None = None
 
 
-def _syn_tasks(
-    n: int,
-    *,
-    deadline_stamp: bool,
-    workload_base: int = 250_000,
-    workload_step: int = 37_000,
-    output_base: int = 120_000,
-    output_step: int = 11_000,
-) -> list[CanonicalTask]:
+class _LCG:
+    """Tiny deterministic generator: no `random` module, no version drift."""
+
+    def __init__(self, seed: int) -> None:
+        self._x = int(seed) & 0x7FFFFFFF
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> int:
+        self._x = (1103515245 * self._x + 12345) & 0x7FFFFFFF
+        return self._x
+
+
+def _shuffle(n: int, seed: int) -> list[int]:
+    """Deterministic relabeling perm: `mapping[natural_id] = task_id`."""
+    rng = _LCG(seed)
+    mapping = list(range(n))
+    for i in range(n - 1, 0, -1):
+        j = next(rng) % (i + 1)
+        mapping[i], mapping[j] = mapping[j], mapping[i]
+    return mapping
+
+
+def _syn_tasks(n: int, mapping: Sequence[int]) -> list[CanonicalTask]:
+    """Non-monotone sizes on a shuffled id space.
+
+    The relabeling means the id order is deliberately NOT the natural processing
+    order, so `stable_topo` (smallest id first) is a genuinely different order
+    from every cost-model rank instead of collapsing onto it.
+    """
+    rng = _LCG(20240607)
     tasks = []
-    for i in range(n):
-        deadline = None
-        dtype = "none"
-        crit = "medium"
-        weight = 1.0
-        if deadline_stamp:
-            # deterministic mixed-criticality deadlines, deliberately over-tight
-            # for a few tasks so the diagnostic order has real urgency signal
-            if i % 4 == 0:
-                dtype = "hard"
-                crit = "high"
-                weight = 1.0
-            elif i % 4 == 1:
-                dtype = "firm"
-                crit = "medium"
-            elif i % 4 == 2:
-                dtype = "soft"
-                crit = "low"
-            else:
-                dtype = "none"
-                crit = "medium"
-            if dtype != "none":
-                deadline = float(180_000 + 60_000 * (i % 5))
+    for natural in range(n):
+        r1 = next(rng)
+        r2 = next(rng)
         tasks.append(
             CanonicalTask(
-                task_id=i,
-                compute_workload_bytes=workload_base + workload_step * i,
-                task_output_bytes=output_base + output_step * i,
-                external_input_bytes=(150_000 if i == 0 else 0),
-                deadline_s=deadline,
-                deadline_type=dtype,
-                criticality_class=crit,
-                tardiness_weight=weight,
+                task_id=int(mapping[natural]),
+                compute_workload_bytes=250_000 + 37_000 * (r1 % 40),
+                task_output_bytes=120_000 + 11_000 * (r2 % 25),
+                external_input_bytes=(150_000 if natural == 0 else 0),
             )
         )
     return tasks
 
 
-def synthetic_graphs() -> "OrderedDict[str, GraphEntry]":
-    """Deterministic CanonicalDAGs covering sparse/medium/dense/deep/shallow."""
+def _stamp_deadlines(dag: CanonicalDAG, resources: ResourceConfig) -> CanonicalDAG:
+    """Relative mixed-criticality deadlines, tight enough to carry signal.
+
+    `deadline_s = factor * ef_lb(task)` with the contention-free earliest finish
+    under the min-duration action, so factor < 1 is already infeasible and the
+    urgency rank has real content. Non-monotone factors keep the diagnostic order
+    from collapsing onto the id order.
+    """
+    from dataclasses import replace
+
+    ef = _min_contention_free_finish(dag, resources)
+    rng = _LCG(987654321)
+    factors = (1.20, 0.70, 1.80, 0.90, 2.50)
+    dtypes = ("hard", "firm", "soft", "none", "soft")
+    crits = ("high", "medium", "low", "medium", "high")
+    tasks = []
+    for tid in sorted(dag.tasks):
+        task = dag.tasks[tid]
+        k = next(rng) % 5
+        dtype = dtypes[k]
+        deadline = float(factors[k] * ef[tid]) if dtype != "none" else None
+        tasks.append(
+            replace(
+                task,
+                deadline_s=deadline,
+                deadline_type=dtype,
+                criticality_class=crits[k],
+                tardiness_weight=1.0,
+            )
+        )
+    edges = [(e.src_task_id, e.dst_task_id, e.edge_output_bytes) for e in dag.edges]
+    return CanonicalDAG.from_records(tasks, edges)
+
+
+def synthetic_graphs(resources: ResourceConfig) -> "OrderedDict[str, GraphEntry]":
+    """Deterministic CanonicalDAGs covering sparse/medium/dense/deep/shallow.
+
+    Each is built in a natural order, then relabeled by a fixed permutation so
+    that the id order is not the processing order. Every graph admits more than
+    one topological order (no pure chains), so the five orders are genuinely
+    comparable.
+    """
     out: "OrderedDict[str, GraphEntry]" = OrderedDict()
 
-    # sparse: long thin chain, few edges
+    def build(name: str, n: int, natural_edges: list[tuple[int, int, int]], seed: int) -> None:
+        mapping = _shuffle(n, seed)
+        edges = [(mapping[s], mapping[d], w) for s, d, w in natural_edges]
+        dag = CanonicalDAG.from_records(_syn_tasks(n, mapping), edges)
+        out[name] = GraphEntry(name, "synthetic", _stamp_deadlines(dag, resources))
+
+    # sparse: backbone with one leaf per backbone node (frontier width 2)
     n = 14
-    out["syn_sparse"] = GraphEntry(
-        "syn_sparse",
-        "synthetic",
-        CanonicalDAG.from_records(
-            _syn_tasks(n, deadline_stamp=True),
-            [(i, i + 1, 70_000 + 1_000 * i) for i in range(n - 1)],
-        ),
-    )
+    backbone = list(range(7))
+    edges = [(backbone[i], backbone[i + 1], 70_000 + 1_000 * i) for i in range(6)]
+    edges += [(backbone[i], 7 + i, 70_000 + 1_000 * i) for i in range(7)]
+    build("syn_sparse", n, edges, seed=11)
 
-    # medium: layered DAG, two/three parents per node
+    # medium: 4 partial-bipartite layers of width 3
     n = 12
+    rng = _LCG(4242)
     edges = []
-    for i in range(n):
-        for step in (1, 2, 3):
-            j = i + step
-            if j < n and (i + j) % 2 == 0:
-                edges.append((i, j, 80_000 + 2_000 * i))
-    out["syn_medium"] = GraphEntry(
-        "syn_medium",
-        "synthetic",
-        CanonicalDAG.from_records(_syn_tasks(n, deadline_stamp=True), edges),
-    )
+    for layer in range(3):
+        src = [3 * layer + k for k in range(3)]
+        dst = [3 * (layer + 1) + k for k in range(3)]
+        for s in src:
+            for d in dst:
+                if next(rng) % 3 != 0:
+                    edges.append((s, d, 80_000 + 2_000 * s))
+    build("syn_medium", n, edges, seed=23)
 
-    # dense: near-complete band, high contention
-    n = 10
+    # dense: full bipartite layers (width 4) plus cross-layer shortcuts
+    n = 12
+    L = [list(range(0, 4)), list(range(4, 8)), list(range(8, 12))]
     edges = []
-    for i in range(n):
-        for j in range(i + 1, min(n, i + 6)):
-            edges.append((i, j, 60_000))
-    out["syn_dense"] = GraphEntry(
-        "syn_dense",
-        "synthetic",
-        CanonicalDAG.from_records(_syn_tasks(n, deadline_stamp=True), edges),
-    )
+    for layer in range(2):
+        for s in L[layer]:
+            for d in L[layer + 1]:
+                edges.append((s, d, 60_000))
+    for s in L[0]:
+        for d in L[2]:
+            edges.append((s, d, 60_000))
+    build("syn_dense", n, edges, seed=37)
 
-    # narrow deep: maximal critical path
+    # narrow deep: two parallel chains merging at a single sink, depth 8
     n = 16
-    out["syn_narrow_deep"] = GraphEntry(
-        "syn_narrow_deep",
-        "synthetic",
-        CanonicalDAG.from_records(
-            _syn_tasks(n, deadline_stamp=True),
-            [(i, i + 1, 90_000) for i in range(n - 1)],
-        ),
-    )
+    chain_a = list(range(0, 8))
+    chain_b = list(range(8, 15))
+    edges = [(chain_a[k], chain_a[k + 1], 90_000) for k in range(len(chain_a) - 1)]
+    edges += [(chain_b[k], chain_b[k + 1], 90_000) for k in range(len(chain_b) - 1)]
+    edges += [(7, 15, 90_000), (14, 15, 90_000)]
+    build("syn_narrow_deep", n, edges, seed=53)
 
-    # wide shallow: fan-out / fan-in around one sink
+    # wide shallow: one root fans out to 10 parallel tasks feeding one sink
     n = 12
-    edges = [(0, j, 75_000) for j in range(1, n - 1)] + [
-        (j, n - 1, 75_000) for j in range(1, n - 1)
-    ]
-    out["syn_wide_shallow"] = GraphEntry(
-        "syn_wide_shallow",
-        "synthetic",
-        CanonicalDAG.from_records(_syn_tasks(n, deadline_stamp=True), edges),
-    )
+    edges = [(0, j, 75_000) for j in range(1, n - 1)]
+    edges += [(j, n - 1, 75_000) for j in range(1, n - 1)]
+    build("syn_wide_shallow", n, edges, seed=71)
     return out
 
 
@@ -315,11 +349,12 @@ def frozen_graphs() -> "OrderedDict[str, GraphEntry]":
     return out
 
 
-def build_graphs() -> "OrderedDict[str, GraphEntry]":
+def build_graphs(resources: ResourceConfig | None = None) -> "OrderedDict[str, GraphEntry]":
+    resources = resources or resolved_primary_scheduler_config()
     graphs: "OrderedDict[str, GraphEntry]" = OrderedDict()
     for name, entry in frozen_graphs().items():
         graphs[name] = entry
-    for name, entry in synthetic_graphs().items():
+    for name, entry in synthetic_graphs(resources).items():
         graphs[name] = entry
     return graphs
 
@@ -829,7 +864,7 @@ def run(
     resources: ResourceConfig | None = None,
 ) -> dict[str, Any]:
     resources = resources or resolved_primary_scheduler_config()
-    all_graphs = build_graphs()
+    all_graphs = build_graphs(resources)
     if graph_names is not None:
         wanted = [str(n) for n in graph_names]
         missing = [n for n in wanted if n not in all_graphs]
@@ -885,6 +920,9 @@ def run(
             actions_in_order = [fixed_actions[tid] for tid in order_seq]
             fixed_result = schedule(dag, order_seq, actions_in_order, resources)
             makespan = float(fixed_result.makespan_seconds)
+            # order-only control: the same (order, fixed actions) must reproduce
+            # the makespan exactly, so a delta can only come from the order.
+            repeat = float(schedule(dag, order_seq, actions_in_order, resources).makespan_seconds)
             bound = static_bound(dag, order_seq, actions_in_order, resources)
             greedy_actions, greedy_result = greedy_assignment(dag, order_seq, resources)
             util = queue_utilization(fixed_result, makespan)
@@ -903,6 +941,7 @@ def run(
                     "legacy_rank_values": {str(t): legacy_ranks[t] for t in sorted(legacy_ranks)},
                     "fixed_plan_actions_by_task": {str(t): fixed_actions[t] for t in sorted(fixed_actions)},
                     "fixed_plan_latency_s": _finite(makespan),
+                    "fixed_plan_repeat_delta_s": _finite(abs(repeat - makespan)),
                     "fixed_plan_energy_system_j": _finite(fixed_result.energy.total_system_joules),
                     "queue_utilization": util,
                     "queue_utilization_mean": util["mean"],
@@ -947,8 +986,12 @@ def run(
         "per_graph": per_graph,
         "aggregate": aggregate,
         "checks": checks,
-        "all_checks_pass": bool(all(checks.values())),
+        "all_checks_pass": False,
     }
+    # the serializability check must see the final evidence, so it is resolved
+    # after the body exists (and before `all_checks_pass` is frozen)
+    checks["json_serializable"] = evidence_serializable(body)
+    body["all_checks_pass"] = bool(all(checks.values()))
     return body
 
 
@@ -1059,9 +1102,11 @@ def _checks(
                 fixed_maps_ok = False
 
     # order-only control: identical (order, actions) must reproduce the makespan
-    control_ok = True
-    for row in rows:
-        control_ok = control_ok and bool(row["topological_valid"])
+    repeat_ok = all(
+        r["fixed_plan_repeat_delta_s"] is not None
+        and float(r["fixed_plan_repeat_delta_s"]) <= 1e-9
+        for r in rows
+    )
 
     bound_by_graph: dict[str, set[float]] = {}
     for row in rows:
@@ -1091,7 +1136,8 @@ def _checks(
             )
         ),
         "fixed_plan_actions_identical_across_orders": bool(fixed_maps_ok),
-        "fixed_plan_experiment_is_order_only": bool(fixed_maps_ok and control_ok),
+        "fixed_plan_deterministic": bool(repeat_ok),
+        "fixed_plan_experiment_is_order_only": bool(fixed_maps_ok and repeat_ok),
         "static_bound_admissible": bool(all(r["static_bound_valid"] for r in rows)),
         "static_bound_order_invariant": bool(
             all(len(v) == 1 for v in bound_by_graph.values())
@@ -1141,10 +1187,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     graph_names = None
     if args.graphs:
         graph_names = [g.strip() for g in args.graphs.split(",") if g.strip()]
+    # `run()` resolves `json_serializable` and `all_checks_pass` itself
     evidence = run(graph_names)
-    serializable = evidence_serializable(evidence)
-    evidence["checks"]["json_serializable"] = serializable
-    evidence["all_checks_pass"] = bool(all(evidence["checks"].values()))
 
     out = Path(args.json)
     out.parent.mkdir(parents=True, exist_ok=True)
