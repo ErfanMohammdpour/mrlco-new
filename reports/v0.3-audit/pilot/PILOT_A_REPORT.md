@@ -29,18 +29,23 @@ legacy-scheduler baseline is used for the comparison.
 | metric | first | last | min | max |
 |---|---|---|---|---|
 | Average reward | 0.538 | **0.687** | 0.538 | 0.711 |
-| Average latency (s) | 948.8 | **784.2** | 742.1 | 948.8 |
+| Average latency (s), **training** | 948.8 | **784.2** | 742.1 | 948.8 |
 | action_fraction/mec | 0.320 | 0.545 | 0.320 | 0.608 |
 | action_fraction/local | 0.326 | 0.404 | 0.311 | 0.452 |
 | action_fraction/v2v | 0.354 | 0.051 | 0.051 | 0.354 |
 | policy/entropy_valid | 1.096 | 0.761 | 0.761 | 1.096 |
 
+**Correction:** the `948.8 → 784.2 s` row is the TRAINING latency, not the
+validation policy latency. The validation policy latency at itr 0 is
+`k0 = 982.8035 s` and `k3 = 893.3548 s` (details below).
+
 ## Validation (itr 0 only)
 
-`validation_all_mec_latency=630.28 s`, `validation_greedy_latency=626.60 s`,
-policy latency 948.83 s → `gap_to_all_mec=+263.08 s`, `gap_to_greedy=+266.75 s`;
-co-location rate 0.395, cross-location edges 18.19, MEC task fraction 0.425,
-utilisation mean 0.393.
+* policy `k0 = 982.8035 s`, policy `k3 = 893.3548 s`
+* `validation_all_mec_latency = 630.2798 s`, `validation_greedy_latency = 626.6017 s`
+* `gap k3 → all-MEC = +263.0750 s`, `gap k3 → Greedy = +266.7531 s`
+* co-location rate 0.395, cross-location edges 18.19, MEC task fraction 0.425,
+  utilisation mean 0.393
 
 ## Verdict
 

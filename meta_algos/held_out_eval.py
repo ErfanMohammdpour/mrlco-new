@@ -51,14 +51,40 @@ class HeldOutQueryEvaluator:
             metrics["query_all_mec_latency"] = float(np.mean(all_mec()))
         # E4.2: give the plan-level objective channel its per-graph input from the
         # SAME rollout results (env stores them; no second scheduler run).
-        payload = getattr(self.env, "validation_plan_payload", None)
-        if callable(payload):
-            plans = payload()
-            if plans:
-                metrics["validation_per_graph_plans"] = list(plans)
+        plans = getattr(self.env, "validation_plan_payload", None)
+        if callable(plans):
+            payload = plans()
+            if payload:
+                metrics["validation_per_graph_plans"] = list(payload)
                 identities = getattr(self.env, "validation_plan_identities", None)
                 if callable(identities):
                     metrics["validation_plan_identities"] = identities()
+        # P1/P1b read-only evaluation dashboard: action mix, entropy and the
+        # plan summary computed from the SAME query samples/results.
+        try:
+            from spec.pilot_metrics import action_fractions, flatten_actions, plan_summary
+        except Exception:
+            action_fractions = flatten_actions = plan_summary = None
+        if action_fractions is not None:
+            for name, value in action_fractions(flatten_actions([query_data])).items():
+                metrics["query_action_fraction/%s" % name] = float(value)
+            acc = query_data.get("mask_accumulator") if hasattr(query_data, "get") else None
+            if acc is not None:
+                try:
+                    from env.mec_offloaing_envs.scheduler.mask_metrics import rates
+
+                    metrics["query_entropy_valid"] = float(rates(acc)["policy/entropy_valid"])
+                except Exception:
+                    pass
+            payload = metrics.get("validation_per_graph_plans")
+            identities = metrics.get("validation_plan_identities") or []
+            if payload and identities and len(payload) == len(identities):
+                rows = [
+                    plan_summary(res, ident.get("edges"), len(ident.get("order", [])))
+                    for (res, _refs), ident in zip(payload, identities)
+                ]
+                for key in rows[0]:
+                    metrics["query_%s" % key] = sum(r[key] for r in rows) / float(len(rows))
         if self.env.resource_cluster.use_energy:
             _, greedy_latency, greedy_energy = greedy
             metrics["query_greedy_latency"] = float(np.mean(greedy_latency))
@@ -101,4 +127,17 @@ class HeldOutQueryEvaluator:
             out["query_greedy_latency"] = float(
                 np.mean([row["query_greedy_latency"] for row in rows])
             )
+        dashboard_keys = [
+            k for k in rows[0]
+            if k.startswith("query_action_fraction/")
+            or k == "query_entropy_valid"
+            or k in (
+                "query_task_fraction/local", "query_task_fraction/mec", "query_task_fraction/v2v",
+                "query_co_location_rate", "query_cross_location_edges", "query_total_edges",
+                "query_utilization_mean", "query_utilization_max",
+            )
+        ]
+        for key in dashboard_keys:
+            if all(key in row for row in rows):
+                out[key] = float(np.mean([row[key] for row in rows]))
         return out
