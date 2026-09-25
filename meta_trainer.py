@@ -109,6 +109,11 @@ class Trainer(object):
         self.objective_spec = getattr(self, "objective_spec", None)
         self.objective_reference_summary = None
         self.ckpt_dir = ckpt_dir
+        # P2 long-diagnostic hooks (additive; default-inert for every other run)
+        self.pilot_true_init_validation = False
+        self.pilot_checkpoint_iters: set[int] | None = None
+        self.pilot_interim_iters: tuple[int, ...] = (200, 500)
+        self.pilot_interim_hook = None
         self.write_training_report = bool(write_training_report)
         self.audit_writer = audit_writer
         self.critic_warmup_iters = int(critic_warmup_iters)
@@ -270,6 +275,9 @@ class Trainer(object):
         value_losses_all = []
         greedy_latencies_all = []
         avg_energies = []
+        if self.pilot_true_init_validation:
+            logger.log("PILOT true-init validation (before any update)")
+            self._run_validation(-1)
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
@@ -509,6 +517,16 @@ class Trainer(object):
 
             logger.dumpkvs()
             avg_ret.append(avg_reward)
+            if self.pilot_checkpoint_iters and itr in self.pilot_checkpoint_iters:
+                ckpt_path = self._ckpt_path("meta_model_%d.ckpt" % itr)
+                if os.path.exists(ckpt_path):
+                    raise RuntimeError(
+                        "PILOT refusing to overwrite existing checkpoint %s" % ckpt_path
+                    )
+                self.policy.core_policy.save_variables(save_path=ckpt_path)
+                logger.log("PILOT checkpoint saved: %s" % ckpt_path)
+            if self.pilot_interim_hook is not None and itr in self.pilot_interim_iters:
+                self.pilot_interim_hook(itr, self)
 
             if self.audit_writer is not None:
                 health_src = eval_summary if eval_summary is not None else (ppo_summary or {})
