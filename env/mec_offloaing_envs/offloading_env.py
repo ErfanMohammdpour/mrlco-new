@@ -553,6 +553,8 @@ class OffloadingEnvironment(MetaEnv):
         """Post-hoc telescoping rewards (OBJECTIVE §6); max/min batch args unused."""
         from env.mec_offloaing_envs.scheduler.reward import (
             LATENCY_REF_L_MEC,
+            REWARD_MODE_PUBLICATION,
+            REWARD_MODE_LATENCY_ONLY,
             telescoping_token_rewards,
         )
 
@@ -560,8 +562,13 @@ class OffloadingEnvironment(MetaEnv):
         task_finish_time_batch = []
         energy_batch = []
         telemetry_batch = [] if self.energy_telemetry_enabled else None
-        include_energy = bool(self.resource_cluster.use_energy)
-        reward_mode = getattr(self.resource_cluster, "reward_mode", "publication")
+        # `use_energy` still drives LOGGING (per-task mobile energy + telemetry);
+        # the reward's energy term is its own decision (E3.1: latency-only primary).
+        log_energy = bool(self.resource_cluster.use_energy)
+        reward_mode = str(getattr(self.resource_cluster, "reward_mode", REWARD_MODE_LATENCY_ONLY))
+        if reward_mode not in (REWARD_MODE_PUBLICATION, REWARD_MODE_LATENCY_ONLY, "latency_over_all_mec"):
+            raise ValueError("unknown reward_mode %r" % (reward_mode,))
+        reward_include_energy = log_energy and reward_mode == REWARD_MODE_PUBLICATION
         latency_ref = LATENCY_REF_L_MEC if reward_mode == "latency_over_all_mec" else "l_scale"
 
         for i in range(len(action_sequence_batch)):
@@ -578,7 +585,8 @@ class OffloadingEnvironment(MetaEnv):
                 task_graph,
                 plan,
                 self.scheduler_resources,
-                include_energy=include_energy,
+                include_energy=reward_include_energy,
+                reward_mode=reward_mode,
                 compute_j_report=False,
                 latency_ref=latency_ref,
                 refs=self.get_reference_ranges(task_graph),
@@ -592,7 +600,7 @@ class OffloadingEnvironment(MetaEnv):
                     self.constraint_controller.observe(out.constraint_costs)
             target_batch.append(np.asarray(out.rewards, dtype=float))
             task_finish_time_batch.append(out.final_makespan)
-            if include_energy:
+            if log_energy:
                 energy_batch.append(out.final_per_task_energy)
             else:
                 energy_batch.append([])
@@ -616,7 +624,7 @@ class OffloadingEnvironment(MetaEnv):
         except Exception:
             pass
 
-        if include_energy:
+        if log_energy:
             return target_batch, task_finish_time_batch, energy_batch
         return target_batch, task_finish_time_batch
 

@@ -459,7 +459,7 @@ class Trainer(object):
 
 def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_step1",
                                audit_writer=None, print_action_choices=None,
-                               parallel=False, reward_mode="publication",
+                               parallel=False, reward_mode="latency_only",
                                learning_mode="publication",
                                bc_kl_coef=0.0, critic_warmup_iters=0,
                                vocab_size=3, use_energy=True,
@@ -526,7 +526,7 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
 
     ENERGY_CONFIG = {
         'use_energy': USE_ENERGY,
-        'reward_mode': str(reward_mode or "publication"),
+        'reward_mode': str(reward_mode or "latency_only"),
         'energy_weight': 0.5,
         'latency_weight': 0.5,
         'rho': 1.0,

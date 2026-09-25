@@ -36,8 +36,14 @@ from .resources import ResourceConfig
 FILL_UNASSIGNED = 0  # all_UE completion policy
 LATENCY_REF_L_SCALE = "l_scale"  # frozen v0.1: divide by pure-location L_scale
 LATENCY_REF_L_MEC = "l_mec"  # diagnostic: divide by all-MEC makespan; not publication
-REWARD_MODE_PUBLICATION = "publication"
-REWARD_MODE_LATENCY_TMEC = "latency_over_all_mec"
+REWARD_MODE_PUBLICATION = "publication"  # LEGACY: explicit opt-in only (mobile energy)
+REWARD_MODE_LATENCY_ONLY = "latency_only"  # PRIMARY (E3.1): no energy term at all
+REWARD_MODE_LATENCY_TMEC = "latency_over_all_mec"  # diagnostic
+REWARD_MODES = (
+    REWARD_MODE_PUBLICATION,
+    REWARD_MODE_LATENCY_ONLY,
+    REWARD_MODE_LATENCY_TMEC,
+)
 
 
 @dataclass(frozen=True)
@@ -114,6 +120,7 @@ def telescoping_token_rewards(
     refs: ReferenceRanges | None = None,
     compute_j_report: bool = False,
     latency_ref: str = LATENCY_REF_L_SCALE,
+    reward_mode: str = REWARD_MODE_PUBLICATION,
     constraints: ConstraintSpec | None = None,
     duals: Sequence[float] | None = None,
     discount: float = 1.0,
@@ -149,15 +156,30 @@ def telescoping_token_rewards(
 
     Publication mode freezes w_L/w_E at 0.5/0.5. Training path leaves
     `compute_j_report=False` to avoid clip_and_log warning floods.
+
+    `reward_mode` (E3.1):
+
+    * `latency_only` (PRIMARY): `J_t = L_t / L_scale`, NO energy term at any
+      boundary. `include_energy`/energy weights are ignored.
+    * `publication` (LEGACY, explicit opt-in only): the historical 0.5/0.5
+      potential with the MOBILE energy term, byte-exact.
+    * `latency_over_all_mec`: the existing diagnostic.
     """
     decoder_order, actions = validate_plan(task_graph, plan)
     n = len(decoder_order)
     if latency_ref not in (LATENCY_REF_L_SCALE, LATENCY_REF_L_MEC):
         raise ValueError("latency_ref must be l_scale or l_mec, got %r" % (latency_ref,))
+    if reward_mode not in REWARD_MODES:
+        raise ValueError("reward_mode must be one of %s, got %r" % (REWARD_MODES, reward_mode))
     discount = float(discount)
     if not 0.0 < discount <= 1.0:
         raise ValueError("discount must be in (0, 1], got %s" % discount)
-    diagnostic_tmec = latency_ref == LATENCY_REF_L_MEC
+    latency_only = reward_mode == REWARD_MODE_LATENCY_ONLY
+    diagnostic_tmec = reward_mode == REWARD_MODE_LATENCY_TMEC or latency_ref == LATENCY_REF_L_MEC
+    if latency_only:
+        # energy-free primary: always the pure-location latency scale
+        latency_ref = LATENCY_REF_L_SCALE
+        diagnostic_tmec = False
     constrained = bool(constraints is not None and constraints.enabled)
     lagrangian = [float(l) for l in (duals or [])]
     if constrained and len(lagrangian) != len(constraints.active_names):
@@ -166,7 +188,10 @@ def telescoping_token_rewards(
             % (len(lagrangian), len(constraints.active_names))
         )
 
-    if diagnostic_tmec:
+    if latency_only:
+        lw, ew = 1.0, 0.0
+        include_energy = False
+    elif diagnostic_tmec:
         lw, ew = 1.0, 0.0
         include_energy = False
     elif include_energy:
@@ -269,16 +294,26 @@ def expected_episode_return(
     latency_weight: float = LATENCY_WEIGHT,
     energy_weight: float = ENERGY_WEIGHT,
     latency_ref: str = LATENCY_REF_L_SCALE,
+    reward_mode: str = REWARD_MODE_PUBLICATION,
     discount: float = 1.0,
 ) -> float:
     """Closed form of the (optionally discounted) token-reward sum.
 
     `discount=1`: `-(w_L*(L_N-L_0)/L_scale + w_E*(E_N-E_0)/E_scale)`.
     `discount=gamma`: `J_0 - gamma^N * J_N` with `J_t = w_L*L_t/L_scale(+E term)`.
-    Diagnostic l_mec uses T_allMEC, no energy term.
+    Diagnostic l_mec uses T_allMEC, no energy term. `reward_mode="latency_only"`
+    is the energy-free primary: `J_t = L_t / L_scale`.
     """
     n = len(makespans) - 1
     discount = float(discount)
+    if reward_mode not in REWARD_MODES:
+        raise ValueError("reward_mode must be one of %s, got %r" % (REWARD_MODES, reward_mode))
+    if reward_mode == REWARD_MODE_LATENCY_ONLY:
+        include_energy = False
+        latency_weight, energy_weight = 1.0, 0.0
+        latency_ref = LATENCY_REF_L_SCALE
+    elif reward_mode == REWARD_MODE_LATENCY_TMEC:
+        latency_ref = LATENCY_REF_L_MEC
     if latency_ref == LATENCY_REF_L_MEC:
         denom = max(float(refs.L_mec), 1e-12)
         j0 = makespans[0] / denom
