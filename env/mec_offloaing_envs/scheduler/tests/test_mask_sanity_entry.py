@@ -209,12 +209,31 @@ class TestLauncherTargets(unittest.TestCase):
         self.assertIn("--reward-mode latency_only", self.script)
         self.assertIn("--objective-mode log_only", self.script)
         self.assertIn("energy-tests)", self.script)
-        self.assertIn("pytest env/mec_offloaing_envs/scheduler/tests", self.script)
+        # the image has no pytest; the stdlib runner must be used
+        self.assertIn("python -m unittest discover", self.script)
+        self.assertNotIn("python -m pytest", self.script)
 
     def test_legacy_par500_is_untouched(self):
         # the old v0.1 diagnostic must not be reused for the ⑥b runs
         self.assertIn("par500)", self.script)
         self.assertIn("--diagnostic-500", self.script)
+
+
+class TestPrimarySchedulerConfig(unittest.TestCase):
+    def test_smoke_stack_uses_the_resolved_system_config(self):
+        from spec.mask_sanity import primary_scheduler_config
+
+        cfg = primary_scheduler_config()
+        self.assertEqual(cfg.energy_scope, "system")
+        self.assertTrue(str(getattr(cfg.energy_model, "model", "")))
+
+    def test_smoke_entry_passes_the_config_strictly(self):
+        import inspect
+        import spec.mask_sanity as mod
+
+        source = inspect.getsource(mod._train_masked)
+        self.assertIn("scheduler_config=primary_scheduler_config()", source)
+        self.assertIn("strict_scheduler_config=True", source)
 
 
 if __name__ == "__main__":

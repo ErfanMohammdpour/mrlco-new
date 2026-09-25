@@ -214,6 +214,20 @@ def verify_live_stack(trainer, mode):
     return {"failures": failures, "tasks": n_tasks, "deadlines": n_deadline}
 
 
+def primary_scheduler_config():
+    """The resolved primary scheduler config used by the smoke stack.
+
+    Without it the cluster falls back to the legacy rebuild, which carries no
+    `energy_scope`; the E3.1 latency-only reward and the E4.2 validation channel
+    both require the declared `system` boundary, so the smoke must state it.
+    """
+    from env.mec_offloaing_envs.scheduler.primary_config import (
+        resolved_primary_scheduler_config,
+    )
+
+    return resolved_primary_scheduler_config()
+
+
 def _train_masked(args, payload, rd):
     """Mirror of phase4_train_driver._train with the live preflight inserted."""
     import tensorflow as tf
@@ -246,6 +260,8 @@ def _train_masked(args, payload, rd):
             if str(args.objective_mode) != "off"
             else None
         ),
+        scheduler_config=primary_scheduler_config(),
+        strict_scheduler_config=True,
     )
 
     live = verify_live_stack(trainer, args.mode)

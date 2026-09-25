@@ -71,8 +71,9 @@ for d in device_lib.list_local_devices():
     gpu_run python spec/phase4_campaign.py --gpu-smoke --seed 0 --i-allow-gpu
     ;;
   energy-tests)
-    # full TF-compatible scheduler suite (E/tensorflow evidence)
-    gpu_run python -m pytest env/mec_offloaing_envs/scheduler/tests -q
+    # full TF-compatible scheduler suite (the image has no pytest; stdlib runner)
+    gpu_run python -m unittest discover -s env/mec_offloaing_envs/scheduler/tests \
+      -t . -p 'test_*.py'
     ;;
   energy-train-smoke)
     # one outer iteration on the NEW contract: latency_only reward + log_only
