@@ -34,6 +34,7 @@ from env.mec_offloaing_envs.scheduler.energy_api import (  # noqa: E402
     attribute_mobile_energy_by_task,
     attribute_scoped_energy_by_task,
     compute_reference_ranges,
+    compute_scoped_reference_ranges,
     j_report,
 )
 from env.mec_offloaing_envs.scheduler.energy_scope import (  # noqa: E402
@@ -85,8 +86,12 @@ class ConsumerCase(unittest.TestCase):
         cls.res = resolved_primary_scheduler_config()
         cls.plan = [(0, 0), (1, 2), (2, 1)]  # one UE, one HELPER, one MEC
         cls.result, _, _ = schedule_via_adapter(cls.tg, cls.plan, cls.res)
-        cls.refs = compute_reference_ranges(cls.tg, cls.res)
+        cls.refs = compute_reference_ranges(cls.tg, cls.res)  # legacy mobile
+        cls.system_refs = compute_scoped_reference_ranges(
+            cls.tg, cls.res, energy_scope=SCOPE_SYSTEM
+        )
         require_reference_scope(cls.refs, expected_scope=SCOPE_MOBILE)
+        require_reference_scope(cls.system_refs, expected_scope=SCOPE_SYSTEM)
 
 
 class TestBoundaryIdentities(ConsumerCase):
@@ -158,60 +163,64 @@ class TestReward(ConsumerCase):
 
 
 class TestConstraints(ConsumerCase):
-    def test_metrics_are_the_old_boundaries(self):
+    def test_metrics_boundaries_after_e3_2(self):
         m = measure_metrics(self.result)
-        self.assertAlmostEqual(m.total_energy_j, self.result.energy.total_mobile_joules, places=12)
-        self.assertAlmostEqual(m.ue_energy_j, self.result.energy.total_ue_joules, places=12)
-        self.assertAlmostEqual(m.helper_energy_j, self.result.energy.total_helper_joules, places=9)
+        # E3.2: the "total energy" constraint is the SYSTEM boundary
+        self.assertAlmostEqual(m.total_energy_j, energy_scalar(self.result, scope=SCOPE_SYSTEM), places=12)
+        self.assertAlmostEqual(m.ue_energy_j, energy_scalar(self.result, scope=SCOPE_REQUESTER), places=12)
+        self.assertAlmostEqual(
+            m.helper_energy_j,
+            energy_scalar(self.result, scope=SCOPE_MOBILE) - energy_scalar(self.result, scope=SCOPE_REQUESTER),
+            places=9,
+        )
 
-    def test_ue_constraint_is_requester_and_total_constraint_is_mobile(self):
+    def test_ue_constraint_is_requester_and_total_constraint_is_system(self):
         m = measure_metrics(self.result)
         spec = ConstraintSpec(
             mode="lagrangian",
             ue_energy_budget_j=1.0,
             total_energy_budget_j=1.0,
         )
-        costs = costs_from_metrics(m, self.refs, spec)
+        costs = costs_from_metrics(m, self.system_refs, spec)
         raw = dict(zip(costs.names, costs.raw))
         self.assertIn(C_UE_ENERGY, raw)
         self.assertIn(C_TOTAL_ENERGY, raw)
         self.assertAlmostEqual(raw[C_UE_ENERGY], energy_scalar(self.result, scope=SCOPE_REQUESTER), places=12)
-        self.assertAlmostEqual(raw[C_TOTAL_ENERGY], energy_scalar(self.result, scope=SCOPE_MOBILE), places=12)
+        self.assertAlmostEqual(raw[C_TOTAL_ENERGY], energy_scalar(self.result, scope=SCOPE_SYSTEM), places=12)
+
+    def test_a_mobile_reference_is_rejected_by_the_system_constraint(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import EnergyReferenceMismatch
+
+        spec = ConstraintSpec(mode="lagrangian", total_energy_budget_j=1.0)
+        with self.assertRaises(EnergyReferenceMismatch):
+            costs_from_metrics(measure_metrics(self.result), self.refs, spec)
 
 
 class TestObjective(ConsumerCase):
-    def test_objective_numerator_is_the_system_boundary(self):
+    def test_objective_is_a_system_consumer(self):
         spec = ObjectiveSpec(
             latency_ref=LATENCY_REF_ALL_UE,
             energy_budget_frac_of_all_ue=2.0,
         )
-        obj = evaluate_plan_objective(self.result, self.refs, spec)
+        obj = evaluate_plan_objective(self.result, self.system_refs, spec)
         self.assertAlmostEqual(
             obj.energy_system_j,
             energy_scalar(self.result, scope=SCOPE_SYSTEM),
             places=12,
         )
-        self.assertAlmostEqual(obj.energy_system_j, self.result.energy.total_system_joules, places=12)
-        self.assertAlmostEqual(obj.energy_budget_j, 2.0 * self.refs.E_ue, places=9)
+        # numerator, reference and budget are aligned on SYSTEM (E3.2)
+        require_reference_scope(self.system_refs, expected_scope=SCOPE_SYSTEM)
+        self.assertAlmostEqual(obj.energy_budget_j, 2.0 * self.system_refs.E_ue, places=9)
 
-    def test_objective_reference_mismatch_is_real_and_recorded(self):
-        """E3 fixes this; E2.1 must not hide it."""
+    def test_objective_rejects_a_mobile_reference(self):
+        from env.mec_offloaing_envs.scheduler.energy_scope import EnergyReferenceMismatch
+
         spec = ObjectiveSpec(
             latency_ref=LATENCY_REF_ALL_UE,
             energy_budget_frac_of_all_ue=2.0,
         )
-        obj = evaluate_plan_objective(self.result, self.refs, spec)
-        # the reference/budget were built at the MOBILE boundary ...
-        self.assertEqual(self.refs.energy_scope, SCOPE_MOBILE)
-        # ... while the numerator is measured at SYSTEM
-        self.assertNotAlmostEqual(
-            obj.energy_system_j,
-            energy_scalar(self.result, scope=SCOPE_MOBILE),
-            places=6,
-        )
-        self.assertAlmostEqual(
-            obj.energy_budget_j, spec.energy_budget_frac_of_all_ue * self.refs.E_ue, places=9
-        )
+        with self.assertRaises(EnergyReferenceMismatch):
+            evaluate_plan_objective(self.result, self.refs, spec)
 
 
 if __name__ == "__main__":

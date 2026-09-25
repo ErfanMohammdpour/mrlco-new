@@ -26,10 +26,11 @@ from .energy_api import (
     ReferenceRanges,
     attribute_scoped_energy_by_task,
     compute_reference_ranges,
+    compute_scoped_reference_ranges,
     j_report,
     require_publication_weights,
 )
-from .energy_scope import SCOPE_MOBILE, energy_scalar
+from .energy_scope import SCOPE_MOBILE, SCOPE_SYSTEM, energy_scalar
 from .model import ScheduleResult
 from .resources import ResourceConfig
 
@@ -208,7 +209,17 @@ def telescoping_token_rewards(
         ew = 0.0
 
     if refs is None:
-        refs = compute_reference_ranges(task_graph, resources, mode=reference_mode)
+        # E3.2: constraints are SYSTEM consumers, so a constraint-enabled run
+        # builds a system reference. Legacy publication without constraints keeps
+        # its historical mobile reference (byte-exact).
+        ref_scope = (
+            SCOPE_MOBILE
+            if (reward_mode == REWARD_MODE_PUBLICATION and not constrained)
+            else SCOPE_SYSTEM
+        )
+        refs = compute_scoped_reference_ranges(
+            task_graph, resources, energy_scope=ref_scope, mode=reference_mode
+        )
 
     # Reuse all_UE reference metrics as P_0 — no extra schedule call.
     makespans: list[float] = [refs.L_ue]

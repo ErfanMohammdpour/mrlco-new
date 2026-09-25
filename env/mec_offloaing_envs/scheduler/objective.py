@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .energy_api import ReferenceRanges
-from .energy_scope import SCOPE_SYSTEM, energy_scalar
+from .energy_scope import SCOPE_SYSTEM, energy_scalar, require_reference_scope
 from .model import ScheduleResult
 from .validate import require_finite, require_nonneg_float
 
@@ -218,7 +218,14 @@ def evaluate_plan_objective(
     refs: ReferenceRanges,
     spec: ObjectiveSpec,
 ) -> PlanObjective:
-    """J = L_norm + beta_s * T_soft_norm, plus the three cost channels."""
+    """J = L_norm + beta_s * T_soft_norm, plus the three cost channels.
+
+    The energy channel is a SYSTEM consumer (E3.2): numerator, reference and
+    budget are all system-scoped. A mobile or metadata-free reference is rejected
+    here instead of silently normalising a system measurement against a mobile
+    anchor.
+    """
+    require_reference_scope(refs, expected_scope=SCOPE_SYSTEM)
     latency = require_finite("makespan", result.makespan_seconds)
     denom = spec.latency_denominator(refs)
     hard_count = 0

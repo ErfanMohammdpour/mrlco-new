@@ -111,14 +111,19 @@ def _resources(physical: bool = True):
 
 
 def _refs_from_dag(dag, resources, order):
-    """Reference ranges for a CanonicalDAG (energy_api needs a legacy graph)."""
+    """System-scoped reference ranges for a CanonicalDAG (E3.2 objective contract)."""
+    from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_SYSTEM, energy_scalar
+    from env.mec_offloaing_envs.scheduler.resources import resolved_config_sha256
+
     metrics = {}
     for action in (0, 1, 2):
         out = schedule(dag, order, [action] * len(order), resources)
-        metrics[action] = (out.makespan_seconds, out.energy.total_mobile_joules)
+        metrics[action] = (out.makespan_seconds, energy_scalar(out, scope=SCOPE_SYSTEM))
     return ReferenceRanges(
         L_ue=metrics[0][0], L_mec=metrics[1][0], L_helper=metrics[2][0],
         E_ue=metrics[0][1], E_mec=metrics[1][1], E_helper=metrics[2][1],
+        energy_scope=SCOPE_SYSTEM,
+        scheduler_config_sha256=resolved_config_sha256(resources),
     )
 
 
@@ -550,6 +555,8 @@ class TestPerGraphAggregation(unittest.TestCase):
                 E_ue=self.refs.E_ue,
                 E_mec=self.refs.E_mec,
                 E_helper=self.refs.E_helper,
+                energy_scope=self.refs.energy_scope,
+                scheduler_config_sha256=self.refs.scheduler_config_sha256,
             )
             objs.append(evaluate_plan_objective(self.result, refs_scaled, spec))
         agg = aggregate_plan_objectives(objs, spec)
@@ -568,10 +575,14 @@ class TestPerGraphAggregation(unittest.TestCase):
         tight = ReferenceRanges(
             L_ue=self.refs.L_ue, L_mec=self.refs.L_mec, L_helper=self.refs.L_helper,
             E_ue=1e-9, E_mec=1e-9, E_helper=1e-9,
+            energy_scope=self.refs.energy_scope,
+            scheduler_config_sha256=self.refs.scheduler_config_sha256,
         )
         loose = ReferenceRanges(
             L_ue=self.refs.L_ue, L_mec=self.refs.L_mec, L_helper=self.refs.L_helper,
             E_ue=1e9, E_mec=1e9, E_helper=1e9,
+            energy_scope=self.refs.energy_scope,
+            scheduler_config_sha256=self.refs.scheduler_config_sha256,
         )
         spec = ObjectiveSpec(
             latency_ref=LATENCY_REF_ALL_UE, energy_budget_frac_of_all_ue=0.5
@@ -642,6 +653,8 @@ class TestPerGraphAggregation(unittest.TestCase):
         tight_refs = ReferenceRanges(
             L_ue=self.refs.L_ue, L_mec=self.refs.L_mec, L_helper=self.refs.L_helper,
             E_ue=1e-9, E_mec=1e-9, E_helper=1e-9,
+            energy_scope=self.refs.energy_scope,
+            scheduler_config_sha256=self.refs.scheduler_config_sha256,
         )
         spec_e = ObjectiveSpec(
             latency_ref=LATENCY_REF_ALL_UE, energy_budget_frac_of_all_ue=0.5

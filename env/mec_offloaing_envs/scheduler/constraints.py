@@ -37,7 +37,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .energy_api import ReferenceRanges
-from .energy_scope import SCOPE_MOBILE, SCOPE_REQUESTER, energy_scalar
+from .energy_scope import (
+    SCOPE_MOBILE,
+    SCOPE_REQUESTER,
+    SCOPE_SYSTEM,
+    energy_scalar,
+    require_reference_scope,
+)
 from .model import Location, ScheduleResult
 from .resources import ResourceConfig
 from .validate import require_finite, require_nonneg_float
@@ -199,11 +205,25 @@ class ConstraintSpec:
             active.append(C_DEADLINE)
         return tuple(active)
 
+    def constraint_status(self) -> dict[str, str]:
+        """Explicit per-constraint status: `active` or `not_configured`.
+
+        A constraint without a budget is NOT silently satisfied: it is reported
+        as not_configured and contributes no violation/penalty, so the Lagrangian
+        stays off for it.
+        """
+        active = set(self.active_names)
+        return {
+            name: ("active" if name in active else "not_configured")
+            for name in ALL_CONSTRAINTS
+        }
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "attribution": self.attribution,
             "active": list(self.active_names),
+            "constraint_status": self.constraint_status(),
             **{
                 name: getattr(self, name)
                 for name in self.__dataclass_fields__  # type: ignore[attr-defined]
@@ -258,6 +278,7 @@ def measure_metrics(result: ScheduleResult) -> ConstraintMetrics:
     energy = result.energy
     requester = energy_scalar(result, scope=SCOPE_REQUESTER)
     mobile = energy_scalar(result, scope=SCOPE_MOBILE)
+    system = energy_scalar(result, scope=SCOPE_SYSTEM)
     n_tasks = len(result.tasks)
     n_helper = sum(1 for rec in result.tasks.values() if rec.location == Location.HELPER)
     n_mec = sum(1 for rec in result.tasks.values() if rec.location == Location.MEC)
@@ -268,7 +289,8 @@ def measure_metrics(result: ScheduleResult) -> ConstraintMetrics:
     return ConstraintMetrics(
         ue_energy_j=requester,
         helper_energy_j=max(0.0, mobile - requester),
-        total_energy_j=mobile,
+        # E3.2: the "total energy" constraint is a SYSTEM consumer.
+        total_energy_j=system,
         helper_compute_j=float(energy.helper_compute_joules),
         v2v_airtime_s=float(airtime),
         v2v_task_fraction=(float(n_helper) / float(n_tasks)) if n_tasks else 0.0,
@@ -293,7 +315,14 @@ def budgets_and_scales(
     refs: ReferenceRanges,
     metrics: ConstraintMetrics,
 ) -> dict[str, tuple[float, float, float]]:
-    """name -> (raw_metric, budget, scale) for every active constraint."""
+    """name -> (raw_metric, budget, scale) for every active constraint.
+
+    Every constraint is a SYSTEM consumer (E3.2): the reference that anchors the
+    fractional budgets and scales must be system-built. C_UE_ENERGY keeps the
+    REQUESTER metric (it is the requester's own battery), but its all-UE anchor is
+    scope-invariant.
+    """
+    require_reference_scope(refs, expected_scope=SCOPE_SYSTEM)
     out: dict[str, tuple[float, float, float]] = {}
     for name in spec.active_names:
         if name == C_UE_ENERGY:
@@ -514,3 +543,7 @@ class ConstraintController:
             "dual_lr": float(self.dual_lr),
             "updates": int(self.updates),
         }
+
+    def status(self) -> dict[str, str]:
+        """Per-constraint status, including the ones never configured."""
+        return self.spec.constraint_status()

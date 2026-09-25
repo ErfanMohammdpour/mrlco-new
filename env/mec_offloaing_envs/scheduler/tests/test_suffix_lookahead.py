@@ -134,13 +134,18 @@ def _chain_dag(n=3, deadlines=None, dtype="hard", output=BIG_OUTPUT):
 
 
 def _refs(dag, res, order):
+    from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_SYSTEM, energy_scalar
+    from env.mec_offloaing_envs.scheduler.resources import resolved_config_sha256
+
     metrics = {}
     for action in (0, 1, 2):
         out = schedule(dag, order, [action] * len(order), res)
-        metrics[action] = (out.makespan_seconds, out.energy.total_mobile_joules)
+        metrics[action] = (out.makespan_seconds, energy_scalar(out, scope=SCOPE_SYSTEM))
     return ReferenceRanges(
         L_ue=metrics[0][0], L_mec=metrics[1][0], L_helper=metrics[2][0],
         E_ue=metrics[0][1], E_mec=metrics[1][1], E_helper=metrics[2][1],
+        energy_scope=SCOPE_SYSTEM,
+        scheduler_config_sha256=resolved_config_sha256(res),
     )
 
 

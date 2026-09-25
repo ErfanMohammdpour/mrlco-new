@@ -508,7 +508,7 @@ class OffloadingEnvironment(MetaEnv):
         cost = np.asarray(cost)
         return -(cost - min_time) / (max_time - min_time)
     
-    def get_reference_ranges(self, task_graph):
+    def get_reference_ranges(self, task_graph, scope=None):
         """Episode-local L/E ranges; cached by content key, not object id.
 
         `reference_range` in `energy_config` selects the construction:
@@ -517,14 +517,16 @@ class OffloadingEnvironment(MetaEnv):
                                inversion; costs one extra local search per graph,
                                so it is cached here and never recomputed per step)
 
-        The cache key binds graph content, reference mode, energy boundary and the
-        resolved scheduler fingerprint. A hit whose declared boundary or
-        fingerprint does not match fails loud: no silent fallback, no recompute.
+        `scope` (E3.2) is the boundary the caller needs; per-consumer references
+        are fetched per scope and the cache key binds scope + fingerprint. It
+        defaults to the declared primary scope (system). A system consumer never
+        receives a mobile object: the hit is re-validated in
+        `get_or_build_reference_ranges`.
         """
         from env.mec_offloaing_envs.scheduler.energy_cache import (
             get_or_build_reference_ranges,
+            primary_scope_of,
         )
-        from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_MOBILE
 
         cache = getattr(self, "_refs_cache", None)
         if cache is None:
@@ -535,15 +537,13 @@ class OffloadingEnvironment(MetaEnv):
                 "reference_range", "pure_location"
             )
         )
-        # 4.2 keeps every consumer on the mobile boundary; 4.3 flips the two
-        # intended consumers (reward/objective) to `system` together with this.
-        scope = SCOPE_MOBILE
+        energy_scope = primary_scope_of(self.scheduler_resources) if scope is None else str(scope)
         return get_or_build_reference_ranges(
             cache,
             graph=task_graph,
             order=[int(tid) for tid in task_graph.prioritize_sequence],
             reference_mode=mode,
-            energy_scope=scope,
+            energy_scope=energy_scope,
             resources=self.scheduler_resources,
             panel_max_passes=2,
         )
@@ -570,6 +570,16 @@ class OffloadingEnvironment(MetaEnv):
             raise ValueError("unknown reward_mode %r" % (reward_mode,))
         reward_include_energy = log_energy and reward_mode == REWARD_MODE_PUBLICATION
         latency_ref = LATENCY_REF_L_MEC if reward_mode == "latency_over_all_mec" else "l_scale"
+        # E3.2: the primary path is a SYSTEM consumer; legacy publication is the
+        # only mobile one (byte-exact reproduction).
+        from env.mec_offloaing_envs.scheduler.energy_cache import primary_scope_of
+        from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_MOBILE
+
+        ref_scope = (
+            SCOPE_MOBILE
+            if reward_mode == REWARD_MODE_PUBLICATION
+            else primary_scope_of(self.scheduler_resources)
+        )
 
         for i in range(len(action_sequence_batch)):
             task_graph = task_graph_batch[i]
@@ -589,7 +599,7 @@ class OffloadingEnvironment(MetaEnv):
                 reward_mode=reward_mode,
                 compute_j_report=False,
                 latency_ref=latency_ref,
-                refs=self.get_reference_ranges(task_graph),
+                refs=self.get_reference_ranges(task_graph, ref_scope),
                 constraints=self.constraint_spec,
                 duals=duals,
                 discount=getattr(self, "shaping_discount", 1.0),

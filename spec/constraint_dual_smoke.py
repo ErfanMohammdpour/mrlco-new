@@ -38,9 +38,11 @@ from env.mec_offloaing_envs.scheduler import (  # noqa: E402
     ConstraintController,
     ResourceConfig,
     compute_reference_ranges,
+    compute_scoped_reference_ranges,
     pure_location_plan,
     telescoping_token_rewards,
 )
+from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_SYSTEM  # noqa: E402
 
 DEFAULT_DATA = ROOT / "env" / "mec_offloaing_envs" / "data" / "meta_offloading_20"
 MBPS_TO_BPS = 1024.0 * 1024.0 / 8.0
@@ -99,7 +101,7 @@ def main() -> int:
     for path in files:
         tg = OffloadingTaskGraph(str(path))
         tg.prioritize_tasks(cluster)
-        refs = compute_reference_ranges(tg, resources)
+        refs = compute_scoped_reference_ranges(tg, resources, energy_scope=SCOPE_SYSTEM)
         order = [int(t) for t in tg.prioritize_sequence]
         n = len(order)
         n_local = int(round(BALANCED_LOCAL * n))

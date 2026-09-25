@@ -42,6 +42,7 @@ if not hasattr(sys.modules.get("graphviz", types.ModuleType("graphviz")), "Digra
     sys.modules["graphviz"].Digraph = type("Digraph", (), {})
 
 from env.mec_offloaing_envs.scheduler import (  # noqa: E402
+    ALL_CONSTRAINTS,
     ATTRIBUTION_TELESCOPED,
     ATTRIBUTION_TERMINAL,
     CONSTRAINT_MODE_LAGRANGIAN,
@@ -50,12 +51,14 @@ from env.mec_offloaing_envs.scheduler import (  # noqa: E402
     ConstraintSpec,
     ResourceConfig,
     compute_reference_ranges,
+    compute_scoped_reference_ranges,
     costs_from_metrics,
     measure_metrics,
     pure_location_plan,
     schedule_via_adapter,
     telescoping_token_rewards,
 )
+from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_SYSTEM  # noqa: E402
 
 N = 5
 
@@ -110,6 +113,22 @@ class TestSpec(unittest.TestCase):
         spec = ConstraintSpec(mode=CONSTRAINT_MODE_OFF, ue_energy_frac_of_all_ue=0.5)
         self.assertFalse(spec.enabled)
 
+    def test_constraint_status_marks_unconfigured_constraints(self):
+        from env.mec_offloaing_envs.scheduler.constraints import (
+            C_TOTAL_ENERGY,
+            C_UE_ENERGY,
+        )
+
+        spec = ConstraintSpec(mode=CONSTRAINT_MODE_LAGRANGIAN, ue_energy_frac_of_all_ue=0.5)
+        status = spec.constraint_status()
+        self.assertEqual(status[C_UE_ENERGY], "active")
+        # E3.2: no budget -> explicit not_configured, not silently satisfied
+        self.assertEqual(status[C_TOTAL_ENERGY], "not_configured")
+        self.assertNotIn(C_TOTAL_ENERGY, spec.active_names)
+        self.assertIn(C_TOTAL_ENERGY, ALL_CONSTRAINTS)
+        off = ConstraintSpec()
+        self.assertTrue(all(v == "not_configured" for v in off.constraint_status().values()))
+
     def test_unknown_key_rejected(self):
         with self.assertRaises(ValueError):
             ConstraintSpec.from_dict({"ue_energy_budget_j": 1.0, "nope": 2})
@@ -127,7 +146,7 @@ class TestMetrics(unittest.TestCase):
     def setUp(self):
         self.tg = _FakeTG()
         self.res = _resources()
-        self.refs = compute_reference_ranges(self.tg, self.res)
+        self.refs = compute_scoped_reference_ranges(self.tg, self.res, energy_scope=SCOPE_SYSTEM)
 
     def test_all_ue_plan_energy_partition(self):
         result, _, _ = schedule_via_adapter(self.tg, _plan(self.tg, 0), self.res)
@@ -169,7 +188,7 @@ class TestBudgets(unittest.TestCase):
     def setUp(self):
         self.tg = _FakeTG()
         self.res = _resources()
-        self.refs = compute_reference_ranges(self.tg, self.res)
+        self.refs = compute_scoped_reference_ranges(self.tg, self.res, energy_scope=SCOPE_SYSTEM)
         self.helper_plan = _plan(self.tg, 2)
         self.mec_plan = _plan(self.tg, 1)
 

@@ -257,7 +257,7 @@ class _FakeEnvSelf:
         self.last_energy_telemetry = None
         self._refs = refs
 
-    def get_reference_ranges(self, task_graph):
+    def get_reference_ranges(self, task_graph, scope=None):
         return self._refs
 
 
