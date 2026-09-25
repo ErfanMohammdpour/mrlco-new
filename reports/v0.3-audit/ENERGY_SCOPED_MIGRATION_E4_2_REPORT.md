@@ -11,7 +11,7 @@ pilot, deadline or shield run was launched. No large artifact was committed.
 | `2234e42` | E4.1 — pure-plan evidence runner + committed JSON evidence |
 | this commit | smoke CLI flags + CSV contract checks + report + Kish runbook |
 
-Local suite after everything: `710 passed, 5 skipped, 13 errors` (errors = TF
+Local suite after everything: `711 passed, 5 skipped, 13 errors` (errors = TF
 collection on a machine without TensorFlow). The suite is NOT fully green until
 the TF image runs it: that is blocker 2 and it is still open.
 

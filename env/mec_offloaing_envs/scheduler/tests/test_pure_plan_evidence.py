@@ -37,8 +37,11 @@ class TestPurePlanEvidence(unittest.TestCase):
         required = {
             "latency_s", "requester_joules", "mobile_joules", "system_joules",
             "mec_compute_joules", "mec_tx_joules", "primary_scope",
-            "primary_joules", "scheduler_config_sha256", "total_energy_raw_system_j",
-            "total_energy_status", "budget_status",
+            "primary_joules", "scheduler_config_sha256", "constraint_raw_system_j",
+            "total_energy_with_budget", "total_energy_without_budget",
+            "without_budget_spec_enabled", "without_budget_active_names",
+            "without_budget_penalty", "with_budget_spec_enabled",
+            "with_budget_active_names",
         }
         for row in self.evidence["rows"]:
             self.assertTrue(required <= set(row), required - set(row))
@@ -59,9 +62,23 @@ class TestPurePlanEvidence(unittest.TestCase):
             self.assertGreater(row["system_joules"], row["mobile_joules"])
 
     def test_not_configured_budget_is_reported_without_penalty(self):
+        """Without a total-energy budget: not_configured, Lagrangian off, penalty 0.
+
+        With a budget it is active. The two statuses come from two separate
+        ConstraintSpec invocations, which the field names make explicit.
+        """
         for row in self.evidence["rows"]:
-            self.assertEqual(row["budget_status"], "not_configured")
-            self.assertEqual(row["total_energy_status"], "active")
+            self.assertEqual(row["total_energy_without_budget"], "not_configured")
+            self.assertFalse(row["without_budget_spec_enabled"])
+            self.assertEqual(row["without_budget_active_names"], [])
+            self.assertEqual(row["without_budget_penalty"], 0.0)
+            self.assertEqual(row["total_energy_with_budget"], "active")
+            self.assertTrue(row["with_budget_spec_enabled"])
+            self.assertIn("total_energy", row["with_budget_active_names"])
+            self.assertEqual(row["constraint_raw_system_j"], row["system_joules"])
+
+    def test_schema_is_v2(self):
+        self.assertEqual(self.evidence["schema"], "pure_plan_evidence_v2")
 
     def test_evidence_is_json_serializable(self):
         json.dumps(self.evidence)

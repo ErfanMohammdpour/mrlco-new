@@ -35,6 +35,7 @@ from env.mec_offloaing_envs.scheduler import (
 )
 from env.mec_offloaing_envs.scheduler.constraints import (
     ConstraintSpec,
+    costs_from_metrics,
     measure_metrics,
 )
 from env.mec_offloaing_envs.scheduler.energy_api import (
@@ -110,7 +111,7 @@ def _canonical_refs(dag, order, resources) -> ReferenceRanges:
     )
 
 
-def plan_row(name, dag, order, actions, resources) -> dict:
+def plan_row(name, dag, order, actions, resources, refs) -> dict:
     result = schedule(dag, order, actions, resources)
     primary_scope = primary_scope_of(resources)
     row = {
@@ -125,16 +126,23 @@ def plan_row(name, dag, order, actions, resources) -> dict:
         "primary_scope": primary_scope,
         "primary_joules": energy_scalar(result, scope=primary_scope),
         "scheduler_config_sha256": str(result.scheduler_config_sha256),
-        "budget_status": None,
-        "total_energy_raw_system_j": None,
-        "total_energy_status": None,
     }
+    # The two statuses below come from TWO DIFFERENT ConstraintSpec invocations,
+    # never from one: without a total-energy budget the constraint is
+    # not_configured with no penalty and the Lagrangian off; with a budget it is
+    # active. The names say which scenario each value belongs to.
     metrics = measure_metrics(result)
-    row["total_energy_raw_system_j"] = float(metrics.total_energy_j)
-    configured = ConstraintSpec(mode="lagrangian", total_energy_budget_j=1.0)
-    row["total_energy_status"] = configured.constraint_status()["total_energy"]
-    unconfigured = ConstraintSpec(mode="lagrangian", ue_energy_budget_j=1.0)
-    row["budget_status"] = unconfigured.constraint_status()["total_energy"]
+    without_budget = ConstraintSpec(mode="lagrangian")
+    with_total_budget = ConstraintSpec(mode="lagrangian", total_energy_budget_j=1.0)
+    costs_without = costs_from_metrics(metrics, refs, without_budget)
+    row["constraint_raw_system_j"] = float(metrics.total_energy_j)
+    row["total_energy_with_budget"] = "active"
+    row["total_energy_without_budget"] = without_budget.constraint_status()["total_energy"]
+    row["without_budget_spec_enabled"] = bool(without_budget.enabled)
+    row["without_budget_active_names"] = list(without_budget.active_names)
+    row["without_budget_penalty"] = float(costs_without.penalty([]))
+    row["with_budget_spec_enabled"] = bool(with_total_budget.enabled)
+    row["with_budget_active_names"] = list(with_total_budget.active_names)
     return row
 
 
@@ -187,7 +195,7 @@ def run() -> dict:
         refs = _canonical_refs(dag, order, physical)
         for plan_name, template in PLANS.items():
             actions = [template[i % len(template)] for i in range(len(order))]
-            row = plan_row(graph_name, dag, order, actions, physical)
+            row = plan_row(graph_name, dag, order, actions, physical, refs)
             row["plan"] = plan_name
             row["refs_panel_min_system_j"] = refs.E_ref_min
             result = schedule(dag, order, actions, physical)
@@ -213,7 +221,7 @@ def run() -> dict:
                 gates["all_finite"] = False
             rows.append(row)
     return {
-        "schema": "pure_plan_evidence_v1",
+        "schema": "pure_plan_evidence_v2",
         "primary_scope": primary_scope_of(physical),
         "scheduler_config_sha256": fingerprint,
         "refs_energy_scope": SCOPE_SYSTEM,
@@ -236,9 +244,10 @@ _COLUMNS = (
     ("mec_tx_joules", 13),
     ("primary_scope", 13),
     ("primary_joules", 14),
-    ("total_energy_raw_system_j", 24),
-    ("total_energy_status", 18),
-    ("budget_status", 16),
+    ("constraint_raw_system_j", 22),
+    ("total_energy_with_budget", 23),
+    ("total_energy_without_budget", 26),
+    ("without_budget_penalty", 22),
 )
 
 

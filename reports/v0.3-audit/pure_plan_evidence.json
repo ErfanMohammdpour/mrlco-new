@@ -21,7 +21,7 @@
   "refs_energy_scope": "system",
   "rows": [
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 15.099494400000001,
       "graph": "chain",
       "latency_s": 6.0,
       "mec_compute_joules": 0.0,
@@ -34,11 +34,18 @@
       "requester_joules": 15.099494400000001,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 15.099494400000001,
-      "total_energy_raw_system_j": 15.099494400000001,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     },
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 1515.8488685714285,
       "graph": "chain",
       "latency_s": 4.0285714285714285,
       "mec_compute_joules": 1509.94944,
@@ -51,11 +58,18 @@
       "requester_joules": 2.2857142857142856,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 1515.8488685714285,
-      "total_energy_raw_system_j": 1515.8488685714285,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     },
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 174.66931199999996,
       "graph": "chain",
       "latency_s": 10.799999999999999,
       "mec_compute_joules": 0.0,
@@ -68,11 +82,18 @@
       "requester_joules": 3.2,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 174.66931199999996,
-      "total_energy_raw_system_j": 174.66931199999996,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     },
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 572.9293202285714,
       "graph": "chain",
       "latency_s": 9.685714285714283,
       "mec_compute_joules": 503.31648,
@@ -85,11 +106,18 @@
       "requester_joules": 7.7760219428571435,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 572.9293202285714,
-      "total_energy_raw_system_j": 572.9293202285714,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     },
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 7.5497472000000005,
       "graph": "fork",
       "latency_s": 3.0,
       "mec_compute_joules": 0.0,
@@ -102,11 +130,18 @@
       "requester_joules": 7.5497472000000005,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 7.5497472000000005,
-      "total_energy_raw_system_j": 7.5497472000000005,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     },
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 759.7312914285715,
       "graph": "fork",
       "latency_s": 2.4857142857142858,
       "mec_compute_joules": 754.97472,
@@ -119,11 +154,18 @@
       "requester_joules": 1.1428571428571428,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 759.7312914285715,
-      "total_energy_raw_system_j": 759.7312914285715,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     },
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 88.13465599999998,
       "graph": "fork",
       "latency_s": 5.3999999999999995,
       "mec_compute_joules": 0.0,
@@ -136,11 +178,18 @@
       "requester_joules": 1.6,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 88.13465599999998,
-      "total_energy_raw_system_j": 88.13465599999998,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     },
     {
-      "budget_status": "not_configured",
+      "constraint_raw_system_j": 286.4646601142857,
       "graph": "fork",
       "latency_s": 3.5999999999999996,
       "mec_compute_joules": 251.65824,
@@ -153,10 +202,17 @@
       "requester_joules": 3.8880109714285718,
       "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
       "system_joules": 286.4646601142857,
-      "total_energy_raw_system_j": 286.4646601142857,
-      "total_energy_status": "active"
+      "total_energy_with_budget": "active",
+      "total_energy_without_budget": "not_configured",
+      "with_budget_active_names": [
+        "total_energy"
+      ],
+      "with_budget_spec_enabled": true,
+      "without_budget_active_names": [],
+      "without_budget_penalty": 0.0,
+      "without_budget_spec_enabled": false
     }
   ],
   "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
-  "schema": "pure_plan_evidence_v1"
+  "schema": "pure_plan_evidence_v2"
 }
