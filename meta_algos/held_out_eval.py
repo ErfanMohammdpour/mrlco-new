@@ -44,6 +44,11 @@ class HeldOutQueryEvaluator:
         metrics = query_metrics_from_samples(query_data)
         metrics["k_steps"] = k_steps
         metrics["distribution_id"] = int(distribution_id)
+        # P1 baseline: all-MEC latency under the SAME scheduler/config (baseline
+        # anchor, not a replay of the rollout), so the pilot can report the gap.
+        all_mec = getattr(self.env, "all_mec_latency_for_current_task", None)
+        if callable(all_mec):
+            metrics["query_all_mec_latency"] = float(np.mean(all_mec()))
         # E4.2: give the plan-level objective channel its per-graph input from the
         # SAME rollout results (env stores them; no second scheduler run).
         payload = getattr(self.env, "validation_plan_payload", None)
@@ -88,4 +93,12 @@ class HeldOutQueryEvaluator:
             out["validation_plan_identities"] = identities
         if all("query_mean_energy" in row for row in rows):
             out["query_mean_energy"] = float(np.mean([row["query_mean_energy"] for row in rows]))
+        if all("query_all_mec_latency" in row for row in rows):
+            out["query_all_mec_latency"] = float(
+                np.mean([row["query_all_mec_latency"] for row in rows])
+            )
+        if all("query_greedy_latency" in row for row in rows):
+            out["query_greedy_latency"] = float(
+                np.mean([row["query_greedy_latency"] for row in rows])
+            )
         return out

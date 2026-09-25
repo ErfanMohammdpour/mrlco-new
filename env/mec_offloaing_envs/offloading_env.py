@@ -677,6 +677,7 @@ class OffloadingEnvironment(MetaEnv):
         the reference must be the SYSTEM one E3.2 requires. A mobile or missing
         object raises instead of reaching the objective.
         """
+        from env.mec_offloaing_envs.scheduler.adapter import to_canonical_dag
         from env.mec_offloaing_envs.scheduler.energy_cache import (
             scheduling_graph_fingerprint,
         )
@@ -699,8 +700,13 @@ class OffloadingEnvironment(MetaEnv):
             expected_scope=SCOPE_SYSTEM,
             expected_scheduler_config_sha256=config_sha,
         )
+        canonical = to_canonical_dag(task_graph)
         return {
-            "graph_fingerprint": scheduling_graph_fingerprint(task_graph, order),
+            "graph_fingerprint": scheduling_graph_fingerprint(canonical, order),
+            "edges": [
+                [int(e.src_task_id), int(e.dst_task_id), int(e.edge_output_bytes)]
+                for e in canonical.edges
+            ],
             "order": order,
             "plan": [[int(t), int(a)] for t, a in plan],
             "scheduler_config_sha256": result_sha,
@@ -729,6 +735,7 @@ class OffloadingEnvironment(MetaEnv):
                 key: record[key]
                 for key in (
                     "graph_fingerprint",
+                    "edges",
                     "order",
                     "plan",
                     "scheduler_config_sha256",
@@ -888,6 +895,25 @@ class OffloadingEnvironment(MetaEnv):
             running_cost.append(np.mean(running_cost_batch))
 
         return running_cost
+
+    def all_mec_latency_for_current_task(self):
+        """All-MEC baseline for the current task, SAME canonical scheduler/config.
+
+        This is a baseline computation (the user-requested comparison anchor), not
+        a replay of the rollout: it schedules the all-MEC plan once per graph.
+        """
+        from env.mec_offloaing_envs.scheduler.adapter import schedule_via_adapter
+
+        graphs = self._slice_current(self.task_graphs_batchs)
+        latencies = []
+        for task_graph in graphs:
+            order = [int(t) for t in task_graph.prioritize_sequence]
+            plan = [(tid, 1) for tid in order]
+            result, _, _ = schedule_via_adapter(
+                task_graph, plan, self.scheduler_resources
+            )
+            latencies.append(float(result.makespan_seconds))
+        return latencies
 
     def greedy_solution_for_current_task(self):
         greedy_result = self.greedy_solution()

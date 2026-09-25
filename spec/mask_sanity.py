@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MODES = ("off", "static")
-ALLOWED_ITERS = (1, 500)
+ALLOWED_ITERS = (1, 10, 25, 40, 500)
 METHOD_ID = "margo_v0.4_mask_sanity_v3"
 DEFAULT_RUNS_ROOT = Path("runs") / "mask_sanity_v3"
 VALUE_ABS_MAX_LIMIT = 1e3

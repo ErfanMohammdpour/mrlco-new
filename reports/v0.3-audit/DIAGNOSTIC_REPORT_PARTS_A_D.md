@@ -28,6 +28,12 @@ penalty 0, raw == system energy, reward identical to constraints-off;
 `C_UE_ENERGY.raw == requester`; a mobile reference is rejected by both the
 objective and the constraint; a zero-learning-rate controller keeps lambda at 0.
 
+Wording/scope notes: the `1 J` and `1e12 J` budgets are **integration fixtures
+only**, not scientific budgets. In `not_configured` (A1) the constraint `raw`
+field is deliberately `null`; the check is therefore named
+`A1_underlying_metric_equals_system` and compares the underlying system metric
+(`measure_metrics.total_energy_j`) to the system telemetry scalar.
+
 Kish trainer CSV (`total_small`) carries the full constraint column set
 (`constraint_status/total_energy = active`, `constraint/total_energy_raw`,
 `_budget`, `_signed`, `_violation`, `constraint/penalty_applied = 0`,
@@ -103,8 +109,10 @@ per order independently). Production order untouched.
 | canonical_aware | 0.6532 | 474.743 | 397.398 | 95.951 |
 | deadline_criticality | 0.6972 | **443.897** | **245.325** | **65.105** |
 
-The current legacy rank is already near-optimal under a fixed assignment; HEFT
-reproduces it (Kendall 0.988); a naive scheduler-aware rank is ~7 % worse.
+The current legacy rank is the **best tested heuristic on this diagnostic set** —
+indistinguishable from HEFT-upward under a fixed assignment (Kendall 0.988); this
+is a statement about the tested set, not a global optimality claim. stable_topo
+is +3.8 % and a naive scheduler-aware rank +6.9 %.
 
 ## Answers to the six questions
 
@@ -131,13 +139,15 @@ reproduces it (Kendall 0.988); a naive scheduler-aware rank is ~7 % worse.
    (4 vs 3 calendars), and the resulting contention/parallelism. `decoder_order`
    was not isolated by this contract.
 5. **Is the legacy ranking meaningfully inconsistent with the canonical
-   scheduler?** No. Under a fixed assignment the legacy order is statistically
-   tied with deadline/criticality-aware and HEFT (444.119 vs 443.897 vs 444.131 s,
+   scheduler?** No. Under a fixed assignment the legacy order is the best tested
+   heuristic on the diagnostic set — statistically tied with
+   deadline/criticality-aware and HEFT (444.119 vs 443.897 vs 444.131 s,
    <0.06 %) and better than stable-topological (+3.8 %) and a naive
    scheduler-aware order (+6.9 %). No production order change is warranted.
 6. **Scheduler/ranking fix or exploration?** The evidence does not support a
-   scheduler/ranking fix as the next lever: the production rank is near-optimal
-   and the queue-blind static bound only mis-ranks on wide/shallow graphs. The
+   scheduler/ranking fix as the next lever: the legacy order is the best tested
+   heuristic on this diagnostic set (indistinguishable from HEFT) and the
+   queue-blind static bound only mis-ranks on wide/shallow graphs. The
    open gap is policy-side: a queue-aware assignment/exploration that does not
    trust the static bound, to be tested after review. Keep the production order
    and the scheduler as they are for now.

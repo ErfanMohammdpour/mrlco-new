@@ -60,6 +60,10 @@ class PPO:
         self.value_clip_epsilon = float(value_clip_epsilon)
         self.vf_coef = float(vf_coef)
         self.max_grad_norm = float(max_grad_norm)
+        # P1 diagnostics, filled by UpdatePPOTarget
+        self.last_approx_kl: float | None = None
+        self.last_clip_fraction: float | None = None
+        self.last_grad_norm: float | None = None
         self.support_trajectories = int(support_trajectories)
         self.ppo_batch_size_trajectories = int(ppo_batch_size_trajectories)
         self.entropy_coefficient = float(entropy_coefficient)
@@ -133,6 +137,17 @@ class PPO:
                 * self.advs,
             )
             self.surr_obj = -tf.reduce_mean(clipped_obj)
+            # P1 additive diagnostics: computed from the SAME likelihood ratio the
+            # update already uses; they are read-only scalars (no learning effect).
+            self.approx_kl = tf.reduce_mean(
+                likelihood_ratio - 1.0 - tf.math.log(likelihood_ratio)
+            )
+            self.clip_fraction = tf.reduce_mean(
+                tf.cast(
+                    tf.greater(tf.abs(likelihood_ratio - 1.0), self.clip_value),
+                    tf.float32,
+                )
+            )
 
             vpredclipped = self.old_v + tf.clip_by_value(
                 self.vpred - self.old_v, -self.value_clip_epsilon, self.value_clip_epsilon
@@ -145,7 +160,8 @@ class PPO:
             params = self.policy.network.get_trainable_variables()
             grads_and_var = self.optimizer.compute_gradients(self.total_loss, params)
             grads, var = zip(*grads_and_var)
-            grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+            grads, grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+            self.grad_norm = grad_norm
             grads_and_var = list(zip(grads, var))
             self._train = self.optimizer.apply_gradients(grads_and_var)
             slot_vars = self.optimizer.variables()
@@ -163,6 +179,9 @@ class PPO:
         if steps < 0:
             raise ValueError("k_steps cannot be negative")
         if steps == 0:
+            self.last_approx_kl = None
+            self.last_clip_fraction = None
+            self.last_grad_norm = None
             return [], []
         if int(batch_size) != self.ppo_batch_size_trajectories:
             raise ValueError(
@@ -195,6 +214,9 @@ class PPO:
         sess = tf.compat.v1.get_default_session()
         policy_losses = []
         value_losses = []
+        kl_values = []
+        clip_values = []
+        grad_values = []
         apply_count = 0
         expect = expected_adam_apply_count(
             self.support_trajectories, batch_size, steps
@@ -219,12 +241,23 @@ class PPO:
                 }
                 if feasible is not None:
                     feed_dict[self._feasible_mask_ph()] = feasible[idx]
-                _, value_loss, policy_loss = sess.run(
-                    [self._train, self.vf_loss, self.surr_obj], feed_dict=feed_dict
+                _, value_loss, policy_loss, kl_value, clip_value, grad_value = sess.run(
+                    [
+                        self._train,
+                        self.vf_loss,
+                        self.surr_obj,
+                        self.approx_kl,
+                        self.clip_fraction,
+                        self.grad_norm,
+                    ],
+                    feed_dict=feed_dict,
                 )
                 apply_count += 1
                 value_losses.append(value_loss)
                 policy_losses.append(policy_loss)
+                kl_values.append(float(kl_value))
+                clip_values.append(float(clip_value))
+                grad_values.append(float(grad_value))
         if apply_count != expect:
             raise RuntimeError(
                 "k_steps=%d expected %d Adam apply calls, recorded %d"
@@ -234,4 +267,7 @@ class PPO:
             raise RuntimeError(
                 "k_steps=%d but recorded %d Adam apply calls" % (steps, apply_count)
             )
+        self.last_approx_kl = float(np.mean(kl_values)) if kl_values else None
+        self.last_clip_fraction = float(np.mean(clip_values)) if clip_values else None
+        self.last_grad_norm = float(np.mean(grad_values)) if grad_values else None
         return policy_losses, value_losses

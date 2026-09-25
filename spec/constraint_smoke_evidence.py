@@ -55,6 +55,8 @@ from env.mec_offloaing_envs.scheduler.resources import resolved_config_sha256
 
 PLAN = [(0, 0), (1, 2), (2, 1)]  # UE, HELPER, MEC
 SCENARIOS = {
+    # NOTE: the budget values (None / 1e12 / 1) are INTEGRATION FIXTURES only;
+    # they are not scientific budgets.
     "A1_total_absent": ConstraintSpec(mode="lagrangian"),
     "A2_total_big": ConstraintSpec(mode="lagrangian", total_energy_budget_j=1e12),
     "A3_total_small": ConstraintSpec(mode="lagrangian", total_energy_budget_j=1.0),
@@ -172,7 +174,11 @@ def run() -> dict:
         "A1_controller_off": rows["A1_total_absent"]["enabled"] is False,
         "A1_no_active_constraint": rows["A1_total_absent"]["active_names"] == [],
         "A1_penalty_zero": rows["A1_total_absent"]["penalty_with_zero_duals"] == 0.0,
-        "A1_raw_equals_system": rows["A1_total_absent"]["total_energy_metric_system_j"] == system_scalar,
+        # A1 has no budget, so the constraint raw field is deliberately null; the
+        # check compares the UNDERLYING system metric to the system telemetry.
+        "A1_underlying_metric_equals_system": (
+            rows["A1_total_absent"]["total_energy_metric_system_j"] == system_scalar
+        ),
         "A2_status_active": rows["A2_total_big"]["status"] == "active",
         "A2_raw_equals_system": rows["A2_total_big"]["total_energy_raw"] == system_scalar,
         "A2_under_budget": rows["A2_total_big"]["total_energy_signed"] < 0.0,

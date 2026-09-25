@@ -17,11 +17,22 @@ from env.mec_offloaing_envs.scheduler.primary_config import (  # noqa: E402
     resolved_primary_scheduler_config,
 )
 from spec.eval_protocol import protocol_log_kvs
+from spec.pilot_metrics import (
+    collapse_flag,
+    flatten_actions,
+    plan_summary,
+    update_metric_kvs,
+    validation_gaps,
+)
 from spec.train_audit import health_verdict, task_spec_records
 
 FROZEN_PPO_BATCH = 20
 FROZEN_K_STEPS = 3
 FROZEN_VALIDATION_INTERVAL = 50
+
+
+class ActionCollapseError(RuntimeError):
+    """Pilot watchdog: sustained MEC collapse without beating the baselines."""
 
 
 def _without_validation_plans(metrics):
@@ -89,6 +100,10 @@ class Trainer(object):
         self.validation_interval = int(validation_interval)
         self.held_out_evaluator = held_out_evaluator
         self.best_val_composite = None
+        # P1 pilot tracking
+        self._mec_share_series: list[float] = []
+        self._last_gap_allmec: float | None = None
+        self._last_gap_greedy: float | None = None
         # ②B-2 lexicographic selection state (None -> legacy composite path)
         self.best_selection_key = None
         self.objective_spec = getattr(self, "objective_spec", None)
@@ -200,6 +215,31 @@ class Trainer(object):
         else:
             logger.logkv("checkpoint_is_best_val", 0)
         self.algo.sync_task_policies_from_core()
+        # P1 validation dashboard: all-MEC/Greedy baselines, gaps, plan summary
+        try:
+            gaps = validation_gaps(
+                policy_latency=float(k3["query_mean_latency"]),
+                all_mec_latency=float(k3.get("query_all_mec_latency", float("nan"))),
+                greedy_latency=float(k3.get("query_greedy_latency", float("nan"))),
+            )
+        except (KeyError, ValueError, TypeError):
+            gaps = None
+        if gaps is not None:
+            self._last_gap_allmec = gaps["validation_gap_to_all_mec"]
+            self._last_gap_greedy = gaps["validation_gap_to_greedy"]
+            for key, value in gaps.items():
+                logger.logkv("validation/%s" % key, value)
+        plans = k3.get("validation_per_graph_plans")
+        identities = k3.get("validation_plan_identities") or []
+        if plans and identities and len(plans) == len(identities):
+            rows = [
+                plan_summary(res, ident.get("edges"), len(ident.get("order", [])))
+                for (res, _refs), ident in zip(plans, identities)
+            ]
+            for key in rows[0]:
+                logger.logkv(
+                    "validation/%s" % key, sum(r[key] for r in rows) / float(len(rows))
+                )
         return _without_validation_plans(k0), _without_validation_plans(k3)
 
     def _validation_plan_objective(self, metrics):
@@ -307,6 +347,35 @@ class Trainer(object):
                 ppo_kwargs["update_mode"] = update_mode
                 ppo_kwargs["bc_policy"] = self.bc_policy
             policy_losses, value_losses = self.algo.UpdatePPOTarget(samples_data, **ppo_kwargs)
+            # P1 pilot dashboard: action mix, losses and PPO diagnostics
+            iteration_kvs = update_metric_kvs(
+                actions=flatten_actions(samples_data),
+                policy_loss_mean=float(np.mean(policy_losses)),
+                value_loss_mean=float(np.mean(value_losses)),
+                approx_kl=getattr(self.algo, "last_approx_kl", None),
+                clip_fraction=getattr(self.algo, "last_clip_fraction", None),
+                grad_norm=getattr(self.algo, "last_grad_norm", None),
+            )
+            for key, value in iteration_kvs.items():
+                logger.logkv(key, value)
+            self._mec_share_series.append(float(iteration_kvs.get("action_fraction/mec", 0.0)))
+            collapsed = collapse_flag(
+                self._mec_share_series, self._last_gap_allmec, self._last_gap_greedy
+            )
+            logger.logkv("collapse/flag", 1.0 if collapsed else 0.0)
+            if collapsed:
+                logger.dumpkvs()
+                raise ActionCollapseError(
+                    "action collapse at iteration %d: MEC share %.3f for %d iterations, "
+                    "gap_to_all_mec=%s gap_to_greedy=%s"
+                    % (
+                        itr,
+                        float(iteration_kvs.get("action_fraction/mec", 0.0)),
+                        5,
+                        self._last_gap_allmec,
+                        self._last_gap_greedy,
+                    )
+                )
             for metric_name, metric_value in mask_metrics.items():
                 logger.logkv(metric_name, float(metric_value))
             inner_payload = {

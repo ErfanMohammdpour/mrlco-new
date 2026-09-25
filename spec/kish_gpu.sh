@@ -88,6 +88,16 @@ for d in device_lib.list_local_devices():
       --i-allow-gpu --reward-mode latency_only --objective-mode log_only \
       --constraints-scenario total_small
     ;;
+  pilot-a)
+    # Phase P2 Pilot A: 25 outer iterations, mask off, latency_only + log_only
+    gpu_run python -m spec.mask_sanity --mode off --itr 25 --seed 0 \
+      --i-allow-gpu --reward-mode latency_only --objective-mode log_only
+    ;;
+  pilot-a-extend)
+    # INCONCLUSIVE extension: same run contract, 40 iterations, no restart
+    gpu_run python -m spec.mask_sanity --mode off --itr 40 --seed 0 \
+      --i-allow-gpu --reward-mode latency_only --objective-mode log_only
+    ;;
   mask-smoke)
     # ⑥b gate: legacy parity, then the static shield. Both must exit 0.
     gpu_run_masked off python -m spec.masked_ppo_smoke --mask-mode off
@@ -326,7 +336,7 @@ for d in device_lib.list_local_devices():
     gpu_run python spec/phase3_gate.py
     ;;
   *)
-    echo "usage: $0 probe|gate|smoke|energy-tests|energy-train-smoke|energy-constraint-smoke|train0|mask-smoke|mask-runtime|mask-metrics|mask-train-smoke-off|mask-train-smoke-static|audit5|par5|par500|lat50|pomo50|bc50|bconly|bccont|klppo50|bcunseen|bcfew|bcss|h2|motif|twopt|pairfrac|bc2opt|pairhead|pairksweep|pairranker|pairseq|cavia|caviaE|caviaS|pairsup|caviaB|rewrite|oracle|binary|encoder|bestofk|eas|easinst|expertprof|expertprofval|expertenergy|expertenergyval|fitstatsv2|bcprof|easprof|ctxprof|bokprof|diag1k|diag200" >&2
+    echo "usage: $0 probe|gate|smoke|energy-tests|energy-train-smoke|energy-constraint-smoke|pilot-a|pilot-a-extend|train0|mask-smoke|mask-runtime|mask-metrics|mask-train-smoke-off|mask-train-smoke-static|audit5|par5|par500|lat50|pomo50|bc50|bconly|bccont|klppo50|bcunseen|bcfew|bcss|h2|motif|twopt|pairfrac|bc2opt|pairhead|pairksweep|pairranker|pairseq|cavia|caviaE|caviaS|pairsup|caviaB|rewrite|oracle|binary|encoder|bestofk|eas|easinst|expertprof|expertprofval|expertenergy|expertenergyval|fitstatsv2|bcprof|easprof|ctxprof|bokprof|diag1k|diag200" >&2
     exit 2
     ;;
 esac

@@ -65,8 +65,10 @@ class TestRunDirLayout(unittest.TestCase):
         root = Path("/tmp/runs")
         self.assertNotEqual(run_dir("off", 0, root), run_dir("static", 0, root))
 
-    def test_allowed_iterations_are_exactly_one_and_five_hundred(self):
-        self.assertEqual(tuple(ALLOWED_ITERS), (1, 500))
+    def test_allowed_iterations_include_the_pilot_lengths(self):
+        for itr in (1, 10, 25, 40, 500):
+            self.assertIn(itr, ALLOWED_ITERS)
+        self.assertEqual(tuple(ALLOWED_ITERS), (1, 10, 25, 40, 500))
 
 
 class TestProgressCsvValidation(unittest.TestCase):
@@ -200,10 +202,16 @@ class TestLauncherTargets(unittest.TestCase):
         self.assertIn("--mode static --itr 1", self.script)
         self.assertIn("--mode off --itr 500", self.script)
         self.assertIn("--mode static --itr 500", self.script)
-        # four runs, one cheap preflight target, the E4.2 energy smoke and the
-        # Part A constraint smoke
-        self.assertEqual(self.script.count("python -m spec.mask_sanity"), 7)
+        # four runs, one cheap preflight target, the E4.2 energy smoke, the Part A
+        # constraint smoke and the two pilot targets
+        self.assertEqual(self.script.count("python -m spec.mask_sanity"), 9)
         self.assertIn("--preflight-only", self.script)
+
+    def test_pilot_targets_use_the_frozen_contract(self):
+        self.assertIn("pilot-a)", self.script)
+        self.assertIn("--mode off --itr 25", self.script)
+        self.assertIn("pilot-a-extend)", self.script)
+        self.assertIn("--mode off --itr 40", self.script)
 
     def test_constraint_smoke_uses_the_expected_scenario(self):
         self.assertIn("energy-constraint-smoke)", self.script)
