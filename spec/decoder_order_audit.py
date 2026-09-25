@@ -86,6 +86,10 @@ from env.mec_offloaing_envs.scheduler import (  # noqa: E402
     schedule,
 )
 from env.mec_offloaing_envs.scheduler.calendar import RESOURCE_NAMES  # noqa: E402
+from env.mec_offloaing_envs.scheduler.energy_scope import (  # noqa: E402
+    SCOPE_SYSTEM,
+    energy_scalar,
+)
 from env.mec_offloaing_envs.scheduler.primary_config import (  # noqa: E402
     resolved_primary_scheduler_config,
 )
@@ -942,13 +946,17 @@ def run(
                     "fixed_plan_actions_by_task": {str(t): fixed_actions[t] for t in sorted(fixed_actions)},
                     "fixed_plan_latency_s": _finite(makespan),
                     "fixed_plan_repeat_delta_s": _finite(abs(repeat - makespan)),
-                    "fixed_plan_energy_system_j": _finite(fixed_result.energy.total_system_joules),
+                    "fixed_plan_energy_system_j": _finite(
+                        energy_scalar(fixed_result, scope=SCOPE_SYSTEM)
+                    ),
                     "queue_utilization": util,
                     "queue_utilization_mean": util["mean"],
                     "greedy_actions_by_task": {str(t): greedy_by_task[t] for t in sorted(greedy_by_task)},
                     "greedy_action_mix": action_mix(greedy_by_task),
                     "greedy_latency_s": _finite(float(greedy_result.makespan_seconds)),
-                    "greedy_energy_system_j": _finite(greedy_result.energy.total_system_joules),
+                    "greedy_energy_system_j": _finite(
+                        energy_scalar(greedy_result, scope=SCOPE_SYSTEM)
+                    ),
                     "fixed_action_mix": action_mix({t: fixed_actions[t] for t in fixed_actions}),
                     "policy_action_mix": policy_mix,
                     "static_bound_s": _finite(bound),
