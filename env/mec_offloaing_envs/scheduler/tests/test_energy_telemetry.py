@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import pickle
 import sys
 import tempfile
@@ -18,9 +19,14 @@ for _name in ("gym", "gym.core"):
     sys.modules.setdefault(_name, types.ModuleType(_name))
 sys.modules["gym.core"].Env = type("Env", (), {})
 # utils.logger imports tensorflow at module level for its TensorBoard writer; the
-# CSV path needs none of it.
-if "tensorflow" not in sys.modules:
-    sys.modules["tensorflow"] = types.ModuleType("tensorflow")
+# CSV path needs none of it. Stub ONLY when TF is genuinely absent, otherwise a
+# single-process unittest run would shadow the real TF the Phase 2/3 smokes need.
+try:
+    _TF_INSTALLED = importlib.util.find_spec("tensorflow") is not None
+except (ImportError, ValueError):
+    _TF_INSTALLED = False
+if not _TF_INSTALLED:
+    sys.modules.setdefault("tensorflow", types.ModuleType("tensorflow"))
 if "joblib" not in sys.modules:
     sys.modules["joblib"] = types.ModuleType("joblib")
 
@@ -332,6 +338,25 @@ class TestLegacyAverageEnergyLabel(unittest.TestCase):
         refs = ReferenceRanges(L_ue=1.0, L_mec=2.0, L_helper=3.0,
                                E_ue=10.0, E_mec=20.0, E_helper=30.0)
         self.assertGreaterEqual(j_report(1.5, 15.0, refs), 0.0)
+
+
+class TestNoTensorflowShadowing(unittest.TestCase):
+    def test_an_installed_tensorflow_is_never_shadowed_by_a_stub(self):
+        """In one unittest process the CSV/telemetry stubs must not hide real TF."""
+        import importlib.util as ilu
+
+        try:
+            installed = ilu.find_spec("tensorflow") is not None
+        except (ImportError, ValueError):
+            installed = False
+        if not installed:
+            return  # CPU-only environment: there is no real TF to shadow
+        tf = sys.modules.get("tensorflow")
+        self.assertIsNotNone(tf)
+        self.assertTrue(
+            getattr(tf, "__file__", None) is not None or hasattr(tf, "__version__"),
+            "a bare stub shadowed the installed tensorflow module",
+        )
 
 
 class TestCsvAlignment(unittest.TestCase):

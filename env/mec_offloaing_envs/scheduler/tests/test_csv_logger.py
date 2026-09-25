@@ -24,12 +24,19 @@ ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import importlib.util  # noqa: E402
 import types  # noqa: E402
 
 # utils.logger imports tensorflow at module level for its TensorBoard writer;
-# the CSV path needs none of it, so stub it the way the other tests stub gym.
-if "tensorflow" not in sys.modules:
-    sys.modules["tensorflow"] = types.ModuleType("tensorflow")
+# the CSV path needs none of it. Stub it ONLY when TF is genuinely absent: under
+# a single-process unittest run a stub here would shadow the real TF that the
+# Phase 2/3 smoke tests import later.
+try:
+    _TF_INSTALLED = importlib.util.find_spec("tensorflow") is not None
+except (ImportError, ValueError):
+    _TF_INSTALLED = False
+if not _TF_INSTALLED:
+    sys.modules.setdefault("tensorflow", types.ModuleType("tensorflow"))
 if "joblib" not in sys.modules:
     # only used by the snapshot helpers, not by the CSV writer
     sys.modules["joblib"] = types.ModuleType("joblib")
