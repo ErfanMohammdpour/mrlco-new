@@ -140,7 +140,9 @@ class TestInterimAndManifest(unittest.TestCase):
         self.assertIn("pilot-a-long-1000)", script)
         self.assertIn("python -m spec.pilot_long", script)
         self.assertIn("--root runs/long_latency_v1", script)
-        self.assertNotIn("runs/mask_sanity_v3", script.split("pilot-a-long-1000)")[1].split(";;")[0])
+        block = script.split("pilot-a-long-1000)")[1].split(";;")[0]
+        self.assertNotIn("--root runs/mask_sanity_v3", block)
+        self.assertIn("--root runs/long_latency_v1", block)
 
 
 if __name__ == "__main__":
