@@ -1,0 +1,83 @@
+{
+  "all_checks_pass": true,
+  "checks": {
+    "all_gates_exit_zero": true,
+    "constraint_csv_has_columns": true,
+    "constraint_csv_validation_clean": true,
+    "constraint_smoke_exit0": true,
+    "energy_tests_ok": true,
+    "fingerprint_parity": true,
+    "train_smoke_exit0": true,
+    "train_smoke_failures_empty": true
+  },
+  "constraint_trainer_csv": {
+    "checks_enforced_by_the_validator": [
+      "constraint_status/total_energy == active",
+      "constraint/total_energy_raw/budget/signed present and finite",
+      "constraint/total_energy_signed > 0 (violation)",
+      "constraint/penalty_applied == 0",
+      "constraint/lambda_total_energy == 0 (Lagrangian off)"
+    ],
+    "constraint_columns": [
+      "constraint/penalty_applied",
+      "constraint/total_energy_budget",
+      "constraint/total_energy_raw",
+      "constraint/total_energy_signed",
+      "constraint/total_energy_violation",
+      "constraint_status/ue_energy",
+      "constraint_status/helper_energy",
+      "constraint_status/total_energy",
+      "constraint_status/v2v_airtime",
+      "constraint_status/v2v_task_fraction",
+      "constraint_status/mec_task_fraction",
+      "constraint_status/deadline",
+      "constraint/updates",
+      "constraint/buffer",
+      "constraint/lambda_total_energy"
+    ],
+    "data_rows": 1,
+    "header_fields": 79,
+    "mode": "reward latency_only, objective log_only, obs v3, mask static",
+    "scenario": "total_small (budget 1 J, Lagrangian off, dual_lr=0.0)",
+    "validation_failures": []
+  },
+  "constraints_line": "lagrangian mode, budgets=['total_energy'], dual_lr=0.0",
+  "final_sha": "7f5b63a7cb55c11d331001d2272e32b6b505f95e",
+  "gates": [
+    {
+      "exit": 0,
+      "finished_utc": "2026-09-25T16:52:17Z",
+      "target": "energy-constraint-smoke",
+      "wall_s": 1450
+    },
+    {
+      "exit": 0,
+      "finished_utc": "2026-09-25T16:28:07Z",
+      "target": "energy-tests",
+      "wall_s": 128
+    },
+    {
+      "exit": 0,
+      "finished_utc": "2026-09-25T17:16:17Z",
+      "target": "energy-train-smoke",
+      "wall_s": 1440
+    }
+  ],
+  "gpu_at_start": "NVIDIA GeForce RTX 4090, 1 MiB, 24564 MiB",
+  "host": "kish-ai",
+  "image": "margo-phase4-tf115-nv2212:latest sha256:82bc781bc2888a171379e1b45da6846c559ef712e33a76f74948b1cd7172dc46",
+  "scheduler_config_line": "timing=legacy_frozen_rates radio_timing=legacy_frozen_rates energy=physical_v1 radio=physical_v1 scope=system sha=c364f65545f9",
+  "schema": "kish_constraint_smoke_evidence_v1",
+  "started_utc": "2026-09-25T16:25:56Z",
+  "test_suite": {
+    "ran": 803,
+    "result": "OK",
+    "seconds": 123.036
+  },
+  "tf_version": "1.15.5",
+  "train_smoke_csv": {
+    "constraint_columns": [],
+    "failures": []
+  },
+  "tree_dirty": "0"
+}

@@ -1,0 +1,19 @@
+sha=7f5b63a7cb55c11d331001d2272e32b6b505f95e
+dirty=0
+started=2026-09-25T16:25:56Z
+tf_version=1.15.5
+image=margo-phase4-tf115-nv2212:latest sha256:82bc781bc2888a171379e1b45da6846c559ef712e33a76f74948b1cd7172dc46
+gpu=NVIDIA GeForce RTX 4090, 1 MiB, 24564 MiB
+---EXITS---
+target=energy-constraint-smoke
+exit=0
+wall_s=1450
+finished=2026-09-25T16:52:17Z
+target=energy-tests
+exit=0
+wall_s=128
+finished=2026-09-25T16:28:07Z
+target=energy-train-smoke
+exit=0
+wall_s=1440
+finished=2026-09-25T17:16:17Z
