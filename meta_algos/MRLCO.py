@@ -95,6 +95,13 @@ class MRLCO:
         self.surr_obj = []
         self.vf_loss = []
         self.likelihood_ratio = []
+        self.approx_kl = []
+        self.clip_fraction = []
+        self.grad_norm = []
+        self.last_approx_kl: float | None = None
+        self.last_clip_fraction: float | None = None
+        self.last_grad_norm: float | None = None
+        self._task_diagnostics: list[tuple[float, float, float]] = []
         self.clipped_obj = []
         self.total_loss = []
         self._train = []
@@ -143,6 +150,20 @@ class MRLCO:
                 )
                 self.clipped_obj.append(clipped_obj)
                 self.surr_obj.append(-tf.reduce_mean(clipped_obj))
+                # P1 additive diagnostics from the same likelihood ratio
+                self.approx_kl.append(
+                    tf.reduce_mean(likelihood_ratio - 1.0 - tf.math.log(likelihood_ratio))
+                )
+                self.clip_fraction.append(
+                    tf.reduce_mean(
+                        tf.cast(
+                            tf.greater(
+                                tf.abs(likelihood_ratio - 1.0), self.clip_value
+                            ),
+                            tf.float32,
+                        )
+                    )
+                )
 
                 # LEARNING_PROTOCOL: v_old + clip(v_new - v_old, -eps, eps)
                 vpredclipped = self.old_v[i] + tf.clip_by_value(
@@ -167,7 +188,10 @@ class MRLCO:
                 grads_and_var = inner_opt.compute_gradients(self.total_loss[i], params)
                 grads, var = zip(*grads_and_var)
                 if self.max_grad_norm is not None:
-                    grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+                    grads, grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+                else:
+                    grad_norm = tf.constant(0.0)
+                self.grad_norm.append(grad_norm)
                 grads_and_var = list(zip(grads, var))
                 train_op = inner_opt.apply_gradients(grads_and_var)
                 self._train.append(train_op)
@@ -264,6 +288,7 @@ class MRLCO:
             raise ValueError("kl_bc update needs frozen bc_policy")
         self.last_update_mode = update_mode
         self.last_kl_bc = []
+        self._task_diagnostics = []
         total_policy_losses = []
         total_value_losses = []
         for task_id in range(self.meta_batch_size):
@@ -276,6 +301,15 @@ class MRLCO:
             )
             total_policy_losses.append(policy_losses)
             total_value_losses.append(value_losses)
+        if self._task_diagnostics:
+            n = float(len(self._task_diagnostics))
+            self.last_approx_kl = sum(d[0] for d in self._task_diagnostics) / n
+            self.last_clip_fraction = sum(d[1] for d in self._task_diagnostics) / n
+            self.last_grad_norm = sum(d[2] for d in self._task_diagnostics) / n
+        else:
+            self.last_approx_kl = None
+            self.last_clip_fraction = None
+            self.last_grad_norm = None
         return total_policy_losses, total_value_losses
 
     def _frozen_bc_logits(self, bc_policy, obs_b, shift_b, actions_b):
@@ -344,6 +378,9 @@ class MRLCO:
         sess = tf.compat.v1.get_default_session()
         policy_losses = []
         value_losses = []
+        kl_values = []
+        clip_values = []
+        grad_values = []
         apply_count = 0
         if update_mode == "kl_bc":
             train_op = self._train_kl[task_id]
@@ -369,7 +406,14 @@ class MRLCO:
                 }
                 if feasible is not None:
                     feed_dict[self._mask_ph(task_id)] = feasible[idx]
-                fetches = [train_op, self.vf_loss[task_id], self.surr_obj[task_id]]
+                fetches = [
+                    train_op,
+                    self.vf_loss[task_id],
+                    self.surr_obj[task_id],
+                    self.approx_kl[task_id],
+                    self.clip_fraction[task_id],
+                    self.grad_norm[task_id],
+                ]
                 if update_mode == "kl_bc":
                     feed_dict[self.bc_logits[task_id]] = self._frozen_bc_logits(
                         bc_policy, obs_b, shift_actions[idx], actions[idx]
@@ -378,14 +422,25 @@ class MRLCO:
                 out = sess.run(fetches, feed_dict=feed_dict)
                 value_loss = out[1]
                 policy_loss = out[2]
+                kl_values.append(float(out[3]))
+                clip_values.append(float(out[4]))
+                grad_values.append(float(out[5]))
                 if update_mode == "kl_bc":
-                    self.last_kl_bc.append(float(out[3]))
+                    self.last_kl_bc.append(float(out[6]))
                 apply_count += 1
                 value_losses.append(value_loss)
                 policy_losses.append(policy_loss)
         if apply_count != self.num_inner_grad_steps:
             raise RuntimeError(
                 "k_steps=%d but recorded %d Adam apply calls" % (self.num_inner_grad_steps, apply_count)
+            )
+        if kl_values:
+            self._task_diagnostics.append(
+                (
+                    float(np.mean(kl_values)),
+                    float(np.mean(clip_values)),
+                    float(np.mean(grad_values)),
+                )
             )
         return policy_losses, value_losses
 
