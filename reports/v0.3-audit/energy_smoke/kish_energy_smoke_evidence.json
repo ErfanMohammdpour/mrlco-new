@@ -1,0 +1,110 @@
+{
+  "all_gates_exit_zero": true,
+  "constraints_in_this_smoke": "off (spec/mask_sanity forces MARGO_CONSTRAINTS=off): C_TOTAL_ENERGY=system / C_UE_ENERGY=requester / not_configured(no penalty, Lagrangian off) / mobile-ref-in-system-objective rejection are covered by test_energy_consumer_migration, test_constraints and pure_plan_evidence, not by this CSV",
+  "disk": "/dev/sda1       678G  269G  409G  40% /",
+  "final_sha": "c93ddf87cae672080ee01499b42c4fb75c39d896",
+  "gates": [
+    {
+      "command": "MARGO_ROOT=/opt/margo/mrlco-new-6b bash spec/kish_gpu.sh energy-tests",
+      "exit": 0,
+      "finished_utc": "2026-09-25T13:58:47Z",
+      "target": "energy-tests",
+      "wall_s": 117
+    },
+    {
+      "command": "MARGO_ROOT=/opt/margo/mrlco-new-6b bash spec/kish_gpu.sh energy-train-smoke",
+      "exit": 0,
+      "finished_utc": "2026-09-25T14:23:25Z",
+      "target": "energy-train-smoke",
+      "wall_s": 1439
+    },
+    {
+      "command": "MARGO_ROOT=/opt/margo/mrlco-new-6b bash spec/kish_gpu.sh mask-metrics",
+      "exit": 0,
+      "finished_utc": "2026-09-25T13:59:26Z",
+      "target": "mask-metrics",
+      "wall_s": 11
+    },
+    {
+      "command": "MARGO_ROOT=/opt/margo/mrlco-new-6b bash spec/kish_gpu.sh mask-runtime",
+      "exit": 0,
+      "finished_utc": "2026-09-25T13:59:15Z",
+      "target": "mask-runtime",
+      "wall_s": 5
+    },
+    {
+      "command": "MARGO_ROOT=/opt/margo/mrlco-new-6b bash spec/kish_gpu.sh mask-smoke",
+      "exit": 0,
+      "finished_utc": "2026-09-25T13:59:10Z",
+      "target": "mask-smoke",
+      "wall_s": 23
+    }
+  ],
+  "gpu_at_start": "NVIDIA GeForce RTX 4090, 1 MiB, 24564 MiB",
+  "host": "kish-ai",
+  "image": "margo-phase4-tf115-nv2212:latest sha256:82bc781bc2888a171379e1b45da6846c559ef712e33a76f74948b1cd7172dc46",
+  "no_replay_evidence": "test_validation_plans pins the schedule-call count with and without the validation channel; objective/n_graphs=400.0 proves the producer fed the objective from the rollout results",
+  "nproc": "32",
+  "schema": "kish_energy_smoke_evidence_v1",
+  "started_utc": "2026-09-25T13:56:47Z",
+  "test_suite": {
+    "ran": 734,
+    "result": "OK",
+    "runner": "python -m unittest discover -s env/mec_offloaing_envs/scheduler/tests -t . -p 'test_*.py'",
+    "seconds": 112.455
+  },
+  "tf_version": "1.15.5",
+  "train_smoke": {
+    "all_finite": true,
+    "average_energy_equals_mobile": true,
+    "average_energy_scope": "mobile",
+    "csv": {
+      "data_rows": 1,
+      "header_fields": 64,
+      "row_fields": [
+        64
+      ]
+    },
+    "csv_validation_failures": [],
+    "energy_joules": {
+      "Average energy,": 12516.68959309757,
+      "energy/mobile_joules": 12516.689593097555,
+      "energy/primary_joules": 156263.55172447627,
+      "energy/requester_joules": 2009.119920411363,
+      "energy/system_joules": 156263.55172447627
+    },
+    "energy_ordering_ok": true,
+    "exit": 0,
+    "failures": [],
+    "git_dirty": false,
+    "git_sha": "c93ddf87cae672080ee01499b42c4fb75c39d896",
+    "live_preflight": {
+      "deadlines": 0,
+      "failures": [],
+      "tasks": 30000
+    },
+    "objective": {
+      "objective/J": 0.6435688628505934,
+      "objective/c_E_max": 0.0,
+      "objective/c_E_raw_max": -0.9999995978973358,
+      "objective/c_F": 0.0,
+      "objective/c_H": 0.0,
+      "objective/energy_violation_rate": 0.0,
+      "objective/feasible": 1.0,
+      "objective/firm_miss_total": 0.0,
+      "objective/firm_task_total": 0.0,
+      "objective/hard_miss_total": 0.0,
+      "objective/hard_task_total": 0.0,
+      "objective/latency_norm_mean": 0.6435688628505934,
+      "objective/n_graphs": 400.0,
+      "objective/soft_tardiness_norm_mean": 0.0,
+      "objective/total_violation": 0.0
+    },
+    "objective_available": true,
+    "objective_mode_line": "mode=log_only",
+    "primary_equals_system": true,
+    "primary_scope": "system",
+    "scheduler_config_line": "timing=legacy_frozen_rates radio_timing=legacy_frozen_rates energy=physical_v1 radio=physical_v1 scope=system sha=c364f65545f9"
+  },
+  "tree_dirty": "0"
+}
