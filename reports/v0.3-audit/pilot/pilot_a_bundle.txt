@@ -1,0 +1,1897 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 11.8.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING:tensorflow:Deprecation warnings have been disabled. Set TF_ENABLE_DEPRECATION_WARNINGS=1 to re-enable them.
+WARNING:root:Limited tf.compat.v2.summary API due to missing TensorBoard installation.
+Logging to runs/mask_sanity_v3/off/seed_0/logs
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+WARNING:tensorflow:
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+
+[scheduler-config] timing=legacy_frozen_rates radio_timing=legacy_frozen_rates energy=physical_v1 radio=physical_v1 scope=system sha=c364f65545f9
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:373: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:373: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:373: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:373: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_modules/inits.py:18: The name tf.random_uniform is deprecated. Please use tf.random.uniform instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:348: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+WARNING:tensorflow:From /work/policies/graph2seq_encoder.py:348: The name tf.nn.rnn_cell.LSTMStateTuple is deprecated. Please use tf.compat.v1.nn.rnn_cell.LSTMStateTuple instead.
+
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+/usr/local/lib/python3.8/dist-packages/tensorflow_core/python/framework/indexed_slices.py:423: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  warnings.warn(
+[objective] mode=log_only spec={'latency_ref': 'all_ue', 'latency_denominator_s': None, 'beta_soft': 1.0, 'energy_budget_j': 1000000000000.0, 'energy_budget_frac_of_all_ue': None, 'hard_miss_epsilon': 0.0, 'firm_miss_epsilon': 0.0, 'cost_cap': 10.0, 'chance_hard_epsilon': None} (per-graph evaluation required; the evaluator must emit validation_per_graph_plans)
+WARNING:tensorflow:From /work/utils/utils.py:296: The name tf.get_default_session is deprecated. Please use tf.compat.v1.get_default_session instead.
+
+WARNING:tensorflow:From /work/utils/utils.py:296: The name tf.get_default_session is deprecated. Please use tf.compat.v1.get_default_session instead.
+
+
+ ---------------- Iteration 0 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.020807948
+average value losses:  0.03533248
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 0: 11905.1143
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+Warning: No valid output stream.
+-----------------------------------------------------
+| Average energy,         | 1.19e+04                |
+| Average greedy latency, | 624                     |
+| Average latency,        | 949                     |
+| Average reward,         | 0.538                   |
+| AverageDiscountedReturn | 0.501                   |
+| AverageReturn           | 0.538                   |
+| EnvExecTime             | 51.2                    |
+| Itr                     | 0                       |
+| MaxReturn               | 1.02                    |
+| MinReturn               | -0.614                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.1                    |
+| StdReturn               | 0.182                   |
+| action_fraction/local   | 0.326                   |
+| action_fraction/mec     | 0.32                    |
+| action_fraction/v2v     | 0.354                   |
+| checkpoint_is_best_val  | 1                       |
+| checkpoint_selection... | validation_query_com... |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.319                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 1.19e+04                |
+| energy/primary_joules   | 1.57e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.06e+03                |
+| energy/system_joules    | 1.57e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| objective/J             | 0.641                   |
+| objective/c_E_max       | 0                       |
+| objective/c_E_raw_max   | -1                      |
+| objective/c_F           | 0                       |
+| objective/c_H           | 0                       |
+| objective/energy_vio... | 0                       |
+| objective/feasible      | 1                       |
+| objective/firm_miss_... | 0                       |
+| objective/firm_task_... | 0                       |
+| objective/hard_miss_... | 0                       |
+| objective/hard_task_... | 0                       |
+| objective/latency_no... | 0.641                   |
+| objective/n_graphs      | 400                     |
+| objective/soft_tardi... | 0                       |
+| objective/total_viol... | 0                       |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 1                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0444                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.469                   |
+| policy/entropy_valid    | 1.1                     |
+| policy/grad_norm        | 0.683                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.0208                 |
+| policy/value_loss_mean  | 0.0353                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| validation/co_locati... | 0.395                   |
+| validation/cross_loc... | 18.2                    |
+| validation/task_frac... | 0.155                   |
+| validation/total_edges  | 30                      |
+| validation/utilizati... | 0.393                   |
+| validation/validatio... | 627                     |
+| validation_query_com... | 0.532                   |
+| validation_query_mea... | 893                     |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 0 ok=True flags=[]
+
+ ---------------- Iteration 1 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.025781604
+average value losses:  0.040420044
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 1: 9133.2308
+-----------------------------------------------------
+| Average energy,         | 9.13e+03                |
+| Average greedy latency, | 617                     |
+| Average latency,        | 910                     |
+| Average reward,         | 0.585                   |
+| AverageDiscountedReturn | 0.54                    |
+| AverageReturn           | 0.585                   |
+| EnvExecTime             | 49.4                    |
+| Itr                     | 1                       |
+| MaxReturn               | 0.991                   |
+| MinReturn               | -0.585                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 34.9                    |
+| StdReturn               | 0.141                   |
+| action_fraction/local   | 0.393                   |
+| action_fraction/mec     | 0.38                    |
+| action_fraction/v2v     | 0.227                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.207                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 9.13e+03                |
+| energy/primary_joules   | 1.56e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.27e+03                |
+| energy/system_joules    | 1.56e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 2                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0338                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.396                   |
+| policy/entropy_valid    | 1.07                    |
+| policy/grad_norm        | 0.706                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.0258                 |
+| policy/value_loss_mean  | 0.0404                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 1 ok=True flags=[]
+
+ ---------------- Iteration 2 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.08130937
+average value losses:  0.05969769
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 2: 8199.9251
+-----------------------------------------------------
+| Average energy,         | 8.2e+03                 |
+| Average greedy latency, | 585                     |
+| Average latency,        | 900                     |
+| Average reward,         | 0.6                     |
+| AverageDiscountedReturn | 0.551                   |
+| AverageReturn           | 0.6                     |
+| EnvExecTime             | 49.6                    |
+| Itr                     | 2                       |
+| MaxReturn               | 0.993                   |
+| MinReturn               | -0.437                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.3                    |
+| StdReturn               | 0.137                   |
+| action_fraction/local   | 0.437                   |
+| action_fraction/mec     | 0.42                    |
+| action_fraction/v2v     | 0.142                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.228                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 8.2e+03                 |
+| energy/primary_joules   | 1.62e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.21e+03                |
+| energy/system_joules    | 1.62e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 3                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0326                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.421                   |
+| policy/entropy_valid    | 0.998                   |
+| policy/grad_norm        | 0.812                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0813                  |
+| policy/value_loss_mean  | 0.0597                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 2 ok=True flags=[]
+
+ ---------------- Iteration 3 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.05590511
+average value losses:  0.046431456
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 3: 7436.1044
+-----------------------------------------------------
+| Average energy,         | 7.44e+03                |
+| Average greedy latency, | 606                     |
+| Average latency,        | 857                     |
+| Average reward,         | 0.625                   |
+| AverageDiscountedReturn | 0.574                   |
+| AverageReturn           | 0.625                   |
+| EnvExecTime             | 48.7                    |
+| Itr                     | 3                       |
+| MaxReturn               | 1.04                    |
+| MinReturn               | -0.195                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.1                    |
+| StdReturn               | 0.131                   |
+| action_fraction/local   | 0.452                   |
+| action_fraction/mec     | 0.446                   |
+| action_fraction/v2v     | 0.103                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.32                    |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 7.44e+03                |
+| energy/primary_joules   | 1.65e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.17e+03                |
+| energy/system_joules    | 1.65e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 4                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0381                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.471                   |
+| policy/entropy_valid    | 0.939                   |
+| policy/grad_norm        | 0.743                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0559                  |
+| policy/value_loss_mean  | 0.0464                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 3 ok=True flags=[]
+
+ ---------------- Iteration 4 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.0609205
+average value losses:  0.050797638
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 4: 6948.9255
+-----------------------------------------------------
+| Average energy,         | 6.95e+03                |
+| Average greedy latency, | 605                     |
+| Average latency,        | 833                     |
+| Average reward,         | 0.644                   |
+| AverageDiscountedReturn | 0.592                   |
+| AverageReturn           | 0.644                   |
+| EnvExecTime             | 48.1                    |
+| Itr                     | 4                       |
+| MaxReturn               | 1.01                    |
+| MinReturn               | -0.284                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 34.8                    |
+| StdReturn               | 0.122                   |
+| action_fraction/local   | 0.448                   |
+| action_fraction/mec     | 0.461                   |
+| action_fraction/v2v     | 0.0914                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.339                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 6.95e+03                |
+| energy/primary_joules   | 1.76e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.13e+03                |
+| energy/system_joules    | 1.76e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 5                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0265                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.369                   |
+| policy/entropy_valid    | 0.919                   |
+| policy/grad_norm        | 0.569                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0609                  |
+| policy/value_loss_mean  | 0.0508                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 4 ok=True flags=[]
+
+ ---------------- Iteration 5 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.052881118
+average value losses:  0.07169
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 5: 7093.5562
+-----------------------------------------------------
+| Average energy,         | 7.09e+03                |
+| Average greedy latency, | 600                     |
+| Average latency,        | 850                     |
+| Average reward,         | 0.648                   |
+| AverageDiscountedReturn | 0.594                   |
+| AverageReturn           | 0.648                   |
+| EnvExecTime             | 49.8                    |
+| Itr                     | 5                       |
+| MaxReturn               | 1.06                    |
+| MinReturn               | -0.242                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35                      |
+| StdReturn               | 0.129                   |
+| action_fraction/local   | 0.432                   |
+| action_fraction/mec     | 0.478                   |
+| action_fraction/v2v     | 0.0896                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.306                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 7.09e+03                |
+| energy/primary_joules   | 1.85e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.1e+03                 |
+| energy/system_joules    | 1.85e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 6                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0218                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.335                   |
+| policy/entropy_valid    | 0.916                   |
+| policy/grad_norm        | 0.607                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0529                  |
+| policy/value_loss_mean  | 0.0717                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 5 ok=True flags=[]
+
+ ---------------- Iteration 6 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.04136952
+average value losses:  0.056919064
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 6: 7748.1462
+-----------------------------------------------------
+| Average energy,         | 7.75e+03                |
+| Average greedy latency, | 615                     |
+| Average latency,        | 841                     |
+| Average reward,         | 0.652                   |
+| AverageDiscountedReturn | 0.601                   |
+| AverageReturn           | 0.652                   |
+| EnvExecTime             | 49.8                    |
+| Itr                     | 6                       |
+| MaxReturn               | 1.03                    |
+| MinReturn               | -0.226                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 34.6                    |
+| StdReturn               | 0.133                   |
+| action_fraction/local   | 0.407                   |
+| action_fraction/mec     | 0.493                   |
+| action_fraction/v2v     | 0.1                     |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.262                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 7.75e+03                |
+| energy/primary_joules   | 1.91e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.12e+03                |
+| energy/system_joules    | 1.91e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 7                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0177                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.299                   |
+| policy/entropy_valid    | 0.929                   |
+| policy/grad_norm        | 0.489                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.0414                 |
+| policy/value_loss_mean  | 0.0569                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 6 ok=True flags=[]
+
+ ---------------- Iteration 7 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.00045121284
+average value losses:  0.055810083
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 7: 6881.2396
+-----------------------------------------------------
+| Average energy,         | 6.88e+03                |
+| Average greedy latency, | 604                     |
+| Average latency,        | 826                     |
+| Average reward,         | 0.661                   |
+| AverageDiscountedReturn | 0.608                   |
+| AverageReturn           | 0.661                   |
+| EnvExecTime             | 49                      |
+| Itr                     | 7                       |
+| MaxReturn               | 1.04                    |
+| MinReturn               | -0.164                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35                      |
+| StdReturn               | 0.134                   |
+| action_fraction/local   | 0.386                   |
+| action_fraction/mec     | 0.506                   |
+| action_fraction/v2v     | 0.108                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.214                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 6.88e+03                |
+| energy/primary_joules   | 1.99e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.03e+03                |
+| energy/system_joules    | 1.99e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 8                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0143                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.234                   |
+| policy/entropy_valid    | 0.937                   |
+| policy/grad_norm        | 0.453                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.000451               |
+| policy/value_loss_mean  | 0.0558                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 7 ok=True flags=[]
+
+ ---------------- Iteration 8 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.001987615
+average value losses:  0.052660156
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 8: 6317.4903
+-----------------------------------------------------
+| Average energy,         | 6.32e+03                |
+| Average greedy latency, | 600                     |
+| Average latency,        | 807                     |
+| Average reward,         | 0.646                   |
+| AverageDiscountedReturn | 0.594                   |
+| AverageReturn           | 0.646                   |
+| EnvExecTime             | 49.4                    |
+| Itr                     | 8                       |
+| MaxReturn               | 1.06                    |
+| MinReturn               | -0.398                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.2                    |
+| StdReturn               | 0.139                   |
+| action_fraction/local   | 0.364                   |
+| action_fraction/mec     | 0.522                   |
+| action_fraction/v2v     | 0.114                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.218                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 6.32e+03                |
+| energy/primary_joules   | 1.94e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.94e+03                |
+| energy/system_joules    | 1.94e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 9                       |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.016                   |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.231                   |
+| policy/entropy_valid    | 0.937                   |
+| policy/grad_norm        | 0.426                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.00199                 |
+| policy/value_loss_mean  | 0.0527                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 8 ok=True flags=[]
+
+ ---------------- Iteration 9 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.023953702
+average value losses:  0.049675986
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 9: 6410.8202
+-----------------------------------------------------
+| Average energy,         | 6.41e+03                |
+| Average greedy latency, | 619                     |
+| Average latency,        | 800                     |
+| Average reward,         | 0.672                   |
+| AverageDiscountedReturn | 0.62                    |
+| AverageReturn           | 0.672                   |
+| EnvExecTime             | 48.9                    |
+| Itr                     | 9                       |
+| MaxReturn               | 1.02                    |
+| MinReturn               | -0.14                   |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.2                    |
+| StdReturn               | 0.134                   |
+| action_fraction/local   | 0.343                   |
+| action_fraction/mec     | 0.538                   |
+| action_fraction/v2v     | 0.118                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.223                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 6.41e+03                |
+| energy/primary_joules   | 2.04e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.98e+03                |
+| energy/system_joules    | 2.04e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 10                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0198                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.267                   |
+| policy/entropy_valid    | 0.934                   |
+| policy/grad_norm        | 0.483                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.024                   |
+| policy/value_loss_mean  | 0.0497                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 9 ok=True flags=[]
+
+ ---------------- Iteration 10 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.023379385
+average value losses:  0.04253189
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 10: 6203.3051
+-----------------------------------------------------
+| Average energy,         | 6.2e+03                 |
+| Average greedy latency, | 608                     |
+| Average latency,        | 792                     |
+| Average reward,         | 0.677                   |
+| AverageDiscountedReturn | 0.623                   |
+| AverageReturn           | 0.677                   |
+| EnvExecTime             | 49                      |
+| Itr                     | 10                      |
+| MaxReturn               | 1.05                    |
+| MinReturn               | -0.0787                 |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.3                    |
+| StdReturn               | 0.124                   |
+| action_fraction/local   | 0.327                   |
+| action_fraction/mec     | 0.56                    |
+| action_fraction/v2v     | 0.114                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.27                    |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 6.2e+03                 |
+| energy/primary_joules   | 2.08e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.89e+03                |
+| energy/system_joules    | 2.08e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 11                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0225                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.278                   |
+| policy/entropy_valid    | 0.913                   |
+| policy/grad_norm        | 0.47                    |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0234                  |
+| policy/value_loss_mean  | 0.0425                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 10 ok=True flags=[]
+
+ ---------------- Iteration 11 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.0132732475
+average value losses:  0.042907286
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 11: 5988.0235
+-----------------------------------------------------
+| Average energy,         | 5.99e+03                |
+| Average greedy latency, | 637                     |
+| Average latency,        | 796                     |
+| Average reward,         | 0.669                   |
+| AverageDiscountedReturn | 0.618                   |
+| AverageReturn           | 0.669                   |
+| EnvExecTime             | 50.5                    |
+| Itr                     | 11                      |
+| MaxReturn               | 0.983                   |
+| MinReturn               | -0.298                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35                      |
+| StdReturn               | 0.139                   |
+| action_fraction/local   | 0.315                   |
+| action_fraction/mec     | 0.579                   |
+| action_fraction/v2v     | 0.106                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.472                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 5.99e+03                |
+| energy/primary_joules   | 2.06e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.97e+03                |
+| energy/system_joules    | 2.06e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 12                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0115                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.143                   |
+| policy/entropy_valid    | 0.891                   |
+| policy/grad_norm        | 0.325                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.0133                 |
+| policy/value_loss_mean  | 0.0429                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 11 ok=True flags=[]
+
+ ---------------- Iteration 12 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.008659612
+average value losses:  0.047212586
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 12: 6272.8208
+-----------------------------------------------------
+| Average energy,         | 6.27e+03                |
+| Average greedy latency, | 619                     |
+| Average latency,        | 802                     |
+| Average reward,         | 0.661                   |
+| AverageDiscountedReturn | 0.609                   |
+| AverageReturn           | 0.661                   |
+| EnvExecTime             | 52                      |
+| Itr                     | 12                      |
+| MaxReturn               | 1.04                    |
+| MinReturn               | -0.545                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.3                    |
+| StdReturn               | 0.141                   |
+| action_fraction/local   | 0.311                   |
+| action_fraction/mec     | 0.596                   |
+| action_fraction/v2v     | 0.0937                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.595                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 6.27e+03                |
+| energy/primary_joules   | 1.98e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.98e+03                |
+| energy/system_joules    | 1.98e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 13                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0115                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.166                   |
+| policy/entropy_valid    | 0.861                   |
+| policy/grad_norm        | 0.39                    |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.00866                |
+| policy/value_loss_mean  | 0.0472                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 12 ok=True flags=[]
+
+ ---------------- Iteration 13 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.013055681
+average value losses:  0.053803742
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 13: 5285.5742
+-----------------------------------------------------
+| Average energy,         | 5.29e+03                |
+| Average greedy latency, | 602                     |
+| Average latency,        | 769                     |
+| Average reward,         | 0.682                   |
+| AverageDiscountedReturn | 0.626                   |
+| AverageReturn           | 0.682                   |
+| EnvExecTime             | 50.5                    |
+| Itr                     | 13                      |
+| MaxReturn               | 1.09                    |
+| MinReturn               | -0.315                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35                      |
+| StdReturn               | 0.135                   |
+| action_fraction/local   | 0.313                   |
+| action_fraction/mec     | 0.603                   |
+| action_fraction/v2v     | 0.0838                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.733                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 5.29e+03                |
+| energy/primary_joules   | 2.08e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.8e+03                 |
+| energy/system_joules    | 2.08e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 14                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.00987                 |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.142                   |
+| policy/entropy_valid    | 0.84                    |
+| policy/grad_norm        | 0.473                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.0131                 |
+| policy/value_loss_mean  | 0.0538                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 13 ok=True flags=[]
+
+ ---------------- Iteration 14 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.028659247
+average value losses:  0.046844743
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 14: 4994.3596
+-----------------------------------------------------
+| Average energy,         | 4.99e+03                |
+| Average greedy latency, | 618                     |
+| Average latency,        | 793                     |
+| Average reward,         | 0.668                   |
+| AverageDiscountedReturn | 0.615                   |
+| AverageReturn           | 0.668                   |
+| EnvExecTime             | 49.8                    |
+| Itr                     | 14                      |
+| MaxReturn               | 1.05                    |
+| MinReturn               | -0.337                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.3                    |
+| StdReturn               | 0.13                    |
+| action_fraction/local   | 0.316                   |
+| action_fraction/mec     | 0.606                   |
+| action_fraction/v2v     | 0.0781                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.709                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.99e+03                |
+| energy/primary_joules   | 2.1e+05                 |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.9e+03                 |
+| energy/system_joules    | 2.1e+05                 |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 15                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.00887                 |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.13                    |
+| policy/entropy_valid    | 0.828                   |
+| policy/grad_norm        | 0.421                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.0287                 |
+| policy/value_loss_mean  | 0.0468                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 14 ok=True flags=[]
+
+ ---------------- Iteration 15 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.028882146
+average value losses:  0.043133482
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 15: 5206.9887
+-----------------------------------------------------
+| Average energy,         | 5.21e+03                |
+| Average greedy latency, | 604                     |
+| Average latency,        | 763                     |
+| Average reward,         | 0.691                   |
+| AverageDiscountedReturn | 0.635                   |
+| AverageReturn           | 0.691                   |
+| EnvExecTime             | 49.3                    |
+| Itr                     | 15                      |
+| MaxReturn               | 1.06                    |
+| MinReturn               | -0.233                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.3                    |
+| StdReturn               | 0.126                   |
+| action_fraction/local   | 0.318                   |
+| action_fraction/mec     | 0.608                   |
+| action_fraction/v2v     | 0.0739                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.722                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 5.21e+03                |
+| energy/primary_joules   | 2.05e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.88e+03                |
+| energy/system_joules    | 2.05e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 16                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.00983                 |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.133                   |
+| policy/entropy_valid    | 0.817                   |
+| policy/grad_norm        | 0.437                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0289                  |
+| policy/value_loss_mean  | 0.0431                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 15 ok=True flags=[]
+
+ ---------------- Iteration 16 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.022140805
+average value losses:  0.04087766
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 16: 5024.9625
+-----------------------------------------------------
+| Average energy,         | 5.02e+03                |
+| Average greedy latency, | 591                     |
+| Average latency,        | 773                     |
+| Average reward,         | 0.693                   |
+| AverageDiscountedReturn | 0.636                   |
+| AverageReturn           | 0.693                   |
+| EnvExecTime             | 50.1                    |
+| Itr                     | 16                      |
+| MaxReturn               | 1.05                    |
+| MinReturn               | -0.0152                 |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 34.9                    |
+| StdReturn               | 0.124                   |
+| action_fraction/local   | 0.326                   |
+| action_fraction/mec     | 0.606                   |
+| action_fraction/v2v     | 0.0678                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.651                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 5.02e+03                |
+| energy/primary_joules   | 2.09e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.84e+03                |
+| energy/system_joules    | 2.09e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 17                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0178                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.217                   |
+| policy/entropy_valid    | 0.804                   |
+| policy/grad_norm        | 0.513                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0221                  |
+| policy/value_loss_mean  | 0.0409                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 16 ok=True flags=[]
+
+ ---------------- Iteration 17 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.0009453366
+average value losses:  0.032832254
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 17: 4463.3286
+-----------------------------------------------------
+| Average energy,         | 4.46e+03                |
+| Average greedy latency, | 617                     |
+| Average latency,        | 778                     |
+| Average reward,         | 0.702                   |
+| AverageDiscountedReturn | 0.646                   |
+| AverageReturn           | 0.702                   |
+| EnvExecTime             | 50.2                    |
+| Itr                     | 17                      |
+| MaxReturn               | 1.08                    |
+| MinReturn               | -0.0893                 |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 36                      |
+| StdReturn               | 0.131                   |
+| action_fraction/local   | 0.329                   |
+| action_fraction/mec     | 0.6                     |
+| action_fraction/v2v     | 0.0708                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.613                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.46e+03                |
+| energy/primary_joules   | 2.2e+05                 |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.99e+03                |
+| energy/system_joules    | 2.2e+05                 |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 18                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0181                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.217                   |
+| policy/entropy_valid    | 0.814                   |
+| policy/grad_norm        | 0.436                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.000945                |
+| policy/value_loss_mean  | 0.0328                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 17 ok=True flags=[]
+
+ ---------------- Iteration 18 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.000355387
+average value losses:  0.03339626
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 18: 4697.8137
+-----------------------------------------------------
+| Average energy,         | 4.7e+03                 |
+| Average greedy latency, | 615                     |
+| Average latency,        | 742                     |
+| Average reward,         | 0.708                   |
+| AverageDiscountedReturn | 0.651                   |
+| AverageReturn           | 0.708                   |
+| EnvExecTime             | 49.5                    |
+| Itr                     | 18                      |
+| MaxReturn               | 1.03                    |
+| MinReturn               | -0.576                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.3                    |
+| StdReturn               | 0.124                   |
+| action_fraction/local   | 0.343                   |
+| action_fraction/mec     | 0.591                   |
+| action_fraction/v2v     | 0.0664                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.512                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.7e+03                 |
+| energy/primary_joules   | 2.15e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.89e+03                |
+| energy/system_joules    | 2.15e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 19                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0207                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.251                   |
+| policy/entropy_valid    | 0.807                   |
+| policy/grad_norm        | 0.461                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.000355                |
+| policy/value_loss_mean  | 0.0334                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 18 ok=True flags=[]
+
+ ---------------- Iteration 19 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  -0.028437905
+average value losses:  0.03337257
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 19: 4767.5332
+-----------------------------------------------------
+| Average energy,         | 4.77e+03                |
+| Average greedy latency, | 612                     |
+| Average latency,        | 749                     |
+| Average reward,         | 0.708                   |
+| AverageDiscountedReturn | 0.65                    |
+| AverageReturn           | 0.708                   |
+| EnvExecTime             | 48.6                    |
+| Itr                     | 19                      |
+| MaxReturn               | 1.01                    |
+| MinReturn               | 0.0592                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.1                    |
+| StdReturn               | 0.114                   |
+| action_fraction/local   | 0.353                   |
+| action_fraction/mec     | 0.583                   |
+| action_fraction/v2v     | 0.064                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.488                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.77e+03                |
+| energy/primary_joules   | 2.09e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.95e+03                |
+| energy/system_joules    | 2.09e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 20                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0146                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.209                   |
+| policy/entropy_valid    | 0.804                   |
+| policy/grad_norm        | 0.399                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | -0.0284                 |
+| policy/value_loss_mean  | 0.0334                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 19 ok=True flags=[]
+
+ ---------------- Iteration 20 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.03980326
+average value losses:  0.026977327
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 20: 4555.2490
+-----------------------------------------------------
+| Average energy,         | 4.56e+03                |
+| Average greedy latency, | 614                     |
+| Average latency,        | 770                     |
+| Average reward,         | 0.691                   |
+| AverageDiscountedReturn | 0.635                   |
+| AverageReturn           | 0.691                   |
+| EnvExecTime             | 49                      |
+| Itr                     | 20                      |
+| MaxReturn               | 1.05                    |
+| MinReturn               | -0.333                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35                      |
+| StdReturn               | 0.133                   |
+| action_fraction/local   | 0.371                   |
+| action_fraction/mec     | 0.572                   |
+| action_fraction/v2v     | 0.0575                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.558                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.56e+03                |
+| energy/primary_joules   | 2e+05                   |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.99e+03                |
+| energy/system_joules    | 2e+05                   |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 21                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.018                   |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.232                   |
+| policy/entropy_valid    | 0.794                   |
+| policy/grad_norm        | 0.447                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0398                  |
+| policy/value_loss_mean  | 0.027                   |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 20 ok=True flags=[]
+
+ ---------------- Iteration 21 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.02652854
+average value losses:  0.02891717
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 21: 4307.5077
+-----------------------------------------------------
+| Average energy,         | 4.31e+03                |
+| Average greedy latency, | 595                     |
+| Average latency,        | 774                     |
+| Average reward,         | 0.708                   |
+| AverageDiscountedReturn | 0.648                   |
+| AverageReturn           | 0.708                   |
+| EnvExecTime             | 47.5                    |
+| Itr                     | 21                      |
+| MaxReturn               | 1.03                    |
+| MinReturn               | -0.316                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.4                    |
+| StdReturn               | 0.111                   |
+| action_fraction/local   | 0.385                   |
+| action_fraction/mec     | 0.56                    |
+| action_fraction/v2v     | 0.0555                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.608                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.31e+03                |
+| energy/primary_joules   | 2.16e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 1.96e+03                |
+| energy/system_joules    | 2.16e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 22                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0255                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.32                    |
+| policy/entropy_valid    | 0.788                   |
+| policy/grad_norm        | 0.501                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0265                  |
+| policy/value_loss_mean  | 0.0289                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 21 ok=True flags=[]
+
+ ---------------- Iteration 22 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.008203496
+average value losses:  0.025831496
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 22: 4435.1147
+-----------------------------------------------------
+| Average energy,         | 4.44e+03                |
+| Average greedy latency, | 606                     |
+| Average latency,        | 766                     |
+| Average reward,         | 0.711                   |
+| AverageDiscountedReturn | 0.651                   |
+| AverageReturn           | 0.711                   |
+| EnvExecTime             | 48.4                    |
+| Itr                     | 22                      |
+| MaxReturn               | 1.08                    |
+| MinReturn               | -0.0346                 |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.7                    |
+| StdReturn               | 0.11                    |
+| action_fraction/local   | 0.389                   |
+| action_fraction/mec     | 0.556                   |
+| action_fraction/v2v     | 0.055                   |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.678                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.44e+03                |
+| energy/primary_joules   | 2.06e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.03e+03                |
+| energy/system_joules    | 2.06e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 23                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.021                   |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.265                   |
+| policy/entropy_valid    | 0.784                   |
+| policy/grad_norm        | 0.442                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0082                  |
+| policy/value_loss_mean  | 0.0258                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 22 ok=True flags=[]
+
+ ---------------- Iteration 23 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.037927106
+average value losses:  0.022333574
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 23: 3863.0047
+-----------------------------------------------------
+| Average energy,         | 3.86e+03                |
+| Average greedy latency, | 601                     |
+| Average latency,        | 776                     |
+| Average reward,         | 0.674                   |
+| AverageDiscountedReturn | 0.617                   |
+| AverageReturn           | 0.674                   |
+| EnvExecTime             | 49.9                    |
+| Itr                     | 23                      |
+| MaxReturn               | 1.04                    |
+| MinReturn               | -0.391                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.4                    |
+| StdReturn               | 0.127                   |
+| action_fraction/local   | 0.401                   |
+| action_fraction/mec     | 0.548                   |
+| action_fraction/v2v     | 0.0508                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.758                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 3.86e+03                |
+| energy/primary_joules   | 1.88e+05                |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2e+03                   |
+| energy/system_joules    | 1.88e+05                |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 24                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0171                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.199                   |
+| policy/entropy_valid    | 0.765                   |
+| policy/grad_norm        | 0.413                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0379                  |
+| policy/value_loss_mean  | 0.0223                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 23 ok=True flags=[]
+
+ ---------------- Iteration 24 ----------------
+Sampling set of tasks/goals for this meta-batch...
+Warning: No valid output stream.
+Processing samples...
+average task losses:  0.019196767
+average value losses:  0.021619491
+Evaluating adapted task policies on a fresh support sample
+Warning: No valid output stream.
+Optimizing policy...
+Average energy per iteration 24: 4291.3076
+-----------------------------------------------------
+| Average energy,         | 4.29e+03                |
+| Average greedy latency, | 630                     |
+| Average latency,        | 784                     |
+| Average reward,         | 0.687                   |
+| AverageDiscountedReturn | 0.63                    |
+| AverageReturn           | 0.687                   |
+| EnvExecTime             | 50.1                    |
+| Itr                     | 24                      |
+| MaxReturn               | 1                       |
+| MinReturn               | -0.223                  |
+| NumTrajs                | 10000                   |
+| PolicyExecTime          | 35.7                    |
+| StdReturn               | 0.116                   |
+| action_fraction/local   | 0.404                   |
+| action_fraction/mec     | 0.545                   |
+| action_fraction/v2v     | 0.0505                  |
+| collapse/flag           | 0                       |
+| critic/value_abs_max    | 0.862                   |
+| energy/average_energ... | mobile                  |
+| energy/mobile_joules    | 4.29e+03                |
+| energy/primary_joules   | 1.9e+05                 |
+| energy/primary_scope    | system                  |
+| energy/requester_joules | 2.15e+03                |
+| energy/system_joules    | 1.9e+05                 |
+| entropy_coefficient     | 0                       |
+| hyperparameter_prove... | fixed_literature_der... |
+| inner_learning_rate     | 0.0005                  |
+| inner_update_mode       | publication             |
+| k_steps                 | 3                       |
+| mask/active_rate        | 0                       |
+| mask/all_invalid_rate   | 0                       |
+| mask/forced_rate        | 0                       |
+| meta_batch_size_dist... | 10                      |
+| outer_learning_rate     | 0.0005                  |
+| outer_update_count      | 25                      |
+| outer_update_method     | mrlco_first_order_me... |
+| policy/approx_kl        | 0.0178                  |
+| policy/argmax_masked... | 0                       |
+| policy/clip_fraction    | 0.216                   |
+| policy/entropy_valid    | 0.761                   |
+| policy/grad_norm        | 0.405                   |
+| policy/invalid_actio... | 0                       |
+| policy/policy_loss_mean | 0.0192                  |
+| policy/value_loss_mean  | 0.0216                  |
+| ppo_batch_size_traje... | 20                      |
+| query_graph_count       | 80                      |
+| seed                    | 0                       |
+| split_role              | meta_train_support      |
+| split_version           | MARGO-SPLIT-v1          |
+| support_graphs_per_m... | 20                      |
+| support_trajectories... | 20                      |
+| value_clip_epsilon      | 0.2                     |
+-----------------------------------------------------
+audit health itr 24 ok=True flags=[]
+{
+  "checked_at": "2026-09-25T19:10:13+00:00",
+  "constraints": "off",
+  "csv_validation": {
+    "entropy_min": 0.7609011540069818,
+    "failures": [],
+    "header": [
+      "Average greedy latency,",
+      "action_fraction/local",
+      "action_fraction/mec",
+      "action_fraction/v2v",
+      "policy/policy_loss_mean",
+      "policy/value_loss_mean",
+      "policy/approx_kl",
+      "policy/clip_fraction",
+      "policy/grad_norm",
+      "collapse/flag",
+      "mask/active_rate",
+      "mask/forced_rate",
+      "mask/all_invalid_rate",
+      "policy/invalid_action_rate",
+      "policy/argmax_masked_rate",
+      "policy/entropy_valid",
+      "critic/value_abs_max",
+      "inner_update_mode",
+      "PolicyExecTime",
+      "EnvExecTime",
+      "AverageDiscountedReturn",
+      "AverageReturn",
+      "NumTrajs",
+      "StdReturn",
+      "MaxReturn",
+      "MinReturn",
+      "Average energy,",
+      "energy/average_energy_scope",
+      "energy/requester_joules",
+      "energy/mobile_joules",
+      "energy/system_joules",
+      "energy/primary_joules",
+      "energy/primary_scope",
+      "Itr",
+      "Average reward, ",
+      "Average latency,",
+      "split_role",
+      "seed",
+      "split_version",
+      "support_graphs_per_meta_task",
+      "support_trajectories_per_meta_task",
+      "query_graph_count",
+      "k_steps",
+      "outer_update_count",
+      "entropy_coefficient",
+      "value_clip_epsilon",
+      "ppo_batch_size_trajectories",
+      "meta_batch_size_distributions",
+      "inner_learning_rate",
+      "outer_learning_rate",
+      "outer_update_method",
+      "hyperparameter_provenance.policy",
+      "validation_query_composite_objective_k0",
+      "validation_query_composite_objective",
+      "validation_query_mean_latency_k0",
+      "validation_query_mean_latency_k3",
+      "checkpoint_selection_metric",
+      "objective/J",
+      "objective/latency_norm_mean",
+      "objective/soft_tardiness_norm_mean",
+      "objective/energy_violation_rate",
+      "objective/c_E_max",
+      "objective/c_E_raw_max",
+      "objective/c_H",
+      "objective/c_F",
+      "objective/hard_miss_total",
+      "objective/hard_task_total",
+      "objective/firm_miss_total",
+      "objective/firm_task_total",
+      "objective/feasible",
+      "objective/total_violation",
+      "objective/n_graphs",
+      "checkpoint_is_best_val",
+      "validation/validation_gap_to_all_mec",
+      "validation/validation_gap_to_greedy",
+      "validation/validation_all_mec_latency",
+      "validation/validation_greedy_latency",
+      "validation/task_fraction/local",
+      "validation/task_fraction/mec",
+      "validation/task_fraction/v2v",
+      "validation/co_location_rate",
+      "validation/cross_location_edges",
+      "validation/total_edges",
+      "validation/utilization_mean",
+      "validation/utilization_max"
+    ],
+    "rows": 25,
+    "value_abs_max": 0.8618649244308472
+  },
+  "failures": [],
+  "finished_at": "2026-09-25T20:47:17+00:00",
+  "git_dirty": false,
+  "git_sha": "fe90a11617baf030ebfef3dd3c8d07ad9e29c74b",
+  "gpu_finished": true,
+  "itr": 25,
+  "live_preflight": {
+    "deadlines": 0,
+    "failures": [],
+    "tasks": 30000
+  },
+  "mask_mode": "off",
+  "method_id": "margo_v0.4_mask_sanity_v3",
+  "mode": "off",
+  "obs_dim": 70,
+  "obs_version": "v3",
+  "paper_result": false,
+  "run_dir": "runs/mask_sanity_v3/off/seed_0",
+  "seed": 0,
+  "started_at": "2026-09-25T19:10:13+00:00"
+}
+---META---
+sha=fe90a11617baf030ebfef3dd3c8d07ad9e29c74b
+dirty=0
+started=2026-09-25T19:10:09Z
+tf=1.15.5
+image=margo-phase4-tf115-nv2212:latest sha256:82bc781bc2888a171379e1b45da6846c559ef712e33a76f74948b1cd7172dc46
+gpu=NVIDIA GeForce RTX 4090, 1 MiB, 24564 MiB
+---EXIT---
+target=pilot-a
+exit=0
+wall_s=5829
+finished=2026-09-25T20:47:21Z

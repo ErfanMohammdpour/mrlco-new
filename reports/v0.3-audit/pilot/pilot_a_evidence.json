@@ -1,0 +1,130 @@
+{
+  "all_checks_pass": true,
+  "checks": {
+    "all_series_finite": true,
+    "csv_row_count_25": true,
+    "latency_trend_down": true,
+    "local_not_eliminated": true,
+    "mec_share_below_095": true,
+    "no_collapse_watchdog": true,
+    "reward_trend_up": true,
+    "v2v_not_eliminated": true,
+    "value_abs_max_below_limit": true
+  },
+  "code_sha": "fe90a11617baf030ebfef3dd3c8d07ad9e29c74b",
+  "config": {
+    "constraints": "off",
+    "decoder_order": "legacy_current",
+    "energy_model": "physical_v1",
+    "entropy_coefficient": 0.0,
+    "iterations": 25,
+    "mask_mode": "off",
+    "objective_mode": "log_only",
+    "obs_version": "v3",
+    "radio_model": "physical_v1",
+    "reward_mode": "latency_only",
+    "seed": 0,
+    "timing": "legacy_frozen_rates"
+  },
+  "exit": 0,
+  "gpu": "NVIDIA GeForce RTX 4090, 1 MiB, 24564 MiB",
+  "image": "margo-phase4-tf115-nv2212:latest sha256:82bc781bc2888a171379e1b45da6846c559ef712e33a76f74948b1cd7172dc46",
+  "iterations": 25,
+  "schema": "pilot_a_evidence_v1",
+  "series": {
+    "Average latency,": {
+      "first": 948.8288624872807,
+      "last": 784.2423544274358,
+      "max": 948.8288624872807,
+      "min": 742.0776483304815
+    },
+    "Average reward, ": {
+      "first": 0.5383608454309148,
+      "last": 0.6872227177285031,
+      "max": 0.7111266178423865,
+      "min": 0.5383608454309148
+    },
+    "action_fraction/local": {
+      "first": 0.326375,
+      "last": 0.40403,
+      "max": 0.451765,
+      "min": 0.31053
+    },
+    "action_fraction/mec": {
+      "first": 0.31984,
+      "last": 0.545465,
+      "max": 0.60767,
+      "min": 0.31984
+    },
+    "action_fraction/v2v": {
+      "first": 0.353785,
+      "last": 0.050505,
+      "max": 0.353785,
+      "min": 0.050505
+    },
+    "collapse/flag": {
+      "first": 0.0,
+      "last": 0.0,
+      "max": 0.0,
+      "min": 0.0
+    },
+    "critic/value_abs_max": {
+      "first": 0.31908559799194336,
+      "last": 0.8618649244308472,
+      "max": 0.8618649244308472,
+      "min": 0.2071395218372345
+    },
+    "policy/approx_kl": {
+      "first": 0.04440137731532256,
+      "last": 0.01781755679597457,
+      "max": 0.04440137731532256,
+      "min": 0.008868273436867942
+    },
+    "policy/clip_fraction": {
+      "first": 0.4690833359956742,
+      "last": 0.2155833337455988,
+      "max": 0.47133333260814353,
+      "min": 0.13033333253115414
+    },
+    "policy/entropy_valid": {
+      "first": 1.0961478823802395,
+      "last": 0.7609011540069818,
+      "max": 1.0961478823802395,
+      "min": 0.7609011540069818
+    },
+    "policy/grad_norm": {
+      "first": 0.6833068042993545,
+      "last": 0.40476889759302137,
+      "max": 0.8120058988531429,
+      "min": 0.3245973989367485
+    },
+    "policy/policy_loss_mean": {
+      "first": -0.02080794796347618,
+      "last": 0.019196767359972,
+      "max": 0.08130937069654465,
+      "min": -0.041369520127773285
+    },
+    "policy/value_loss_mean": {
+      "first": 0.03533247858285904,
+      "last": 0.021619491279125214,
+      "max": 0.07169000059366226,
+      "min": 0.021619491279125214
+    }
+  },
+  "tf": "1.15.5",
+  "tree_dirty": "0",
+  "validation_itr0": {
+    "all_mec_latency": "630.2797805319173",
+    "co_location_rate": "0.39459184386914425",
+    "cross_location_edges": "18.185",
+    "gap_to_all_mec": "263.0750229991453",
+    "gap_to_greedy": "266.75313451255556",
+    "greedy_latency": "626.601669018507",
+    "task_fraction_mec": "0.42487499999999984",
+    "utilization_mean": "0.393397994836244"
+  },
+  "validation_points": 1,
+  "verdict": "INCONCLUSIVE_VALIDATION_UNMEASURABLE",
+  "verdict_note": "No collapse (flag never set, MEC share max 0.608) and a clear training trend (reward 0.538->0.687, latency 948.8->784.2) with Local and V2V preserved. However the frozen validation_interval=50 exceeds the 25-iteration pilot, so there is only ONE validation point (itr 0) and the PASS criteria 'validation improves vs init' and 'best validation beats all-MEC' cannot be evaluated; the contract says extend.",
+  "wall_s": 5829
+}
