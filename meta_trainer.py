@@ -389,6 +389,13 @@ class Trainer(object):
                     telemetry = aggregate_energy_telemetry(telemetry_rows)
                     for key, value in telemetry_csv_kvs(telemetry).items():
                         logger.logkv(key, value)
+                    # constraint measurements ride the same telemetry (the worker
+                    # env's controller state is not visible to the trainer)
+                    for key, value in telemetry.items():
+                        if key.startswith("constraint_") and isinstance(value, (int, float)):
+                            logger.logkv(
+                                "constraint/%s" % key[len("constraint_"):], float(value)
+                            )
             else:
                 avg_energies.append(None)
 
@@ -405,23 +412,20 @@ class Trainer(object):
             controller = getattr(self.env, "constraint_controller", None)
             env_spec = getattr(self.env, "constraint_spec", None)
             if env_spec is not None and env_spec.mode == "lagrangian":
-                # A1: no budget -> explicit not_configured, penalty 0, no duals
+                # A1: no budget -> explicit not_configured, penalty 0, no duals.
+                # The applied penalty and the raw/budget/signed values come from
+                # the telemetry channel above (the parallel workers own the env).
                 for name, status in env_spec.constraint_status().items():
                     logger.logkv("constraint_status/%s" % name, status)
-                logger.logkv(
-                    "constraint/penalty_applied",
-                    0.0 if not env_spec.enabled else float(
-                        getattr(self.env, "last_constraint_penalty", 0.0)
-                    ),
-                )
             if controller is not None and controller.spec.enabled:
                 diag = controller.dual_step()
                 for key, value in diag.items():
                     logger.logkv(key, value)
+                # log the dual state even when the buffer was empty this iteration
+                for name, lam in zip(controller.names, controller.lambdas):
+                    logger.logkv("constraint/lambda_%s" % name, float(lam))
                 last_costs = getattr(self.env, "last_constraint_costs", None)
                 if last_costs is not None and last_costs.active:
-                    # raw metric, budget, scale and normalized signed cost per active
-                    # constraint (A2/A3 evidence), plus the aggregate violation.
                     for key, value in last_costs.as_dict().items():
                         logger.logkv("constraint/%s" % key, value)
                     self._audit(itr, "constraints", {

@@ -15,6 +15,8 @@
     "A3_signed_positive": true,
     "A3_status_active": true,
     "A3_violation_positive": true,
+    "lagrangian_off_lambda_stays_zero": true,
+    "lagrangian_off_penalty_zero": true,
     "mobile_ref_rejected_by_constraint": true,
     "mobile_ref_rejected_by_objective": true,
     "reward_A1_equals_off": true,

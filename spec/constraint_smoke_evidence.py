@@ -159,6 +159,14 @@ def run() -> dict:
     except EnergyReferenceMismatch:
         constraint_rejected = True
 
+    # Lagrangian OFF: a zero-learning-rate controller observes the costs but
+    # never moves lambda, so no penalty can be applied.
+    from env.mec_offloaing_envs.scheduler.constraints import ConstraintController
+
+    ctrl = ConstraintController(spec=SCENARIOS["A3_total_small"], dual_lr=0.0)
+    ctrl.observe(costs_from_metrics(metrics, refs, SCENARIOS["A3_total_small"]))
+    ctrl.dual_step()
+
     checks = {
         "A1_status_not_configured": rows["A1_total_absent"]["status"] == "not_configured",
         "A1_controller_off": rows["A1_total_absent"]["enabled"] is False,
@@ -181,6 +189,10 @@ def run() -> dict:
         "reward_is_latency_only": a3.final_energy == energy_scalar(a3.final_result, scope=SCOPE_MOBILE),
         "mobile_ref_rejected_by_objective": objective_rejected,
         "mobile_ref_rejected_by_constraint": constraint_rejected,
+        "lagrangian_off_lambda_stays_zero": ctrl.lambdas == [0.0],
+        "lagrangian_off_penalty_zero": ctrl.penalty(
+            costs_from_metrics(metrics, refs, SCENARIOS["A3_total_small"])
+        ) == 0.0,
     }
     evidence = {
         "schema": "constraint_smoke_evidence_v1",

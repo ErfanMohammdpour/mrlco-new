@@ -639,7 +639,14 @@ class OffloadingEnvironment(MetaEnv):
                 )
 
                 telemetry_batch.append(
-                    build_energy_telemetry(out.final_result, self.scheduler_resources)
+                    build_energy_telemetry(
+                        out.final_result,
+                        self.scheduler_resources,
+                        constraint_costs=(
+                            out.constraint_costs if out.constraint_costs.active else None
+                        ),
+                        constraint_penalty=float(out.constraint_penalty),
+                    )
                 )
             if validation_batch is not None:
                 # E4.2: keep the SAME result + reference for the validation

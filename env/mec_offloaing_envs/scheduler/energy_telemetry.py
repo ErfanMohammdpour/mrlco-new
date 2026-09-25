@@ -64,6 +64,18 @@ def _is_sha256(value: str) -> bool:
     return len(value) == 64 and all(c in "0123456789abcdef" for c in value.lower())
 
 
+def _finite_number(name: str, value: Any) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise EnergyTelemetryError(
+            "%s must be a real number, got %r" % (name, value)
+        ) from None
+    if not math.isfinite(number):
+        raise EnergyTelemetryError("%s is not finite: %r" % (name, value))
+    return number
+
+
 def _finite_nonneg(name: str, value: Any) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         try:
@@ -80,12 +92,18 @@ def _finite_nonneg(name: str, value: Any) -> float:
     return number
 
 
-def build_energy_telemetry(result: Any, resources: Any) -> dict[str, Any]:
+def build_energy_telemetry(result: Any, resources: Any, *,
+                           constraint_costs: Any = None,
+                           constraint_penalty: float = 0.0) -> dict[str, Any]:
     """Three-boundary telemetry from the rollout's OWN ScheduleResult.
 
     No schedule/replay happens here: every number is read off `result`. The
     result's scheduler fingerprint must match the resolved resources, otherwise
     the telemetry would carry a valid-looking label for a different config.
+
+    When `constraint_costs` is active its raw/budget/signed/violation values and
+    the applied penalty ride along, because with a parallel sampler the trainer
+    never sees the worker env's controller state.
     """
     config_sha = str(resolved_config_sha256(resources))
     result_sha = str(getattr(result, "scheduler_config_sha256", "") or "")
@@ -100,7 +118,7 @@ def build_energy_telemetry(result: Any, resources: Any) -> dict[str, Any]:
             "resources are %s" % (result_sha[:12], config_sha[:12])
         )
     primary_scope = primary_scope_of(resources)
-    return {
+    record = {
         "requester_joules": energy_scalar(result, scope=SCOPE_REQUESTER),
         "mobile_joules": energy_scalar(result, scope=SCOPE_MOBILE),
         "system_joules": energy_scalar(result, scope=SCOPE_SYSTEM),
@@ -109,6 +127,21 @@ def build_energy_telemetry(result: Any, resources: Any) -> dict[str, Any]:
         "scheduler_config_sha256": result_sha,
         "schema_version": TELEMETRY_SCHEMA_VERSION,
     }
+    active = bool(getattr(constraint_costs, "active", False))
+    if active:
+        record["constraint_penalty_applied"] = float(constraint_penalty)
+        for name, raw, budget, signed, violation in zip(
+            constraint_costs.names,
+            constraint_costs.raw,
+            constraint_costs.budgets,
+            constraint_costs.signed,
+            constraint_costs.violations,
+        ):
+            record["constraint_%s_raw" % name] = float(raw)
+            record["constraint_%s_budget" % name] = float(budget)
+            record["constraint_%s_signed" % name] = float(signed)
+            record["constraint_%s_violation" % name] = float(violation)
+    return record
 
 
 def validate_energy_telemetry(record: Any) -> dict[str, Any]:
@@ -136,6 +169,9 @@ def validate_energy_telemetry(record: Any) -> dict[str, Any]:
     out["primary_scope"] = scope
     out["scheduler_config_sha256"] = sha
     out["schema_version"] = schema
+    for key, value in record.items():
+        if isinstance(key, str) and key.startswith("constraint_"):
+            out[key] = _finite_number(key, value)
     return out
 
 
@@ -160,6 +196,14 @@ def aggregate_energy_telemetry(records: Iterable[Any]) -> dict[str, Any]:
         field: sum(row[field] for row in rows) / n
         for field in (*JOULE_FIELDS, "primary_joules")
     }
+    constraint_keys = {k for k in rows[0] if k.startswith("constraint_")}
+    for row in rows[1:]:
+        if {k for k in row if k.startswith("constraint_")} != constraint_keys:
+            raise EnergyTelemetryError(
+                "constraint telemetry keys differ across episodes"
+            )
+    for key in sorted(constraint_keys):
+        aggregate[key] = sum(row[key] for row in rows) / n
     aggregate["primary_scope"] = rows[0]["primary_scope"]
     aggregate["scheduler_config_sha256"] = rows[0]["scheduler_config_sha256"]
     aggregate["schema_version"] = TELEMETRY_SCHEMA_VERSION

@@ -359,6 +359,51 @@ class TestNoTensorflowShadowing(unittest.TestCase):
         )
 
 
+class TestConstraintTelemetry(unittest.TestCase):
+    def test_constraint_values_ride_the_telemetry_record(self):
+        from env.mec_offloaing_envs.scheduler.constraints import (
+            ConstraintSpec,
+            evaluate_constraints,
+        )
+        from env.mec_offloaing_envs.scheduler.energy_api import (
+            compute_scoped_reference_ranges,
+        )
+        from env.mec_offloaing_envs.scheduler.energy_scope import SCOPE_SYSTEM
+
+        tg, res, _plan, result, _mobile = _setup()
+        refs = compute_scoped_reference_ranges(tg, res, energy_scope=SCOPE_SYSTEM)
+        spec = ConstraintSpec(mode="lagrangian", total_energy_budget_j=1.0)
+        costs = evaluate_constraints(result, res, refs, spec)
+        record = build_energy_telemetry(
+            result, res, constraint_costs=costs, constraint_penalty=0.0
+        )
+        self.assertIn("constraint_total_energy_raw", record)
+        self.assertEqual(record["constraint_penalty_applied"], 0.0)
+        self.assertGreater(record["constraint_total_energy_signed"], 0.0)
+        aggregate = aggregate_energy_telemetry([record, record])
+        self.assertAlmostEqual(
+            aggregate["constraint_total_energy_raw"],
+            record["constraint_total_energy_raw"],
+            places=9,
+        )
+        checked = validate_energy_telemetry(aggregate)
+        self.assertIn("constraint_total_energy_raw", checked)
+
+    def test_no_constraint_keys_when_constraints_are_inactive(self):
+        _tg, res, _plan, result, _mobile = _setup()
+        record = build_energy_telemetry(result, res)
+        self.assertFalse([k for k in record if k.startswith("constraint_")])
+
+    def test_inconsistent_constraint_keys_raise(self):
+        _tg, res, _plan, result, _mobile = _setup()
+        plain = build_energy_telemetry(result, res)
+        with_constraint = dict(plain)
+        with_constraint["constraint_total_energy_raw"] = 1.0
+        with_constraint["constraint_penalty_applied"] = 0.0
+        with self.assertRaises(EnergyTelemetryError):
+            aggregate_energy_telemetry([with_constraint, plain])
+
+
 class TestCsvAlignment(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="energy_telemetry_csv_"))
