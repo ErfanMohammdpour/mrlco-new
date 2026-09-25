@@ -69,9 +69,17 @@ Selected rows (joules, primary config):
 | chain | mixed | 9.69 | 7.78 | 66.00 | 572.93 | 503.32 | 3.61 |
 | fork | mixed | 3.6 | 3.89 | 33.00 | 286.46 | 251.66 | 1.81 |
 
-Both graphs show `system > mobile` exactly when a MEC task is present, and the
-constraint status vocabulary is demonstrated: a configured total-energy budget
-reports `active`, an absent one reports `not_configured` with no penalty.
+Both graphs show `system > mobile` exactly when a MEC task is present. The
+constraint status is recorded per scenario (`pure_plan_evidence_v2`), because it
+comes from TWO separate `ConstraintSpec` invocations and must not look like one
+row with two contradictory statuses:
+
+* `total_energy_without_budget = not_configured`, `without_budget_spec_enabled =
+  false`, `without_budget_active_names = []`, `without_budget_penalty = 0.0`
+  (Lagrangian off);
+* `total_energy_with_budget = active`, `with_budget_spec_enabled = true`,
+  `with_budget_active_names = ["total_energy"]`;
+* `constraint_raw_system_j == system_joules` in both.
 
 ## Blocker 2 — TensorFlow path unverified, and Kish is unreachable from here
 
