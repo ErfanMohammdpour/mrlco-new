@@ -1,0 +1,1088 @@
+{
+  "all_checks_pass": true,
+  "checks": {
+    "all_three_schedulers_present": true,
+    "binary_actions_only": true,
+    "canonical_matches_direct_schedule": true,
+    "decoder_order_is_canonical_execution_order": true,
+    "energy_excluded_from_parity": true,
+    "harness_ran": true,
+    "json_serializable": true,
+    "legacy_control_equals_upstream_latency": true,
+    "makespan_finite_and_nonnegative": true,
+    "no_helper_action": true,
+    "no_helper_location_and_no_v2v_hop": true,
+    "per_task_count_matches_graph": true,
+    "per_task_rows_complete": true,
+    "upstream_ran": true,
+    "upstream_replay_matches_upstream": true,
+    "upstream_status_recorded": true
+  },
+  "contract": {
+    "action_space": {
+      "0": "UE/Local",
+      "1": "MEC"
+    },
+    "binary_actions_only": true,
+    "contract_id": "margo_part_c_fair_comparison_v1",
+    "decoder_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "decoder_order_sha256": "29101ebf1ead685029508789eee51c4d4fff65524064d8e32a48efded7036982",
+    "energy_excluded_from_parity": true,
+    "energy_invariance": {
+      "equal": true,
+      "legacy_energy_model_makespan_s": 21.099999999999998,
+      "legacy_energy_total_mobile_j": 9.485714285714284,
+      "physical_energy_model_makespan_s": 21.099999999999998,
+      "physical_energy_total_mobile_j": 32.704087771428576,
+      "timing_axis_held_constant": true
+    },
+    "graph": {
+      "edge_count": 9,
+      "edges": [
+        [
+          0,
+          2,
+          2097152
+        ],
+        [
+          1,
+          2,
+          1048576
+        ],
+        [
+          1,
+          3,
+          1048576
+        ],
+        [
+          2,
+          4,
+          3145728
+        ],
+        [
+          2,
+          5,
+          3145728
+        ],
+        [
+          3,
+          5,
+          2097152
+        ],
+        [
+          4,
+          6,
+          1048576
+        ],
+        [
+          5,
+          6,
+          3670016
+        ],
+        [
+          6,
+          7,
+          1572864
+        ]
+      ],
+      "sha256": "925fc2741cf304cb335663cf74df1b6dfb03e34074fc51301adc7f02a8b4398c",
+      "task_count": 8,
+      "tasks": [
+        {
+          "compute_workload_bytes": 8388608,
+          "external_input_bytes": 8388608,
+          "task_id": 0,
+          "task_output_bytes": 2097152
+        },
+        {
+          "compute_workload_bytes": 4194304,
+          "external_input_bytes": 4194304,
+          "task_id": 1,
+          "task_output_bytes": 1048576
+        },
+        {
+          "compute_workload_bytes": 6291456,
+          "external_input_bytes": 0,
+          "task_id": 2,
+          "task_output_bytes": 3145728
+        },
+        {
+          "compute_workload_bytes": 5242880,
+          "external_input_bytes": 0,
+          "task_id": 3,
+          "task_output_bytes": 2097152
+        },
+        {
+          "compute_workload_bytes": 4194304,
+          "external_input_bytes": 0,
+          "task_id": 4,
+          "task_output_bytes": 1048576
+        },
+        {
+          "compute_workload_bytes": 7340032,
+          "external_input_bytes": 0,
+          "task_id": 5,
+          "task_output_bytes": 3670016
+        },
+        {
+          "compute_workload_bytes": 3145728,
+          "external_input_bytes": 0,
+          "task_id": 6,
+          "task_output_bytes": 1572864
+        },
+        {
+          "compute_workload_bytes": 2097152,
+          "external_input_bytes": 0,
+          "task_id": 7,
+          "task_output_bytes": 1048576
+        }
+      ]
+    },
+    "helper_action_forbidden": true,
+    "identical_rates": {
+      "identical": true,
+      "mec_cpu_bytes_per_second": 10485760.0,
+      "mec_downlink_bytes_per_second": 917504.0,
+      "mec_uplink_bytes_per_second": 917504.0,
+      "ue_cpu_bytes_per_second": 1048576.0,
+      "upstream_bandwidth_dl_mbps": 7.0,
+      "upstream_bandwidth_up_mbps": 7.0,
+      "upstream_derived_dl_bytes_per_second": 917504.0,
+      "upstream_derived_ul_bytes_per_second": 917504.0
+    },
+    "latency_semantics_only": true,
+    "plan": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        1
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        1
+      ],
+      [
+        6,
+        1
+      ],
+      [
+        7,
+        1
+      ]
+    ],
+    "plan_sha256": "e6808297a35f912065a41b63f9e30838e47fcf0b4145ca3fd1d8a2f8b568c14d",
+    "scheduler_provenance": {
+      "canonical": {
+        "entry_point": "env.mec_offloaing_envs.scheduler.schedule",
+        "graph": "CanonicalDAG",
+        "resources": "ResourceConfig.from_frozen_yaml()"
+      },
+      "legacy_control": {
+        "kind": "minimal_reimplementation_in_harness",
+        "note": "No legacy control entry point exists in the working tree: offloading_env.get_scheduling_cost_step_by_step has delegated to the canonical engine since b49b60f.  This row is a clearly-labelled minimal legacy model reproducing the pre-canonical algorithm at b49b60f^ with the V2V branch removed and latency-only accounting.",
+        "origin": "env/mec_offloaing_envs/offloading_env.py::OffloadingEnvironment.get_scheduling_cost_step_by_step@b49b60f^"
+      },
+      "upstream_original": {
+        "available": true,
+        "commit": "a55094fba33627929b029db2022ce8cccce03649",
+        "extracted_symbols": [
+          "Resources",
+          "get_scheduling_cost_step_by_step"
+        ],
+        "file_sha256": "41c9b90c40400feaed00441b886b109b2a472bb50ef0983e686b49d3a23f408d",
+        "repo": "https://github.com/linkpark/metarl-offloading",
+        "root": "/tmp/upstream_metarl",
+        "scheduler_source_sha256": "1b5f19ba338b1086901e24cffd84c811c0c62e5b585657c2079a8385a8dee17b",
+        "source_path": "/tmp/upstream_metarl/env/mec_offloaing_envs/offloading_env.py"
+      }
+    },
+    "single_graph": true,
+    "v2v_hop_forbidden": true
+  },
+  "differences": {
+    "contention_and_parallelism": {
+      "applies": true,
+      "explanation": "Both models are capacity-1 per resource, but the resource SETS differ: canonical has UE_CPU / MEC_UL / MEC_CPU / MEC_DL (four independent serials for a binary plan) while upstream has local CPU / uplink / cloud CPU (three).  Consequently a UE-local task and a MEC task can overlap differently, and the canonical engine additionally queues compute behind its own tier's calendar while upstream queues behind one global cloud counter.",
+      "numbers": {
+        "canonical_resource_count": 4,
+        "canonical_resources_used": [
+          "MEC_CPU",
+          "MEC_DL",
+          "MEC_UL",
+          "UE_CPU"
+        ],
+        "makespan_s": {
+          "canonical": 21.099999999999998,
+          "legacy_control": 36.77142857142858,
+          "upstream_original": 36.77142857142858
+        },
+        "upstream_resource_count": 3,
+        "upstream_resources_used": [
+          "local_cpu",
+          "ws_uplink",
+          "cloud_cpu"
+        ]
+      }
+    },
+    "decoder_order": {
+      "applies": false,
+      "explanation": "All three schedulers were handed the SAME decoder order, and it is topological, so the canonical engine's decoder-rank topological sort reproduces it exactly.  Decoder order therefore explains none of the observed difference in this run; it remains a factor to state because upstream consumes the plan order literally while the canonical engine re-derives a topological order using decoder_rank as the tie-break.",
+      "numbers": {
+        "canonical_execution_order": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "decoder_order": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "orders_identical": true
+      }
+    },
+    "dependency_edge_transfer": {
+      "applies": true,
+      "explanation": "The canonical engine routes every dependency edge's edge_output_bytes between the producer's and the consumer's execution location and reserves the hop on that calendar.  Upstream charges 0 explicit dependency-transfer bytes: a dependency is satisfied by the producer's own upload/compute/download completion times, so the transfer cost shows up inside the producer's per-task upload (MEC successor) or download (UE successor) instead.",
+      "numbers": {
+        "canonical_dependency_transfer_bytes": 6291456.0,
+        "graph_edge_total_bytes": 18874368.0,
+        "legacy_control_dependency_transfer_bytes": 0.0,
+        "upstream_dependency_transfer_bytes": 0.0
+      }
+    },
+    "mec_residency_and_mec_to_mec_zero_transfer": {
+      "applies": true,
+      "explanation": "Upstream has no notion of residency: a MEC->MEC dependency still makes the consumer upload its own workload, because readiness is max(FT_locally, FT_ws) and the consumer's ws slot is charged again.  In the canonical engine output stays resident where it executed, so a MEC->MEC edge transfers zero bytes and costs zero seconds.",
+      "numbers": {
+        "canonical_mec_to_mec_transfer_bytes": 0.0,
+        "mec_tasks": [
+          0,
+          2,
+          3,
+          5,
+          6,
+          7
+        ],
+        "mec_to_mec_bytes": 12582912.0,
+        "mec_to_mec_edge_count": 5,
+        "mec_to_mec_edges": [
+          {
+            "dst": 2,
+            "edge_output_bytes": 2097152,
+            "src": 0
+          },
+          {
+            "dst": 5,
+            "edge_output_bytes": 3145728,
+            "src": 2
+          },
+          {
+            "dst": 5,
+            "edge_output_bytes": 2097152,
+            "src": 3
+          },
+          {
+            "dst": 6,
+            "edge_output_bytes": 3670016,
+            "src": 5
+          },
+          {
+            "dst": 7,
+            "edge_output_bytes": 1572864,
+            "src": 6
+          }
+        ]
+      }
+    },
+    "separate_ul_dl_calendars": {
+      "applies": true,
+      "explanation": "The canonical calendar set gives uplink and downlink independent capacity-1 calendars (MEC_UL and MEC_DL), so a downlink can overlap an uplink.  Upstream has a single uplink counter ('ws') and no downlink calendar at all: T_dl is added to the finish time but never reserves the channel, so downlinks in the same run are serialised against the compute finish and are never mutually exclusive.",
+      "numbers": {
+        "canonical_calendars": [
+          "UE_CPU",
+          "MEC_UL",
+          "MEC_CPU",
+          "MEC_DL"
+        ],
+        "canonical_mec_dl_busy_s": 4.571428571428571,
+        "canonical_mec_ul_busy_s": 12.57142857142857,
+        "note": "upstream never reserves capacity for the downlink",
+        "upstream_calendars": [
+          "local_cpu",
+          "ws_uplink",
+          "cloud_cpu"
+        ],
+        "upstream_mec_dl_busy_s": null,
+        "upstream_mec_ul_busy_s": 35.42857142857143
+      }
+    },
+    "sink_only_return": {
+      "applies": true,
+      "explanation": "Upstream downloads every MEC task's output back to the UE (wr_start = FT_cloud, T_dl = transmission_data_size).  The canonical engine returns ONLY sinks, using task_output_bytes, because an intermediate result that a MEC consumer can read in place needs no downlink.",
+      "numbers": {
+        "canonical_return_bytes": 1048576.0,
+        "canonical_sink_output_bytes": 1048576.0,
+        "delta_bytes": 12582912.0,
+        "upstream_mec_task_output_bytes": 13631488.0,
+        "upstream_return_bytes": 13631488.0
+      }
+    },
+    "upload_charged_per_remote_task_upstream_vs_root_only_external_input": {
+      "applies": true,
+      "explanation": "Upstream charges an uplink for EVERY task executed on the MEC, using that task's own processing_data_size, and charges nothing for a task's external input at its root.  The canonical engine charges the uplink only for a ROOT that executes remotely (a UE-local root's external input needs no hop) and charges the remaining bytes on the producing dependency edge instead.  Same plan, different byte basis.",
+      "numbers": {
+        "canonical_root_external_input_bytes": 12582912.0,
+        "canonical_total_upload_bytes": 8388608.0,
+        "canonical_ue_local_root_external_input_bytes": 4194304.0,
+        "delta_bytes": 24117248.0,
+        "upstream_mec_task_workload_bytes": 32505856.0,
+        "upstream_total_upload_bytes": 32505856.0
+      }
+    }
+  },
+  "generated_by": "spec/upstream_parity.py",
+  "schedulers": {
+    "canonical": {
+      "energy_joules_excluded_from_parity": {
+        "helper_compute_joules": 0.0,
+        "helper_v2v_rx_joules": 0.0,
+        "helper_v2v_tx_joules": 0.0,
+        "mec_compute_joules_optional": 0.0,
+        "mec_tx_joules_optional": 0.0,
+        "total_helper_joules": 0.0,
+        "total_mobile_joules": 9.485714285714284,
+        "total_requester_joules": 9.485714285714284,
+        "total_system_joules": 9.485714285714284,
+        "total_system_joules_optional": 9.485714285714284,
+        "total_ue_joules": 9.485714285714284,
+        "ue_local_cpu_joules": 8.0,
+        "ue_mec_downlink_joules": 0.22857142857142856,
+        "ue_mec_uplink_joules": 1.2571428571428571,
+        "ue_v2v_rx_joules": 0.0,
+        "ue_v2v_tx_joules": 0.0
+      },
+      "hop_busy_seconds": {
+        "MEC_DL": 4.571428571428571,
+        "MEC_UL": 12.57142857142857,
+        "V2V": 0.0
+      },
+      "makespan_seconds": 21.099999999999998,
+      "resource_intervals": [
+        {
+          "end_s": 9.142857142857142,
+          "hop": "MEC_UL",
+          "resource": "MEC_UL",
+          "start_s": 0.0,
+          "task_id": null
+        },
+        {
+          "end_s": 9.942857142857143,
+          "hop": null,
+          "resource": "MEC_CPU",
+          "start_s": 9.142857142857142,
+          "task_id": 0
+        },
+        {
+          "end_s": 4.0,
+          "hop": null,
+          "resource": "UE_CPU",
+          "start_s": 0.0,
+          "task_id": 1
+        },
+        {
+          "end_s": 10.285714285714285,
+          "hop": "MEC_UL",
+          "resource": "MEC_UL",
+          "start_s": 9.142857142857142,
+          "task_id": null
+        },
+        {
+          "end_s": 10.885714285714284,
+          "hop": null,
+          "resource": "MEC_CPU",
+          "start_s": 10.285714285714285,
+          "task_id": 2
+        },
+        {
+          "end_s": 11.428571428571427,
+          "hop": "MEC_UL",
+          "resource": "MEC_UL",
+          "start_s": 10.285714285714285,
+          "task_id": null
+        },
+        {
+          "end_s": 11.928571428571427,
+          "hop": null,
+          "resource": "MEC_CPU",
+          "start_s": 11.428571428571427,
+          "task_id": 3
+        },
+        {
+          "end_s": 14.314285714285713,
+          "hop": "MEC_DL",
+          "resource": "MEC_DL",
+          "start_s": 10.885714285714284,
+          "task_id": null
+        },
+        {
+          "end_s": 18.314285714285713,
+          "hop": null,
+          "resource": "UE_CPU",
+          "start_s": 14.314285714285713,
+          "task_id": 4
+        },
+        {
+          "end_s": 12.628571428571426,
+          "hop": null,
+          "resource": "MEC_CPU",
+          "start_s": 11.928571428571427,
+          "task_id": 5
+        },
+        {
+          "end_s": 19.457142857142856,
+          "hop": "MEC_UL",
+          "resource": "MEC_UL",
+          "start_s": 18.314285714285713,
+          "task_id": null
+        },
+        {
+          "end_s": 19.757142857142856,
+          "hop": null,
+          "resource": "MEC_CPU",
+          "start_s": 19.457142857142856,
+          "task_id": 6
+        },
+        {
+          "end_s": 19.957142857142856,
+          "hop": null,
+          "resource": "MEC_CPU",
+          "start_s": 19.757142857142856,
+          "task_id": 7
+        },
+        {
+          "end_s": 21.099999999999998,
+          "hop": "MEC_DL",
+          "resource": "MEC_DL",
+          "start_s": 19.957142857142856,
+          "task_id": null
+        }
+      ],
+      "tasks": [
+        {
+          "action": 1,
+          "compute_s": 0.8000000000000007,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 9.942857142857143,
+          "first_available_s": 9.942857142857143,
+          "location": "MEC",
+          "ready_s": 9.142857142857142,
+          "return_s": 9.942857142857143,
+          "start_s": 9.142857142857142,
+          "task_id": 0,
+          "upload_bytes": 8388608.0,
+          "upload_s": 9.142857142857142
+        },
+        {
+          "action": 0,
+          "compute_s": 4.0,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 4.0,
+          "first_available_s": 10.285714285714285,
+          "location": "UE",
+          "ready_s": 0.0,
+          "return_s": 11.428571428571427,
+          "start_s": 0.0,
+          "task_id": 1,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.5999999999999996,
+          "dependency_transfer_bytes": 1048576.0,
+          "dependency_transfer_s": 1.1428571428571423,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 10.885714285714284,
+          "first_available_s": 10.885714285714284,
+          "location": "MEC",
+          "ready_s": 10.285714285714285,
+          "return_s": 14.314285714285713,
+          "start_s": 10.285714285714285,
+          "task_id": 2,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.5,
+          "dependency_transfer_bytes": 1048576.0,
+          "dependency_transfer_s": 1.1428571428571423,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 11.928571428571427,
+          "first_available_s": 11.928571428571427,
+          "location": "MEC",
+          "ready_s": 11.428571428571427,
+          "return_s": 11.928571428571427,
+          "start_s": 11.428571428571427,
+          "task_id": 3,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 0,
+          "compute_s": 4.0,
+          "dependency_transfer_bytes": 3145728.0,
+          "dependency_transfer_s": 3.428571428571429,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 18.314285714285713,
+          "first_available_s": 19.457142857142856,
+          "location": "UE",
+          "ready_s": 14.314285714285713,
+          "return_s": 19.457142857142856,
+          "start_s": 14.314285714285713,
+          "task_id": 4,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.6999999999999993,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 11.928571428571427,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 12.628571428571426,
+          "first_available_s": 12.628571428571426,
+          "location": "MEC",
+          "ready_s": 0.0,
+          "return_s": 12.628571428571426,
+          "start_s": 11.928571428571427,
+          "task_id": 5,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.3000000000000007,
+          "dependency_transfer_bytes": 1048576.0,
+          "dependency_transfer_s": 1.1428571428571423,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 19.757142857142856,
+          "first_available_s": 19.757142857142856,
+          "location": "MEC",
+          "ready_s": 19.457142857142856,
+          "return_s": 19.757142857142856,
+          "start_s": 19.457142857142856,
+          "task_id": 6,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.1999999999999993,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 19.757142857142856,
+          "download_bytes": 1048576.0,
+          "download_s": 1.1428571428571423,
+          "finish_s": 19.957142857142856,
+          "first_available_s": 21.099999999999998,
+          "location": "MEC",
+          "ready_s": 0.0,
+          "return_s": 21.099999999999998,
+          "start_s": 19.757142857142856,
+          "task_id": 7,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        }
+      ],
+      "terminal_return_time_s": 21.099999999999998,
+      "topo_order": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "transfers": [
+        {
+          "bytes": 8388608,
+          "dst_location": "MEC",
+          "dst_task_id": 0,
+          "end_s": 9.142857142857142,
+          "hop": "MEC_UL",
+          "hop_index": 0,
+          "src_location": "UE",
+          "src_task_id": null,
+          "start_s": 0.0
+        },
+        {
+          "bytes": 1048576,
+          "dst_location": "MEC",
+          "dst_task_id": 2,
+          "end_s": 10.285714285714285,
+          "hop": "MEC_UL",
+          "hop_index": 0,
+          "src_location": "UE",
+          "src_task_id": 1,
+          "start_s": 9.142857142857142
+        },
+        {
+          "bytes": 1048576,
+          "dst_location": "MEC",
+          "dst_task_id": 3,
+          "end_s": 11.428571428571427,
+          "hop": "MEC_UL",
+          "hop_index": 0,
+          "src_location": "UE",
+          "src_task_id": 1,
+          "start_s": 10.285714285714285
+        },
+        {
+          "bytes": 3145728,
+          "dst_location": "UE",
+          "dst_task_id": 4,
+          "end_s": 14.314285714285713,
+          "hop": "MEC_DL",
+          "hop_index": 0,
+          "src_location": "MEC",
+          "src_task_id": 2,
+          "start_s": 10.885714285714284
+        },
+        {
+          "bytes": 1048576,
+          "dst_location": "MEC",
+          "dst_task_id": 6,
+          "end_s": 19.457142857142856,
+          "hop": "MEC_UL",
+          "hop_index": 0,
+          "src_location": "UE",
+          "src_task_id": 4,
+          "start_s": 18.314285714285713
+        },
+        {
+          "bytes": 1048576,
+          "dst_location": "UE",
+          "dst_task_id": null,
+          "end_s": 21.099999999999998,
+          "hop": "MEC_DL",
+          "hop_index": 0,
+          "src_location": "MEC",
+          "src_task_id": 7,
+          "start_s": 19.957142857142856
+        }
+      ]
+    },
+    "legacy_control": {
+      "latency_deltas": [
+        12.228571428571428,
+        0.0,
+        7.800000000000001,
+        4.4714285714285715,
+        0.0,
+        9.914285714285711,
+        0.7428571428571473,
+        1.614285714285721
+      ],
+      "makespan_seconds": 36.77142857142858,
+      "notes": "No legacy control entry point exists in the working tree: offloading_env.get_scheduling_cost_step_by_step has delegated to the canonical engine since b49b60f.  This row is a clearly-labelled minimal legacy model reproducing the pre-canonical algorithm at b49b60f^ with the V2V branch removed and latency-only accounting.",
+      "source": {
+        "kind": "minimal_reimplementation_in_harness",
+        "origin": "env/mec_offloaing_envs/offloading_env.py::OffloadingEnvironment.get_scheduling_cost_step_by_step@b49b60f^"
+      },
+      "tasks": [
+        {
+          "action": 1,
+          "compute_s": 0.8,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 9.142857142857142,
+          "download_bytes": 2097152.0,
+          "download_s": 2.2857142857142856,
+          "finish_s": 9.942857142857143,
+          "location": "MEC",
+          "ready_s": 0.0,
+          "return_s": 12.228571428571428,
+          "start_s": 9.142857142857142,
+          "task_id": 0,
+          "upload_bytes": 8388608.0,
+          "upload_s": 9.142857142857142
+        },
+        {
+          "action": 0,
+          "compute_s": 4.0,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 4.0,
+          "location": "UE",
+          "ready_s": 0.0,
+          "return_s": 4.0,
+          "start_s": 0.0,
+          "task_id": 1,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.6,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 6.857142857142858,
+          "download_bytes": 3145728.0,
+          "download_s": 3.4285714285714284,
+          "finish_s": 16.6,
+          "location": "MEC",
+          "ready_s": 9.142857142857142,
+          "return_s": 20.02857142857143,
+          "start_s": 16.0,
+          "task_id": 2,
+          "upload_bytes": 6291456.0,
+          "upload_s": 6.857142857142857
+        },
+        {
+          "action": 1,
+          "compute_s": 0.5,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 17.714285714285715,
+          "download_bytes": 2097152.0,
+          "download_s": 2.2857142857142856,
+          "finish_s": 22.214285714285715,
+          "location": "MEC",
+          "ready_s": 4.0,
+          "return_s": 24.5,
+          "start_s": 21.714285714285715,
+          "task_id": 3,
+          "upload_bytes": 5242880.0,
+          "upload_s": 5.714285714285714
+        },
+        {
+          "action": 0,
+          "compute_s": 4.0,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 24.02857142857143,
+          "location": "UE",
+          "ready_s": 20.02857142857143,
+          "return_s": 24.02857142857143,
+          "start_s": 20.02857142857143,
+          "task_id": 4,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.7,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 8.0,
+          "download_bytes": 3670016.0,
+          "download_s": 4.0,
+          "finish_s": 30.414285714285715,
+          "location": "MEC",
+          "ready_s": 21.714285714285715,
+          "return_s": 34.41428571428571,
+          "start_s": 29.714285714285715,
+          "task_id": 5,
+          "upload_bytes": 7340032.0,
+          "upload_s": 8.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.3,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 3.4285714285714306,
+          "download_bytes": 1572864.0,
+          "download_s": 1.7142857142857142,
+          "finish_s": 33.44285714285714,
+          "location": "MEC",
+          "ready_s": 29.714285714285715,
+          "return_s": 35.15714285714286,
+          "start_s": 33.142857142857146,
+          "task_id": 6,
+          "upload_bytes": 3145728.0,
+          "upload_s": 3.4285714285714284
+        },
+        {
+          "action": 1,
+          "compute_s": 0.2,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 2.2857142857142847,
+          "download_bytes": 1048576.0,
+          "download_s": 1.1428571428571428,
+          "finish_s": 35.62857142857143,
+          "location": "MEC",
+          "ready_s": 33.142857142857146,
+          "return_s": 36.77142857142858,
+          "start_s": 35.42857142857143,
+          "task_id": 7,
+          "upload_bytes": 2097152.0,
+          "upload_s": 2.2857142857142856
+        }
+      ]
+    },
+    "upstream_original": {
+      "latency_deltas": [
+        12.228571428571428,
+        0.0,
+        7.800000000000001,
+        4.4714285714285715,
+        0.0,
+        9.914285714285711,
+        0.7428571428571473,
+        1.614285714285721
+      ],
+      "makespan_seconds": 36.77142857142858,
+      "max_abs_latency_delta_diff_s": 0.0,
+      "replay_matches_upstream": true,
+      "resources": {
+        "bandwidth_dl": 7.0,
+        "bandwidth_up": 7.0,
+        "mec_process_capable": 10485760.0,
+        "mobile_process_capable": 1048576.0
+      },
+      "task_timing_source": "step-recording replay of the same upstream algorithm (their function returns only deltas + makespan); validated against their own numbers",
+      "tasks": [
+        {
+          "action": 1,
+          "compute_s": 0.8,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 9.142857142857142,
+          "download_bytes": 2097152.0,
+          "download_s": 2.2857142857142856,
+          "finish_s": 9.942857142857143,
+          "location": "MEC",
+          "ready_s": 0.0,
+          "return_s": 12.228571428571428,
+          "start_s": 9.142857142857142,
+          "task_id": 0,
+          "upload_bytes": 8388608.0,
+          "upload_s": 9.142857142857142
+        },
+        {
+          "action": 0,
+          "compute_s": 4.0,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 4.0,
+          "location": "UE",
+          "ready_s": 0.0,
+          "return_s": 4.0,
+          "start_s": 0.0,
+          "task_id": 1,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.6,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 6.857142857142858,
+          "download_bytes": 3145728.0,
+          "download_s": 3.4285714285714284,
+          "finish_s": 16.6,
+          "location": "MEC",
+          "ready_s": 9.142857142857142,
+          "return_s": 20.02857142857143,
+          "start_s": 16.0,
+          "task_id": 2,
+          "upload_bytes": 6291456.0,
+          "upload_s": 6.857142857142857
+        },
+        {
+          "action": 1,
+          "compute_s": 0.5,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 17.714285714285715,
+          "download_bytes": 2097152.0,
+          "download_s": 2.2857142857142856,
+          "finish_s": 22.214285714285715,
+          "location": "MEC",
+          "ready_s": 4.0,
+          "return_s": 24.5,
+          "start_s": 21.714285714285715,
+          "task_id": 3,
+          "upload_bytes": 5242880.0,
+          "upload_s": 5.714285714285714
+        },
+        {
+          "action": 0,
+          "compute_s": 4.0,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 0.0,
+          "download_bytes": 0.0,
+          "download_s": 0.0,
+          "finish_s": 24.02857142857143,
+          "location": "UE",
+          "ready_s": 20.02857142857143,
+          "return_s": 24.02857142857143,
+          "start_s": 20.02857142857143,
+          "task_id": 4,
+          "upload_bytes": 0.0,
+          "upload_s": 0.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.7,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 8.0,
+          "download_bytes": 3670016.0,
+          "download_s": 4.0,
+          "finish_s": 30.414285714285715,
+          "location": "MEC",
+          "ready_s": 21.714285714285715,
+          "return_s": 34.41428571428571,
+          "start_s": 29.714285714285715,
+          "task_id": 5,
+          "upload_bytes": 7340032.0,
+          "upload_s": 8.0
+        },
+        {
+          "action": 1,
+          "compute_s": 0.3,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 3.4285714285714306,
+          "download_bytes": 1572864.0,
+          "download_s": 1.7142857142857142,
+          "finish_s": 33.44285714285714,
+          "location": "MEC",
+          "ready_s": 29.714285714285715,
+          "return_s": 35.15714285714286,
+          "start_s": 33.142857142857146,
+          "task_id": 6,
+          "upload_bytes": 3145728.0,
+          "upload_s": 3.4285714285714284
+        },
+        {
+          "action": 1,
+          "compute_s": 0.2,
+          "dependency_transfer_bytes": 0.0,
+          "dependency_transfer_s": 0.0,
+          "dependency_wait_s": 2.2857142857142847,
+          "download_bytes": 1048576.0,
+          "download_s": 1.1428571428571428,
+          "finish_s": 35.62857142857143,
+          "location": "MEC",
+          "ready_s": 33.142857142857146,
+          "return_s": 36.77142857142858,
+          "start_s": 35.42857142857143,
+          "task_id": 7,
+          "upload_bytes": 2097152.0,
+          "upload_s": 2.2857142857142856
+        }
+      ],
+      "upstream_latency_deltas": [
+        12.228571428571428,
+        0.0,
+        7.800000000000001,
+        4.4714285714285715,
+        0.0,
+        9.914285714285711,
+        0.7428571428571473,
+        1.614285714285721
+      ],
+      "upstream_makespan_seconds": 36.77142857142858
+    }
+  },
+  "schema": "upstream_parity_v1",
+  "summary": {
+    "applying_factors": [
+      "upload_charged_per_remote_task_upstream_vs_root_only_external_input",
+      "mec_residency_and_mec_to_mec_zero_transfer",
+      "dependency_edge_transfer",
+      "sink_only_return",
+      "separate_ul_dl_calendars",
+      "contention_and_parallelism"
+    ],
+    "canonical_vs_legacy_delta_seconds": -15.671428571428581,
+    "canonical_vs_upstream_delta_seconds": -15.671428571428581,
+    "goal": "explainability, not equality of makespans",
+    "legacy_control_equals_upstream": true,
+    "local_task_count": 2,
+    "makespan_seconds": {
+      "canonical": 21.099999999999998,
+      "legacy_control": 36.77142857142858,
+      "upstream_original": 36.77142857142858
+    },
+    "mec_task_count": 6,
+    "non_applying_factors": [
+      "decoder_order"
+    ],
+    "task_count": 8
+  },
+  "upstream_available": true,
+  "upstream_error": null,
+  "upstream_root": "/tmp/upstream_metarl"
+}

@@ -220,6 +220,11 @@ class _LegacyTaskGraph:
 
     def __init__(self, graph: CanonicalDAG):
         order = sorted(graph.tasks)
+        if order != list(range(len(order))):
+            raise ValueError(
+                "_LegacyTaskGraph requires contiguous task ids 0..n-1 because the "
+                "upstream/legacy algorithms index task_list by task id; got %r" % (order,)
+            )
         index = {tid: i for i, tid in enumerate(order)}
         self.task_number = len(order)
         self.task_list = [
@@ -356,7 +361,6 @@ def _legacy_replay(
                 "start_s": start_s,
                 "finish_s": finish_s,
                 "return_s": return_s,
-                "finish_plus_return_s": return_s,
             }
         )
 
@@ -615,7 +619,6 @@ def run_canonical(
                 "start_s": float(rec.start),
                 "finish_s": float(rec.finish),
                 "return_s": float(rec.all_consumers_ready),
-                "finish_plus_return_s": float(rec.all_consumers_ready),
                 "first_available_s": float(rec.first_available),
             }
         )
@@ -735,12 +738,20 @@ def build_differences(
             "Upstream charges an uplink for EVERY task executed on the MEC, using "
             "that task's own processing_data_size, and charges nothing for a task's "
             "external input at its root.  The canonical engine charges the uplink "
-            "only for a root's external_input_bytes and charges dependency bytes on "
-            "the producing edge instead.  Same plan, different byte basis."
+            "only for a ROOT that executes remotely (a UE-local root's external "
+            "input needs no hop) and charges the remaining bytes on the producing "
+            "dependency edge instead.  Same plan, different byte basis."
         ),
         {
             "canonical_root_external_input_bytes": external_input_bytes,
             "canonical_total_upload_bytes": canon_upload_bytes,
+            "canonical_ue_local_root_external_input_bytes": float(
+                sum(
+                    int(graph.tasks[tid].external_input_bytes)
+                    for tid in graph.tasks
+                    if loc[int(tid)] == 0
+                )
+            ),
             "upstream_total_upload_bytes": legacy_upload_bytes,
             "upstream_mec_task_workload_bytes": mec_task_workload_bytes,
             "delta_bytes": legacy_upload_bytes - canon_upload_bytes,
@@ -773,7 +784,8 @@ def build_differences(
             "reserves the hop on that calendar.  Upstream charges 0 explicit "
             "dependency-transfer bytes: a dependency is satisfied by the producer's "
             "own upload/compute/download completion times, so the transfer cost "
-            "shows up inside the producer's per-task upload instead."
+            "shows up inside the producer's per-task upload (MEC successor) or "
+            "download (UE successor) instead."
         ),
         {
             "canonical_dependency_transfer_bytes": canon_dep_bytes,
@@ -940,6 +952,16 @@ def _make_checks(
         checks["upstream_ran"] = True
         checks["upstream_replay_matches_upstream"] = bool(
             schedulers["upstream_original"]["replay_matches_upstream"]
+        )
+        upstream = schedulers["upstream_original"]
+        legacy = schedulers["legacy_control"]
+        checks["legacy_control_equals_upstream_latency"] = (
+            abs(upstream["makespan_seconds"] - legacy["makespan_seconds"]) <= 1e-9
+            and len(upstream["latency_deltas"]) == len(legacy["latency_deltas"])
+            and all(
+                abs(a - b) <= 1e-9
+                for a, b in zip(upstream["latency_deltas"], legacy["latency_deltas"])
+            )
         )
     return checks
 
