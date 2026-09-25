@@ -403,16 +403,31 @@ class Trainer(object):
             # this iteration; one dual step per outer iteration closes the loop.
             # Inert (no log keys, no state change) when constraints are off.
             controller = getattr(self.env, "constraint_controller", None)
+            env_spec = getattr(self.env, "constraint_spec", None)
+            if env_spec is not None and env_spec.mode == "lagrangian":
+                # A1: no budget -> explicit not_configured, penalty 0, no duals
+                for name, status in env_spec.constraint_status().items():
+                    logger.logkv("constraint_status/%s" % name, status)
+                logger.logkv(
+                    "constraint/penalty_applied",
+                    0.0 if not env_spec.enabled else float(
+                        getattr(self.env, "last_constraint_penalty", 0.0)
+                    ),
+                )
             if controller is not None and controller.spec.enabled:
                 diag = controller.dual_step()
                 for key, value in diag.items():
                     logger.logkv(key, value)
                 last_costs = getattr(self.env, "last_constraint_costs", None)
                 if last_costs is not None and last_costs.active:
-                    logger.logkv("constraint/total_violation", last_costs.total_violation)
+                    # raw metric, budget, scale and normalized signed cost per active
+                    # constraint (A2/A3 evidence), plus the aggregate violation.
+                    for key, value in last_costs.as_dict().items():
+                        logger.logkv("constraint/%s" % key, value)
                     self._audit(itr, "constraints", {
                         "lambdas": {n: l for n, l in zip(controller.names, controller.lambdas)},
                         "costs": last_costs.as_dict(),
+                        "status": controller.status(),
                     })
 
             if itr % self.validation_interval == 0:
@@ -600,14 +615,22 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
             if isinstance(constraints, ConstraintSpec)
             else ConstraintSpec.from_dict(dict(constraints))
         )
+        # Always publish the (re-parseable) spec so the env sees the scenario even
+        # when no budget is configured: A1 must report not_configured, not vanish.
+        # `as_dict()` is logging-only and would be rejected by from_dict.
+        ENERGY_CONFIG['constraints'] = spec.to_config_dict()
         if spec.enabled:
             constraint_controller = ConstraintController(
                 spec=spec, dual_lr=float(constraint_dual_lr)
             )
-            ENERGY_CONFIG['constraints'] = spec.as_dict()
             print(
                 "[constraints] lagrangian mode, budgets=%s, dual_lr=%s"
                 % (list(spec.active_names), constraint_dual_lr)
+            )
+        else:
+            print(
+                "[constraints] lagrangian mode, no budget configured "
+                "(status=not_configured, penalty=0, controller off)"
             )
 
     if strict_scheduler_config and scheduler_config is None:

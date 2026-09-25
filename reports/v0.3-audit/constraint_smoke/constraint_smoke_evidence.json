@@ -1,0 +1,93 @@
+{
+  "all_checks_pass": true,
+  "checks": {
+    "A1_controller_off": true,
+    "A1_no_active_constraint": true,
+    "A1_penalty_zero": true,
+    "A1_raw_equals_system": true,
+    "A1_status_not_configured": true,
+    "A2_raw_equals_system": true,
+    "A2_status_active": true,
+    "A2_under_budget": true,
+    "A2_violation_zero": true,
+    "A3_penalty_zero": true,
+    "A3_raw_equals_system": true,
+    "A3_signed_positive": true,
+    "A3_status_active": true,
+    "A3_violation_positive": true,
+    "mobile_ref_rejected_by_constraint": true,
+    "mobile_ref_rejected_by_objective": true,
+    "reward_A1_equals_off": true,
+    "reward_A2_equals_off": true,
+    "reward_A3_equals_off": true,
+    "reward_is_latency_only": true,
+    "ue_raw_equals_requester": true
+  },
+  "mobile_joules": 32.7281344,
+  "plan": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      1
+    ]
+  ],
+  "reference_scope": "system",
+  "requester_joules": 3.7165824,
+  "reward_latency_only_first_last": [
+    0.0,
+    -0.0297872340425529
+  ],
+  "scenarios": {
+    "A1_total_absent": {
+      "active_names": [],
+      "enabled": false,
+      "penalty_with_zero_duals": 0.0,
+      "status": "not_configured",
+      "total_energy_budget": null,
+      "total_energy_metric_system_j": 285.96737440000004,
+      "total_energy_raw": null,
+      "total_energy_signed": null,
+      "total_energy_violation": null,
+      "total_violation": 0.0
+    },
+    "A2_total_big": {
+      "active_names": [
+        "total_energy"
+      ],
+      "enabled": true,
+      "penalty_with_zero_duals": 0.0,
+      "status": "active",
+      "total_energy_budget": 1000000000000.0,
+      "total_energy_metric_system_j": 285.96737440000004,
+      "total_energy_raw": 285.96737440000004,
+      "total_energy_signed": -132454766129.65697,
+      "total_energy_violation": 0.0,
+      "total_violation": 0.0
+    },
+    "A3_total_small": {
+      "active_names": [
+        "total_energy"
+      ],
+      "enabled": true,
+      "penalty_with_zero_duals": 0.0,
+      "status": "active",
+      "total_energy_budget": 1.0,
+      "total_energy_metric_system_j": 285.96737440000004,
+      "total_energy_raw": 285.96737440000004,
+      "total_energy_signed": 37.74528694152832,
+      "total_energy_violation": 37.74528694152832,
+      "total_violation": 37.74528694152832
+    }
+  },
+  "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
+  "schema": "constraint_smoke_evidence_v1",
+  "system_joules": 285.96737440000004,
+  "ue_energy_raw": 3.7165824
+}

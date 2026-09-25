@@ -226,6 +226,7 @@ class OffloadingEnvironment(MetaEnv):
             # keep the two objects consistent whatever order they were built in
             self.constraint_spec = self.constraint_controller.spec
         self.last_constraint_costs = None
+        self.last_constraint_penalty = 0.0
 
         # 4.2c scoped telemetry: opt-in. OFF by default, so the legacy info tuple
         # and every sampler path are unchanged unless the trainer asks for it.
@@ -593,6 +594,7 @@ class OffloadingEnvironment(MetaEnv):
         )
 
         validation_batch = [] if self.validation_plans_enabled else None
+        constraint_penalty_applied = 0.0
 
         for i in range(len(action_sequence_batch)):
             task_graph = task_graph_batch[i]
@@ -620,6 +622,7 @@ class OffloadingEnvironment(MetaEnv):
             )
             if out.constraint_costs.active:
                 self.last_constraint_costs = out.constraint_costs
+                constraint_penalty_applied += float(out.constraint_penalty)
                 if self.constraint_controller is not None:
                     self.constraint_controller.observe(out.constraint_costs)
             target_batch.append(np.asarray(out.rewards, dtype=float))
@@ -647,6 +650,7 @@ class OffloadingEnvironment(MetaEnv):
 
         self.last_energy_telemetry = telemetry_batch
         self.last_validation_plans = validation_batch
+        self.last_constraint_penalty = float(constraint_penalty_applied)
 
         target_batch = np.array(target_batch, dtype=object)
         # Prefer numeric ndarray when all sequences share length.

@@ -109,6 +109,31 @@ class TestSpec(unittest.TestCase):
         # canonical order, not declaration order
         self.assertEqual(spec.active_names, ("ue_energy", "helper_energy", "v2v_task_fraction"))
 
+    def test_to_config_dict_round_trips_through_from_dict(self):
+        spec = ConstraintSpec(
+            mode=CONSTRAINT_MODE_LAGRANGIAN,
+            attribution=ATTRIBUTION_TELESCOPED,
+            total_energy_budget_j=1e12,
+            ue_energy_frac_of_all_ue=0.5,
+            v2v_airtime_budget_s=2.0,
+        )
+        cfg = spec.to_config_dict()
+        # as_dict carries logging-only keys that from_dict rejects
+        self.assertIn("active", spec.as_dict())
+        self.assertIn("constraint_status", spec.as_dict())
+        self.assertNotIn("active", cfg)
+        self.assertNotIn("constraint_status", cfg)
+        self.assertEqual(ConstraintSpec.from_dict(cfg), spec)
+        # and from_config accepts it (the env path)
+        self.assertEqual(ConstraintSpec.from_config({"constraints": cfg}), spec)
+
+    def test_to_config_dict_of_a_disabled_spec_keeps_the_scenario(self):
+        spec = ConstraintSpec(mode=CONSTRAINT_MODE_LAGRANGIAN)
+        parsed = ConstraintSpec.from_config({"constraints": spec.to_config_dict()})
+        self.assertEqual(parsed.mode, CONSTRAINT_MODE_LAGRANGIAN)
+        self.assertFalse(parsed.enabled)
+        self.assertEqual(parsed.constraint_status()["total_energy"], "not_configured")
+
     def test_mode_off_with_budgets_is_still_off(self):
         spec = ConstraintSpec(mode=CONSTRAINT_MODE_OFF, ue_energy_frac_of_all_ue=0.5)
         self.assertFalse(spec.enabled)

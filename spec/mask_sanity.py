@@ -90,6 +90,12 @@ def parse_args(argv):
         help="E4.2 plan-level objective channel; log_only exercises the producer",
     )
     parser.add_argument(
+        "--constraints-scenario",
+        default="off",
+        choices=("off", "total_absent", "total_big", "total_small"),
+        help="Part A constraint trainer integration scenarios",
+    )
+    parser.add_argument(
         "--preflight-only",
         action="store_true",
         help="run the cheap preflight and exit without building the stack",
@@ -214,6 +220,28 @@ def verify_live_stack(trainer, mode):
     return {"failures": failures, "tasks": n_tasks, "deadlines": n_deadline}
 
 
+def constraint_spec_for_scenario(scenario):
+    """Part A scenarios. Lagrangian is always OFF for these smokes (dual_lr=0):
+    constraints are measured and logged, never applied as a penalty.
+
+    * total_absent: lagrangian mode, no budget -> status not_configured, no cost
+    * total_big:    explicit huge system budget -> active, violation 0
+    * total_small:  tiny system budget -> active, violation > 0
+    """
+    from env.mec_offloaing_envs.scheduler.constraints import ConstraintSpec
+
+    scenario = str(scenario)
+    if scenario == "off":
+        return None
+    if scenario == "total_absent":
+        return ConstraintSpec(mode="lagrangian")
+    if scenario == "total_big":
+        return ConstraintSpec(mode="lagrangian", total_energy_budget_j=1e12)
+    if scenario == "total_small":
+        return ConstraintSpec(mode="lagrangian", total_energy_budget_j=1.0)
+    raise ValueError("unknown constraints scenario %r" % (scenario,))
+
+
 def primary_scheduler_config():
     """The resolved primary scheduler config used by the smoke stack.
 
@@ -241,6 +269,7 @@ def _train_masked(args, payload, rd):
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     logger.configure(dir=str(rd / "logs"), format_strs=["stdout", "log", "csv"])
     writer = TrainAuditWriter(rd)
+    constraint_spec = constraint_spec_for_scenario(args.constraints_scenario)
     trainer, algo = build_frozen_primary_stack(
         seed=int(args.seed),
         n_itr=int(args.itr),
@@ -252,8 +281,8 @@ def _train_masked(args, payload, rd):
         learning_mode="publication",
         vocab_size=3,
         use_energy=True,
-        constraints=None,
-        constraint_dual_lr=None,
+        constraints=constraint_spec,
+        constraint_dual_lr=(0.0 if constraint_spec is not None else None),
         objective_mode=str(args.objective_mode),
         objective_spec=(
             {"latency_ref": "all_ue", "energy_budget_j": 1e12}
@@ -279,7 +308,8 @@ def _train_masked(args, payload, rd):
     return payload
 
 
-def validate_progress_csv(rd, itr, reward_mode="publication", objective_mode="off"):
+def validate_progress_csv(rd, itr, reward_mode="publication", objective_mode="off",
+                          constraints_scenario="off"):
     """All seven columns present, every row finite, stop conditions respected."""
     import csv
 
@@ -394,6 +424,74 @@ def validate_progress_csv(rd, itr, reward_mode="publication", objective_mode="of
                 failures.append(
                     {"check": "objective_not_unavailable", "detail": {"row": i, "value": value}}
                 )
+
+    # --- Part A: constraints-enabled trainer integration ---------------------
+    scenario = str(constraints_scenario)
+    if scenario != "off":
+        for key in ("constraint_status/total_energy", "constraint/penalty_applied"):
+            if key not in header:
+                failures.append({"check": "constraint_column_present", "detail": key})
+        for i, row in enumerate(rows):
+            status = row.get("constraint_status/total_energy")
+            if scenario == "total_absent" and status != "not_configured":
+                failures.append(
+                    {"check": "constraint_total_absent_status",
+                     "detail": {"row": i, "value": status}}
+                )
+            if scenario in ("total_big", "total_small") and status != "active":
+                failures.append(
+                    {"check": "constraint_total_active_status",
+                     "detail": {"row": i, "value": status}}
+                )
+            penalty = row.get("constraint/penalty_applied")
+            if penalty not in ("", None):
+                try:
+                    if float(penalty) != 0.0:
+                        failures.append(
+                            {"check": "constraint_penalty_zero",
+                             "detail": {"row": i, "value": penalty}}
+                        )
+                except (TypeError, ValueError):
+                    failures.append(
+                        {"check": "constraint_value_numeric",
+                         "detail": {"row": i, "key": "constraint/penalty_applied", "value": penalty}}
+                    )
+            if scenario in ("total_big", "total_small"):
+                for key in (
+                    "constraint/total_energy_raw",
+                    "constraint/total_energy_budget",
+                    "constraint/total_energy_signed",
+                ):
+                    if row.get(key) in ("", None):
+                        failures.append(
+                            {"check": "constraint_value_present", "detail": {"row": i, "key": key}}
+                        )
+                if scenario == "total_small":
+                    signed = row.get("constraint/total_energy_signed")
+                    try:
+                        if float(signed) <= 0.0:
+                            failures.append(
+                                {"check": "constraint_violation_positive",
+                                 "detail": {"row": i, "value": signed}}
+                            )
+                    except (TypeError, ValueError):
+                        failures.append(
+                            {"check": "constraint_value_numeric",
+                             "detail": {"row": i, "key": "constraint/total_energy_signed", "value": signed}}
+                        )
+            lam = row.get("constraint/lambda_total_energy")
+            if lam not in ("", None):
+                try:
+                    if float(lam) != 0.0:
+                        failures.append(
+                            {"check": "constraint_lagrangian_off",
+                             "detail": {"row": i, "value": lam}}
+                        )
+                except (TypeError, ValueError):
+                    failures.append(
+                        {"check": "constraint_value_numeric",
+                         "detail": {"row": i, "key": "constraint/lambda_total_energy", "value": lam}}
+                    )
     return {"failures": failures, "rows": len(rows), "header": header, **worst}
 
 
@@ -424,7 +522,9 @@ def main(argv=None):
     _train_masked(args, payload, rd)
     payload["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     payload["csv_validation"] = validate_progress_csv(
-        rd, args.itr, reward_mode=str(args.reward_mode), objective_mode=str(args.objective_mode)
+        rd, args.itr, reward_mode=str(args.reward_mode),
+        objective_mode=str(args.objective_mode),
+        constraints_scenario=str(args.constraints_scenario),
     )
     payload["gpu_finished"] = True
     payload["paper_result"] = False

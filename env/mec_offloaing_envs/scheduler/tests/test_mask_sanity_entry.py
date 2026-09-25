@@ -200,9 +200,14 @@ class TestLauncherTargets(unittest.TestCase):
         self.assertIn("--mode static --itr 1", self.script)
         self.assertIn("--mode off --itr 500", self.script)
         self.assertIn("--mode static --itr 500", self.script)
-        # four runs, one cheap preflight target and the E4.2 energy smoke
-        self.assertEqual(self.script.count("python -m spec.mask_sanity"), 6)
+        # four runs, one cheap preflight target, the E4.2 energy smoke and the
+        # Part A constraint smoke
+        self.assertEqual(self.script.count("python -m spec.mask_sanity"), 7)
         self.assertIn("--preflight-only", self.script)
+
+    def test_constraint_smoke_uses_the_expected_scenario(self):
+        self.assertIn("energy-constraint-smoke)", self.script)
+        self.assertIn("--constraints-scenario total_small", self.script)
 
     def test_energy_smoke_uses_the_new_reward_and_objective_contract(self):
         self.assertIn("energy-train-smoke)", self.script)

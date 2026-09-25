@@ -231,6 +231,20 @@ class ConstraintSpec:
             },
         }
 
+    def to_config_dict(self) -> dict[str, Any]:
+        """The re-parseable form: only dataclass fields, no derived keys.
+
+        `as_dict()` carries logging extras (`active`, `constraint_status`) that
+        `from_dict`/`from_config` deliberately reject, so it must never be fed
+        back into an energy_config.
+        """
+        out: dict[str, Any] = {}
+        for name in self.__dataclass_fields__:  # type: ignore[attr-defined]
+            value = getattr(self, name)
+            if value is not None:
+                out[name] = str(value) if name in ("mode", "attribution") else value
+        return out
+
 
 @dataclass(frozen=True)
 class ConstraintMetrics:
