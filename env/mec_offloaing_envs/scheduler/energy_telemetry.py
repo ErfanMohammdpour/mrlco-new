@@ -49,6 +49,12 @@ CSV_COLUMNS = {
     "primary_scope": "energy/primary_scope",
 }
 
+# `Average energy` is the historical per-task MOBILE metric. It is NOT converted
+# to the primary scope: E4.1 keeps it and labels the boundary explicitly so a log
+# reader can tell it apart from the scoped telemetry columns.
+AVERAGE_ENERGY_LEGACY_KEY = "Average energy,"
+AVERAGE_ENERGY_LEGACY_SCOPE = SCOPE_MOBILE
+
 
 class EnergyTelemetryError(ValueError):
     """Telemetry was missing, malformed, non-finite or from another config."""
@@ -167,6 +173,14 @@ def telemetry_csv_kvs(aggregate: Mapping[str, Any]) -> dict[str, Any]:
     return {
         CSV_COLUMNS[field]: checked[field] for field in
         ("requester_joules", "mobile_joules", "system_joules", "primary_joules", "primary_scope")
+    }
+
+
+def legacy_average_energy_kvs(avg_energy: Any) -> dict[str, Any]:
+    """The legacy `Average energy` value plus its explicit MOBILE-scope label."""
+    return {
+        AVERAGE_ENERGY_LEGACY_KEY: avg_energy,
+        "energy/average_energy_scope": AVERAGE_ENERGY_LEGACY_SCOPE,
     }
 
 

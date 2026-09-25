@@ -38,6 +38,8 @@ from env.mec_offloaing_envs.scheduler.energy_scope import (  # noqa: E402
     energy_scalar,
 )
 from env.mec_offloaing_envs.scheduler.energy_telemetry import (  # noqa: E402
+    AVERAGE_ENERGY_LEGACY_KEY,
+    AVERAGE_ENERGY_LEGACY_SCOPE,
     CSV_COLUMNS,
     TELEMETRY_FIELDS,
     TELEMETRY_SCHEMA_VERSION,
@@ -45,6 +47,7 @@ from env.mec_offloaing_envs.scheduler.energy_telemetry import (  # noqa: E402
     aggregate_energy_telemetry,
     build_energy_telemetry,
     collect_energy_telemetry,
+    legacy_average_energy_kvs,
     telemetry_csv_kvs,
     validate_energy_telemetry,
 )
@@ -308,6 +311,25 @@ class TestEnvRolloutPath(unittest.TestCase):
             fake, [plan], [tg], None, None
         )
         np.testing.assert_array_equal(reward_plain, reward_telemetry)
+
+
+class TestLegacyAverageEnergyLabel(unittest.TestCase):
+    def test_average_energy_stays_mobile_and_is_labelled(self):
+        kvs = legacy_average_energy_kvs(3.5)
+        self.assertEqual(kvs[AVERAGE_ENERGY_LEGACY_KEY], 3.5)
+        self.assertEqual(kvs["energy/average_energy_scope"], SCOPE_MOBILE)
+        self.assertEqual(AVERAGE_ENERGY_LEGACY_SCOPE, SCOPE_MOBILE)
+
+    def test_reporting_reference_is_not_mass_converted_to_system(self):
+        # j_report still consumes the legacy mobile reference unchanged
+        from env.mec_offloaing_envs.scheduler.energy_api import (
+            ReferenceRanges,
+            j_report,
+        )
+
+        refs = ReferenceRanges(L_ue=1.0, L_mec=2.0, L_helper=3.0,
+                               E_ue=10.0, E_mec=20.0, E_helper=30.0)
+        self.assertGreaterEqual(j_report(1.5, 15.0, refs), 0.0)
 
 
 class TestCsvAlignment(unittest.TestCase):

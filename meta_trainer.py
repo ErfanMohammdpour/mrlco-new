@@ -9,6 +9,7 @@ from env.mec_offloaing_envs.scheduler.mask_metrics import rates as mask_metric_r
 from env.mec_offloaing_envs.scheduler.energy_telemetry import (
     aggregate_energy_telemetry,
     collect_energy_telemetry,
+    legacy_average_energy_kvs,
     telemetry_csv_kvs,
 )
 from env.mec_offloaing_envs.scheduler.primary_config import (  # noqa: E402
@@ -351,7 +352,9 @@ class Trainer(object):
                 if len(energy) > 0:
                     avg_energy = np.mean(energy)
                     print(f"Average energy per iteration {itr}: {avg_energy:.4f}")
-                    logger.logkv('Average energy,', avg_energy)
+                    # legacy MOBILE metric, explicitly labelled (E4.1)
+                    for key, value in legacy_average_energy_kvs(avg_energy).items():
+                        logger.logkv(key, value)
                     avg_energies.append(avg_energy)
                 else:
                     print(f"Average energy per iteration {itr}: 0.0 (no energy data)")
