@@ -181,6 +181,41 @@ class TestCsvAlignment(unittest.TestCase):
         self.assertEqual(len(rows[0]), len(header))
         self.assertEqual(dict(zip(header, rows[0]))["note"], "a,b")
 
+    def test_two_writers_sharing_one_path_never_desync(self):
+        """The 2N-field signature seen on Kish: header N, first row 2N.
+
+        Two CSV writers open the same path before the first dump. Both write the
+        same keys; the second one padded the first writer's row while keeping the
+        shorter header. With the buffered rewrite every write leaves a complete
+        file, so no row can be longer than the header.
+        """
+        w1 = CSVOutputFormat(str(self.path))
+        w2 = CSVOutputFormat(str(self.path))
+        kvs = {"a": 1, "b": 2, "c": 3}
+        w1.writekvs(kvs)
+        w2.writekvs(kvs)
+        w1.close()
+        w2.close()
+        header, rows = self._read()
+        self.assertEqual(len(header), 3, header)
+        for row in rows:
+            self.assertEqual(len(row), len(header), (header, rows))
+
+    def test_repeated_writes_keep_every_row_aligned(self):
+        writer = CSVOutputFormat(str(self.path))
+        writer.writekvs({"a": 1})
+        writer.writekvs({"a": 2, "b": 3})
+        writer.writekvs({"a": 4, "b": 5, "c": 6})
+        writer.close()
+        header, rows = self._read()
+        self.assertEqual(header, ["a", "b", "c"])
+        self.assertEqual(len(rows), 3)
+        for row in rows:
+            self.assertEqual(len(row), len(header), row)
+        by_row = [dict(zip(header, row)) for row in rows]
+        self.assertEqual(by_row[0]["b"], "")
+        self.assertEqual(by_row[2]["c"], "6")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

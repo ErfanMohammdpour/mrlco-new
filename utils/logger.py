@@ -112,6 +112,7 @@ class CSVOutputFormat(KVWriter):
     def __init__(self, filename):
         self.file = open(filename, 'w+t')
         self.keys = []
+        self.rows = []
         self.sep = ','
 
     def _quote(self, text):
@@ -126,30 +127,40 @@ class CSVOutputFormat(KVWriter):
             return '"' + text.replace('"', '""') + '"'
         return text
 
+    def _render(self):
+        """Rewrite header + every row from memory in the current column order.
+
+        Rewriting the whole file (instead of padding earlier lines in place) makes
+        a misaligned row impossible: a late key can only ever add a column to the
+        header and to every row together. Two writers sharing one path can no
+        longer interleave a padded row with a shorter header either: each write
+        leaves a complete, self-consistent file.
+        """
+        self.file.seek(0)
+        self.file.truncate()
+        self.file.write(self.sep.join(self._quote(k) for k in self.keys) + '\n')
+        for row in self.rows:
+            if len(row) < len(self.keys):
+                # a late key arrived after this row was recorded
+                row = row + [''] * (len(self.keys) - len(row))
+            self.file.write(self.sep.join(row) + '\n')
+        self.file.flush()
+
     def writekvs(self, kvs):
-        # Add our current row to the history. New keys must be appended in a
-        # DETERMINISTIC order (the previous set-difference made the column order
-        # depend on hash iteration) and the rewritten header must be padded onto
-        # every existing row with the file truncated, otherwise stale bytes from
-        # the longer previous header survive and shift every later column.
         extra_keys = [k for k in kvs.keys() if k not in self.keys]
         if extra_keys:
             self.keys.extend(extra_keys)
-            self.file.seek(0)
-            previous = self.file.readlines()
-            self.file.seek(0)
-            self.file.truncate()
-            self.file.write(self.sep.join(self._quote(k) for k in self.keys) + '\n')
-            pad = self.sep * len(extra_keys)
-            for line in previous[1:]:
-                self.file.write(line.rstrip('\n') + pad + '\n')
         row = []
         for k in self.keys:
             v = kvs.get(k)
             text = str(v) if (k in kvs and v is not None) else ''
             row.append(self._quote(text))
-        self.file.write(self.sep.join(row) + '\n')
-        self.file.flush()
+        if len(row) != len(self.keys):  # pragma: no cover - invariant guard
+            raise AssertionError(
+                "CSV row/header desync: %d fields for %d keys" % (len(row), len(self.keys))
+            )
+        self.rows.append(row)
+        self._render()
 
     def close(self):
         self.file.close()
