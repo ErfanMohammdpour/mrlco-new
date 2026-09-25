@@ -19,9 +19,26 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 
 REQUIRED_LATENCIES = ("query_mean_latency", "query_all_mec_latency", "query_greedy_latency")
+
+
+def configure_obs_env() -> dict:
+    """Encoder/policy modules read these at import; must be set first.
+
+    The pilot contract is obs v3 + mask off + constraints off; without v3 the
+    encoder raises `resource_vec only valid for obs v2/v3`.
+    """
+    os.environ["MARGO_OBS_VERSION"] = "v3"
+    os.environ["MARGO_MASK_MODE"] = "off"
+    os.environ["MARGO_CONSTRAINTS"] = "off"
+    return {
+        "MARGO_OBS_VERSION": os.environ["MARGO_OBS_VERSION"],
+        "MARGO_MASK_MODE": os.environ["MARGO_MASK_MODE"],
+        "MARGO_CONSTRAINTS": os.environ["MARGO_CONSTRAINTS"],
+    }
 
 
 def sha256_file(path: str | Path) -> str:
@@ -119,10 +136,10 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.one:
         args.checkpoint = [args.one]
+    results = {"obs_env": configure_obs_env(), "checkpoints": {}}
 
     trainer, algo = _build_stack()
     held = trainer.held_out_evaluator
-    results = {"checkpoints": {}}
     with tf.compat.v1.Session() as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
         algo.sync_task_policies_from_core()

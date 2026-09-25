@@ -17,7 +17,7 @@ for _name in ("gym", "gym.core"):
 sys.modules["gym.core"].Env = type("Env", (), {})
 
 
-from spec.evaluate_checkpoint import sha256_file, summarize  # noqa: E402
+from spec.evaluate_checkpoint import configure_obs_env, sha256_file, summarize  # noqa: E402
 
 
 def _side(policy, mec, greedy):
@@ -53,6 +53,14 @@ class TestSummarize(unittest.TestCase):
         out = summarize({"query_mean_latency": 1.0}, {"query_mean_latency": 0.5})
         self.assertEqual(out["gaps"], {})
         self.assertTrue(out["k3_better_than_k0"])
+
+
+class TestObsEnv(unittest.TestCase):
+    def test_obs_contract_is_set_before_building(self):
+        env = configure_obs_env()
+        self.assertEqual(env["MARGO_OBS_VERSION"], "v3")
+        self.assertEqual(env["MARGO_MASK_MODE"], "off")
+        self.assertEqual(env["MARGO_CONSTRAINTS"], "off")
 
 
 class TestSha(unittest.TestCase):
