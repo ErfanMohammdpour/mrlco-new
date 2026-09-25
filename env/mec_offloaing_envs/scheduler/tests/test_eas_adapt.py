@@ -60,10 +60,11 @@ class TestEasTf(unittest.TestCase):
             raise unittest.SkipTest("need tf.contrib (TensorFlow 1.15)")
         from policies.meta_seq2seq_policy import Seq2SeqPolicy
         from spec.eas_adapt import filter_adapt_vars
+        from env.mec_offloaing_envs.scheduler.encoder_obs import PACKED_DIM
 
         tf.compat.v1.reset_default_graph()
         policy = Seq2SeqPolicy(
-            obs_dim=13,
+            obs_dim=PACKED_DIM,
             encoder_units=128,
             decoder_units=128,
             vocab_size=3,
