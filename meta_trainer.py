@@ -24,6 +24,28 @@ FROZEN_K_STEPS = 3
 FROZEN_VALIDATION_INTERVAL = 50
 
 
+def _without_validation_plans(metrics):
+    """Replace the heavy `(ScheduleResult, refs)` payload with a count.
+
+    The trainer needs the payload only to build the objective; the audit JSON and
+    logs must not carry ScheduleResult objects.
+    """
+    out = dict(metrics)
+    plans = out.pop("validation_per_graph_plans", None)
+    if plans is not None:
+        out["n_validation_plans"] = len(plans)
+    rows = []
+    for row in out.get("per_distribution", ()):
+        row = dict(row)
+        row_plans = row.pop("validation_per_graph_plans", None)
+        if row_plans is not None:
+            row["n_validation_plans"] = len(row_plans)
+        rows.append(row)
+    if rows:
+        out["per_distribution"] = rows
+    return out
+
+
 class Trainer(object):
     def __init__(self, algo,
                 env,
@@ -178,7 +200,7 @@ class Trainer(object):
         else:
             logger.logkv("checkpoint_is_best_val", 0)
         self.algo.sync_task_policies_from_core()
-        return k0, k3
+        return _without_validation_plans(k0), _without_validation_plans(k3)
 
     def _validation_plan_objective(self, metrics):
         """②B: per-graph objective aggregation for one validation measurement.
@@ -553,6 +575,8 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
         # 4.2c scoped telemetry: additive CSV columns from the SAME rollout
         # result. It never changes the reward or the schedule.
         'energy_telemetry': True,
+        # E4.2: only the plan-level objective channel needs the per-graph payload.
+        'validation_plans': str(objective_mode) != "off",
     }
     if not 0.0 < float(shaping_discount) <= 1.0:
         raise ValueError("shaping_discount must be in (0, 1], got %r" % (shaping_discount,))

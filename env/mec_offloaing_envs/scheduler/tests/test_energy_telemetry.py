@@ -258,6 +258,8 @@ class _FakeEnvSelf:
         self.shaping_discount = 1.0
         self.energy_telemetry_enabled = telemetry_enabled
         self.last_energy_telemetry = None
+        self.validation_plans_enabled = False
+        self.last_validation_plans = None
         self._refs = refs
 
     def get_reference_ranges(self, task_graph, scope=None):

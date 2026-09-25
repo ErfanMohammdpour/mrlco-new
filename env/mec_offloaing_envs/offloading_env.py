@@ -231,6 +231,13 @@ class OffloadingEnvironment(MetaEnv):
             )
         )
         self.last_energy_telemetry = None
+        # 4.2b/E4.2 validation objective channel: opt-in, off by default.
+        self.validation_plans_enabled = bool(
+            (getattr(resource_cluster, "energy_config", None) or {}).get(
+                "validation_plans", False
+            )
+        )
+        self.last_validation_plans = None
 
         # Discount-consistent telescoping: r_t = J_{t-1} - shaping_discount * J_t.
         # Must equal the PPO discount so that the shaped return stays aligned with
@@ -581,10 +588,13 @@ class OffloadingEnvironment(MetaEnv):
             else primary_scope_of(self.scheduler_resources)
         )
 
+        validation_batch = [] if self.validation_plans_enabled else None
+
         for i in range(len(action_sequence_batch)):
             task_graph = task_graph_batch[i]
             self.resource_cluster.reset()
             plan = action_sequence_batch[i]
+            refs = self.get_reference_ranges(task_graph, ref_scope)
 
             duals = (
                 self.constraint_controller.lambdas
@@ -599,7 +609,7 @@ class OffloadingEnvironment(MetaEnv):
                 reward_mode=reward_mode,
                 compute_j_report=False,
                 latency_ref=latency_ref,
-                refs=self.get_reference_ranges(task_graph, ref_scope),
+                refs=refs,
                 constraints=self.constraint_spec,
                 duals=duals,
                 discount=getattr(self, "shaping_discount", 1.0),
@@ -624,8 +634,15 @@ class OffloadingEnvironment(MetaEnv):
                 telemetry_batch.append(
                     build_energy_telemetry(out.final_result, self.scheduler_resources)
                 )
+            if validation_batch is not None:
+                # E4.2: keep the SAME result + reference for the validation
+                # objective channel. No replay: the result is the reward's own.
+                validation_batch.append(
+                    self._validation_plan_record(task_graph, plan, out.final_result, refs)
+                )
 
         self.last_energy_telemetry = telemetry_batch
+        self.last_validation_plans = validation_batch
 
         target_batch = np.array(target_batch, dtype=object)
         # Prefer numeric ndarray when all sequences share length.
@@ -637,6 +654,74 @@ class OffloadingEnvironment(MetaEnv):
         if log_energy:
             return target_batch, task_finish_time_batch, energy_batch
         return target_batch, task_finish_time_batch
+
+    def _validation_plan_record(self, task_graph, plan, result, refs):
+        """One graph's (identity, order, plan, result, system refs, fingerprint).
+
+        Fail-loud: the result must record the resolved scheduler fingerprint and
+        the reference must be the SYSTEM one E3.2 requires. A mobile or missing
+        object raises instead of reaching the objective.
+        """
+        from env.mec_offloaing_envs.scheduler.energy_cache import (
+            scheduling_graph_fingerprint,
+        )
+        from env.mec_offloaing_envs.scheduler.energy_scope import (
+            SCOPE_SYSTEM,
+            require_reference_scope,
+        )
+        from env.mec_offloaing_envs.scheduler.resources import resolved_config_sha256
+
+        order = [int(t) for t in task_graph.prioritize_sequence]
+        config_sha = str(resolved_config_sha256(self.scheduler_resources))
+        result_sha = str(getattr(result, "scheduler_config_sha256", "") or "")
+        if not result_sha or result_sha != config_sha:
+            raise ValueError(
+                "validation plan result fingerprint %r != resolved %r"
+                % (result_sha[:12], config_sha[:12])
+            )
+        scope = require_reference_scope(
+            refs,
+            expected_scope=SCOPE_SYSTEM,
+            expected_scheduler_config_sha256=config_sha,
+        )
+        return {
+            "graph_fingerprint": scheduling_graph_fingerprint(task_graph, order),
+            "order": order,
+            "plan": [[int(t), int(a)] for t, a in plan],
+            "scheduler_config_sha256": result_sha,
+            "energy_scope": scope,
+            "result": result,
+            "reference_ranges": refs,
+        }
+
+    def validation_plan_payload(self):
+        """`(result, system refs)` per current-task graph — the SAME results the
+        reward used. Returns None when the channel is disabled or no rollout ran.
+        """
+        if not self.last_validation_plans:
+            return None
+        return [
+            (record["result"], record["reference_ranges"])
+            for record in self.last_validation_plans
+        ]
+
+    def validation_plan_identities(self):
+        """Serializable identity of the validation plans (no ScheduleResult)."""
+        if not self.last_validation_plans:
+            return None
+        return [
+            {
+                key: record[key]
+                for key in (
+                    "graph_fingerprint",
+                    "order",
+                    "plan",
+                    "scheduler_config_sha256",
+                    "energy_scope",
+                )
+            }
+            for record in self.last_validation_plans
+        ]
 
     def greedy_solution(self):
         """Greedy plan search; each candidate is scored by the canonical engine."""

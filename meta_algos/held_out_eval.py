@@ -44,6 +44,16 @@ class HeldOutQueryEvaluator:
         metrics = query_metrics_from_samples(query_data)
         metrics["k_steps"] = k_steps
         metrics["distribution_id"] = int(distribution_id)
+        # E4.2: give the plan-level objective channel its per-graph input from the
+        # SAME rollout results (env stores them; no second scheduler run).
+        payload = getattr(self.env, "validation_plan_payload", None)
+        if callable(payload):
+            plans = payload()
+            if plans:
+                metrics["validation_per_graph_plans"] = list(plans)
+                identities = getattr(self.env, "validation_plan_identities", None)
+                if callable(identities):
+                    metrics["validation_plan_identities"] = identities()
         if self.env.resource_cluster.use_energy:
             _, greedy_latency, greedy_energy = greedy
             metrics["query_greedy_latency"] = float(np.mean(greedy_latency))
@@ -66,6 +76,16 @@ class HeldOutQueryEvaluator:
             "n_distributions": len(rows),
             "per_distribution": rows,
         }
+        # hoist the per-graph plans so the trainer's objective channel sees them
+        plans = []
+        identities = []
+        for row in rows:
+            plans.extend(row.get("validation_per_graph_plans", ()))
+            identities.extend(row.get("validation_plan_identities", ()))
+        if plans:
+            out["validation_per_graph_plans"] = plans
+        if identities:
+            out["validation_plan_identities"] = identities
         if all("query_mean_energy" in row for row in rows):
             out["query_mean_energy"] = float(np.mean([row["query_mean_energy"] for row in rows]))
         return out
