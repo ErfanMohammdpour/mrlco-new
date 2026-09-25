@@ -52,6 +52,23 @@ METRIC_KEYS = (
 )
 ZERO_RATE_KEYS = METRIC_KEYS[:5]
 
+# E4.1/E4.2 smoke contract: the scoped telemetry columns must be present, finite
+# and self-consistent, and the objective channel must not report unavailable.
+TELEMETRY_KEYS = (
+    "energy/requester_joules",
+    "energy/mobile_joules",
+    "energy/system_joules",
+    "energy/primary_joules",
+    "energy/primary_scope",
+)
+ENERGY_JOULES_KEYS = (
+    "energy/requester_joules",
+    "energy/mobile_joules",
+    "energy/system_joules",
+    "energy/primary_joules",
+)
+ENERGY_BOUNDARY_TOL = 1e-6
+
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__)
@@ -60,6 +77,18 @@ def parse_args(argv):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--runs-root", default=str(DEFAULT_RUNS_ROOT))
     parser.add_argument("--i-allow-gpu", action="store_true")
+    parser.add_argument(
+        "--reward-mode",
+        default="publication",
+        choices=("publication", "latency_only", "latency_over_all_mec"),
+        help="reward contract; latency_only is the E3.1 primary",
+    )
+    parser.add_argument(
+        "--objective-mode",
+        default="off",
+        choices=("off", "log_only", "lexicographic"),
+        help="E4.2 plan-level objective channel; log_only exercises the producer",
+    )
     parser.add_argument(
         "--preflight-only",
         action="store_true",
@@ -205,12 +234,18 @@ def _train_masked(args, payload, rd):
         audit_writer=writer,
         print_action_choices=False,
         parallel=True,
-        reward_mode="publication",
+        reward_mode=str(args.reward_mode),
         learning_mode="publication",
         vocab_size=3,
         use_energy=True,
         constraints=None,
         constraint_dual_lr=None,
+        objective_mode=str(args.objective_mode),
+        objective_spec=(
+            {"latency_ref": "all_ue", "energy_budget_j": 1e12}
+            if str(args.objective_mode) != "off"
+            else None
+        ),
     )
 
     live = verify_live_stack(trainer, args.mode)
@@ -228,7 +263,7 @@ def _train_masked(args, payload, rd):
     return payload
 
 
-def validate_progress_csv(rd, itr):
+def validate_progress_csv(rd, itr, reward_mode="publication", objective_mode="off"):
     """All seven columns present, every row finite, stop conditions respected."""
     import csv
 
@@ -293,6 +328,56 @@ def validate_progress_csv(rd, itr):
         failures.append(
             {"check": "value_abs_max_below_limit", "detail": worst["value_abs_max"]}
         )
+
+    # --- scoped energy telemetry + objective channel (E4.1/E4.2) -------------
+    for key in TELEMETRY_KEYS:
+        if key not in header:
+            failures.append({"check": "energy_column_present", "detail": key})
+    for i, row in enumerate(rows):
+        values = {}
+        for key in ENERGY_JOULES_KEYS:
+            if key not in row or row[key] in ("", None):
+                continue
+            try:
+                values[key] = float(row[key])
+            except (TypeError, ValueError):
+                failures.append(
+                    {"check": "energy_value_numeric", "detail": {"row": i, "key": key, "value": row[key]}}
+                )
+        for key, value in values.items():
+            if value != value or value in (float("inf"), float("-inf")):
+                failures.append({"check": "energy_value_finite", "detail": {"row": i, "key": key}})
+        scope = row.get("energy/primary_scope")
+        if scope not in ("", None) and scope != "system":
+            failures.append(
+                {"check": "energy_primary_scope_system", "detail": {"row": i, "value": scope}}
+            )
+        if all(k in values for k in ENERGY_JOULES_KEYS):
+            requester, mobile, system, primary = (values[k] for k in ENERGY_JOULES_KEYS)
+            if not (
+                requester <= mobile + ENERGY_BOUNDARY_TOL
+                and mobile <= system + ENERGY_BOUNDARY_TOL
+            ):
+                failures.append(
+                    {"check": "energy_boundary_order",
+                     "detail": {"row": i, "requester": requester, "mobile": mobile, "system": system}}
+                )
+            if abs(primary - system) > ENERGY_BOUNDARY_TOL:
+                failures.append(
+                    {"check": "energy_primary_equals_system",
+                     "detail": {"row": i, "primary": primary, "system": system}}
+                )
+    if str(objective_mode) != "off":
+        if not any(str(k).startswith("objective/") for k in header):
+            failures.append(
+                {"check": "objective_columns_present", "detail": "objective_mode=%s" % objective_mode}
+            )
+        for i, row in enumerate(rows):
+            value = row.get("objective/unavailable")
+            if value not in ("", None, "0", "0.0"):
+                failures.append(
+                    {"check": "objective_not_unavailable", "detail": {"row": i, "value": value}}
+                )
     return {"failures": failures, "rows": len(rows), "header": header, **worst}
 
 
@@ -322,7 +407,9 @@ def main(argv=None):
     payload["started_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     _train_masked(args, payload, rd)
     payload["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    payload["csv_validation"] = validate_progress_csv(rd, args.itr)
+    payload["csv_validation"] = validate_progress_csv(
+        rd, args.itr, reward_mode=str(args.reward_mode), objective_mode=str(args.objective_mode)
+    )
     payload["gpu_finished"] = True
     payload["paper_result"] = False
     payload["failures"] = list(payload["csv_validation"]["failures"])

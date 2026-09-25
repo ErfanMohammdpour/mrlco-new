@@ -23,6 +23,7 @@ if str(ROOT) not in sys.path:
 from spec.mask_sanity import (  # noqa: E402
     ALLOWED_ITERS,
     METRIC_KEYS,
+    TELEMETRY_KEYS,
     VALUE_ABS_MAX_LIMIT,
     ZERO_RATE_KEYS,
     run_dir,
@@ -42,6 +43,14 @@ def good_row(**overrides):
     row = {key: 0.0 for key in METRIC_KEYS}
     row["policy/entropy_valid"] = 1.05
     row["critic/value_abs_max"] = 0.25
+    # E4.1/E4.2 scoped telemetry columns the smoke validator now requires
+    row.update({
+        "energy/requester_joules": 1.0,
+        "energy/mobile_joules": 2.0,
+        "energy/system_joules": 3.0,
+        "energy/primary_joules": 3.0,
+        "energy/primary_scope": "system",
+    })
     row.update(overrides)
     return row
 
@@ -71,7 +80,7 @@ class TestProgressCsvValidation(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_clean_csv_passes(self):
-        write_csv(self.csv, list(METRIC_KEYS), [good_row(), good_row()])
+        write_csv(self.csv, list(METRIC_KEYS) + list(TELEMETRY_KEYS), [good_row(), good_row()])
         out = validate_progress_csv(self.tmp, 1)
         self.assertEqual(out["failures"], [])
         self.assertEqual(out["rows"], 2)
@@ -191,9 +200,16 @@ class TestLauncherTargets(unittest.TestCase):
         self.assertIn("--mode static --itr 1", self.script)
         self.assertIn("--mode off --itr 500", self.script)
         self.assertIn("--mode static --itr 500", self.script)
-        # four runs plus one cheap preflight target
-        self.assertEqual(self.script.count("python -m spec.mask_sanity"), 5)
+        # four runs, one cheap preflight target and the E4.2 energy smoke
+        self.assertEqual(self.script.count("python -m spec.mask_sanity"), 6)
         self.assertIn("--preflight-only", self.script)
+
+    def test_energy_smoke_uses_the_new_reward_and_objective_contract(self):
+        self.assertIn("energy-train-smoke)", self.script)
+        self.assertIn("--reward-mode latency_only", self.script)
+        self.assertIn("--objective-mode log_only", self.script)
+        self.assertIn("energy-tests)", self.script)
+        self.assertIn("pytest env/mec_offloaing_envs/scheduler/tests", self.script)
 
     def test_legacy_par500_is_untouched(self):
         # the old v0.1 diagnostic must not be reused for the ⑥b runs

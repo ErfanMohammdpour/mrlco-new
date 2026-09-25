@@ -70,6 +70,16 @@ for d in device_lib.list_local_devices():
   smoke)
     gpu_run python spec/phase4_campaign.py --gpu-smoke --seed 0 --i-allow-gpu
     ;;
+  energy-tests)
+    # full TF-compatible scheduler suite (E/tensorflow evidence)
+    gpu_run python -m pytest env/mec_offloaing_envs/scheduler/tests -q
+    ;;
+  energy-train-smoke)
+    # one outer iteration on the NEW contract: latency_only reward + log_only
+    # objective, so the E4.2 validation producer and the scoped CSV run for real
+    gpu_run python -m spec.mask_sanity --mode static --itr 1 --seed 0 \
+      --i-allow-gpu --reward-mode latency_only --objective-mode log_only
+    ;;
   mask-smoke)
     # ⑥b gate: legacy parity, then the static shield. Both must exit 0.
     gpu_run_masked off python -m spec.masked_ppo_smoke --mask-mode off
@@ -308,7 +318,7 @@ for d in device_lib.list_local_devices():
     gpu_run python spec/phase3_gate.py
     ;;
   *)
-    echo "usage: $0 probe|gate|smoke|train0|audit5|par5|par500|lat50|pomo50|bc50|bconly|bccont|klppo50|bcunseen|bcfew|bcss|h2|motif|twopt|pairfrac|bc2opt|pairhead|pairksweep|pairranker|pairseq|cavia|caviaE|caviaS|pairsup|caviaB|rewrite|oracle|binary|encoder|bestofk|eas|easinst|expertprof|expertprofval|expertenergy|expertenergyval|fitstatsv2|bcprof|easprof|ctxprof|bokprof|diag1k|diag200" >&2
+    echo "usage: $0 probe|gate|smoke|energy-tests|energy-train-smoke|train0|mask-smoke|mask-runtime|mask-metrics|mask-train-smoke-off|mask-train-smoke-static|audit5|par5|par500|lat50|pomo50|bc50|bconly|bccont|klppo50|bcunseen|bcfew|bcss|h2|motif|twopt|pairfrac|bc2opt|pairhead|pairksweep|pairranker|pairseq|cavia|caviaE|caviaS|pairsup|caviaB|rewrite|oracle|binary|encoder|bestofk|eas|easinst|expertprof|expertprofval|expertenergy|expertenergyval|fitstatsv2|bcprof|easprof|ctxprof|bokprof|diag1k|diag200" >&2
     exit 2
     ;;
 esac
