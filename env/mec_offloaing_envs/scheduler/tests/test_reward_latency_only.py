@@ -213,5 +213,29 @@ class TestEnvPrimaryPath(unittest.TestCase):
             )
 
 
+class TestClusterWeights(unittest.TestCase):
+    def test_latency_only_cluster_weights_are_latency_only(self):
+        from env.mec_offloaing_envs.offloading_env import Resources
+
+        res = Resources(
+            mec_process_capable=10.0,
+            mobile_process_capable=1.0,
+            use_energy=True,
+            energy_config={"reward_mode": REWARD_MODE_LATENCY_ONLY},
+        )
+        self.assertEqual((res.latency_weight, res.energy_weight), (1.0, 0.0))
+
+    def test_publication_cluster_weights_stay_frozen(self):
+        from env.mec_offloaing_envs.offloading_env import Resources
+
+        res = Resources(
+            mec_process_capable=10.0,
+            mobile_process_capable=1.0,
+            use_energy=True,
+            energy_config={"reward_mode": REWARD_MODE_PUBLICATION},
+        )
+        self.assertEqual((res.latency_weight, res.energy_weight), (0.5, 0.5))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

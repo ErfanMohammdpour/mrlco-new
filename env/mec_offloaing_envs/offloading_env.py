@@ -55,6 +55,10 @@ class Resources(object):
         if self.reward_mode == "latency_over_all_mec":
             self.latency_weight = 1.0
             self.energy_weight = 0.0
+        elif self.reward_mode == "latency_only":
+            # E3.1 primary: no energy term, so the legacy weight pair is latency-only
+            self.latency_weight = 1.0
+            self.energy_weight = 0.0
         elif self.use_energy:
             from env.mec_offloaing_envs.scheduler.energy_api import require_publication_weights
 
