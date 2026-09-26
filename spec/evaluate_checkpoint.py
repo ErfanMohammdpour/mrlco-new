@@ -185,6 +185,9 @@ def main(argv=None) -> int:
         results["deterministic_k0_post_adaptation_values"] = [float(a), float(b)]
         results["fingerprint_arg"] = args.fingerprint
         results["schema"] = "checkpoint_eval_v1"
+        results["training_code_sha"] = os.environ.get("MARGO_TRAINING_CODE_SHA", "")
+        results["evaluation_code_sha"] = os.environ.get("MARGO_EVAL_CODE_SHA", "")
+        results["obs_env"] = configure_obs_env()
     out = Path(args.json)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=2, sort_keys=True) + "\n")

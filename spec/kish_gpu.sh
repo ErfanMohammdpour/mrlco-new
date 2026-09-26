@@ -108,6 +108,25 @@ for d in device_lib.list_local_devices():
     done
     gpu_run python -m spec.evaluate_checkpoint "${args[@]}"
     ;;
+  checkpoint-eval-compare)
+    # P3: merge the per-label checkpoint_eval_v1 JSONs into one persisted
+    # comparison + verdict. Pure post-processing: no GPU is used, but it runs
+    # through gpu_run so the container sees /work paths like the evaluator did.
+    shift
+    args=()
+    for a in "$@"; do
+      key="${a%%=*}"
+      val="${a#*=}"
+      if [ "$key" != "$a" ] && [ "${val#"$ROOT"/}" != "$val" ]; then
+        args+=("$key=/work/${val#"$ROOT"/}")
+      elif [ "${a#"$ROOT"/}" != "$a" ]; then
+        args+=("/work/${a#"$ROOT"/}")
+      else
+        args+=("$a")
+      fi
+    done
+    gpu_run python -m spec.checkpoint_eval_compare "${args[@]}"
+    ;;
   pilot-a-long-1000)
     # P2 long latency-only PPO/meta-learning diagnostic (1000 iters).
     # Independent run dir: never overlaps runs/mask_sanity_v3.
