@@ -10,7 +10,9 @@ These tests pin the maths and then pin the wiring by name.
 
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -208,6 +210,70 @@ class TestWiring(unittest.TestCase):
                 "checkpoint_selection_metric: validation/objective_discounted_return", text
             )
             self.assertIn("checkpoint_selection_contract: " + SCHEMA, text)
+
+
+class TestSmokeVerifier(unittest.TestCase):
+    """The CPU smoke's assertions, exercised on a synthetic run dir (no TF)."""
+
+    def _write_run(self, tmp, *, objective_k3=-0.80, legacy_k3=-0.75, scalar=None,
+                   sidecar=True):
+        import csv as _csv
+
+        root = Path(tmp)
+        (root / "logs").mkdir(parents=True)
+        (root / "ckpt").mkdir(parents=True)
+        row = {
+            "Itr": "0",
+            "objective_contract/schema": SCHEMA,
+            "checkpoint_selection_metric": "validation/objective_discounted_return",
+            "checkpoint_selection_metric_name": SELECTION_METRIC_DEFAULT,
+            "checkpoint_selection_scalar": str(
+                objective_k3 if scalar is None else scalar
+            ),
+            "checkpoint_is_best_val": "1",
+            "validation/objective_discounted_return_k0": "-0.90",
+            "validation/objective_discounted_return_k3": str(objective_k3),
+            "validation/objective_legacy_undiscounted_sum_k3": str(legacy_k3),
+            "validation_query_mean_latency_k3": "780.0",
+        }
+        with open(root / "logs" / "progress.csv", "w", newline="") as handle:
+            writer = _csv.DictWriter(handle, fieldnames=list(row))
+            writer.writeheader()
+            writer.writerow(row)
+        if sidecar:
+            (root / "ckpt" / "meta_model_best_val.metric.json").write_text(
+                json.dumps({
+                    "schema": "best_val_metric_v1",
+                    "contract": SCHEMA,
+                    "metric_name": SELECTION_METRIC_DEFAULT,
+                    "value": objective_k3,
+                })
+            )
+        return root
+
+    def test_verifier_passes_on_a_contract_consistent_run(self):
+        from spec.objective_contract_smoke import verify
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = verify(self._write_run(tmp))
+        self.assertTrue(payload["passed"], payload.get("failures"))
+        self.assertAlmostEqual(payload["objective_k3"], -0.80)
+
+    def test_verifier_catches_a_scalar_that_is_not_the_objective(self):
+        from spec.objective_contract_smoke import verify
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = verify(self._write_run(tmp, scalar=-0.75))  # legacy value
+        self.assertFalse(payload["passed"])
+        self.assertIn("selection_scalar_equals_objective_k3", payload["failures"])
+
+    def test_verifier_requires_the_sidecar(self):
+        from spec.objective_contract_smoke import verify
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = verify(self._write_run(tmp, sidecar=False))
+        self.assertFalse(payload["passed"])
+        self.assertIn("sidecar_written", payload["failures"])
 
 
 class TestSchedulerRewardAgrees(unittest.TestCase):
