@@ -122,6 +122,7 @@ def main(argv=None) -> int:
 
     from env.mec_offloaing_envs.offloading_task_graph import OffloadingTaskGraph
     from env.mec_offloaing_envs.scheduler.adapter import schedule_via_adapter
+    from spec.deadline_sweep import PrioritizeCluster
     from env.mec_offloaing_envs.scheduler.primary_config import (
         energy_timing_consistency,
         resolved_physical_scheduler_config,
@@ -158,10 +159,16 @@ def main(argv=None) -> int:
     for path in graph_paths:
         if not path.is_file():
             raise SystemExit("missing graph: %s" % path)
-        graph = OffloadingTaskGraph(str(path))
-        order = [int(t) for t in graph.prioritize_sequence]
-        plan = round_robin_plan(order)
         for label, config in configs.items():
+            # HEFT priority needs the rate surface of THIS config, so the decoder
+            # order is derived per config (and recorded) rather than shared.
+            graph = OffloadingTaskGraph(str(path))
+            graph.prioritize_tasks(PrioritizeCluster(config))
+            order = [int(t) for t in graph.prioritize_sequence]
+            payload.setdefault("decoder_order_sha", {})[label] = hashlib.sha256(
+                ("\n".join(str(t) for t in order) + "|" + path.name).encode()
+            ).hexdigest()
+            plan = round_robin_plan(order)
             result, _deltas, _energy = schedule_via_adapter(graph, plan, config)
             samples[label].append(_sample(result, config))
 
