@@ -172,6 +172,65 @@ class TestRecoveredNumbers(unittest.TestCase):
         self.assertEqual(first["k3"], repeat["k3"])
 
 
+def _doc_with_objective(label, k0, k3, obj_k0, obj_k3, *, all_mec=630.2798, greedy=626.6017,
+                        changed=True, det=True):
+    """A post-contract document: carries query_discounted_return at k0 and k3."""
+    doc = _doc(label, k0, k3, all_mec=all_mec, greedy=greedy, changed=changed, det=det)
+    doc["checkpoints"][label]["k0"]["query_discounted_return"] = obj_k0
+    doc["checkpoints"][label]["k3"]["query_discounted_return"] = obj_k3
+    return doc
+
+
+class TestObjectiveCriterion(unittest.TestCase):
+    """objective_contract_v1: the discounted return selects, latency annotates."""
+
+    def test_row_uses_the_objective_when_present(self):
+        row = label_row("final_itr24", _doc_with_objective(
+            "final_itr24", 776.0, 795.0, -0.776, -0.795))
+        self.assertEqual(row["objective_source"], "query_discounted_return")
+        self.assertAlmostEqual(row["objective_k3"], -0.795)
+        self.assertTrue(row["k3_better_than_k0"] is False)
+        # the seconds companion is still there
+        self.assertAlmostEqual(row["k3"], 795.0)
+
+    def test_legacy_documents_fall_back_with_a_label(self):
+        row = label_row("final_itr24", _doc("final_itr24", 776.0, 795.0))
+        self.assertEqual(row["objective_source"], "mean_latency_fallback(-seconds:k0)+"
+                                                  "mean_latency_fallback(-seconds:k3)")
+        self.assertAlmostEqual(row["objective_k3"], -795.0)
+
+    def test_verdict_follows_the_objective_not_the_latency(self):
+        # candidate is FASTER in seconds than true_init but WORSE on the objective:
+        # the contract must not call this an improvement.
+        docs = [
+            ("true_init", _doc_with_objective("true_init", 1136.0, 943.0, -1.136, -0.943,
+                                              changed=None)),
+            ("final_itr24", _doc_with_objective("final_itr24", 700.0, 690.0, -0.700, -0.990)),
+        ]
+        out = build(docs)
+        self.assertFalse(out["improved_over_true_init"])
+        self.assertEqual(out["verdict"], LABELS[2])
+        self.assertIn("objective", out["verdict_detail"])
+
+    def test_verdict_ready_when_the_objective_and_gap_improve_and_k3_helps(self):
+        docs = [
+            ("true_init", _doc_with_objective("true_init", 1136.0, 943.0, -1.136, -0.943,
+                                              changed=None)),
+            ("final_itr24", _doc_with_objective("final_itr24", 800.0, 700.0, -0.800, -0.700)),
+        ]
+        out = build(docs)
+        self.assertTrue(out["improved_over_true_init"])
+        self.assertTrue(out["k3_better_than_k0"])
+        self.assertEqual(out["verdict"], LABELS[1])
+        self.assertAlmostEqual(out["gain_vs_true_init"], -0.700 - (-0.943))
+        # latency gain is reported separately, never used for the verdict
+        self.assertAlmostEqual(out["latency_gain_vs_true_init_seconds"], 943.0 - 700.0)
+
+    def test_build_declares_the_criterion(self):
+        out = build([("final_itr24", _doc("final_itr24", 800.0, 700.0))])
+        self.assertIn("objective_contract_v1", out["criterion"])
+
+
 class TestCli(unittest.TestCase):
     def test_cli_merges_documents_and_persists_json(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -201,6 +260,27 @@ class TestCli(unittest.TestCase):
     def test_cli_requires_at_least_one_eval(self):
         with self.assertRaises(SystemExit):
             main(["--json", "/tmp/x.json"])
+
+    def test_cli_code_sha_flags_override_the_documents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            p_ckpt = root / "final_itr24.json"
+            p_ckpt.write_text(json.dumps(_doc("final_itr24", 800.0, 700.0)))
+            out = root / "comparison.json"
+            main([
+                "--eval", "final_itr24=%s" % p_ckpt,
+                "--training-code-sha", "merge-train-sha",
+                "--evaluation-code-sha", "merge-eval-sha",
+                "--json", str(out),
+            ])
+            payload = json.loads(out.read_text())
+        self.assertEqual(payload["training_code_sha"], "merge-train-sha")
+        self.assertEqual(payload["evaluation_code_sha"], "merge-eval-sha")
+
+    def test_build_falls_back_to_the_document_shas(self):
+        out = build([("final_itr24", _doc("final_itr24", 800.0, 700.0))])
+        self.assertEqual(out["training_code_sha"], "train-sha")
+        self.assertEqual(out["evaluation_code_sha"], "eval-sha")
 
 
 if __name__ == "__main__":

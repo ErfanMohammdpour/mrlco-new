@@ -8,6 +8,12 @@ re-runnable step that turns those files into a single
 row taken from the committed Pilot A progress CSV, and the checkpoint rows, plus
 an explicit verdict.
 
+The criterion is the objective contract (spec/objective_contract.py): the discounted
+return, higher-is-better. Documents written before objective_contract_v1 do not
+carry `query_discounted_return`; for those the row keeps a clearly labelled
+`mean_latency_fallback(-seconds)` so recovered evidence stays comparable, and
+`objective_source` records which one was used.
+
 Verdict vocabulary (fixed):
   * BLOCKED_CHECKPOINT_EVALUATION           - a correctness check failed
   * READY_FOR_LONG_LATENCY_DIAGNOSTIC       - improved AND k3 adaptation healthy
@@ -23,6 +29,7 @@ import argparse
 import csv
 import json
 import math
+import os
 from pathlib import Path
 
 SCHEMA = "checkpoint_eval_comparison_v1"
@@ -39,6 +46,8 @@ CSV_COLUMNS = {
     "k3": "validation_query_mean_latency_k3",
     "all_mec": "validation/validation_all_mec_latency",
     "greedy": "validation/validation_greedy_latency",
+    "objective_k0": "validation/objective_discounted_return_k0",
+    "objective_k3": "validation/objective_discounted_return_k3",
 }
 
 
@@ -51,6 +60,20 @@ def _number(value):
         return None
 
 
+def _objective(entry: dict, latency, label: str):
+    """The contract objective for one k, or a labelled latency fallback.
+
+    Higher is better in both cases: the discounted return directly, and the
+    negated latency for documents written before objective_contract_v1.
+    """
+    value = _number(entry.get("query_discounted_return"))
+    if value is not None:
+        return value, "query_discounted_return"
+    if latency is not None:
+        return -float(latency), "mean_latency_fallback(-seconds:%s)" % label
+    return None, None
+
+
 def label_row(label: str, doc: dict) -> dict:
     """One comparison row from one `checkpoint_eval_v1` document."""
     checkpoints = doc.get("checkpoints") or {}
@@ -61,19 +84,29 @@ def label_row(label: str, doc: dict) -> dict:
     k3 = _number(entry.get("k3", {}).get("query_mean_latency"))
     all_mec = _number(entry.get("k3", {}).get("query_all_mec_latency"))
     greedy = _number(entry.get("k3", {}).get("query_greedy_latency"))
+    objective_k0, source_k0 = _objective(entry.get("k0", {}), k0, "k0")
+    objective_k3, source_k3 = _objective(entry.get("k3", {}), k3, "k3")
+    sources = sorted({s for s in (source_k0, source_k3) if s})
     return {
         "label": label,
         "source": "checkpoint_eval",
         "checkpoint_sha256": entry.get("checkpoint_sha256"),
         "weights_changed": entry.get("weights_changed"),
         "deterministic_k0_fresh": doc.get("deterministic_k0_fresh"),
+        "objective_k0": objective_k0,
+        "objective_k3": objective_k3,
+        "objective_source": sources[0] if len(sources) == 1 else "+".join(sources) or None,
+        "objective_units": "higher_is_better",
         "k0": k0,
         "k3": k3,
         "all_mec": all_mec,
         "greedy": greedy,
         "gap_to_all_mec": None if k0 is None or all_mec is None else k3 - all_mec,
         "gap_to_greedy": None if k3 is None or greedy is None else k3 - greedy,
-        "k3_better_than_k0": None if k0 is None or k3 is None else k3 < k0,
+        "k3_better_than_k0": (
+            None if objective_k0 is None or objective_k3 is None
+            else objective_k3 > objective_k0
+        ),
     }
 
 
@@ -88,6 +121,14 @@ def itr0_row(csv_path: str | Path, label: str = "itr0_from_pilot_a") -> dict:
         k3 = _number(row.get(CSV_COLUMNS["k3"]))
         all_mec = _number(row.get(CSV_COLUMNS["all_mec"]))
         greedy = _number(row.get(CSV_COLUMNS["greedy"]))
+        obj_k0 = _number(row.get(CSV_COLUMNS["objective_k0"]))
+        obj_k3 = _number(row.get(CSV_COLUMNS["objective_k3"]))
+        objective_k0, source = (obj_k0, "discounted_return") if obj_k0 is not None \
+            else ((-k0, "mean_latency_fallback(-seconds:k0)") if k0 is not None else (None, None))
+        objective_k3, source_k3 = (obj_k3, "discounted_return") if obj_k3 is not None \
+            else ((-k3, "mean_latency_fallback(-seconds:k3)") if k3 is not None else (None, None))
+        if source != source_k3:
+            source = source or source_k3
         return {
             "label": label,
             "source": str(csv_path),
@@ -95,13 +136,20 @@ def itr0_row(csv_path: str | Path, label: str = "itr0_from_pilot_a") -> dict:
             "checkpoint_sha256": None,
             "weights_changed": None,
             "deterministic_k0_fresh": None,
+            "objective_k0": objective_k0,
+            "objective_k3": objective_k3,
+            "objective_source": source,
+            "objective_units": "higher_is_better",
             "k0": k0,
             "k3": k3,
             "all_mec": all_mec,
             "greedy": greedy,
             "gap_to_all_mec": None if all_mec is None else k3 - all_mec,
             "gap_to_greedy": None if greedy is None else k3 - greedy,
-            "k3_better_than_k0": None if k0 is None else k3 < k0,
+            "k3_better_than_k0": (
+                None if objective_k0 is None or objective_k3 is None
+                else objective_k3 > objective_k0
+            ),
         }
     raise ValueError("no validation row found in %s" % csv_path)
 
@@ -160,10 +208,12 @@ def checks_and_verdict(rows: list[dict]) -> dict:
     k3_health = None
     improved = False
     if init is not None and candidates:
-        best = min(candidates, key=lambda row: row["k3"])
+        # The contract criterion is the objective (higher is better); latency in
+        # seconds is the human-readable companion and never selects a candidate.
+        best = max(candidates, key=lambda row: row["objective_k3"])
         improved = bool(
-            init["k3"] is not None and best["k3"] is not None
-            and best["k3"] < init["k3"]
+            init["objective_k3"] is not None and best["objective_k3"] is not None
+            and best["objective_k3"] > init["objective_k3"]
             and init["gap_to_all_mec"] is not None
             and best["gap_to_all_mec"] is not None
             and best["gap_to_all_mec"] < init["gap_to_all_mec"]
@@ -177,42 +227,67 @@ def checks_and_verdict(rows: list[dict]) -> dict:
         )
     elif improved and k3_health:
         verdict = LABELS[1]
-        detail = "%s beats true-init on k3 and its gap, and k3 < k0" % best["label"]
+        detail = (
+            "%s beats true-init on the objective (%s %.6f vs %.6f) and its latency gap, "
+            "and its k3 adaptation improves the objective over k0"
+            % (best["label"], best["objective_source"], best["objective_k3"],
+               init["objective_k3"])
+        )
     elif improved:
         verdict = LABELS[2]
         detail = (
-            "%s improves on true-init (k3 %.4f vs %.4f) but its k3 adaptation is "
-            "unhealthy (k3=%s >= k0=%s); a long latency-only diagnostic may run, "
-            "but the adaptation claim is not supported"
-            % (best["label"], best["k3"], init["k3"], best["k3"], best["k0"])
+            "%s improves on true-init (objective %s %.6f vs %.6f) but its k3 adaptation "
+            "is unhealthy (k3 objective %s <= k0 objective %s; latency %.4f s vs %.4f s); "
+            "a long latency-only diagnostic may run, but the adaptation claim is not "
+            "supported"
+            % (best["label"], best["objective_source"], best["objective_k3"],
+               init["objective_k3"], best["objective_k3"], best["objective_k0"],
+               best["k3"], best["k0"])
         )
     else:
         verdict = LABELS[2]
-        detail = "no candidate beats true-init on both k3 and its gap to all-MEC"
+        detail = (
+            "no candidate beats true-init on both the objective (%s) and its gap to "
+            "all-MEC" % (best["objective_source"] if best is not None else "n/a")
+        )
 
     return {
         "checks": checks,
         "verdict": verdict,
         "verdict_detail": detail,
+        "criterion": "objective_contract_v1:discounted_return (higher is better)",
         "improved_over_true_init": improved,
         "best_candidate": None if best is None else best["label"],
         "k3_better_than_k0": k3_health,
-        "gain_vs_true_init": None if best is None or init is None or init["k3"] is None
-        or best["k3"] is None else init["k3"] - best["k3"],
+        "gain_vs_true_init": (
+            None if best is None or init is None or init["objective_k3"] is None
+            or best["objective_k3"] is None
+            else best["objective_k3"] - init["objective_k3"]
+        ),
+        "latency_gain_vs_true_init_seconds": (
+            None if best is None or init is None or init["k3"] is None
+            or best["k3"] is None else init["k3"] - best["k3"]
+        ),
     }
 
 
 def build(docs: list[tuple[str, dict]], pilot_csv: str | Path | None = None,
-          pilot_label: str = "itr0_from_pilot_a") -> dict:
+          pilot_label: str = "itr0_from_pilot_a",
+          training_code_sha: str | None = None,
+          evaluation_code_sha: str | None = None) -> dict:
     rows = [label_row(label, doc) for label, doc in docs]
     if pilot_csv is not None:
         rows.insert(1 if rows and rows[0]["label"] == "true_init" else 0,
                     itr0_row(pilot_csv, label=pilot_label))
     result = {
         "schema": SCHEMA,
+        "criterion": "objective_contract_v1:discounted_return (higher is better); "
+                     "latency in seconds is a companion, not the criterion",
         "rows": rows,
-        "training_code_sha": _first(docs, "training_code_sha"),
-        "evaluation_code_sha": _first(docs, "evaluation_code_sha"),
+        # the per-label JSONs carry the SHAs when the evaluator saw them; explicit
+        # arguments win so the merge can record the code that produced the merge.
+        "training_code_sha": training_code_sha or _first(docs, "training_code_sha"),
+        "evaluation_code_sha": evaluation_code_sha or _first(docs, "evaluation_code_sha"),
     }
     result.update(checks_and_verdict(rows))
     return result
@@ -234,6 +309,14 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--pilot-csv", default=None)
     parser.add_argument("--pilot-label", default="itr0_from_pilot_a")
+    parser.add_argument(
+        "--training-code-sha", default=os.environ.get("MARGO_TRAINING_CODE_SHA", ""),
+        help="overrides the SHA recorded in the per-label JSONs",
+    )
+    parser.add_argument(
+        "--evaluation-code-sha", default=os.environ.get("MARGO_EVAL_CODE_SHA", ""),
+        help="overrides the SHA recorded in the per-label JSONs",
+    )
     parser.add_argument("--json", required=True)
     args = parser.parse_args(argv)
 
@@ -247,7 +330,13 @@ def main(argv=None) -> int:
     if not docs:
         raise SystemExit("at least one --eval LABEL=JSON is required")
 
-    result = build(docs, pilot_csv=args.pilot_csv, pilot_label=args.pilot_label)
+    result = build(
+        docs,
+        pilot_csv=args.pilot_csv,
+        pilot_label=args.pilot_label,
+        training_code_sha=args.training_code_sha,
+        evaluation_code_sha=args.evaluation_code_sha,
+    )
     out = Path(args.json)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

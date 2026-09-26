@@ -44,6 +44,17 @@ spec/kish_gpu.sh checkpoint-eval-compare \
   --json "$ROOT/reports/v0.3-audit/pilot/checkpoint_eval/checkpoint_eval_comparison.json"
 ```
 
+
+## Criterion (objective_contract_v1)
+
+The verdict compares candidates on the **contract objective** (`query_discounted_return`,
+higher is better), which is what PPO optimises; latency in seconds is kept as a
+labelled companion and no longer selects a candidate. Documents written before the
+contract (including the recovered logs below, which only carry latencies) are
+compared through a clearly labelled `mean_latency_fallback(-seconds)` and the row
+records `objective_source`, so recovered evidence stays readable without pretending
+to be the contract metric.
+
 The merge writes `schema=checkpoint_eval_comparison_v1` with the true-init row, the
 in-training itr-0 row from the Pilot A CSV, the checkpoint rows, all correctness
 checks, and a verdict from the fixed vocabulary
