@@ -1,0 +1,78 @@
+{
+  "checkpoints": {
+    "final_itr39": {
+      "checkpoint_path": "/work/runs/pilot_checkpoints/meta_model_final_itr39.ckpt",
+      "checkpoint_sha256": "2332d5f3b52aca598a1d438c16d13eec727463f01a18caa9b25af6a89fde8fc4",
+      "gaps": {
+        "k0_gap_to_all_mec": 202.13555584042933,
+        "k0_gap_to_greedy": 205.8136673538396,
+        "k3_gap_to_all_mec": 208.93636435395297,
+        "k3_gap_to_greedy": 212.61447586736324
+      },
+      "k0": {
+        "k_steps": 0.0,
+        "n_distributions": 5.0,
+        "query_action_fraction/local": 0.38997115384615383,
+        "query_action_fraction/mec": 0.5376538461538461,
+        "query_action_fraction/v2v": 0.072375,
+        "query_all_mec_latency": 630.2797805319173,
+        "query_co_location_rate": 0.4478712694555476,
+        "query_cross_location_edges": 16.7125,
+        "query_entropy_valid": 0.8115621479828528,
+        "query_greedy_latency": 626.601669018507,
+        "query_mean_energy": 5503.181856792982,
+        "query_mean_latency": 832.4153363723466,
+        "query_task_fraction/local": 0.388125,
+        "query_task_fraction/mec": 0.5371249999999999,
+        "query_task_fraction/v2v": 0.07474999999999996,
+        "query_total_edges": 29.967499999999994,
+        "query_utilization_max": 0.8297632083969981,
+        "query_utilization_mean": 0.37236500142571083,
+        "validation_query_composite_objective": 0.654179483771245
+      },
+      "k3": {
+        "k_steps": 3.0,
+        "n_distributions": 5.0,
+        "query_action_fraction/local": 0.42919230769230765,
+        "query_action_fraction/mec": 0.49655769230769237,
+        "query_action_fraction/v2v": 0.07425,
+        "query_all_mec_latency": 630.2797805319173,
+        "query_co_location_rate": 0.4316942973858448,
+        "query_cross_location_edges": 17.055,
+        "query_entropy_valid": 0.8347938025174256,
+        "query_greedy_latency": 626.601669018507,
+        "query_mean_energy": 5586.515597864207,
+        "query_mean_latency": 839.2161448858702,
+        "query_task_fraction/local": 0.43649999999999994,
+        "query_task_fraction/mec": 0.485375,
+        "query_task_fraction/v2v": 0.07812499999999996,
+        "query_total_edges": 29.967499999999994,
+        "query_utilization_max": 0.8461416887035231,
+        "query_utilization_mean": 0.37582891666854507,
+        "validation_query_composite_objective": 0.6505857813654978
+      },
+      "k3_better_than_k0": false,
+      "scheduler_config_sha256": "c364f65545f959d84e67b8d80da523218f04cc1d8c7e65f9e6bc44ecd1d0e3ae",
+      "weights_changed": true
+    }
+  },
+  "deterministic_k0_fresh": false,
+  "deterministic_k0_fresh_values": [
+    1133.7175512658082,
+    1138.2587093342556
+  ],
+  "deterministic_k0_post_adaptation": false,
+  "deterministic_k0_post_adaptation_values": [
+    832.6896760422371,
+    831.9570770199273
+  ],
+  "evaluation_code_sha": "",
+  "fingerprint_arg": "",
+  "obs_env": {
+    "MARGO_CONSTRAINTS": "off",
+    "MARGO_MASK_MODE": "off",
+    "MARGO_OBS_VERSION": "v3"
+  },
+  "schema": "checkpoint_eval_v1",
+  "training_code_sha": ""
+}
