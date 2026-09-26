@@ -92,6 +92,111 @@ def _finite_nonneg(name: str, value: Any) -> float:
     return number
 
 
+#: compute calendar per physical tier (model.py RESOURCE_NAMES)
+TIER_CALENDAR = {"ue": "UE_CPU", "helper": "HELPER_CPU", "mec": "MEC_CPU"}
+#: workload-derived compute energy field per tier (model.EnergyBreakdown)
+TIER_ENERGY_FIELD = {
+    "ue": "ue_local_cpu_joules",
+    "helper": "helper_compute_joules",
+    "mec": "mec_compute_joules_optional",
+}
+
+
+def duration_consistency(result: Any, resources: Any) -> dict[str, Any]:
+    """Workload-derived vs duration-consistent compute energy, per tier.
+
+    `E_workload = kappa*C*f^2` comes from the workload; `E_duration = P(f)*T_busy`
+    comes from the duration the scheduler actually used. They agree iff the timing
+    model is physical, and otherwise differ by exactly `R_scheduled / R_physical`.
+    Nothing here schedules or mutates anything: both numbers are read off the same
+    `ScheduleResult` the reward came from.
+    """
+    spec = getattr(resources, "energy_model", None)
+    physical = bool(spec is not None and spec.is_physical)
+    intervals = list(getattr(result, "resource_intervals", []) or [])
+    breakdown = getattr(result, "energy", None)
+    tiers: dict[str, dict[str, float]] = {}
+    for tier, calendar in TIER_CALENDAR.items():
+        busy = sum(
+            float(iv.end) - float(iv.start)
+            for iv in intervals if str(getattr(iv, "resource", "")) == calendar
+        )
+        workload_j = float(getattr(breakdown, TIER_ENERGY_FIELD[tier], 0.0)) if breakdown else 0.0
+        if not physical:
+            duration_j = 0.0
+        else:
+            duration_j = spec.tier(tier).compute_joules_from_duration(busy)
+        tiers[tier] = {
+            "busy_seconds": busy,
+            "workload_joules": workload_j,
+            "duration_consistent_joules": duration_j,
+            "ratio_workload_over_duration": (
+                workload_j / duration_j if duration_j > 0.0 else 0.0
+            ),
+            "implied_power_w": (
+                workload_j / busy if busy > 0.0 else 0.0
+            ),
+        }
+    ratios = [
+        row["ratio_workload_over_duration"] for row in tiers.values()
+        if row["duration_consistent_joules"] > 0.0
+    ]
+    max_dev = max((abs(r - 1.0) for r in ratios), default=0.0)
+    return {
+        "model_is_physical": physical,
+        "timing_model": str(getattr(resources, "timing_model", "")),
+        "ratio_expected_scheduled_over_physical": {
+            tier: _rate_ratio(resources, tier) for tier in TIER_CALENDAR
+        },
+        "tiers": tiers,
+        "max_abs_ratio_minus_one": float(max_dev),
+        "duration_consistent": bool(physical and max_dev <= 1e-9),
+    }
+
+
+def _rate_ratio(resources: Any, tier: str) -> float:
+    """R_scheduled / R_physical for one tier (1.0 when timing is physical).
+
+    `R_scheduled` is the rate the scheduler actually used (frozen table or the
+    physical tiers, depending on the timing axis); `R_physical` is the rate implied
+    by the ENERGY model's own f and cycles_per_bit. Comparing the two is exactly
+    `E_workload / E_duration`.
+    """
+    from .model import Location
+
+    location = {"ue": Location.UE, "helper": Location.HELPER, "mec": Location.MEC}[tier]
+    spec = getattr(resources, "energy_model", None)
+    if spec is None or not spec.is_physical:
+        return 0.0
+    try:
+        scheduled = float(resources.cpu_rate(location))
+        physical = float(spec.tier(tier).cpu_rate_bytes_per_second(spec.cycles_per_bit))
+    except Exception:
+        return 0.0
+    if physical <= 0.0:
+        return 0.0
+    return scheduled / physical
+
+
+def duration_consistency_kvs(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Flat CSV KVs for one `duration_consistency` record."""
+    out = {
+        "energy/consistency/model_is_physical": 1.0 if record.get("model_is_physical") else 0.0,
+        "energy/consistency/duration_consistent": 1.0 if record.get("duration_consistent") else 0.0,
+        "energy/consistency/max_abs_ratio_minus_one": float(
+            record.get("max_abs_ratio_minus_one", 0.0) or 0.0
+        ),
+    }
+    for tier, row in (record.get("tiers") or {}).items():
+        out["energy/consistency/%s_ratio" % tier] = float(
+            row.get("ratio_workload_over_duration", 0.0) or 0.0
+        )
+        out["energy/consistency/%s_implied_power_w" % tier] = float(
+            row.get("implied_power_w", 0.0) or 0.0
+        )
+    return out
+
+
 def build_energy_telemetry(result: Any, resources: Any, *,
                            constraint_costs: Any = None,
                            constraint_penalty: float = 0.0) -> dict[str, Any]:

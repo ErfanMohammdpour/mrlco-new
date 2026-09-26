@@ -70,6 +70,11 @@ for d in device_lib.list_local_devices():
   smoke)
     gpu_run python spec/phase4_campaign.py --gpu-smoke --seed 0 --i-allow-gpu
     ;;
+  energy-consistency)
+    # CPU-only: measures the timing/energy physics mismatch on real frozen graphs
+    # and records it (with the co-physical comparison) as evidence.
+    cpu_run python -m spec.energy_consistency_probe       --json reports/v0.3-audit/energy_consistency/energy_consistency_evidence.json
+    ;;
   energy-tests)
     # full TF-compatible scheduler suite (the image has no pytest; stdlib runner)
     gpu_run python -m unittest discover -s env/mec_offloaing_envs/scheduler/tests \

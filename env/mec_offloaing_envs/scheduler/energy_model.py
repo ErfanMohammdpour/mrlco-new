@@ -96,6 +96,16 @@ class TierSpec:
         cycles = float(workload_bytes) * 8.0 * float(cycles_per_bit)
         return cycles / float(self.f_hz)
 
+    def compute_joules_from_duration(self, seconds: float) -> float:
+        """``E = P(f) * T`` - the duration-consistent form of ``E = kappa*C*f^2``.
+
+        ``compute_joules`` derives the energy from the WORKLOAD (``C/f`` gives the
+        physical duration), so it agrees with ``P(f)*T`` only when the scheduled
+        duration is also physical. Under the frozen rate table the two disagree by
+        exactly ``R_scheduled / R_physical``; this accessor makes that measurable.
+        """
+        return self.implied_dynamic_power_w * require_nonneg_float("seconds", float(seconds))
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "f_hz": self.f_hz,

@@ -27,6 +27,70 @@ PRIMARY_SCHEDULER_AXES: dict[str, str] = {
 DEFAULT_FROZEN_YAML = Path(__file__).resolve().parents[3] / "spec" / "frozen_experiment.yaml"
 
 
+#: Co-physical preset: the scheduled duration and the joule accounting come from
+#: the SAME tier model, so E = P(f)*T_busy holds exactly for the reported energy.
+PHYSICAL_SCHEDULER_AXES: dict[str, str] = {
+    "timing_model": "physical_rates",
+    "radio_timing_model": "physical_rates",
+    "energy_model": "physical_v1",
+    "radio_model": "physical_v1",
+    "energy_scope": "system",
+}
+
+
+class EnergyPhysicsMismatch(RuntimeError):
+    """Energy arithmetic and scheduled time come from different machine models."""
+
+
+def energy_timing_consistency(config: Any) -> dict[str, Any]:
+    """Describe whether `config`'s energy and timing share one physics.
+
+    `mixed_physics` is True when joule accounting is physical while the scheduled
+    durations come from the frozen rate table: the reported energy is then NOT
+    `P(f) x T_scheduled`. Pure inspection - nothing is mutated.
+    """
+    energy_physical = bool(getattr(config, "physical", False))
+    timing_physical = bool(getattr(config, "timing_is_physical", False))
+    radio_physical = bool(getattr(config, "radio_timing_is_physical", False))
+    mixed = energy_physical and not timing_physical
+    return {
+        "energy_model": str(getattr(getattr(config, "energy_model", None), "model", "")),
+        "timing_model": str(getattr(config, "timing_model", "")),
+        "radio_timing_model": str(getattr(config, "radio_timing_model", "")),
+        "energy_accounting_physical": energy_physical,
+        "timing_physical": timing_physical,
+        "radio_timing_physical": radio_physical,
+        "mixed_physics": mixed,
+        "label": "mixed_physics_legacy_timing_physical_energy" if mixed
+        else ("co_physical" if energy_physical and timing_physical else "legacy"),
+    }
+
+
+def require_energy_timing_consistency(config: Any) -> dict[str, Any]:
+    """Raise unless energy arithmetic and timing share one physics."""
+    facts = energy_timing_consistency(config)
+    if facts["mixed_physics"]:
+        raise EnergyPhysicsMismatch(
+            "energy is %s but timing is %s: reported joules are not P(f)*T_scheduled"
+            % (facts["energy_model"], facts["timing_model"])
+        )
+    return facts
+
+
+def resolved_physical_scheduler_config(
+    path: str | Path | None = None,
+    overrides: Mapping[str, Any] | None = None,
+) -> ResourceConfig:
+    """The co-physical counterpart of `resolved_primary_scheduler_config`."""
+    merged = dict(overrides or {})
+    unknown = set(merged) - set(PRIMARY_SCHEDULER_AXES)
+    if unknown:
+        raise ValueError("unknown scheduler axis override(s): %s" % sorted(unknown))
+    for key, value in PHYSICAL_SCHEDULER_AXES.items():
+        merged.setdefault(key, value)
+    return resolved_primary_scheduler_config(path=path, overrides=merged)
+
+
 def resolved_primary_scheduler_config(
     path: str | Path | None = None,
     overrides: Mapping[str, Any] | None = None,
