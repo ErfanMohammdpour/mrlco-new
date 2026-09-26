@@ -36,6 +36,7 @@ CONTRACT = {
     "decoder_order": "legacy_current",
     "entropy_coefficient": 0.0,
     "validation_interval": 50,
+    "instability_watchdog": "inline (PilotInstabilityError)",
     "paper_result": False,
 }
 CHECKPOINT_ITERS = (0, 50, 100, 200, 300, 500, 750)
@@ -99,7 +100,7 @@ def configure_obs_env() -> dict:
     }
 
 
-def classification(rows: list[dict]) -> dict:
+def classification(rows: list[dict], *, stopped: bool = False) -> dict:
     """`rows` = per-validation dicts with k0/k3/gaps (sorted by iteration)."""
     import math
 
@@ -111,6 +112,13 @@ def classification(rows: list[dict]) -> dict:
         )
         for r in rows
     )
+    if stopped:
+        return {
+            "verdict": "STOPPED_UNSTABLE",
+            "improved_points": 0,
+            "detail": "inline watchdog aborted the run on a non-finite metric or "
+                      "value_abs_max >= limit; no conclusion is drawn",
+        }
     if len(rows) < 2 or not finite:
         return {"verdict": "INSUFFICIENT_OR_NONFINITE", "improved_points": 0}
     init = rows[0]
@@ -257,7 +265,7 @@ def main(argv=None) -> int:
     import numpy as np
     import tensorflow as tf
     from utils import logger
-    from meta_trainer import build_frozen_primary_stack
+    from meta_trainer import PilotInstabilityError, build_frozen_primary_stack
     from env.mec_offloaing_envs.scheduler.primary_config import (
         resolved_primary_scheduler_config,
     )
@@ -279,8 +287,13 @@ def main(argv=None) -> int:
     )
     trainer.pilot_checkpoint_iters = set(plan)
     trainer.pilot_interim_iters = tuple(INTERIM_ITERS)
+    # Inline abort: stop at the first non-finite metric or value_abs_max over limit.
+    trainer.pilot_watchdog = True
+    trainer.pilot_value_abs_max_limit = VALUE_ABS_MAX_LIMIT
     held = trainer.held_out_evaluator
     initial = {}
+    instability = None
+    final_row = None
 
     def _flat(metrics):
         keep = {
@@ -325,36 +338,43 @@ def main(argv=None) -> int:
             )
 
         trainer.pilot_interim_hook = _interim
-        trainer.train()
+        try:
+            trainer.train()
+        except PilotInstabilityError as exc:
+            # The inline watchdog fired: no final adaptation, no final checkpoint.
+            instability = str(exc)
+            print("WATCHDOG ABORT: %s" % instability)
 
-        final = held.evaluate_all(k_steps=3, sess=sess)
-        final_k0 = held.evaluate_all(k_steps=0, sess=sess)
-        final_row = {
-            "itr": last_itr,
-            "final": True,
-            "k0": final_k0.get("query_mean_latency"),
-            "k3": final.get("query_mean_latency"),
-            "all_mec": final.get("query_all_mec_latency"),
-            "greedy": final.get("query_greedy_latency"),
-        }
-        final_row["gap_to_all_mec"] = (
-            None if final_row["k3"] is None or final_row["all_mec"] is None
-            else final_row["k3"] - final_row["all_mec"]
-        )
-        final_row["gap_to_greedy"] = (
-            None if final_row["k3"] is None or final_row["greedy"] is None
-            else final_row["k3"] - final_row["greedy"]
-        )
-        (run_dir / "final_validation.json").write_text(
-            json.dumps({"itr": last_itr, "final": _flat(final), **final_row},
-                       indent=2, sort_keys=True) + "\n"
-        )
-        final_ckpt = run_dir / "ckpt" / "meta_model_final.ckpt"
-        if not final_ckpt.exists():
-            trainer.policy.core_policy.save_variables(save_path=str(final_ckpt))
+        if instability is None:
+            final = held.evaluate_all(k_steps=3, sess=sess)
+            final_k0 = held.evaluate_all(k_steps=0, sess=sess)
+            final_row = {
+                "itr": last_itr,
+                "final": True,
+                "k0": final_k0.get("query_mean_latency"),
+                "k3": final.get("query_mean_latency"),
+                "all_mec": final.get("query_all_mec_latency"),
+                "greedy": final.get("query_greedy_latency"),
+            }
+            final_row["gap_to_all_mec"] = (
+                None if final_row["k3"] is None or final_row["all_mec"] is None
+                else final_row["k3"] - final_row["all_mec"]
+            )
+            final_row["gap_to_greedy"] = (
+                None if final_row["k3"] is None or final_row["greedy"] is None
+                else final_row["k3"] - final_row["greedy"]
+            )
+            (run_dir / "final_validation.json").write_text(
+                json.dumps({"itr": last_itr, "final": _flat(final), **final_row},
+                           indent=2, sort_keys=True) + "\n"
+            )
+            final_ckpt = run_dir / "ckpt" / "meta_model_final.ckpt"
+            if not final_ckpt.exists():
+                trainer.policy.core_policy.save_variables(save_path=str(final_ckpt))
 
     rows = _validation_rows(run_dir / "logs" / "progress.csv")
-    trajectory = rows + [final_row]  # the final iteration belongs in the verdict
+    trajectory = rows + ([final_row] if final_row else [])
+    # the final iteration belongs in the verdict
     series_keys = ("action_fraction/local", "action_fraction/mec", "action_fraction/v2v",
                    "policy/entropy_valid", "critic/value_abs_max", "policy/approx_kl",
                    "policy/clip_fraction", "policy/grad_norm", "collapse/flag")
@@ -374,7 +394,8 @@ def main(argv=None) -> int:
         "training_code_sha": os.environ.get("MARGO_TRAINING_CODE_SHA", ""),
         "evaluation_code_sha": os.environ.get("MARGO_EVAL_CODE_SHA", ""),
         "true_init": initial, "validation_trajectory": trajectory,
-        "classification": classification([initial] + trajectory),
+        "classification": classification([initial] + trajectory, stopped=instability is not None),
+        "instability": instability,
         "obs_env": obs_env,
         "watchdog": watchdog_flags(series),
         "checkpoint_selection_metric": (
@@ -392,7 +413,7 @@ def main(argv=None) -> int:
                    indent=2, sort_keys=True) + "\n"
     )
     print(json.dumps(evidence["classification"], indent=1, sort_keys=True))
-    return 0
+    return 3 if instability else 0
 
 
 if __name__ == "__main__":

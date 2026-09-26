@@ -29,6 +29,7 @@ from spec.pilot_metrics import (  # noqa: E402
     action_fractions,
     collapse_flag,
     flatten_actions,
+    instability_reason,
     plan_summary,
     update_metric_kvs,
     validation_gaps,
@@ -151,6 +152,38 @@ class TestIterationKvs(unittest.TestCase):
             self.assertIn(key, kvs)
         with self.assertRaises(ValueError):
             update_metric_kvs(actions=[0], grad_norm=float("inf"))
+
+
+class TestInstabilityReason(unittest.TestCase):
+    """Inline watchdog predicate shared by Trainer.pilot_watchdog."""
+
+    def test_healthy_iteration_has_no_reason(self):
+        self.assertIsNone(instability_reason(
+            {"policy/policy_loss_mean": 0.5, "policy/grad_norm": 1.0}, 3.0))
+
+    def test_nan_and_inf_are_rejected(self):
+        for bad in (float("nan"), float("inf")):
+            reason = instability_reason({"policy/approx_kl": bad}, 1.0)
+            self.assertIsNotNone(reason)
+            self.assertIn("policy/approx_kl", reason)
+
+    def test_non_numeric_is_rejected(self):
+        self.assertIsNotNone(instability_reason({"policy/grad_norm": None}))
+
+    def test_value_abs_max_limit_is_inclusive(self):
+        self.assertIsNone(instability_reason({}, 999.99, limit=1e3))
+        self.assertIsNotNone(instability_reason({}, 1e3, limit=1e3))
+
+    def test_missing_value_abs_max_is_not_a_stop(self):
+        self.assertIsNone(instability_reason({"action_fraction/mec": 0.5}, None))
+
+    def test_trainer_wires_the_inline_watchdog(self):
+        source = (Path(__file__).resolve().parents[4] / "meta_trainer.py").read_text()
+        self.assertIn("class PilotInstabilityError(RuntimeError)", source)
+        self.assertIn("instability_reason(", source)
+        self.assertIn("self.pilot_watchdog", source)
+        # inline (inside the training loop), not a post-hoc scan of the CSV
+        self.assertIn("raise PilotInstabilityError(", source)
 
 
 if __name__ == "__main__":

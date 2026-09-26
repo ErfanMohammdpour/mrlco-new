@@ -135,6 +135,34 @@ def collapse_flag(
     return policy_vs_all_mec_gap >= 0.0 or policy_vs_greedy_gap > 0.0
 
 
+def instability_reason(
+    iteration_kvs: dict,
+    value_abs_max: float | None = None,
+    *,
+    limit: float = 1e3,
+) -> str | None:
+    """Inline watchdog predicate for one training iteration.
+
+    Returns a human-readable reason when the iteration must abort, else None.
+    Kept pure so it is unit-testable without TensorFlow; `Trainer` calls it from
+    inside the training loop (`pilot_watchdog`), not from a post-hoc CSV scan.
+    """
+    unstable = []
+    for key, value in (iteration_kvs or {}).items():
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            unstable.append(key)
+            continue
+        if not math.isfinite(number):
+            unstable.append(key)
+    if unstable:
+        return "non-finite metrics %s" % sorted(unstable)
+    if value_abs_max is not None and float(value_abs_max) >= float(limit):
+        return "critic/value_abs_max=%s >= %s" % (float(value_abs_max), float(limit))
+    return None
+
+
 def update_metric_kvs(
     *,
     actions: Sequence[int],

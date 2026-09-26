@@ -20,6 +20,7 @@ from spec.eval_protocol import protocol_log_kvs
 from spec.pilot_metrics import (
     collapse_flag,
     flatten_actions,
+    instability_reason,
     plan_summary,
     update_metric_kvs,
     validation_gaps,
@@ -33,6 +34,15 @@ FROZEN_VALIDATION_INTERVAL = 50
 
 class ActionCollapseError(RuntimeError):
     """Pilot watchdog: sustained MEC collapse without beating the baselines."""
+
+
+class PilotInstabilityError(RuntimeError):
+    """Pilot watchdog: a non-finite loss/metric or `value_abs_max` over the limit.
+
+    Raised from inside the training loop (not from a post-hoc CSV scan) so a
+    diverging long diagnostic stops at the offending iteration instead of
+    burning hours of GPU time on poisoned updates.
+    """
 
 
 def _without_validation_plans(metrics):
@@ -114,6 +124,9 @@ class Trainer(object):
         self.pilot_checkpoint_iters: set[int] | None = None
         self.pilot_interim_iters: tuple[int, ...] = (200, 500)
         self.pilot_interim_hook = None
+        # P2 inline watchdog (additive; default-off so every other run is inert).
+        self.pilot_watchdog = False
+        self.pilot_value_abs_max_limit = 1e3
         self.write_training_report = bool(write_training_report)
         self.audit_writer = audit_writer
         self.critic_warmup_iters = int(critic_warmup_iters)
@@ -366,6 +379,19 @@ class Trainer(object):
             )
             for key, value in iteration_kvs.items():
                 logger.logkv(key, value)
+            if self.pilot_watchdog:
+                # Abort at the offending iteration, before the K-step inner loop can
+                # propagate NaN/Inf or an exploding critic through the meta-parameters.
+                reason = instability_reason(
+                    iteration_kvs,
+                    mask_metrics.get("critic/value_abs_max"),
+                    limit=float(self.pilot_value_abs_max_limit),
+                )
+                if reason is not None:
+                    logger.dumpkvs()
+                    raise PilotInstabilityError(
+                        "%s at iteration %d" % (reason, itr)
+                    )
             self._mec_share_series.append(float(iteration_kvs.get("action_fraction/mec", 0.0)))
             collapsed = collapse_flag(
                 self._mec_share_series, self._last_gap_allmec, self._last_gap_greedy

@@ -66,6 +66,23 @@ class TestPlanAndDirs(unittest.TestCase):
         ]
         self.assertEqual(classification(rows)["verdict"], "INSUFFICIENT_OR_NONFINITE")
 
+    def test_inline_watchdog_is_enabled_and_aborts_are_recorded(self):
+        script = (ROOT / "spec" / "pilot_long.py").read_text()
+        self.assertIn("trainer.pilot_watchdog = True", script)
+        self.assertIn("except PilotInstabilityError", script)
+        self.assertIn('"instability": instability', script)
+        self.assertIn("stopped=instability is not None", script)
+
+    def test_classification_stopped_unstable(self):
+        rows = [
+            {"itr": -1, "k0": 950.0, "k3": 900.0, "gap_to_all_mec": 270.0,
+             "gap_to_greedy": 271.0},
+        ]
+        out = classification(rows, stopped=True)
+        self.assertEqual(out["verdict"], "STOPPED_UNSTABLE")
+        # an empty run without the flag keeps the existing contract
+        self.assertEqual(classification(rows)["verdict"], "INSUFFICIENT_OR_NONFINITE")
+
     def test_contract_is_latency_only_diagnostic(self):
         self.assertEqual(CONTRACT["reward_mode"], "latency_only")
         self.assertEqual(CONTRACT["objective_mode"], "log_only")
