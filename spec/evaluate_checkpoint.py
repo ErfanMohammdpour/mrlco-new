@@ -144,6 +144,16 @@ def main(argv=None) -> int:
         sess.run(tf.compat.v1.global_variables_initializer())
         algo.sync_task_policies_from_core()
         core = trainer.policy.core_policy
+        # Determinism probe BEFORE any evaluation/adaptation: two fresh k0 runs in
+        # one session with no state advanced between them. The probe after the
+        # label loop is recorded separately as post-adaptation because k3
+        # adaptation legitimately moves the scratch policy and the RNG.
+        fresh_a = held.evaluate_all(k_steps=0, sess=sess)["query_mean_latency"]
+        fresh_b = held.evaluate_all(k_steps=0, sess=sess)["query_mean_latency"]
+        results["deterministic_k0_fresh"] = bool(
+            np.isclose(fresh_a, fresh_b, rtol=0.0, atol=1e-9)
+        )
+        results["deterministic_k0_fresh_values"] = [float(fresh_a), float(fresh_b)]
         for spec in args.checkpoint:
             if spec == "true_init":
                 label, path = "true_init", None
@@ -166,11 +176,13 @@ def main(argv=None) -> int:
                 trainer.env.scheduler_resources
             )
             results["checkpoints"][label] = entry
-        # determinism probe: true_init k0 twice
+        # post-adaptation probe (expected to differ: k3 moved the scratch policy)
         a = held.evaluate_all(k_steps=0, sess=sess)["query_mean_latency"]
         b = held.evaluate_all(k_steps=0, sess=sess)["query_mean_latency"]
-        results["deterministic_k0"] = bool(np.isclose(a, b, rtol=0.0, atol=1e-9))
-        results["deterministic_k0_values"] = [float(a), float(b)]
+        results["deterministic_k0_post_adaptation"] = bool(
+            np.isclose(a, b, rtol=0.0, atol=1e-9)
+        )
+        results["deterministic_k0_post_adaptation_values"] = [float(a), float(b)]
         results["fingerprint_arg"] = args.fingerprint
         results["schema"] = "checkpoint_eval_v1"
     out = Path(args.json)

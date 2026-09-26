@@ -89,9 +89,24 @@ for d in device_lib.list_local_devices():
       --constraints-scenario total_small
     ;;
   checkpoint-eval)
-    # P1 read-only checkpoint evaluation; forwards --one LABEL=PATH --json PATH
+    # P1 read-only checkpoint evaluation. Host paths under $ROOT are rewritten to
+    # /work because the container only sees the mounted repo; otherwise the JSON
+    # (and any checkpoint given by host path) would be written/looked up inside
+    # the container's own ephemeral filesystem.
     shift
-    gpu_run python -m spec.evaluate_checkpoint "$@"
+    args=()
+    for a in "$@"; do
+      key="${a%%=*}"
+      val="${a#*=}"
+      if [ "$key" != "$a" ] && [ "${val#"$ROOT"/}" != "$val" ]; then
+        args+=("$key=/work/${val#"$ROOT"/}")
+      elif [ "${a#"$ROOT"/}" != "$a" ]; then
+        args+=("/work/${a#"$ROOT"/}")
+      else
+        args+=("$a")
+      fi
+    done
+    gpu_run python -m spec.evaluate_checkpoint "${args[@]}"
     ;;
   pilot-a-long-1000)
     # P2 long latency-only PPO/meta-learning diagnostic (1000 iters).

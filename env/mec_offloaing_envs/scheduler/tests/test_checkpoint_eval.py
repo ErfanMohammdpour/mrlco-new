@@ -63,6 +63,23 @@ class TestObsEnv(unittest.TestCase):
         self.assertEqual(env["MARGO_CONSTRAINTS"], "off")
 
 
+class TestContainerPathAndProbes(unittest.TestCase):
+    def test_launcher_rewrites_host_paths_to_work(self):
+        script = (ROOT / "spec" / "kish_gpu.sh").read_text()
+        block = script.split("checkpoint-eval)")[1].split(";;")[0]
+        self.assertIn('"$ROOT"/', block)
+        self.assertIn("/work/${", block)
+
+    def test_evaluator_probes_fresh_and_post_adaptation(self):
+        src = (ROOT / "spec" / "evaluate_checkpoint.py").read_text()
+        self.assertIn("deterministic_k0_fresh", src)
+        self.assertIn("deterministic_k0_post_adaptation", src)
+        # the fresh probe must appear before the label loop
+        self.assertLess(
+            src.index("deterministic_k0_fresh"), src.index("for spec in args.checkpoint")
+        )
+
+
 class TestSha(unittest.TestCase):
     def test_sha256_file_is_deterministic(self):
         with tempfile.TemporaryDirectory() as tmp:
