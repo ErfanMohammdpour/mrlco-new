@@ -36,6 +36,9 @@ CONTRACT = {
     "decoder_order": "legacy_current",
     "entropy_coefficient": 0.0,
     "validation_interval": 50,
+    # Parity with the 25/40-iteration Pilot A runs: same spawn-parallel env
+    # executor, so the long trajectory is comparable to the short pilots.
+    "parallel_env": True,
     "instability_watchdog": "inline (PilotInstabilityError)",
     "paper_result": False,
 }
@@ -277,7 +280,7 @@ def main(argv=None) -> int:
 
     trainer, algo = build_frozen_primary_stack(
         seed=int(args.seed), n_itr=int(args.itr), ckpt_dir=str(run_dir / "ckpt"),
-        audit_writer=None, print_action_choices=False, parallel=False,
+        audit_writer=None, print_action_choices=False, parallel=True,
         reward_mode="latency_only", learning_mode="publication", vocab_size=3,
         use_energy=True, constraints=None, constraint_dual_lr=None,
         objective_mode="log_only",

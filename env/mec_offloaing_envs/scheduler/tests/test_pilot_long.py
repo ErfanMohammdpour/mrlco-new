@@ -66,6 +66,15 @@ class TestPlanAndDirs(unittest.TestCase):
         ]
         self.assertEqual(classification(rows)["verdict"], "INSUFFICIENT_OR_NONFINITE")
 
+    def test_contract_parallel_matches_pilot_a(self):
+        # The long trajectory must be comparable to the 25/40-iteration pilots,
+        # which ran the spawn-parallel env executor.
+        self.assertIs(CONTRACT["parallel_env"], True)
+        script = (ROOT / "spec" / "pilot_long.py").read_text()
+        self.assertIn("parallel=True", script)
+        driver = (ROOT / "spec" / "mask_sanity.py").read_text()
+        self.assertIn("parallel=True", driver)
+
     def test_inline_watchdog_is_enabled_and_aborts_are_recorded(self):
         script = (ROOT / "spec" / "pilot_long.py").read_text()
         self.assertIn("trainer.pilot_watchdog = True", script)
