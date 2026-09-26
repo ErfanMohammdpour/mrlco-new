@@ -189,7 +189,8 @@ def main(argv=None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=2, sort_keys=True) + "\n")
     print(json.dumps(results["checkpoints"], indent=1, sort_keys=True)[:2500])
-    print("deterministic_k0:", results["deterministic_k0"])
+    print("deterministic_k0_fresh:", results["deterministic_k0_fresh"])
+    print("deterministic_k0_post_adaptation:", results["deterministic_k0_post_adaptation"])
     print("wrote", out)
     return 0
 

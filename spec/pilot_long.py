@@ -82,11 +82,30 @@ def manifest(root: Path) -> list[dict]:
     return rows
 
 
+def configure_obs_env() -> dict:
+    """The contract is obs v3 + mask off + constraints off.
+
+    The encoder/policy modules read these env vars at import time, so they must be
+    set before the stack is built; without v3 the encoder raises
+    `resource_vec only valid for obs v2/v3`.
+    """
+    os.environ["MARGO_OBS_VERSION"] = "v3"
+    os.environ["MARGO_MASK_MODE"] = "off"
+    os.environ["MARGO_CONSTRAINTS"] = "off"
+    return {
+        "MARGO_OBS_VERSION": os.environ["MARGO_OBS_VERSION"],
+        "MARGO_MASK_MODE": os.environ["MARGO_MASK_MODE"],
+        "MARGO_CONSTRAINTS": os.environ["MARGO_CONSTRAINTS"],
+    }
+
+
 def classification(rows: list[dict]) -> dict:
     """`rows` = per-validation dicts with k0/k3/gaps (sorted by iteration)."""
+    import math
+
     finite = all(
         all(
-            isinstance(v, (int, float)) and v == v
+            isinstance(v, (int, float)) and math.isfinite(float(v))
             for v in (r.get("k0"), r.get("k3"), r.get("gap_to_all_mec"), r.get("gap_to_greedy"))
             if v is not None
         )
@@ -233,6 +252,7 @@ def main(argv=None) -> int:
         return 0
 
     assert_fresh_run_dir(run_dir)
+    obs_env = configure_obs_env()
 
     import numpy as np
     import tensorflow as tf
@@ -308,10 +328,25 @@ def main(argv=None) -> int:
         trainer.train()
 
         final = held.evaluate_all(k_steps=3, sess=sess)
+        final_k0 = held.evaluate_all(k_steps=0, sess=sess)
+        final_row = {
+            "itr": last_itr,
+            "final": True,
+            "k0": final_k0.get("query_mean_latency"),
+            "k3": final.get("query_mean_latency"),
+            "all_mec": final.get("query_all_mec_latency"),
+            "greedy": final.get("query_greedy_latency"),
+        }
+        final_row["gap_to_all_mec"] = (
+            None if final_row["k3"] is None or final_row["all_mec"] is None
+            else final_row["k3"] - final_row["all_mec"]
+        )
+        final_row["gap_to_greedy"] = (
+            None if final_row["k3"] is None or final_row["greedy"] is None
+            else final_row["k3"] - final_row["greedy"]
+        )
         (run_dir / "final_validation.json").write_text(
-            json.dumps({"itr": int(args.itr), "final": _flat(final),
-                        "k0": held.evaluate_all(k_steps=0, sess=sess).get("query_mean_latency"),
-                        "k3": final.get("query_mean_latency")},
+            json.dumps({"itr": last_itr, "final": _flat(final), **final_row},
                        indent=2, sort_keys=True) + "\n"
         )
         final_ckpt = run_dir / "ckpt" / "meta_model_final.ckpt"
@@ -319,6 +354,7 @@ def main(argv=None) -> int:
             trainer.policy.core_policy.save_variables(save_path=str(final_ckpt))
 
     rows = _validation_rows(run_dir / "logs" / "progress.csv")
+    trajectory = rows + [final_row]  # the final iteration belongs in the verdict
     series_keys = ("action_fraction/local", "action_fraction/mec", "action_fraction/v2v",
                    "policy/entropy_valid", "critic/value_abs_max", "policy/approx_kl",
                    "policy/clip_fraction", "policy/grad_norm", "collapse/flag")
@@ -337,8 +373,9 @@ def main(argv=None) -> int:
         "run_dir": str(run_dir), "iterations": int(args.itr),
         "training_code_sha": os.environ.get("MARGO_TRAINING_CODE_SHA", ""),
         "evaluation_code_sha": os.environ.get("MARGO_EVAL_CODE_SHA", ""),
-        "true_init": initial, "validation_trajectory": rows,
-        "classification": classification([initial] + rows),
+        "true_init": initial, "validation_trajectory": trajectory,
+        "classification": classification([initial] + trajectory),
+        "obs_env": obs_env,
         "watchdog": watchdog_flags(series),
         "checkpoint_selection_metric": (
             "validation_query_composite_objective (k3) via Trainer.best_val_composite; "

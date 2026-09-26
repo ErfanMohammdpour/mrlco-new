@@ -70,6 +70,10 @@ class TestContainerPathAndProbes(unittest.TestCase):
         self.assertIn('"$ROOT"/', block)
         self.assertIn("/work/${", block)
 
+    def test_evaluator_prints_only_existing_keys(self):
+        src = (ROOT / "spec" / "evaluate_checkpoint.py").read_text()
+        self.assertNotIn('results["deterministic_k0"]', src)
+
     def test_evaluator_probes_fresh_and_post_adaptation(self):
         src = (ROOT / "spec" / "evaluate_checkpoint.py").read_text()
         self.assertIn("deterministic_k0_fresh", src)

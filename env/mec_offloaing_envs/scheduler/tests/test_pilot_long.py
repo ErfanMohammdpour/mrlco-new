@@ -51,6 +51,18 @@ class TestPlanAndDirs(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 assert_fresh_run_dir(path)
 
+    def test_obs_env_is_set_before_the_stack(self):
+        from spec.pilot_long import configure_obs_env
+
+        env = configure_obs_env()
+        self.assertEqual(env["MARGO_OBS_VERSION"], "v3")
+        self.assertEqual(env["MARGO_MASK_MODE"], "off")
+        self.assertEqual(env["MARGO_CONSTRAINTS"], "off")
+
+    def test_classification_rejects_inf_not_just_nan(self):
+        rows = [self._row(-1, 900.0, 270.0), self._row(0, float("inf"), 1.0)]
+        self.assertEqual(classification(rows)["verdict"], "INSUFFICIENT_OR_NONFINITE")
+
     def test_contract_is_latency_only_diagnostic(self):
         self.assertEqual(CONTRACT["reward_mode"], "latency_only")
         self.assertEqual(CONTRACT["objective_mode"], "log_only")
