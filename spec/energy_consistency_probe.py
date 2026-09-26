@@ -73,11 +73,13 @@ def _mean(values):
 
 def verdict(primary: dict, co_physical: dict, *, tolerance: float = 1e-9) -> dict:
     """Judge whether the mixed-physics effect is real and quantified."""
-    primary_measured = [row["mean_measured_ratio"] for row in primary["tiers"].values()]
-    physical_measured = [row["mean_measured_ratio"] for row in co_physical["tiers"].values()]
+    primary_tiers = primary.get("tiers", primary)
+    physical_tiers = co_physical.get("tiers", co_physical)
+    primary_measured = [row["mean_measured_ratio"] for row in primary_tiers.values()]
+    physical_measured = [row["mean_measured_ratio"] for row in physical_tiers.values()]
     identity_errors = [
-        row["max_abs_identity_error"] for row in primary["tiers"].values()
-    ] + [row["max_abs_identity_error"] for row in co_physical["tiers"].values()]
+        row["max_abs_identity_error"] for row in primary_tiers.values()
+    ] + [row["max_abs_identity_error"] for row in physical_tiers.values()]
     mixed_off_unity = any(abs(r - 1.0) > 1e-6 for r in primary_measured)
     co_physical_unity = all(abs(r - 1.0) <= 1e-6 for r in physical_measured if r > 0.0)
     identity_ok = all(err <= 1e-6 for err in identity_errors)
