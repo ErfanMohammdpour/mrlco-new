@@ -402,9 +402,12 @@ def main(argv=None) -> int:
         "obs_env": obs_env,
         "watchdog": watchdog_flags(series),
         "checkpoint_selection_metric": (
-            "validation_query_composite_objective (k3) via Trainer.best_val_composite; "
+            "objective_contract_v1: validation/objective_discounted_return (k3) - the "
+            "discounted return PPO optimises - via Trainer.best_val_objective; the "
+            "chosen value is recorded in ckpt/meta_model_best_val.metric.json. "
             "objective_mode=log_only does NOT change the saved best checkpoint "
-            "(lexicographic selection is off)"
+            "(lexicographic selection is off). The pre-contract undiscounted sum is "
+            "still logged as validation/objective_legacy_undiscounted_sum_*."
         ),
         "paper_result": False,
     }

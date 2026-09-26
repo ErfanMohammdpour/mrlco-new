@@ -96,7 +96,7 @@ Required properties:
 - `ppo_batch_size_trajectories = 20`
 - `outer_iterations = 3500` (fixed compute budget, not a convergence claim)
 - `validation_interval = 50`
-- `checkpoint_selection_metric = validation_query_composite_objective` (for logging / checkpointing only; not for hyperparameter search)
+- `checkpoint_selection_metric = validation/objective_discounted_return` (for logging / checkpointing only; not for hyperparameter search). **objective_contract_v1:** the criterion is the discounted return `sum_t gamma^(t-1) r_t` that PPO actually optimises, because with `shaping_discount=gamma<1` the token rewards telescope exactly to `J_0 - gamma^N J_N`. The earlier `validation_query_composite_objective` summed the same rewards *without* the discount (`J_0 + (1-gamma) sum_{t<N} J_t - gamma J_N`), a different functional; it is still logged as a labelled companion but no longer selects a checkpoint. See `spec/objective_contract.py`.
 - `early_stopping_rule = none_in_v0.1_fixed_budget`
 
 `total_optimizer_steps_per_meta_task = k_steps = 3`.

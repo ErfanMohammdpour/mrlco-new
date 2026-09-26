@@ -100,7 +100,13 @@ class HeldOutQueryEvaluator:
             rows.append(self.evaluate_one(env_index, dist_id, k_steps, sess=sess))
         composite = float(np.mean([row["validation_query_composite_objective"] for row in rows]))
         latency = float(np.mean([row["query_mean_latency"] for row in rows]))
+        # The criterion (discounted return) is aggregated on the SAME rows; the
+        # legacy undiscounted mean stays as a labelled companion only.
+        objective = float(np.mean([row["query_discounted_return"] for row in rows]))
+        legacy_sum = float(np.mean([row["query_legacy_undiscounted_sum"] for row in rows]))
         out = {
+            "query_discounted_return": objective,
+            "query_legacy_undiscounted_sum": legacy_sum,
             "validation_query_composite_objective": composite,
             "query_mean_latency": latency,
             "k_steps": int(k_steps),

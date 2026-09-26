@@ -95,9 +95,10 @@ class TestContainerPathAndProbes(unittest.TestCase):
         self.assertIn('"checkpoint_selection_uses_logged_objective"', src)
         self.assertIn('"checkpoint_selection_source"', src)
         self.assertIn('"legacy_composite"', src)
-        # composite must be read before it is logged, not from the previous validation
+        # the contract objective must be read before it is logged, never reused
+        # from the previous validation
         self.assertLess(
-            src.index("composite = k3["),
+            src.index("composite = selection_value(selection_metric, k3)"),
             src.index('logger.logkv("checkpoint_selection_scalar", composite)'),
         )
 

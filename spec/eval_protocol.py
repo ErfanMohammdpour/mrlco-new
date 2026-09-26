@@ -70,13 +70,31 @@ def protocol_log_kvs(
     }
 
 
-def query_metrics_from_samples(samples_data):
+def query_metrics_from_samples(samples_data, discount=None):
+    """Held-out query metrics for the objective contract.
+
+    The criterion is ``query_discounted_return`` (the return PPO actually
+    optimises - see spec/objective_contract.py). ``query_mean_latency`` and
+    ``query_legacy_undiscounted_sum`` / ``validation_query_composite_objective``
+    are companions kept for continuity and must not be used for selection.
+    """
+    from spec.objective_contract import (
+        SHAPING_DISCOUNT,
+        discounted_return,
+        legacy_undiscounted_sum,
+    )
+
+    gamma = SHAPING_DISCOUNT if discount is None else float(discount)
     rewards = samples_data["rewards"]
     latency = samples_data["finish_time"]
+    legacy = composite_query_objective(rewards)
     out = {
-        "query_mean_return": composite_query_objective(rewards),
+        "query_discounted_return": discounted_return(rewards, gamma),
+        "query_legacy_undiscounted_sum": legacy,
+        "query_objective_discount": gamma,
+        "query_mean_return": legacy,
         "query_mean_latency": float(np.mean(latency)),
-        "validation_query_composite_objective": composite_query_objective(rewards),
+        "validation_query_composite_objective": legacy,
     }
     if "energy" in samples_data:
         energy = np.asarray(samples_data["energy"])

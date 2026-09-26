@@ -23,7 +23,10 @@ primary_run:
   action_space: [UE, MEC, HELPER]
   v2v: on
   task_count: 20
-  checkpoint_selection_metric: validation_query_composite_objective
+  # objective_contract_v1: the saved best-val model is chosen by the same scalar
+  # that is logged and that PPO optimises (was the undiscounted reward sum).
+  checkpoint_selection_metric: validation/objective_discounted_return
+  checkpoint_selection_contract: objective_contract_v1
   early_stopping_rule: none_in_v0.1_fixed_budget
 
 split:

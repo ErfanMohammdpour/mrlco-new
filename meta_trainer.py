@@ -1,3 +1,4 @@
+import json
 import os
 import tensorflow as tf
 import numpy as np
@@ -109,7 +110,12 @@ class Trainer(object):
         self.seed = int(seed)
         self.validation_interval = int(validation_interval)
         self.held_out_evaluator = held_out_evaluator
-        self.best_val_composite = None
+        # Objective contract v1: the saved best-val model is chosen by the SAME
+        # scalar that is logged and that PPO optimises (see spec/objective_contract.py).
+        from spec.objective_contract import SELECTION_METRIC_DEFAULT
+
+        self.selection_metric = SELECTION_METRIC_DEFAULT
+        self.best_val_objective = None
         # P1 pilot tracking
         self._mec_share_series: list[float] = []
         self._last_gap_allmec: float | None = None
@@ -189,8 +195,39 @@ class Trainer(object):
         logger.logkv("validation_query_composite_objective", k3["validation_query_composite_objective"])
         logger.logkv("validation_query_mean_latency_k0", k0["query_mean_latency"])
         logger.logkv("validation_query_mean_latency_k3", k3["query_mean_latency"])
-        logger.logkv("checkpoint_selection_metric", "validation_query_composite_objective")
-        composite = k3["validation_query_composite_objective"]
+        # --- objective contract: ONE criterion for logging AND selection --------
+        # The criterion is the discounted return PPO optimises. The legacy
+        # undiscounted sum is still logged (labelled) but never selects a model.
+        from spec.objective_contract import (
+            REWARD_MODE as contract_reward_mode,
+        )
+        from spec.objective_contract import (
+            SCHEMA as contract_schema,
+        )
+        from spec.objective_contract import (
+            SELECTION_METRIC_DEFAULT,
+            SHAPING_DISCOUNT,
+            contract_log_kvs,
+            higher_is_better,
+            selection_value,
+        )
+
+        for key, value in contract_log_kvs().items():
+            logger.logkv(key, value)
+        for label, metrics in (("k0", k0), ("k3", k3)):
+            logger.logkv(
+                "validation/objective_discounted_return_%s" % label,
+                float(metrics["query_discounted_return"]),
+            )
+            logger.logkv(
+                "validation/objective_legacy_undiscounted_sum_%s" % label,
+                float(metrics["query_legacy_undiscounted_sum"]),
+            )
+        selection_metric = str(getattr(self, "selection_metric", SELECTION_METRIC_DEFAULT))
+        contract_higher_is_better = higher_is_better(selection_metric)
+        logger.logkv("checkpoint_selection_metric", "validation/objective_discounted_return")
+        logger.logkv("checkpoint_selection_metric_name", selection_metric)
+        composite = selection_value(selection_metric, k3)
         logger.logkv("checkpoint_selection_scalar", composite)
         # --- ②B: plan-level objective + lexicographic feasibility gate -------
         # objective_mode="off" (default) keeps the legacy composite path exactly.
@@ -241,15 +278,37 @@ class Trainer(object):
             # Objective unavailable under lexicographic selection: the ②B contract
             # forbids the silent legacy fallback, so no best-val checkpoint is written.
             save = False
+        elif not contract_higher_is_better:
+            raise ValueError("unsupported selection direction for %r" % selection_metric)
         else:
-            save = self.best_val_composite is None or composite > self.best_val_composite
+            save = (
+                self.best_val_objective is None or composite > self.best_val_objective
+            )
         if save:
-            self.best_val_composite = max(
-                composite, self.best_val_composite if self.best_val_composite is not None else composite
+            self.best_val_objective = (
+                composite
+                if self.best_val_objective is None
+                else max(composite, self.best_val_objective)
             )
             self.policy.core_policy.save_variables(
                 save_path=self._ckpt_path("meta_model_best_val.ckpt")
             )
+            # The sidecar makes the saved file self-describing: which scalar, which
+            # contract, at which iteration, with which value.
+            with open(self._ckpt_path("meta_model_best_val.metric.json"), "w") as handle:
+                json.dump({
+                    "schema": "best_val_metric_v1",
+                    "contract": contract_schema,
+                    "metric_name": selection_metric,
+                    "csv_key": "validation/objective_discounted_return",
+                    "value": float(composite),
+                    "itr": int(itr),
+                    "higher_is_better": True,
+                    "reward_mode": contract_reward_mode,
+                    "discount": float(SHAPING_DISCOUNT),
+                    "companion_query_mean_latency_seconds": float(k3["query_mean_latency"]),
+                }, handle, indent=2, sort_keys=True)
+                handle.write("\n")
             logger.logkv("checkpoint_is_best_val", 1)
         else:
             logger.logkv("checkpoint_is_best_val", 0)
@@ -481,7 +540,16 @@ class Trainer(object):
             for i in range(len(new_samples_data)):
                 ret = np.concatenate((ret, np.sum(new_samples_data[i]['rewards'], axis=-1)), axis=-1)
 
+            # legacy scalar (undiscounted sum) kept for continuity, never a criterion
             avg_reward = np.mean(ret)
+            from spec.objective_contract import SHAPING_DISCOUNT, discounted_return
+
+            training_objective = float(np.mean([
+                discounted_return(new_samples_data[i]['rewards'], SHAPING_DISCOUNT)
+                for i in range(len(new_samples_data))
+            ])) if len(new_samples_data) else float("nan")
+            logger.logkv("training/objective_discounted_return", training_objective)
+            logger.logkv("training/objective_legacy_undiscounted_sum", float(avg_reward))
 
             latency = np.array([])
             for i in range(len(new_samples_data)):
