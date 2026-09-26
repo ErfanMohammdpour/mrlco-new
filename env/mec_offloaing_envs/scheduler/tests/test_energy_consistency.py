@@ -200,10 +200,11 @@ class TestProbeVerdict(unittest.TestCase):
              "expected_ratio": {"ue": 2.0}},
         ]
         out = summarise(rows)
-        self.assertEqual(out["ue"]["n_graphs"], 2)
-        self.assertAlmostEqual(out["ue"]["mean_measured_ratio"], 2.0)
-        self.assertAlmostEqual(out["ue"]["mean_expected_ratio"], 2.0)
-        self.assertAlmostEqual(out["ue"]["max_abs_identity_error"], 0.0)
+        self.assertEqual(out["n_samples"], 2)
+        self.assertEqual(out["tiers"]["ue"]["n_graphs"], 2)
+        self.assertAlmostEqual(out["tiers"]["ue"]["mean_measured_ratio"], 2.0)
+        self.assertAlmostEqual(out["tiers"]["ue"]["mean_expected_ratio"], 2.0)
+        self.assertAlmostEqual(out["tiers"]["ue"]["max_abs_identity_error"], 0.0)
 
 
 if __name__ == "__main__":

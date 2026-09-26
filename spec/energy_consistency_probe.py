@@ -61,7 +61,7 @@ def summarise(samples: list[dict]) -> dict:
                 (abs(m - e) for m, e in zip(measured, exp)), default=0.0
             ),
         }
-    return out
+    return {"tiers": out, "n_samples": len(samples)}
 
 
 def _mean(values):
