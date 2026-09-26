@@ -60,7 +60,10 @@ class TestPlanAndDirs(unittest.TestCase):
         self.assertEqual(env["MARGO_CONSTRAINTS"], "off")
 
     def test_classification_rejects_inf_not_just_nan(self):
-        rows = [self._row(-1, 900.0, 270.0), self._row(0, float("inf"), 1.0)]
+        rows = [
+            {"itr": -1, "k0": 950.0, "k3": 900.0, "gap_to_all_mec": 270.0, "gap_to_greedy": 271.0},
+            {"itr": 0, "k0": 1.0, "k3": float("inf"), "gap_to_all_mec": 1.0, "gap_to_greedy": 2.0},
+        ]
         self.assertEqual(classification(rows)["verdict"], "INSUFFICIENT_OR_NONFINITE")
 
     def test_contract_is_latency_only_diagnostic(self):
