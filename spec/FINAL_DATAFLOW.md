@@ -1,5 +1,9 @@
 # جریان لحظه‌به‌لحظه — `MARGO-METHOD-v0.2-cavia`
 
+> ⚠️ عنوان این سند منسوخ است: طبق
+> [decisions/ADR-007-adaptation-engine.md](decisions/ADR-007-adaptation-engine.md)
+> روش، CAVIA-on-z نیست؛ بخش‌های dataflow فیزیک/داده معتبر می‌مانند.
+
 قرارداد شکل: `B` = اندازهٔ بچ گراف. یک گراف: `B=1`. Support یک dist: معمولاً `B=20`.  
 همهٔ اندیس‌ها 0-based مگر فایل `.gv`.
 

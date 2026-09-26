@@ -1,5 +1,9 @@
 # پیاده‌سازی روی کد فعلی — فازها و گیت
 
+> ⚠️ **منسوخ در بخش روش:** `MARGO-METHOD-v0.2-cavia` طبق
+> [decisions/ADR-007-adaptation-engine.md](decisions/ADR-007-adaptation-engine.md)
+> روش نیست (CAVIA-on-z فقط baseline/ablation منفی است).
+
 ریشه: `MARGO_BASELINE/mrlco-new`  
 روش: `MARGO-METHOD-v0.2-cavia`  
 نکن: بازنویسی تگ فریز، شروع 3500، Docker/TF روی لپ‌تاپ، `paper_result=true` قبل از پنج‌بذر.

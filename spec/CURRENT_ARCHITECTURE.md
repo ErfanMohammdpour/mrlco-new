@@ -4,7 +4,11 @@
 نسخه مشخصات: `MARGO-SPEC-v0.1`.  
 این فایل توصیف **سیستم پیاده‌شده** است، نه ادعای مقاله. `paper_result=false` تا eval پنج‌بذر قفل‌شده وجود داشته باشد.
 
-روش مقالهٔ هدف (`MARGO-METHOD-v0.2-cavia`) در این فایل نیست. برو به [FINAL_README.md](FINAL_README.md). آنجا: پلن از `π(a|h,z)`، few-shot = CAVIA روی `z`، `schedule()` فقط فیزیک. جستجوی جفت و inner PPO روی θ روش نیستند.
+روش مقالهٔ هدف (`MARGO-METHOD-v0.2-cavia`) در این فایل نیست؛ و طبق
+[decisions/ADR-007-adaptation-engine.md](decisions/ADR-007-adaptation-engine.md)
+این روش **منسوخ** است (CAVIA-on-z تنها baseline/ablation منفی است). شرح روش در
+[FINAL_README.md](FINAL_README.md) آمده، ولی هرجا آن سند CAVIA را «روش» بنامد
+ADR-007 مقدم است. `schedule()` فقط فیزیک است و جستجوی جفت و inner PPO روی θ روش نیستند.
 
 دو لایهٔ **کد فعلی** را قاطی نکن:
 
@@ -130,9 +134,18 @@ decoder index k = موقعیت در دنباله HEFT = سطر obs و اندیس
 MAX_TASKS  = 20
 MAX_NEIGH  = 19
 PAD_INDEX  = -1
+# v1 (پیش‌فرض/فازهای ۱–۳):
 FEATURE_DIM = 11
 PACKED_DIM  = 11 + 2*19 + 1 = 50
+# v2 (محور منبع فاز ۴): FEATURE_DIM=15, PACKED_DIM=54
+# v3 (قرارداد فعلی پایلوت/⑤a، MARGO_OBS_VERSION=v3): FEATURE_DIM=31, PACKED_DIM=70
 ```
+
+> ⚠️ اعداد ۱۱/۵۰ در ادامهٔ این سند مربوط به obs **v1** هستند. مسیر تولید فعلی
+> (Pilot A / P2 / ارزیابی checkpoint) با `MARGO_OBS_VERSION=v3` اجرا می‌شود:
+> `FEATURE_DIM=31`، `PACKED_DIM=70`، `input_dim=70` و بچ `[B, 20, 70]`.
+> مرجع واحد نسخه‌ها: `env/mec_offloaing_envs/scheduler/encoder_obs.py`
+> (خطوط ۱۱–۱۳) و گارد `spec/mask_sanity.py` (`obs_dim_v3 == 70`).
 
 هر گراف: `obs ∈ R^{20 × 50}`. بچ: `[B, 20, 50]`، `time_major=False`.  
 `OffloadingEnvironment.input_dim = 50`.

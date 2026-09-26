@@ -1,5 +1,10 @@
 # MARGO روش نهایی — نقشهٔ فایل‌ها
 
+> ⚠️ **منسوخ در بخش روش:** `MARGO-METHOD-v0.2-cavia` (CAVIA-on-z) طبق
+> [decisions/ADR-007-adaptation-engine.md](decisions/ADR-007-adaptation-engine.md)
+> به‌عنوان موتور adaptation **مرده** است و فقط به‌صورت baseline/ablation منفی
+> باقی می‌ماند. هرجا این سند CAVIA را «روش» می‌نامد، ADR-007 مقدم است.
+
 نسخهٔ روش: `MARGO-METHOD-v0.2-cavia`  
 پایهٔ فیزیک/داده: `MARGO-SPEC-v0.1` (فریز؛ بازنویسی نمی‌شود)  
 `paper_result=false` تا eval پنج‌بذر این روش تمام شود.
