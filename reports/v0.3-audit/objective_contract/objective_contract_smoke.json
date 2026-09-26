@@ -1,0 +1,41 @@
+{
+  "checks": {
+    "best_val_checkpoint_selected": true,
+    "contract_schema_in_csv": true,
+    "latency_companion_present": true,
+    "legacy_scalar_is_a_different_number": true,
+    "selection_column_is_the_objective": true,
+    "selection_metric_is_primary": true,
+    "selection_scalar_equals_objective_k3": true,
+    "sidecar_metric_is_primary": true,
+    "sidecar_names_the_contract": true,
+    "sidecar_value_matches_csv": true,
+    "sidecar_written": true
+  },
+  "latency_k3_seconds": 897.5328197715962,
+  "legacy_undiscounted_sum_k3": 0.6023961999171015,
+  "objective_k0": 0.5112988915061404,
+  "objective_k3": 0.555946990805303,
+  "obs_env": {
+    "MARGO_CONSTRAINTS": "off",
+    "MARGO_MASK_MODE": "off",
+    "MARGO_OBS_VERSION": "v3"
+  },
+  "passed": true,
+  "run_dir": "runs/objective_contract_smoke/seed_0",
+  "schema": "objective_contract_smoke_v1",
+  "selection_scalar": 0.555946990805303,
+  "sidecar": {
+    "companion_query_mean_latency_seconds": 897.5328197715962,
+    "contract": "objective_contract_v1",
+    "csv_key": "validation/objective_discounted_return",
+    "discount": 0.99,
+    "higher_is_better": true,
+    "itr": 0,
+    "metric_name": "discounted_return",
+    "reward_mode": "latency_only",
+    "schema": "best_val_metric_v1",
+    "value": 0.555946990805303
+  },
+  "training_code_sha": "d74c44772257528f3ad78dbae62a155ca5001c19"
+}
