@@ -84,6 +84,24 @@ class TestContainerPathAndProbes(unittest.TestCase):
         )
 
 
+    def test_no_lexicographic_fallback_to_the_legacy_scalar(self):
+        src = (ROOT / "meta_trainer.py").read_text()
+        # the objective-unavailable lexicographic path must not save via the legacy scalar
+        self.assertIn("objective_spec_available", src)
+        self.assertIn("save = False", src)
+
+    def test_selection_flags_separate_best_val_from_the_logged_objective(self):
+        src = (ROOT / "meta_trainer.py").read_text()
+        self.assertIn('"checkpoint_selection_uses_logged_objective"', src)
+        self.assertIn('"checkpoint_selection_source"', src)
+        self.assertIn('"legacy_composite"', src)
+        # composite must be read before it is logged, not from the previous validation
+        self.assertLess(
+            src.index("composite = k3["),
+            src.index('logger.logkv("checkpoint_selection_scalar", composite)'),
+        )
+
+
 class TestSha(unittest.TestCase):
     def test_sha256_file_is_deterministic(self):
         with tempfile.TemporaryDirectory() as tmp:

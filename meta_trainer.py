@@ -191,12 +191,14 @@ class Trainer(object):
         logger.logkv("validation_query_mean_latency_k3", k3["query_mean_latency"])
         logger.logkv("checkpoint_selection_metric", "validation_query_composite_objective")
         composite = k3["validation_query_composite_objective"]
+        logger.logkv("checkpoint_selection_scalar", composite)
         # --- ②B: plan-level objective + lexicographic feasibility gate -------
         # objective_mode="off" (default) keeps the legacy composite path exactly.
         # "log_only" logs J and the constraint channels without changing the winner.
         # "lexicographic" applies: feasible checkpoints first, then min J.
         objective_mode = str(getattr(self, "objective_mode", "off"))
         lexicographic_winner = None
+        objective_spec_available = False
         if objective_mode != "off" and self.objective_spec is not None:
             from spec.objective_selection import objective_log_kvs
 
@@ -207,6 +209,7 @@ class Trainer(object):
                     # never fall back to the legacy scalar silently
                     logger.logkv("checkpoint_is_best_val_lexicographic", 0)
             else:
+                objective_spec_available = True
                 for key, value in objective_log_kvs(obj).items():
                     logger.logkv(key, value)
                 if objective_mode == "lexicographic":
@@ -218,8 +221,26 @@ class Trainer(object):
                         lexicographic_winner = False
                     logger.logkv("checkpoint_is_best_val_lexicographic",
                                  1 if lexicographic_winner else 0)
-        if objective_mode == "lexicographic" and lexicographic_winner is not None:
+        # `meta_model_best_val.ckpt` is chosen by the legacy composite unless
+        # lexicographic selection actually ran; these two flags keep a CSV reader from
+        # mistaking the saved best-val checkpoint for "best under the declared
+        # latency-only objective" (log_only never changes the winner).
+        logger.logkv(
+            "checkpoint_selection_uses_logged_objective",
+            1 if (objective_mode == "lexicographic" and objective_spec_available) else 0,
+        )
+        logger.logkv(
+            "checkpoint_selection_source",
+            "lexicographic_objective"
+            if (objective_mode == "lexicographic" and objective_spec_available)
+            else "legacy_composite",
+        )
+        if objective_mode == "lexicographic" and objective_spec_available:
             save = bool(lexicographic_winner)
+        elif objective_mode == "lexicographic":
+            # Objective unavailable under lexicographic selection: the ②B contract
+            # forbids the silent legacy fallback, so no best-val checkpoint is written.
+            save = False
         else:
             save = self.best_val_composite is None or composite > self.best_val_composite
         if save:
