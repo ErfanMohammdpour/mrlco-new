@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "bytes": 5670,
+      "relative_path": "energy_consistency_evidence.json",
+      "sha256": "94d577d2afdf7c0930651c0c0a42c5d1532134ae8b988cb971c1a9949069ee67"
+    }
+  ],
+  "schema": "energy_consistency_manifest_v1"
+}

@@ -1,0 +1,131 @@
+{
+  "co_physical_ratio_is_unity": true,
+  "configs": {
+    "co_physical": {
+      "energy_accounting_physical": true,
+      "energy_model": "physical_v1",
+      "label": "co_physical",
+      "mixed_physics": false,
+      "radio_timing_model": "physical_rates",
+      "radio_timing_physical": true,
+      "scheduler_config_sha256": "5faadf64855bf177c759e00b8c06d24ee7048766b198c449a52e55ae44c46e72",
+      "timing_model": "physical_rates",
+      "timing_physical": true
+    },
+    "primary_mixed": {
+      "energy_accounting_physical": true,
+      "energy_model": "physical_v1",
+      "label": "mixed_physics_legacy_timing_physical_energy",
+      "mixed_physics": true,
+      "radio_timing_model": "legacy_frozen_rates",
+      "radio_timing_physical": false,
+      "scheduler_config_sha256": "6142c00480c3cc961e4f0eb7a6ebcdf2d8b58dec13db24220d5498dffb646453",
+      "timing_model": "legacy_frozen_rates",
+      "timing_physical": false
+    }
+  },
+  "cpu_only": true,
+  "data_root": "env/mec_offloaing_envs/data/meta_offloading_20",
+  "decoder_order_sha": {
+    "co_physical": "ab2087e41dd6a537b6051cb2cc9cbe3e0dbe0bea44e3417901a16d5c96c582a6",
+    "primary_mixed": "ab2087e41dd6a537b6051cb2cc9cbe3e0dbe0bea44e3417901a16d5c96c582a6"
+  },
+  "evidence_sha256_of_itself": null,
+  "graphs": [
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.0.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.1.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.2.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.3.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_1/random.20.4.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.0.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.1.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.2.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.3.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_2/random.20.4.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.0.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.1.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.2.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.3.gv",
+    "env/mec_offloaing_envs/data/meta_offloading_20/offload_random20_3/random.20.4.gv"
+  ],
+  "max_abs_identity_error": 7.105427357601002e-15,
+  "mean_makespan_seconds": {
+    "co_physical": 1304.182069848889,
+    "primary_mixed": 922.2455768639701
+  },
+  "per_config": {
+    "co_physical": {
+      "n_samples": 15,
+      "tiers": {
+        "helper": {
+          "max_abs_identity_error": 4.440892098500626e-16,
+          "mean_busy_seconds": 721.07112672,
+          "mean_duration_consistent_joules": 12168.075263399998,
+          "mean_expected_ratio": 1.0,
+          "mean_measured_ratio": 1.0,
+          "mean_workload_joules": 12168.075263399998,
+          "n_graphs": 15
+        },
+        "mec": {
+          "max_abs_identity_error": 1.1102230246251565e-15,
+          "mean_busy_seconds": 121.48248027199999,
+          "mean_duration_consistent_joules": 121482.480272,
+          "mean_expected_ratio": 1.0,
+          "mean_measured_ratio": 1.0,
+          "mean_workload_joules": 121482.48027200002,
+          "n_graphs": 15
+        },
+        "ue": {
+          "max_abs_identity_error": 2.220446049250313e-16,
+          "mean_busy_seconds": 1285.2909128,
+          "mean_duration_consistent_joules": 1285.2909128,
+          "mean_expected_ratio": 1.0,
+          "mean_measured_ratio": 1.0,
+          "mean_workload_joules": 1285.2909128,
+          "n_graphs": 15
+        }
+      }
+    },
+    "primary_mixed": {
+      "n_samples": 15,
+      "tiers": {
+        "helper": {
+          "max_abs_identity_error": 4.440892098500626e-16,
+          "mean_busy_seconds": 429.7918836593628,
+          "mean_duration_consistent_joules": 7252.738036751747,
+          "mean_expected_ratio": 1.6777215999999995,
+          "mean_measured_ratio": 1.6777216000000006,
+          "mean_workload_joules": 12168.075263399998,
+          "n_graphs": 15
+        },
+        "mec": {
+          "max_abs_identity_error": 7.105427357601002e-15,
+          "mean_busy_seconds": 48.27280055363975,
+          "mean_duration_consistent_joules": 48272.80055363975,
+          "mean_expected_ratio": 2.5165824,
+          "mean_measured_ratio": 2.5165823999999986,
+          "mean_workload_joules": 121482.48027200002,
+          "n_graphs": 15
+        },
+        "ue": {
+          "max_abs_identity_error": 4.440892098500626e-16,
+          "mean_busy_seconds": 510.72872193654376,
+          "mean_duration_consistent_joules": 510.72872193654376,
+          "mean_expected_ratio": 2.5165824,
+          "mean_measured_ratio": 2.5165824,
+          "mean_workload_joules": 1285.2909128,
+          "n_graphs": 15
+        }
+      }
+    }
+  },
+  "physical_minus_primary_makespan_percent": 41.41375166944866,
+  "physical_minus_primary_makespan_seconds": 381.9364929849188,
+  "primary_ratio_off_unity": true,
+  "ratio_identity_holds": true,
+  "requirement": "any run that makes an energy claim must either use the co-physical config (timing_model=physical_rates) or report the ratio as an explicit caveat; see spec/primary_config.require_energy_timing_consistency",
+  "schema": "energy_consistency_v1",
+  "tolerance": 1e-09,
+  "training_code_sha": "",
+  "verdict": "MIXED_PHYSICS_MEASURED"
+}
