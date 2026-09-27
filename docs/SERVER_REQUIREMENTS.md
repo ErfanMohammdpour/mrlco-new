@@ -137,3 +137,46 @@ spec/kish_gpu.sh pilot-a --root runs/mask_sanity_v3   # ۲۵ iteration (~۱.۶ �
 ## ۸. اگر می‌خواهید فقط CPU کار کنید
 
 بدون GPU هم می‌شود: **کل سوئیت تست، probe فیزیک، ساخت sidecar ددلاین، sweep، و merge ارزیابی** روی CPU اجرا می‌شوند (همین الان ارزیابی سه چک‌پوینت روی CPU کیش اجرا شد، هر label ≈۴۴ دقیقه). فقط **train و gpu-smoke** به GPU نیاز دارند. برای این کار: ۱۶ هسته + ۳۲ GB RAM + ۲۰۰ GB دیسک کافی است.
+
+---
+
+## ۹. «آیا TF 1.15 داخل کانتینر روی Ubuntu 24 قطعاً اجرا می‌شود؟» — بله، و اثباتش
+
+نسخهٔ Ubuntu هاست **وارد معادله نمی‌شود**، چون کانتینر userland خودش را دارد. اثبات تجربی روی همان `kish-ai` (هاست Ubuntu 24.04.4 / kernel 6.8 / درایور 580.65.06):
+
+```
+container_os = Ubuntu 20.04.6 LTS        <- از خود ایمیج
+ldd (Ubuntu GLIBC 2.31-0ubuntu9.12) 2.31 <- glibc کانتینر، نه هاست
+python 3.8.10
+GPU 0: NVIDIA GeForce RTX 4090
+tf 1.15.5
+tf.contrib True
+gpu_available True
+device list: CPU, XLA_CPU, XLA_GPU, GPU:0
+matmul_on_gpu_ok [[7.0, 10.0], [15.0, 22.0]]
+```
+
+### چرا کار می‌کند (مکانیزم دقیق)
+
+| لایه | از کجا می‌آید | نسخه |
+|---|---|---|
+| glibc، Python، CUDA user-space (libcudart/cuDNN/cuBLAS)، TF | **داخل ایمیج** | Ubuntu 20.04 / glibc 2.31 / Py3.8 / CUDA 11.8 |
+| کرنل | هاست | 6.8.0-85 |
+| `libcuda.so` و `/dev/nvidia*` | هاست، توسط nvidia-container-toolkit با `--gpus all` تزریق می‌شود | درایور 580.65.06 |
+| سرویس‌دهی کانتینر | هاست | Docker 29.1.3 + cgroup v2 |
+
+تنها کوپلینگ واقعی دو چیز است: (۱) کرنل باید توسط درایور پشتیبانی شود، (۲) درایور باید حداقل نسخهٔ CUDA 11.8 یعنی **≥ 520.61.05** را داشته باشد. درایورهای جدید با CUDA user-space قدیمی‌تر سازگارند (minor-version compatibility)، پس ۵۸۰ با CUDA 11.8 مشکلی ندارد.
+
+### چه چیزی واقعاً می‌شکند (هیچ‌کدام «Ubuntu 24» نیست)
+
+| سناریو | نتیجه |
+|---|---|
+| ایمیج `margo-phase4-tf115-nv2212` روی هر Ubuntu x86_64 با کرنل ۵.۱۵–۶.۸ و درایور ≥۵۲۰ | ✅ (روی ۲۴.۰۴/۶.۸/۵۸۰ اثبات شد) |
+| ایمیج legacy `margo-phase4-tf115-gpu` (CUDA 10) روی Ada/4090 | ❌ `Blas GEMM launch failed / no sm_89` |
+| نصب **بومی** TF 1.15 روی Ubuntu 24 (بدون داکر) | ❌ عملاً غیرممکن: پایتون ۳.۱۲، glibc 2.39، و حذف `tf.contrib` در TF2 |
+| درایور < 520.61 | ❌ CUDA 11.8 initialize نمی‌شود |
+| GPU Hopper (H100، sm_90) | ⚠️ wheel سری nv22.12 برای sm_90 ساخته نشده؛ تست‌نشده |
+| داکر بدون `nvidia-container-toolkit` | ❌ `--gpus all` با «could not select device driver» شکست می‌خورد |
+| کرنل خیلی جدید (مثلاً ۶.۱۴) با درایور قدیمی | ⚠️ درایور باید هم‌نسل کرنل باشد (مشکل درایور، نه توزیع) |
+
+این probe در حالی اجرا شد که یک job خارجی ~۲۲ GB از ۲۴.۵ GB کارت را گرفته بود و با `TF_FORCE_GPU_ALLOW_GROWTH=true` بدون اختلال در آن job تمام شد (کانتینر با `--rm` هیچ artifactی نگذاشت).
