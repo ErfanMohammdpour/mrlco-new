@@ -294,3 +294,63 @@ Host must provide: NVIDIA driver >= 520.61 (550+ preferred, Secure Boot either
     nvidia-container-toolkit. Our workload runs entirely inside our own
     Ubuntu 20.04-based container, so no other host packages are required.
 ```
+
+---
+
+## ۱۲. اگر دانشگاه فقط ۱۸.۰۴ / ۲۰.۰۴ / ۲۲.۰۴ دارد
+
+**انتخاب: Ubuntu 22.04 LTS.** آن دو تای دیگر را نپذیرید.
+
+| گزینه | پشتیبانی استاندارد | ماتریس تست‌شدهٔ NVIDIA Toolkit | حکم |
+|---|---|---|---|
+| **22.04 LTS** | **تا Jun 2027** | ✅ فهرست‌شده | **بگیرید** |
+| 20.04 LTS | پایان May 2025 | ❌ فهرست نشده | رد کنید |
+| 18.04 LTS | پایان Jun 2023 | ❌ فهرست نشده | رد کنید |
+
+منابع: [Platform Support — NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/supported-platforms.html) · [Ubuntu — List of releases](https://ubuntu.com/project/docs/release-team/list-of-releases/).
+
+### آماده‌سازی هاست ۲۲.۰۴ (دستورها)
+
+```bash
+# 1) درایور NVIDIA (≥ 520.61 لازم است؛ ۵۵۰ پیشنهادی). کرنل 5.15 GA یا HWE 6.5/6.8 هر دو OK.
+sudo apt-get update
+sudo apt-get install -y linux-headers-$(uname -r)      # برای DKMS، هم‌نسخهٔ کرنل
+sudo ubuntu-drivers install                            # یا: sudo apt-get install -y nvidia-driver-550
+sudo reboot
+nvidia-smi                                             # باید کارت را نشان دهد
+
+# 2) Docker از مخزن رسمی (نه پکیج توزیع)
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+
+# 3) NVIDIA Container Toolkit (نسخهٔ 1.20.x) — طبق راهنمای رسمی
+sudo apt-get install -y --no-install-recommends ca-certificates curl gnupg2
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+  | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+  | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+  | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit nvidia-container-toolkit-base \
+                        libnvidia-container-tools libnvidia-container1
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+# 4) تأیید نهایی
+docker run --rm --gpus all nvidia/cuda:11.8.0-base-ubuntu22.04 nvidia-smi
+```
+
+سپس ایمیج پروژه را بسازید و چک‌لیست بخش ۶ را اجرا کنید (`probe` → `gate` → `energy-tests` → `smoke`).
+
+### نکات مخصوص ۲۲.۰۴
+
+- **پایتون هاست بی‌اهمیت است** (روی ۲۲.۰۴ پایتون ۳.۱۰ است). هیچ بستهٔ پایتون/TF روی هاست نصب نکنید؛ همه‌چیز داخل کانتینر با پایتون ۳.۸ اجرا می‌شود.
+- **Secure Boot**: اگر روشن است، ماژول NVIDIA باید MOK-signed شود، وگرنه `nvidia-smi` کارت را نمی‌بیند.
+- **باگ شناخته‌شدهٔ cgroup**: روی سیستم‌هایی که systemd cgroup driver دارند، اجرای `systemctl daemon-reload` می‌تواند دسترسی کانتینرها به GPU را قطع کند. راه‌حل مستندشده:
+  `sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place`
+- **kerne HWE**: اگر ۲۲.۰۴ با کرنل HWE 6.5/6.8 می‌دهند مشکلی نیست؛ فقط درایور باید هم‌نسل کرنل باشد (۵۵۰+ هر دو را پوشش می‌دهد).
+- **cgroup v2**: پیش‌فرض ۲۲.۰۴ است و با Docker و تولکیت کار می‌کند.
+- پایهٔ کانتینر همان `ubuntu20.04` می‌ماند و **ربطی به نسخهٔ هاست ندارد** (بخش ۹ و ۱۱).
