@@ -239,3 +239,58 @@ FALLBACK IF ONLY ONE GPU IS AVAILABLE
 - **≥۲۴ GB VRAM:** روی ۲۴ GB اثبات شده است (RTX 4090).
 - **Ampere/Ada و نه H100:** wheel `nvidia_tensorflow 1.15.5+nv22.12` kernels برای `sm_90` ندارد.
 - **درایور ≥۵۲۰:** حداقل لازم برای CUDA 11.8 داخل کانتینر.
+
+---
+
+## ۱۱. تصمیم قطعی دربارهٔ نسخهٔ OS (۲۴ یا ۲۲ یا ۲۰ یا ۱۸؟)
+
+سه چیز را جدا می‌کنیم: **نسخهٔ هاست**، **نسخهٔ داخل کانتینر**، و **کرنل/درایور**.
+
+### الف) هاست: اعلام کنید **Ubuntu 24.04 LTS**
+
+| نسخه | پایان پشتیبانی استاندارد (منبع: ubuntu.com) | در ماتریس تست‌شدهٔ NVIDIA Container Toolkit | حکم |
+|---|---|---|---|
+| **24.04 LTS** | **Jun 2029** | ✅ فهرست‌شده | **انتخاب اول — و روی همین نسخه اثبات شده** |
+| 22.04 LTS | Jun 2027 | ✅ فهرست‌شده | قابل‌قبول اگر IT استانداردش است (پنجرهٔ کوتاه‌تر) |
+| 26.04 LTS | May 2031 | ✅ فهرست‌شده | ممکن است، ولی ما تست نکرده‌ایم |
+| 20.04 LTS | **May 2025 (گذشته)** | ❌ فهرست نشده | **اعلام نکنید** |
+| 18.04 LTS | **Jun 2023 (گذشته)** | ❌ فهرست نشده | **قطعاً نه** |
+
+منابع: [NVIDIA Container Toolkit — Platform Support](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/supported-platforms.html) و [Ubuntu — List of releases](https://ubuntu.com/project/docs/release-team/list-of-releases/).
+
+### ب) داخل کانتینر: **Ubuntu 20.04 می‌ماند** و این عمدی است
+
+پایهٔ ایمیج `nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04` است. دلیل فنی قطعی: چرخ NVIDIA برای TF 1.15.5 **فقط cp38** منتشر شده است:
+
+```
+NVIDIA_TF_WHEEL = nvidia_tensorflow-1.15.5+nv22.12-6638418-cp38-cp38-linux_x86_64.whl
+```
+
+روی پایهٔ ۲۴.۰۴ یا ۲۲.۰۴، `python3` به‌ترتیب ۳.۱۲ و ۳.۱۰ است و **این wheel نصب نمی‌شود**. پس یا پایه ۲۰.۰۴ بماند، یا در بازسازی باید صریحاً Python 3.8 روی پایهٔ جدید نصب شود. تفاوت نسخهٔ هاست و کانتینر هیچ اثری روی اجرا ندارد (بخش ۹).
+
+اگر سیاست امنیتی دانشگاه پایهٔ EOL را ممنوع می‌کند: کانتینر سرویس بیرونی ندارد، شبکه‌ای expose نمی‌کند و فقط ورودی داده می‌گیرد؛ با این حال می‌توان همان دستور پخت را روی پایهٔ جدیدتر با Python 3.8 بازسازی و با `probe` + `energy-tests` دوباره تأیید کرد (≈۱ ساعت کار، بدون GPU).
+
+### ج) کرنل و درایور (تنها کوپلینگ واقعی)
+
+| مورد | مقدار لازم | تأییدشده |
+|---|---|---|
+| کرنل هاست | 5.15 (GA 22.04) یا 6.8 (GA 24.04 / HWE 22.04) | kernel 6.8.0-85 ✅ |
+| درایور NVIDIA | **≥ 520.61.05** (حداقل CUDA 11.8)؛ پیشنهاد 550/570/580 | 580.65.06 ✅ |
+| Docker | هر نسخه‌ای که `--gpus all` را پشتیبانی کند (≥ 19.03)؛ از مخزن رسمی Docker نصب شود | 29.1.3 ✅ |
+| nvidia-container-toolkit | لازم؛ نسخهٔ جدید | ✅ |
+| cgroup | v2 (پیش‌فرض 24.04) یا هیبرید v1 — هر دو کار می‌کنند | cgroup v2 ✅ |
+
+**تله‌های رایج که ران را قطعی خراب می‌کنند:** Secure Boot روشن بدون MOK enrollment (ماژول `nvidia` لود نمی‌شود)؛ نبود `linux-headers` هم‌نسخهٔ کرنل برای DKMS؛ نصب داکر از پکیج توزیع به‌جای مخزن رسمی؛ نبود `nvidia-container-toolkit` (خطای `could not select device driver`).
+
+### د) خط نهایی برای فرم درخواست
+
+```text
+OS: Ubuntu 24.04 LTS (x86_64), kernel 6.8 — preferred and verified by us.
+    Ubuntu 22.04 LTS is acceptable as a second choice.
+    Ubuntu 20.04 / 18.04 are NOT acceptable (standard support ended May 2025 /
+    Jun 2023, and neither is in NVIDIA Container Toolkit's tested platform list).
+Host must provide: NVIDIA driver >= 520.61 (550+ preferred, Secure Boot either
+    disabled or MOK-enrolled), Docker Engine (official repo) and
+    nvidia-container-toolkit. Our workload runs entirely inside our own
+    Ubuntu 20.04-based container, so no other host packages are required.
+```
