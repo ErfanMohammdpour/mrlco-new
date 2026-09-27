@@ -180,3 +180,62 @@ matmul_on_gpu_ok [[7.0, 10.0], [15.0, 22.0]]
 | کرنل خیلی جدید (مثلاً ۶.۱۴) با درایور قدیمی | ⚠️ درایور باید هم‌نسل کرنل باشد (مشکل درایور، نه توزیع) |
 
 این probe در حالی اجرا شد که یک job خارجی ~۲۲ GB از ۲۴.۵ GB کارت را گرفته بود و با `TF_FORCE_GPU_ALLOW_GROWTH=true` بدون اختلال در آن job تمام شد (کانتینر با `--rm` هیچ artifactی نگذاشت).
+
+---
+
+## ۱۰. فرم آمادهٔ اعلام به دانشگاه / مرکز داده
+
+متن زیر را می‌توانید مستقیم در فرم درخواست سرور یا ایمیل به IT کپی کنید.
+
+```text
+Subject: GPU compute server request — meta-learning research project (MARGO)
+
+WORKLOAD
+  Single-node, single-project deep-learning research. All software runs inside a
+  Docker image we build ourselves; nothing is installed natively on the host.
+
+OPERATING SYSTEM
+  Ubuntu 22.04 LTS or 24.04 LTS (x86_64). Kernel 5.15 - 6.8.
+  Host distribution version is NOT critical (see SOFTWARE below).
+
+HARDWARE (preferred)
+  GPU    : 4 x NVIDIA, each with >= 24 GB VRAM, Ampere or Ada generation
+           (RTX 4090 / A5000 / L40S / A100 are all fine).
+           Please do NOT allocate Hopper/H100: our TensorFlow 1.15 wheel has no
+           sm_90 kernels.
+  CPU    : 64 cores (>= 16 physical cores per concurrently scheduled GPU job)
+  RAM    : 256 GB ECC (>= 64 GB per concurrently scheduled GPU job)
+  Storage: 2 TB local NVMe SSD (>= 1 TB); ~300-400 GB used per project phase
+  Network: outbound internet during image build, or a way to transfer a ~3 GB
+           docker image archive (docker save / docker load)
+
+SOFTWARE TO BE PRESENT ON THE HOST
+  - NVIDIA driver >= 520.61 (550+ preferred)
+  - Docker Engine >= 24
+  - nvidia-container-toolkit (required for `docker run --gpus all`)
+  - sudo/root or membership in the `docker` group; SSH access
+  NOT needed: CUDA toolkit on the host, MPI, InfiniBand, multi-node, SLURM
+  (SLURM is fine if present, we just wrap the container in srun --gres=gpu:1)
+
+SCHEDULING / EXCLUSIVITY
+  One GPU must be exclusively ours while a job runs. Our long runs take 8-10
+  days on one GPU and must not share VRAM with other users' jobs.
+
+RUNTIME (our image, for reference)
+  margo-phase4-tf115-nv2212 = nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
+  + Python 3.8 + TensorFlow 1.15.5 (NVIDIA nv22.12 wheel, tf.contrib required)
+
+FALLBACK IF ONLY ONE GPU IS AVAILABLE
+  1 x >= 24 GB GPU, 32 cores, 128 GB RAM, 1 TB NVMe.
+  Acceptable, but the paper's 5-seed campaign takes ~43 days instead of ~10.
+```
+
+### اگر IT پرسید «چرا این اعداد؟» — پاسخ کوتاه
+
+- **۴ GPU نه ۱:** کد **تک‌GPU** است (یک `Session` در TF 1.15؛ نه DDP نه multi-GPU). پس تعداد GPU به‌جای سرعتِ یک GPU، **موازی‌سازی seed** می‌خرد. نرخ اندازه‌گیری‌شده ۳.۵۵۳ دقیقه بر iteration ⇒ ۳۵۰۰ iteration ≈ **۸.۶ روز برای هر seed**.
+- **۶۴ هسته:** با `parallel=True` موتور محیط دقیقاً **۱۰ پروسهٔ worker** می‌سازد (`meta_batch_size=10`) به‌علاوهٔ پروسهٔ اصلی ⇒ ~۱۶ هسته برای هر ران هم‌زمان.
+- **۲۵۶ GB RAM:** ~۱۲–۱۶ GB به‌ازای هر ران؛ روی سرور مرجع ۸۸ GB با دو ران هم‌زمان کافی بود.
+- **۲ TB NVMe:** لاگ‌های audit ≈ **۱۷ MB بر iteration** ⇒ ~۶۰ GB برای هر seed ۳۵۰۰تایی ⇒ ۵ seed ≈ ۳۰۰ GB.
+- **≥۲۴ GB VRAM:** روی ۲۴ GB اثبات شده است (RTX 4090).
+- **Ampere/Ada و نه H100:** wheel `nvidia_tensorflow 1.15.5+nv22.12` kernels برای `sm_90` ندارد.
+- **درایور ≥۵۲۰:** حداقل لازم برای CUDA 11.8 داخل کانتینر.
