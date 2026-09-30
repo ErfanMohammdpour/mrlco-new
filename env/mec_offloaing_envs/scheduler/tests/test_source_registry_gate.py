@@ -235,6 +235,43 @@ class TestResourceOntology(unittest.TestCase):
                               ("single", "use_case_conditioned", "all_must_be_allowed"))
 
 
+class TestTranscriptionLedger(unittest.TestCase):
+    """A verified row must carry a ledger, and the ledger must not go stale."""
+
+    def setUp(self):
+        self.module = _validator()
+
+    def _row(self, **extra):
+        row = {"parameter_name": "x", "required_by_generator": True,
+               "source_verification": "official_verified", "transcription_verified": True,
+               "measurement_scope": "communication", "semantic_role": "requirement",
+               "allowed_for_generation": True}
+        row.update(extra)
+        return row
+
+    def test_verified_row_without_ledger_is_a_violation(self):
+        violations, _s = self.module.validate({"sources": [{"parameters": [self._row()]}]})
+        self.assertTrue(any("without an explicit ledger" in v for v in violations), violations)
+
+    def test_ledger_missing_a_field_is_a_violation(self):
+        row = self._row(transcription_ledger={"document_version": "TS 22.186 V16.2.0",
+                                              "section": "5.3", "table": "Table 5.3-1",
+                                              "requirement_id": "R.5.3-001", "column": "x",
+                                              "value": "10"})   # unit + evidence_sha256 absent
+        violations, _s = self.module.validate({"sources": [{"parameters": [row]}]})
+        self.assertTrue(any("ledger missing unit" in v for v in violations), violations)
+        self.assertTrue(any("ledger missing evidence_sha256" in v for v in violations), violations)
+
+    def test_stale_evidence_reference_is_a_violation(self):
+        row = self._row(transcription_ledger={"document_version": "TS 22.186 V16.2.0",
+                                              "section": "5.3", "table": "Table 5.3-1",
+                                              "requirement_id": "R.5.3-001", "column": "x",
+                                              "value": "10", "unit": "ms",
+                                              "evidence_sha256": "0" * 64})
+        violations, _s = self.module.validate({"sources": [{"parameters": [row]}]})
+        self.assertTrue(any("stale evidence" in v for v in violations), violations)
+
+
 class TestPin(unittest.TestCase):
     def test_real_pin_is_fresh(self):
         import hashlib

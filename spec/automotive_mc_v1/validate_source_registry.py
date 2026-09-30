@@ -37,6 +37,9 @@ ADMISSION_FIELDS = (
 REGISTRY = Path(__file__).resolve().parent / "SOURCE_REGISTRY.yaml"
 MANIFEST = Path(__file__).resolve().parent / "REQUIRED_PARAMETER_MANIFEST.yaml"
 PIN = Path(__file__).resolve().parent / "registry_pin.json"
+EVIDENCE = Path(__file__).resolve().parent / "evidence" / "TS122186_v160200_tables_excerpt.txt"
+LEDGER_FIELDS = ("document_version", "section", "table", "requirement_id",
+                 "column", "value", "unit", "evidence_sha256")
 CATEGORIES = {"execution", "payload", "communication_budget",
               "communication_capacity", "compute_capacity", "application_e2e", "rule"}
 BINDING_POLICIES = {"single", "use_case_conditioned", "all_must_be_allowed"}
@@ -120,6 +123,8 @@ def check_pin(doc_hash: str) -> tuple[list[str], dict]:
 
 def validate(doc: dict) -> tuple[list[str], dict]:
     violations: list[str] = []
+    expected_evidence = (hashlib.sha256(EVIDENCE.read_bytes()).hexdigest()
+                         if EVIDENCE.exists() else "")
     rows = [q for s in doc.get("sources", []) for q in (s.get("parameters") or [])]
     required = blocked_required = 0
     for row in rows:
@@ -140,6 +145,19 @@ def validate(doc: dict) -> tuple[list[str], dict]:
                 f"(source_verification={sv!r}, transcription_verified="
                 f"{row.get('transcription_verified')!r})"
             )
+        if row.get("transcription_verified") is True:
+            led = row.get("transcription_ledger")
+            if not led:
+                violations.append(f"{name}: transcription_verified without an explicit ledger")
+            else:
+                for field in LEDGER_FIELDS:
+                    if not led.get(field):
+                        violations.append(f"{name}: ledger missing {field}")
+                recorded = led.get("evidence_sha256")
+                if recorded and expected_evidence and recorded != expected_evidence:
+                    violations.append(
+                        f"{name}: ledger references stale evidence {str(recorded)[:16]} "
+                        f"!= current {expected_evidence[:16]}")
         if row.get("defines_D_G"):
             if row.get("semantic_role") == "measured_latency":
                 violations.append(f"{name}: measured_latency may not define D_G")
@@ -152,6 +170,8 @@ def validate(doc: dict) -> tuple[list[str], dict]:
         "required_by_generator": required,
         "blocked_required_parameters": blocked_required,
         "allowed_rows": sum(1 for r in rows if r.get("allowed_for_generation")),
+        "ledger_entries": sum(1 for r in rows if r.get("transcription_ledger")),
+        "evidence_sha256_current": expected_evidence,
         "violations": len(violations),
     }
     return violations, stats

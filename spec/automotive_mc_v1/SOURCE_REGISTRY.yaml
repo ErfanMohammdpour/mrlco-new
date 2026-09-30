@@ -78,9 +78,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.3
+          table: Table 5.3-1
+          requirement_id: R.5.3-001
+          column: "Payload size (bytes)"
+          value: "2000"
+          unit: B
+          extracted_sequence: "2000 100 10 99.99 10"
+          mapping_justification: >-
+            first column of an unambiguous 5-value row
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         interpretation: V2X message payload size required by the service
         margo_use: constrains edge/task payload semantics B_e (message payload),
           never a compute workload
@@ -93,9 +106,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.3
+          table: Table 5.3-1
+          requirement_id: R.5.3-001
+          column: "Transmission rate (msg/s)"
+          value: "100"
+          unit: msg/s
+          extracted_sequence: "2000 100 10 99.99 10"
+          mapping_justification: >-
+            second column, followed by the latency value
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         interpretation: message transmission rate for the service
         margo_use: candidate generation rate for cooperative-perception messages;
           may set a periodicity constraint, not a graph deadline
@@ -108,9 +134,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.3
+          table: Table 5.3-1
+          requirement_id: R.5.3-001
+          column: "Max. end-to-end latency (ms)"
+          value: "10"
+          unit: ms
+          extracted_sequence: "2000 100 10 99.99 10"
+          mapping_justification: >-
+            third column; matches the documented requirement semantics
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         interpretation: maximum end-to-end latency of the V2X message exchange
           between UEs for this service
         margo_use: hop/message latency budget for communication-scope constraints
@@ -155,9 +194,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.3
+          table: Table 5.3-1
+          requirement_id: R.5.3-006
+          column: "Payload size (bytes)"
+          value: "2000"
+          unit: B
+          extracted_sequence: "2000 3 99.999 30 500"
+          mapping_justification: >-
+            first value of the row
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         margo_use: payload semantics for a high-criticality cooperative message
       - parameter_name: emergency_trajectory_alignment_max_e2e_latency
         value: 3
@@ -168,9 +220,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.3
+          table: Table 5.3-1
+          requirement_id: R.5.3-006
+          column: "Max. end-to-end latency (ms)"
+          value: "3"
+          unit: ms
+          extracted_sequence: "2000 3 99.999 30 500"
+          mapping_justification: >-
+            row carries 5 values for the 6-column layout, so the Tx-rate column is N/A in this row; payload/latency/reliability/data-rate/range order is unambiguous and reproduces the standard's own reading of R.5.3-006
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         margo_use: communication-scope latency budget; NOT D_G
       - parameter_name: emergency_trajectory_alignment_reliability
         value: 99.999
@@ -225,6 +290,10 @@ sources:
         source_verification: official_verified
         transcription_verified: false   # pending primary/full-text check
         required_by_generator: true
+        blocked_reason: >-
+          flattened Table 5.4-1 stream carries no per-row column labels, so the
+          correspondence between the 3/10/50 ms values and their reliability/data-rate
+          columns is not yet established; the flag stays closed until it is
         allowed_for_generation: false
         interpretation: per-row maximum end-to-end latency for sensor information
           sharing, with row-specific reliability and data rate
@@ -321,9 +390,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.2
+          table: Table 5.2-1
+          requirement_id: R.5.2-006
+          column: "Payload size (bytes)"
+          value: "50-1200"
+          unit: B
+          extracted_sequence: "50-1200 30 10 99.99 80"
+          mapping_justification: >-
+            first value of the row
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         sampling_rule_required: true
         margo_use: payload range for platooning messages; a deterministic binning
           rule must be declared before generation
@@ -336,9 +418,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.2
+          table: Table 5.2-1
+          requirement_id: R.5.2-006
+          column: "Transmission rate (msg/s)"
+          value: "30"
+          unit: msg/s
+          extracted_sequence: "50-1200 30 10 99.99 80"
+          mapping_justification: >-
+            row carries 5 values for the 6-column layout, so the range column is N/A; payload-range/Tx-rate/latency/reliability/data-rate order is unambiguous
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         margo_use: platooning message periodicity context
       - parameter_name: platooning_max_e2e_latency
         value: 10
@@ -349,9 +444,22 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; unambiguous column mapping
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: 5.2
+          table: Table 5.2-1
+          requirement_id: R.5.2-006
+          column: "Max. end-to-end latency (ms)"
+          value: "10"
+          unit: ms
+          extracted_sequence: "50-1200 30 10 99.99 80"
+          mapping_justification: >-
+            row carries 5 values for the 6-column layout, so the range column is N/A; payload-range/Tx-rate/latency/reliability/data-rate order is unambiguous
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
         margo_use: communication-scope budget; NOT D_G
       - parameter_name: platooning_reliability
         value: 99.99
@@ -367,6 +475,37 @@ sources:
         not_required_reason: reference/background only in v1 scope (video sharing and remote driving families are out of scope for v1)
         allowed_for_generation: false
         margo_use: reliability context only
+
+      - parameter_name: platooning_data_rate
+        value: 80
+        unit: Mbps
+        table: Table 5.2-1
+        requirement_id: R.5.2-006
+        measurement_scope: communication
+        semantic_role: requirement
+        label: standard-derived
+        source_verification: official_verified
+        transcription_verified: true
+        allowed_for_generation: true
+        required_by_generator: false
+        not_required_reason: reference/background only in v1 scope (video sharing and remote driving families are out of scope for v1)
+        note: >-
+          service/use-case data rate, observed in the same row as the platooning
+          payload range; it is NOT a scheduler capacity and must never become one
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: "5.2"
+          table: Table 5.2-1
+          requirement_id: R.5.2-006
+          column: "Data rate (Mbps)"
+          value: "80"
+          unit: Mbps
+          extracted_sequence: "50-1200 30 10 99.99 80"
+          mapping_justification: >-
+            fifth value of the row, following reliability; a service requirement,
+            recorded in its own semantic role and never as achievable capacity
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
 
   - source_id: ECLIPSE-APP4MC-AMALTHEA
     type: official tool documentation / model specification

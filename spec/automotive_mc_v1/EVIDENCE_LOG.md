@@ -47,3 +47,26 @@ recorded and matches the excerpt.
 complete rows. **Not yet verified:** page numbers (the legacy `.doc` stream has no
 reliable page index; the table number and requirement id are used instead, and
 this limitation is recorded rather than papered over).
+
+## Transcription closure batch 1 — nine rows verified with an explicit ledger
+
+Each verified row now carries a `transcription_ledger` with `document_version`,
+`section`, `table`, `requirement_id`, `column`, `value`, `unit`,
+`extracted_sequence`, `mapping_justification`, `evidence_file` and
+`evidence_sha256` (the hash of the tracked excerpt). The validator refuses a row
+that claims `transcription_verified: true` without a complete ledger, and refuses
+a ledger whose `evidence_sha256` no longer matches the tracked evidence file, so a
+regenerated excerpt invalidates every dependent row instead of silently passing.
+
+Verified from TS 22.186 V16.2.0: R.5.3-001 payload/rate/latency, R.5.3-006
+payload/latency, R.5.2-006 payload range/rate/latency, plus the platooning data
+rate of 80 Mbps recorded in its own semantic role as a service requirement.
+
+Deliberately still blocked: `extended_sensors_high_automation_latency_set`
+(Table 5.4-1). Its flattened stream carries no per-row column labels, so the
+correspondence between the 3/10/50 ms values and the reliability/data-rate columns
+is not established; the row records a `blocked_reason` rather than a guess.
+
+Gate after this batch: allowed rows 9, ledger entries 9, blocked required
+parameters 5 (the four execution-timing rows and this one Table 5.4-1 row),
+missing required parameters 17, violations 0, pin fresh, gate BLOCKED.
