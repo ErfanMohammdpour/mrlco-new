@@ -294,6 +294,36 @@ required_parameters:
       (t_i^ref <-> f_ref <-> measurement platform); a tier name alone is not enough.
       W_i is compute demand only and must never be used as a communication edge
       payload, and B_e must never be derived from it.
+    status: BLOCKED
+    blocking_reason: >-
+      no CPU-compatible timing source has been confirmed yet. The four verified
+      execution rows (Sensors 2026 and IET ITS) are GPU/accelerator measurements
+      with conversion_to_cycles forbidden and eligible_for_t_ref false, so with
+      zero eligible rows the locked relation
+      W_i = t_ref_i * f_ref / (8 * xi) has no admissible input.
+    candidates:
+      - id: DATE-2021-ONLINE-LATENCY-MONITORING
+        url: https://past.date-conference.com/proceedings-archive/2021/pdf/1497.pdf
+        title: Online latency monitoring of time-sensitive event chains in safety-critical applications
+        venue: DATE 2021
+        platform_reported: Intel Core i5-3210M running Autoware.Auto
+        caveat: >-
+          the per-stage timings live inside Figure 2; a figure cannot be attributed
+          to the platform from extracted text alone, and the numbers must be read
+          from the figure rather than estimated from the plot
+      - id: EXENBERGER-ET-AL-CHARACTERIZING
+        url: https://upcommons.upc.edu/bitstream/handle/2117/356419/Exenberger%20et%20al.pdf
+        title: Characterizing Self-driving Tasks in General-purpose Architectures
+      - id: AUTOWARE-PERF-JSA-2021
+        url: https://www.sciencedirect.com/science/article/abs/pii/S1382121002344
+        title: Autoware_Perf - Tracing and Performance Analysis Framework for ROS 2 Applications
+    closing_conditions: >-
+      (1) a CPU-compatible timing row whose hardware class and frequency are both
+      stated, with the measurement platform bound to the tier
+      (t_i^ref <-> f_ref <-> platform); or (2) an explicit, frozen
+      conversion_rule_id that legitimately maps an accelerator measurement onto the
+      declared reference tier. Until one of these exists, reference_execution_tier
+      stays missing and NO t_ref -> cycles conversion is fabricated.
 
   # ---- rules satisfied by structural sources, no numeric row needed -----
   - id: criticality_role_taxonomy
