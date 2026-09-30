@@ -65,6 +65,17 @@ class TestSourceRegistryGate(unittest.TestCase):
             "semantic_role": "execution_time",
             "allowed_for_generation": allowed,
         }
+        if tv:
+            # a row claiming transcription must carry a complete, fresh ledger
+            import hashlib
+
+            evidence = _validator().EVIDENCE
+            row["transcription_ledger"] = {
+                "document_version": "TS 22.186 V16.2.0", "section": "5.3",
+                "table": "Table 5.3-1", "requirement_id": "R.5.3-001",
+                "column": "Max. end-to-end latency (ms)", "value": "10", "unit": "ms",
+                "evidence_sha256": hashlib.sha256(evidence.read_bytes()).hexdigest(),
+            }
         row.update(extra)
         return row
 
