@@ -1,0 +1,12 @@
+{
+  "allowed_rows": 0,
+  "blocked_required_parameters": 13,
+  "note": "pinned baseline: schema sound, evidence closure outstanding; Step 2 passes when blocked_required_parameters == 0",
+  "numeric_rows": 26,
+  "registry_schema": "source_registry_v3",
+  "required_by_generator": 13,
+  "source_registry_sha256": "a2b89644131b553344b30d83ff60a6bde4c739f45f53e6d15de841fb07c9cebd",
+  "sources": 8,
+  "step2_gate": "BLOCKED",
+  "violations": 0
+}
