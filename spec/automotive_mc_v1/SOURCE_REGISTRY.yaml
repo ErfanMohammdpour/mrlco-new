@@ -13,7 +13,16 @@
 # label taxonomy: measured | standard-derived | trace-fitted |
 #                 source-calibrated-synthetic | synthetic
 
-schema_version: source_registry_v2
+schema_version: source_registry_v3
+#
+# allowed_for_generation = source_acceptable AND transcription_verified
+#   (or, for generated values, generation_rule_verified AND generation_rule_id != ∅)
+#
+# source_verification says the DOCUMENT is authoritative. It says nothing about
+# whether the number written in this file was transcribed correctly. That is what
+# transcription_verified records, and until it is true the row may not be used by
+# the generator even when the source is a standard. No row is admitted on the
+# strength of its source alone.
 #
 # verification_status (third independent field on every numeric row):
 #   official_verified          read from the official standard/document text
@@ -50,7 +59,7 @@ sources:
     year: 2020
     url_etsi_delivery_path: https://www.etsi.org/deliver/etsi_ts/122100_122199/122186/16.02.00_60/
     url_3gpp_portal: https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=3178
-    verification_status: >-
+    source_verification: >-
       clauses/tables recorded from the official text by the project owner;
       independent fetch-and-spot-check of the ETSI PDF still pending
     used_for: communication-scope performance requirements (payload, message rate,
@@ -68,8 +77,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         interpretation: V2X message payload size required by the service
         margo_use: constrains edge/task payload semantics B_e (message payload),
           never a compute workload
@@ -81,8 +91,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         interpretation: message transmission rate for the service
         margo_use: candidate generation rate for cooperative-perception messages;
           may set a periodicity constraint, not a graph deadline
@@ -94,8 +105,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         interpretation: maximum end-to-end latency of the V2X message exchange
           between UEs for this service
         margo_use: hop/message latency budget for communication-scope constraints
@@ -108,8 +120,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: reliability context for stress/sensitivity reporting only
       - parameter_name: cooperative_collision_avoidance_data_rate
         value: 10
@@ -119,8 +132,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         interpretation: required data rate for the service
         margo_use: upper-bound sanity check for radio profiles; NOT a link capacity
           unless a PHY/RAN model justifies it (see radio_profile_gap)
@@ -133,8 +147,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: payload semantics for a high-criticality cooperative message
       - parameter_name: emergency_trajectory_alignment_max_e2e_latency
         value: 3
@@ -144,8 +159,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: communication-scope latency budget; NOT D_G
       - parameter_name: emergency_trajectory_alignment_reliability
         value: 99.999
@@ -155,8 +171,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: reliability context only
       - parameter_name: emergency_trajectory_alignment_data_rate
         value: 30
@@ -166,8 +183,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: radio-profile sanity upper bound; not a capacity claim
       - parameter_name: emergency_trajectory_alignment_range
         value: 500
@@ -177,8 +195,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: V2V reachability context (not modelled in v1 scheduling)
       - parameter_name: extended_sensors_high_automation_latency_set
         value: [3, 10, 50]
@@ -188,8 +207,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         interpretation: per-row maximum end-to-end latency for sensor information
           sharing, with row-specific reliability and data rate
         margo_use: communication budgets for sensor-sharing messages; the row-level
@@ -202,8 +222,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: video-sharing message budget; note the associated data rates are
           much higher (up to ~700 Mbps) and cannot be treated as link capacity here
       - parameter_name: extended_sensors_video_sharing_max_data_rate
@@ -213,8 +234,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: context only; explicitly NOT used as a simulated link rate
       - parameter_name: remote_driving_max_e2e_latency
         value: 5
@@ -224,8 +246,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: communication-scope budget; NOT D_G
       - parameter_name: remote_driving_reliability
         value: 99.999
@@ -234,8 +257,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: reliability context only
       - parameter_name: remote_driving_ul_rate
         value: 25
@@ -244,8 +268,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: uplink profile sanity bound; not a capacity claim
       - parameter_name: remote_driving_dl_rate
         value: 1
@@ -254,8 +279,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: downlink profile sanity bound; not a capacity claim
       - parameter_name: platooning_payload_range
         value: [50, 1200]
@@ -266,8 +292,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         sampling_rule_required: true
         margo_use: payload range for platooning messages; a deterministic binning
           rule must be declared before generation
@@ -279,8 +306,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: platooning message periodicity context
       - parameter_name: platooning_max_e2e_latency
         value: 10
@@ -290,8 +318,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: communication-scope budget; NOT D_G
       - parameter_name: platooning_reliability
         value: 99.99
@@ -301,8 +330,9 @@ sources:
         measurement_scope: communication
         semantic_role: requirement
         label: standard-derived
-        verification_status: official_verified
-        allowed_for_generation: true
+        source_verification: official_verified
+        transcription_verified: false   # pending primary/full-text check
+        allowed_for_generation: false
         margo_use: reliability context only
 
   - source_id: ECLIPSE-APP4MC-AMALTHEA
@@ -312,7 +342,7 @@ sources:
       execution needs and generic instructions
     identifier: Eclipse APP4MC documentation
     url: https://www.eclipse.org/app4mc/
-    verification_status: structural model confirmed from official documentation
+    source_verification: structural model confirmed from official documentation
     parameters: []
     used_for:
       - >-
@@ -337,7 +367,7 @@ sources:
     venue: IEEE RTSS 2007
     year: 2007
     doi: 10.1109/RTSS.2007.47
-    verification_status: model confirmed from the primary paper
+    source_verification: model confirmed from the primary paper
     parameters: []
     used_for:
       - theoretical basis for one task carrying SEVERAL compute-time estimates at
@@ -355,7 +385,7 @@ sources:
     authors: Bonci, Brunella, et al.
     venue: Sensors (MDPI), 2026, vol. 26, issue 2, article 463
     url: https://www.mdpi.com/1424-8220/26/2/463
-    verification_status: >-
+    source_verification: >-
       identifiers confirmed; stage-level mean/P95/max and pipeline end-to-end
       values reported by the project owner still require independent full-text
       extraction with table/figure numbers before use in calibration
@@ -372,7 +402,8 @@ sources:
         measurement_scope: processing_stage
         semantic_role: measured_latency
         label: measured
-        verification_status: secondary_lead_unverified
+        source_verification: secondary_lead_unverified
+        transcription_verified: false   # pending primary/full-text check
         allowed_for_generation: false
         platform: scaled_vehicle_1_10
         margo_use: >-
@@ -384,7 +415,8 @@ sources:
         measurement_scope: processing_stage
         semantic_role: measured_latency
         label: measured
-        verification_status: secondary_lead_unverified
+        source_verification: secondary_lead_unverified
+        transcription_verified: false   # pending primary/full-text check
         allowed_for_generation: false
         platform: scaled_vehicle_1_10
         margo_use: sanity range for composed chains; NOT D_G
@@ -394,7 +426,8 @@ sources:
         measurement_scope: processing_stage
         semantic_role: requirement
         label_status: unassigned_pending_verification   # a quoted number is not synthetic
-        verification_status: secondary_lead_unverified
+        source_verification: secondary_lead_unverified
+        transcription_verified: false   # pending primary/full-text check
         allowed_for_generation: false
         notes: >-
           the paper discusses a freshness constraint on perception input; it is a
@@ -409,7 +442,7 @@ sources:
     venue: IET Intelligent Transport Systems
     doi: 10.1049/itr2.70135
     url: https://ietresearch.onlinelibrary.wiley.com/doi/pdf/10.1049/itr2.70135
-    verification_status: identifiers confirmed; numeric values reported by the
+    source_verification: identifiers confirmed; numeric values reported by the
       project owner pending independent full-text check
     parameters:
       - parameter_name: perception_soft_deadline
@@ -418,7 +451,8 @@ sources:
         measurement_scope: processing_stage
         semantic_role: requirement
         label: measured
-        verification_status: secondary_lead_unverified
+        source_verification: secondary_lead_unverified
+        transcription_verified: false   # pending primary/full-text check
         allowed_for_generation: false
         notes: soft real-time deadline for the perception stage
         margo_use: candidate firm/soft sub-deadline for perception; NOT D_G
@@ -428,7 +462,8 @@ sources:
         measurement_scope: processing_stage
         semantic_role: measured_latency
         label: measured
-        verification_status: secondary_lead_unverified
+        source_verification: secondary_lead_unverified
+        transcription_verified: false   # pending primary/full-text check
         allowed_for_generation: false
         platform: jetson_orin_nano
         margo_use: second, independent platform for the perception t_ref_i range
@@ -438,7 +473,7 @@ sources:
     title: "Real World Automotive Benchmarks For Free"
     venue: WATERS workshop (ECRTS) 2015
     url: http://waters.ecrts.org/forum/download/RealWorldAutomotiveBenchmarksForFree-ECRTS-WATERS2015.pdf
-    verification_status: identifiers confirmed; task-set values not yet extracted
+    source_verification: identifiers confirmed; task-set values not yet extracted
     used_for:
       - >-
         structure and realistic-but-IP-free properties of automotive task sets:
@@ -456,7 +491,7 @@ sources:
     venue: ECRTS 2024
     doi: 10.4230/LIPIcs.ECRTS.2024.8
     url: https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECRTS.2024.8
-    verification_status: identifiers confirmed; method to be read before Step 6
+    source_verification: identifiers confirmed; method to be read before Step 6
     parameters: []
     used_for:
       - >-
@@ -472,7 +507,7 @@ sources:
     title: Autoware architecture - Perception, Planning, Control components and
       their data dependencies
     url: https://autoware.org/
-    verification_status: official_verified
+    source_verification: official_verified
     parameters: []
     used_for:
       - >-

@@ -49,3 +49,64 @@ Verification vocabulary: `official_verified`, `primary_verified`,
    synthetic-calibrated.
 5. Every row above must reach `allowed_for_generation: true` before the generator
    runs. Until then: **Step 2 BLOCKED**.
+
+---
+
+# FINAL GATE STATE — Step 2 closure attempt (`source_registry_v3`)
+
+The gate is now a conjunction, because an authoritative document does not prove
+that the number written in this repository was transcribed correctly:
+
+```
+allowed_for_generation = source_acceptable AND transcription_verified
+                         (generated values: generation_rule_verified AND rule_id != ∅)
+```
+
+**Current state: 26 numeric rows, 0 allowed, 26 blocked.** Every TS 22.186 row
+carries `source_verification: official_verified` together with
+`transcription_verified: false`, so the standard is registered as authoritative
+while no transcribed value is admitted yet. Example (cooperative collision
+avoidance, R.5.3-001):
+
+```yaml
+value: 10            unit: ms
+table: Table 5.3-1   requirement_id: R.5.3-001
+measurement_scope: communication     semantic_role: requirement
+source_verification: official_verified
+transcription_verified: false
+allowed_for_generation: false
+```
+
+## The five gates that must close
+
+| # | gate | requirement for `allowed_for_generation: true` | next action |
+|---|---|---|---|
+| 1 | 3GPP transcription | every value checked against page + table + requirement id in the official text | fetch ETSI TS 122 186 V16.2.0 PDF, record page/table/row per value, set `transcription_verified: true` |
+| 2 | execution timing | ≥2 independent platforms, numbers read from table/figure/full text (not a summary) | extract the ROS 2 scaled-vehicle stage table and the Jetson Orin Nano results table |
+| 3 | payload semantics | a payload rule per category actually used by the generator (`raw_image`, `feature_tensor`, `object_list`, `trajectory_control`) | define the schemas: `B = w·h·bpp` for raw; a conditional distribution over resolution/codec/quality for compressed; separate models for feature/object messages |
+| 4 | radio resource profiles | simulated achievable capacity separated from required data rate, each profile with provenance or rule | define `capacity_model: source_calibrated_distribution` with `source_ids` per profile |
+| 5 | application E2E | a real direct requirement, or `E2E-SLA-V1` instantiated per family | freeze `period_source`, `period_s`, `rho_distribution`, `rho_source` and `rule_id` per application family, plus `p`/`eta` for the `B_G` branch |
+
+## Instantiation requirements for gate 5 (formula alone is not enough)
+
+```yaml
+family: cooperative_perception
+period_source: <source id or synthetic_calibrated>
+period_s: <frozen value or distribution>
+rho_distribution: <frozen distribution>
+rho_source: synthetic_calibrated
+rule_id: E2E-SLA-V1
+```
+
+`rho_f` (and `p`, `eta` in the `D_G = eta * B_G` branch) are frozen **before** any
+schedule search and may never be adjusted after observing feasibility. Payload is
+never a single distribution over all edges: the 2000 B V2X message is valid only
+for its own use case.
+
+## Verdict
+
+Step 2 is **BLOCKED**, and honestly so: the registry is now well-formed with zero
+unresolved *schema* fields, but zero rows are admissible to the generator because
+no transcription has been verified against full text yet. Step 3 does not start
+until gates 1-5 close and this matrix has no blocked field that the generator
+needs.
