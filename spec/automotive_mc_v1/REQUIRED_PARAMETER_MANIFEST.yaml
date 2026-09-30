@@ -108,45 +108,45 @@ required_parameters:
   - id: raw_camera_payload_model
     category: payload
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [payload_raw_camera_v1]
     required_for_families: [perception_planning_control, cooperative_perception]
     note: rule RAW-FRAME-SIZE-V1, derived from sourced resolution and pixel format
 
   - id: lidar_payload_model
     category: payload
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [payload_lidar_v1]
     required_for_families: [perception_planning_control, localization_prediction_planning]
     note: point-cloud rule, distinct from raw image
 
   - id: radar_payload_model
     category: payload
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [payload_radar_v1]
     required_for_families: [perception_planning_control]
 
   - id: feature_tensor_payload_model
     category: payload
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [payload_feature_tensor_v1]
     required_for_families: [cooperative_perception, perception_planning_control]
 
   - id: object_list_payload_model
     category: payload
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [payload_object_list_v1]
     required_for_families: [cooperative_perception, localization_prediction_planning]
 
   - id: trajectory_payload_model
     category: payload
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [payload_trajectory_v1]
     required_for_families: [perception_planning_control, localization_prediction_planning]
 
   - id: control_payload_model
     category: payload
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [payload_control_v1]
     required_for_families: [perception_planning_control, localization_prediction_planning]
 
   - id: v2x_message_payload_model
@@ -192,20 +192,20 @@ required_parameters:
   - id: mec_ul_achievable_capacity_profile
     category: communication_capacity
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [capacity_mec_ul_v1]
     required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]
     note: nominal/degraded/strong; separate from service_required_rate and offered_load
 
   - id: mec_dl_achievable_capacity_profile
     category: communication_capacity
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [capacity_mec_dl_v1]
     required_for_families: [perception_planning_control, cooperative_perception]
 
   - id: v2v_achievable_capacity_profile
     category: communication_capacity
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [capacity_v2v_v1]
     required_for_families: [cooperative_perception]
 
   # ---- compute capacity (NOT radio): a profile must be able to say
@@ -213,7 +213,7 @@ required_parameters:
   - id: ue_compute_profile
     category: compute_capacity
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [compute_ue_profile_v1]
     required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]
     satisfied_by: co_physical_config(f_hz=1.0e9)
     pending_source: true
@@ -222,7 +222,7 @@ required_parameters:
   - id: mec_compute_profile
     category: compute_capacity
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [compute_mec_profile_v1]
     required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]
     satisfied_by: co_physical_config(f_hz=10.0e9)
     pending_source: true
@@ -230,7 +230,7 @@ required_parameters:
   - id: helper_compute_profile
     category: compute_capacity
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [compute_helper_profile_v1]
     required_for_families: [cooperative_perception]
     satisfied_by: co_physical_config(f_hz=1.5e9)
     pending_source: true
@@ -240,26 +240,26 @@ required_parameters:
   - id: e2e_sla_perception_planning_control
     category: application_e2e
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [e2e_sla_perception_planning_control_v1]
     required_for_families: [perception_planning_control]
     note: direct requirement, or an E2E-SLA-V1 instance with frozen family parameters
 
   - id: e2e_sla_cooperative_perception
     category: application_e2e
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [e2e_sla_cooperative_perception_v1]
     required_for_families: [cooperative_perception]
 
   - id: e2e_sla_localization_prediction_planning
     category: application_e2e
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [e2e_sla_localization_prediction_planning_v1]
     required_for_families: [localization_prediction_planning]
 
   - id: e2e_sla_mapping_background
     category: application_e2e
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [e2e_sla_mapping_background_v1]
     required_for_families: [mapping_background]
 
   # ---- conversion parameters the W_i formula silently needs -------------
@@ -294,13 +294,22 @@ required_parameters:
       (t_i^ref <-> f_ref <-> measurement platform); a tier name alone is not enough.
       W_i is compute demand only and must never be used as a communication edge
       payload, and B_e must never be derived from it.
-    status: BLOCKED
+    status: PARTIALLY_RESOLVED
+    platform_attribution: RESOLVED
+    exact_numeric_t_ref: BLOCKED
     blocking_reason: >-
       no CPU-compatible timing source has been confirmed yet. The four verified
       execution rows (Sensors 2026 and IET ITS) are GPU/accelerator measurements
       with conversion_to_cycles forbidden and eligible_for_t_ref false, so with
       zero eligible rows the locked relation
-      W_i = t_ref_i * f_ref / (8 * xi) has no admissible input.
+      W_i = t_ref_i * f_ref / (8 * xi) has no admissible input. DATE 2021 attributes
+      its measurements clearly (individual and segment latencies on ECU2 with
+      ROS2/Linux and an Intel Core i5-3210M, chain periodicity about 120 ms), so the
+      PLATFORM attribution is resolved; the source reports the per-stage values only
+      as Tukey boxplots inside Figure 2 and gives no numeric per-stage value in text
+      or tables, and a plot must not be digitised or estimated, so the exact numeric
+      t_ref stays BLOCKED. The ~120 ms periodicity is an activation period, not an
+      execution time, and is not used as t_ref.
     candidates:
       - id: DATE-2021-ONLINE-LATENCY-MONITORING
         url: https://past.date-conference.com/proceedings-archive/2021/pdf/1497.pdf
