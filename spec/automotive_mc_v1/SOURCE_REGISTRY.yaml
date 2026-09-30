@@ -1,0 +1,307 @@
+# MARGO-AUTOMOTIVE-MC-v1 source registry
+#
+# Every external numerical parameter used anywhere in this dataset appears here
+# with its clause/table and an explicit SLA scope. Nothing else may be cited.
+#
+# scope taxonomy (see DATASET_CONTRACT.md):
+#   communication      radio/interface or message-exchange performance requirement.
+#                      MAY NOT define the graph deadline D_G.
+#   processing_stage   one application stage or a chain segment.
+#   application_e2e    end-to-end application/safety deadline. The ONLY scope
+#                      allowed to anchor D_G.
+#
+# label taxonomy: measured | standard-derived | trace-fitted |
+#                 source-calibrated-synthetic | synthetic
+
+schema_version: source_registry_v1
+dataset: MARGO-AUTOMOTIVE-MC-v1
+
+scope_rules:
+  communication_may_not_set_D_G: true
+  application_e2e_required_for_D_G: true
+  range_values_need_predeclared_sampling_rule: true
+  forbidden: "D_G = kappa * T_witness; any deadline chosen after observing a schedule"
+
+sources:
+
+  - source_id: 3GPP-TS22186-R16
+    type: standard
+    body: 3GPP SA1 / ETSI
+    title: Service requirements for enhanced V2X scenarios
+    identifier: 3GPP TS 22.186 V16.2.0 == ETSI TS 122 186 V16.2.0
+    release: Release 16
+    year: 2020
+    url_etsi_delivery_path: https://www.etsi.org/deliver/etsi_ts/122100_122199/122186/16.02.00_60/
+    url_3gpp_portal: https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=3178
+    verification_status: >-
+      clauses/tables recorded from the official text by the project owner;
+      independent fetch-and-spot-check of the ETSI PDF still pending
+    used_for: communication-scope performance requirements (payload, message rate,
+      latency, reliability, data rate, range) for V2X service scenarios
+    used_for_forbidden: must NOT be used as an application_e2e deadline for a DAG
+      containing perception/planning/control; these are service/message-exchange
+      requirements, not application chain deadlines
+    parameters:
+      - parameter_name: cooperative_collision_avoidance_payload
+        value: 2000
+        unit: B
+        table: Table 5.3-1
+        scenario: Advanced Driving - Cooperative collision avoidance
+        requirement_id: R.5.3-001
+        scope: communication
+        label: standard-derived
+        interpretation: V2X message payload size required by the service
+        margo_use: constrains edge/task payload semantics B_e (message payload),
+          never a compute workload
+      - parameter_name: cooperative_collision_avoidance_message_rate
+        value: 100
+        unit: msg/s
+        table: Table 5.3-1
+        requirement_id: R.5.3-001
+        scope: communication
+        label: standard-derived
+        interpretation: message transmission rate for the service
+        margo_use: candidate generation rate for cooperative-perception messages;
+          may set a periodicity constraint, not a graph deadline
+      - parameter_name: cooperative_collision_avoidance_max_e2e_latency
+        value: 10
+        unit: ms
+        table: Table 5.3-1
+        requirement_id: R.5.3-001
+        scope: communication
+        label: standard-derived
+        interpretation: maximum end-to-end latency of the V2X message exchange
+          between UEs for this service
+        margo_use: hop/message latency budget for communication-scope constraints
+          only; NOT D_G
+      - parameter_name: cooperative_collision_avoidance_reliability
+        value: 99.99
+        unit: percent
+        table: Table 5.3-1
+        requirement_id: R.5.3-001
+        scope: communication
+        label: standard-derived
+        margo_use: reliability context for stress/sensitivity reporting only
+      - parameter_name: cooperative_collision_avoidance_data_rate
+        value: 10
+        unit: Mbps
+        table: Table 5.3-1
+        requirement_id: R.5.3-001
+        scope: communication
+        label: standard-derived
+        interpretation: required data rate for the service
+        margo_use: upper-bound sanity check for radio profiles; NOT a link capacity
+          unless a PHY/RAN model justifies it (see radio_profile_gap)
+      - parameter_name: emergency_trajectory_alignment_payload
+        value: 2000
+        unit: B
+        table: Table 5.3-1
+        scenario: Advanced Driving - Emergency trajectory alignment
+        requirement_id: R.5.3-006
+        scope: communication
+        label: standard-derived
+        margo_use: payload semantics for a high-criticality cooperative message
+      - parameter_name: emergency_trajectory_alignment_max_e2e_latency
+        value: 3
+        unit: ms
+        table: Table 5.3-1
+        requirement_id: R.5.3-006
+        scope: communication
+        label: standard-derived
+        margo_use: communication-scope latency budget; NOT D_G
+      - parameter_name: emergency_trajectory_alignment_reliability
+        value: 99.999
+        unit: percent
+        table: Table 5.3-1
+        requirement_id: R.5.3-006
+        scope: communication
+        label: standard-derived
+        margo_use: reliability context only
+      - parameter_name: emergency_trajectory_alignment_data_rate
+        value: 30
+        unit: Mbps
+        table: Table 5.3-1
+        requirement_id: R.5.3-006
+        scope: communication
+        label: standard-derived
+        margo_use: radio-profile sanity upper bound; not a capacity claim
+      - parameter_name: emergency_trajectory_alignment_range
+        value: 500
+        unit: m
+        table: Table 5.3-1
+        requirement_id: R.5.3-006
+        scope: communication
+        label: standard-derived
+        margo_use: V2V reachability context (not modelled in v1 scheduling)
+      - parameter_name: extended_sensors_high_automation_latency_set
+        value: [3, 10, 50]
+        unit: ms
+        table: Table 5.4-1
+        scenario: Extended Sensors - sensor information sharing (high degree of automation)
+        scope: communication
+        label: standard-derived
+        interpretation: per-row maximum end-to-end latency for sensor information
+          sharing, with row-specific reliability and data rate
+        margo_use: communication budgets for sensor-sharing messages; the row-level
+          reliability/data-rate pairing must be recorded when a row is selected
+      - parameter_name: extended_sensors_video_sharing_latency_set
+        value: [10, 50]
+        unit: ms
+        table: Table 5.4-1
+        scenario: Extended Sensors - video sharing
+        scope: communication
+        label: standard-derived
+        margo_use: video-sharing message budget; note the associated data rates are
+          much higher (up to ~700 Mbps) and cannot be treated as link capacity here
+      - parameter_name: extended_sensors_video_sharing_max_data_rate
+        value: 700
+        unit: Mbps
+        table: Table 5.4-1
+        scope: communication
+        label: standard-derived
+        margo_use: context only; explicitly NOT used as a simulated link rate
+      - parameter_name: remote_driving_max_e2e_latency
+        value: 5
+        unit: ms
+        table: Table 5.5-1
+        scenario: Remote Driving
+        scope: communication
+        label: standard-derived
+        margo_use: communication-scope budget; NOT D_G
+      - parameter_name: remote_driving_reliability
+        value: 99.999
+        unit: percent
+        table: Table 5.5-1
+        scope: communication
+        label: standard-derived
+        margo_use: reliability context only
+      - parameter_name: remote_driving_ul_rate
+        value: 25
+        unit: Mbps
+        table: Table 5.5-1
+        scope: communication
+        label: standard-derived
+        margo_use: uplink profile sanity bound; not a capacity claim
+      - parameter_name: remote_driving_dl_rate
+        value: 1
+        unit: Mbps
+        table: Table 5.5-1
+        scope: communication
+        label: standard-derived
+        margo_use: downlink profile sanity bound; not a capacity claim
+      - parameter_name: platooning_payload_range
+        value: [50, 1200]
+        unit: B
+        table: Table 5.2-1
+        scenario: Platooning (highest degree of automation)
+        requirement_id: R.5.2-006
+        scope: communication
+        label: standard-derived
+        sampling_rule_required: true
+        margo_use: payload range for platooning messages; a deterministic binning
+          rule must be declared before generation
+      - parameter_name: platooning_message_rate
+        value: 30
+        unit: msg/s
+        table: Table 5.2-1
+        requirement_id: R.5.2-006
+        scope: communication
+        label: standard-derived
+        margo_use: platooning message periodicity context
+      - parameter_name: platooning_max_e2e_latency
+        value: 10
+        unit: ms
+        table: Table 5.2-1
+        requirement_id: R.5.2-006
+        scope: communication
+        label: standard-derived
+        margo_use: communication-scope budget; NOT D_G
+      - parameter_name: platooning_reliability
+        value: 99.99
+        unit: percent
+        table: Table 5.2-1
+        requirement_id: R.5.2-006
+        scope: communication
+        label: standard-derived
+        margo_use: reliability context only
+
+  - source_id: ECLIPSE-APP4MC-AMALTHEA
+    type: official tool documentation / model specification
+    body: Eclipse APP4MC project (AMALTHEA model)
+    title: APP4MC / AMALTHEA model - Task, Runnable, Label/Channel, ActivityGraph,
+      execution needs and generic instructions
+    identifier: Eclipse APP4MC documentation
+    url: https://www.eclipse.org/app4mc/
+    verification_status: structural model confirmed from official documentation
+    parameters: []
+    used_for:
+      - semantic structure of the generator: task/runnable decomposition,
+        activity-graph composition, labels/channels carrying data
+      - justification that a "task" carries execution needs separate from data
+        movement, which supports the invariant-task rule (W_i per task, B_e per edge)
+    used_for_forbidden:
+      - tutorial/demo numbers (example deadlines, example instruction counts) are
+        NOT automotive measurements and MUST NOT enter the dataset as empirical timing
+    label_for_structure: standard-derived
+    label_for_any_number: forbidden
+    margo_use: structural authority only, with zero numerical parameters
+
+  - source_id: VESTAL-2007-RTSS
+    type: peer-reviewed paper
+    title: Preemptive Scheduling of Multi-criticality Systems with Varying Degrees
+      of Execution Time Assurance
+    authors: S. Vestal
+    venue: IEEE RTSS 2007
+    year: 2007
+    doi: 10.1109/RTSS.2007.47
+    verification_status: model confirmed from the primary paper
+    parameters: []
+    used_for:
+      - theoretical basis for one task carrying SEVERAL compute-time estimates at
+        different assurance levels, i.e. the C_i^LO / C_i^HI structure
+      - separation between criticality/assurance level and any single timing number
+    naming_rule: >-
+      if budgets are derived from empirical quantiles they MUST be named
+      empirical_execution_budget_lo / empirical_execution_budget_hi; the term
+      WCET may only be used where a source genuinely provides WCET
+    margo_use: MC model authority only, with zero numerical parameters
+
+evidence_gaps:
+  # Generator calibration MUST NOT start until these four groups are populated.
+  - gap_id: application_e2e_deadlines
+    need: source-backed application-level end-to-end deadlines or measured
+      autonomous-driving chain times that can define D_G
+    scope_required: application_e2e
+    status: open
+    candidates:
+      - Autoware / ROS 2 autonomous-driving pipeline timing studies
+      - measured perception-planning-control chain papers
+      - automotive real-time benchmark task sets with chain deadlines
+  - gap_id: per_stage_execution_distributions
+    need: measured per-stage execution-time distributions (mean/p95/p99/max where
+      reported) for perception, localization, prediction, planning, control
+    scope_required: processing_stage
+    status: open
+    used_for: t_ref_i for the workload model (invariant-task rule), and the
+      empirical C_LO/C_HI budgets
+  - gap_id: payload_message_semantics
+    need: source-backed payload sizes for raw sensor frames, feature maps, object
+      lists, trajectories, cooperative-perception and control messages
+    scope_required: communication or processing_stage
+    status: partially_open
+    notes: TS 22.186 gives message payloads for V2X services; sensor-frame and
+      feature-map payloads still need sources or explicit
+      source-calibrated-synthetic labels with a stated rule
+  - gap_id: radio_resource_profiles
+    need: defensible radio throughput model to replace the frozen 7/5 Mbps
+      assumptions; data-rate REQUIREMENTS from TS 22.186 are service requirements
+      and must not be turned into link capacities without a PHY/RAN model
+    status: open
+    blocking: resource_profiles.yaml must not be frozen before this is resolved
+
+pending_primary_recon:
+  - fetch the ETSI TS 122 186 V16.2.0 PDF and spot-check every value above against
+    its table, recording page/section
+  - WATERS automotive benchmark task-set literature
+  - Eclipse APP4MC / AMALTHEA task-model papers with real automotive task sets
+  - ROS 2 / Autoware mixed-criticality and timing papers
