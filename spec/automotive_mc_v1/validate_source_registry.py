@@ -125,6 +125,16 @@ EXEC_CONTEXT = ("platform", "stage", "reported_statistic", "unit")
 EXEC_ROLES = ("measured_latency", "execution_time")
 
 
+def _evidence_sha(rel: str) -> str:
+    """sha256 of a tracked evidence file, or "" when it cannot be resolved."""
+    if not rel:
+        return ""
+    path = Path(__file__).resolve().parent.parent.parent / rel
+    if not path.exists():
+        path = Path(__file__).resolve().parent / rel
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else ""
+
+
 def validate(doc: dict) -> tuple[list[str], dict]:
     violations: list[str] = []
     expected_evidence = (hashlib.sha256(EVIDENCE.read_bytes()).hexdigest()
@@ -158,10 +168,13 @@ def validate(doc: dict) -> tuple[list[str], dict]:
                     if not led.get(field):
                         violations.append(f"{name}: ledger missing {field}")
                 recorded = led.get("evidence_sha256")
-                if recorded and expected_evidence and recorded != expected_evidence:
+                actual = _evidence_sha(str(led.get("evidence_file") or ""))
+                if not actual:
+                    violations.append(f"{name}: ledger evidence_file cannot be resolved")
+                elif recorded != actual:
                     violations.append(
                         f"{name}: ledger references stale evidence {str(recorded)[:16]} "
-                        f"!= current {expected_evidence[:16]}")
+                        f"!= current {actual[:16]}")
         if (row.get("transcription_verified") is True
                 and row.get("semantic_role") in EXEC_ROLES):
             ctx = row.get("execution_context") or {}

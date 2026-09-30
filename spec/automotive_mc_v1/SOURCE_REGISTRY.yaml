@@ -527,13 +527,17 @@ sources:
           evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
           evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
 
-  - source_id: ZHAO2018-CYCLES-PER-BIT-LEAD
-    type: secondary lead (repository comment, paper not yet read)
-    title: 'Zhao2018 Table I, cited only by a comment in spec/frozen_experiment.yaml'
+  - source_id: HU-2018-TWC-T1
+    type: peer-reviewed accepted manuscript (later published in IEEE TWC, 2018)
+    title: Hu et al., Table I - Required CPU cycles per bit
+    parameter_class: simulation_parameter
     verification_status: >-
-      the citation exists only as a comment in this repository; the paper has not
-      been obtained, so the value is a lead and not evidence
-    source_verification: secondary_lead_unverified
+      primary value recorded from Table I; it is a simulation parameter, not a
+      measured automotive constant and not a universal physical property
+    attribution_correction: >-
+      a comment in spec/frozen_experiment.yaml credits "Zhao2018 Table I"; the value
+      is stated by Hu et al. Table I, so the registry records Hu et al. and notes
+      the correction
     parameters:
       - parameter_name: cycles_per_bit_xu
         value: 300.0
@@ -541,15 +545,37 @@ sources:
         table: Table I
         measurement_scope: processing_stage
         semantic_role: execution_time
-        source_verification: secondary_lead_unverified
-        transcription_verified: false
+        source_verification: primary_verified
+        parameter_class: simulation_parameter
+        transcription_verified: true
         required_by_generator: true
-        allowed_for_generation: false
+        allowed_for_generation: true
+        conversion_to_cycles: forbidden
+        eligible_for_t_ref: false
         note: >-
-          conversion parameter of the locked W_i formula; must be verified against
-          the primary paper or replaced by a declared synthetic_calibrated rule
-          before any workload is generated
-
+          conversion parameter of the locked W_i formula. Provenance and transcription
+          are closed by a peer-reviewed simulation parameter; its limitation (not a
+          measured constant) stays recorded.
+        execution_context:
+          platform: simulation model (no hardware measurement)
+          stage: n/a
+          input_size_or_workload_context: n/a
+          software_framework: n/a
+          reported_statistic: simulation parameter
+          unit: cycles/bit
+          sample_count: n/a
+          frequency_or_power_mode: n/a
+          measurement_setup: n/a
+        transcription_ledger:
+          document_version: Hu et al., accepted manuscript (IEEE TWC 2018)
+          section: "Table I"
+          table: Table I
+          requirement_id: n/a
+          column: "Required CPU cycles per bit"
+          value: "300"
+          unit: cycles/bit
+          evidence_file: spec/automotive_mc_v1/evidence/HU_2018_TWC_T1.md
+          evidence_sha256: 987cd2424e6714608440ff80d6ce06fb807ac0369076452ec8b3b8bc1b131842
   - source_id: ECLIPSE-APP4MC-AMALTHEA
     type: official tool documentation / model specification
     body: Eclipse APP4MC project (AMALTHEA model)
@@ -611,32 +637,77 @@ sources:
       evidence and must not be presented as automotive-grade execution times
     parameters:
       - parameter_name: ros2_stage_latency_distributions
-        value: reported (mean / P95 / max per stage)
+        value: [28.853, 33.243, 49.458]
         unit: ms
-        stages: [preprocessing, lane_detection, object_detection, decision_making, state_machine]
+        table: Table 6
         measurement_scope: processing_stage
         semantic_role: measured_latency
         label: measured
-        source_verification: secondary_lead_unverified
-        transcription_verified: false   # pending primary/full-text check
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
         required_by_generator: true
-        allowed_for_generation: false
-        platform: scaled_vehicle_1_10
-        margo_use: >-
-          candidate source for t_ref_i distributions of the corresponding semantic
-          roles, TOGETHER with at least one other platform source
+        allowed_for_generation: true
+        conversion_to_cycles: forbidden
+        eligible_for_t_ref: false
+        eligibility_reason: >-
+          per-stage CPU/GPU allocation is not stated by the source, so t*f -> cycles
+          is not defensible; usable for distribution calibration and scale audits
+        execution_context:
+          platform: Jetson Orin Nano 8GB on a 1:10 scale vehicle
+          stage: perception / decision making / state machine (per stage rows)
+          input_size_or_workload_context: camera frames, resolution not restated in the table
+          software_framework: ROS 2
+          reported_statistic: mean, P95, max
+          unit: ms
+          sample_count: not reported per stage
+          frequency_or_power_mode: not reported
+          measurement_setup: on-vehicle 1:10 platform, per-stage instrumentation
+        transcription_ledger:
+          document_version: Sensors (MDPI) 2026, 26(2):463
+          section: "Results"
+          table: Table 6
+          requirement_id: n/a
+          column: "per-stage latency"
+          value: "object detection 28.853 / 33.243 / 49.458"
+          unit: ms
+          evidence_file: spec/automotive_mc_v1/evidence/SENSORS_2026_ROS2_T6_T7.md
+          evidence_sha256: 456e48b2ee13bebe98845f555c1f1ca8f12d9baf2b1dfae83484605858084cc0
       - parameter_name: ros2_pipeline_end_to_end_latency
-        value: reported per pipeline (lane / object / obstacle)
+        value: mean/P95/max per pipeline
         unit: ms
+        table: Table 7
         measurement_scope: processing_stage
         semantic_role: measured_latency
         label: measured
-        source_verification: secondary_lead_unverified
-        transcription_verified: false   # pending primary/full-text check
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
         required_by_generator: true
-        allowed_for_generation: false
-        platform: scaled_vehicle_1_10
-        margo_use: sanity range for composed chains; NOT D_G
+        allowed_for_generation: true
+        conversion_to_cycles: forbidden
+        eligible_for_t_ref: false
+        eligibility_reason: >-
+          per-stage CPU/GPU allocation is not stated by the source, so t*f -> cycles
+          is not defensible; usable for distribution calibration and scale audits
+        execution_context:
+          platform: Jetson Orin Nano 8GB on a 1:10 scale vehicle
+          stage: perception / decision making / state machine (per stage rows)
+          input_size_or_workload_context: camera frames, resolution not restated in the table
+          software_framework: ROS 2
+          reported_statistic: mean, P95, max
+          unit: ms
+          sample_count: not reported per stage
+          frequency_or_power_mode: not reported
+          measurement_setup: on-vehicle 1:10 platform, per-stage instrumentation
+        transcription_ledger:
+          document_version: Sensors (MDPI) 2026, 26(2):463
+          section: "Results"
+          table: Table 7
+          requirement_id: n/a
+          column: "pipeline end-to-end latency"
+          value: "lane / object / obstacle pipelines"
+          unit: ms
+          evidence_file: spec/automotive_mc_v1/evidence/SENSORS_2026_ROS2_T6_T7.md
+          evidence_sha256: 456e48b2ee13bebe98845f555c1f1ca8f12d9baf2b1dfae83484605858084cc0
       - parameter_name: fresh_perception_input_constraint
         value: 40-50
         unit: ms
@@ -667,27 +738,68 @@ sources:
       - parameter_name: perception_soft_deadline
         value: 150
         unit: ms
+        table: Table 5
         measurement_scope: processing_stage
         semantic_role: requirement
         label: measured
-        source_verification: secondary_lead_unverified
-        transcription_verified: false   # pending primary/full-text check
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
         required_by_generator: true
-        allowed_for_generation: false
-        notes: soft real-time deadline for the perception stage
-        margo_use: candidate firm/soft sub-deadline for perception; NOT D_G
+        allowed_for_generation: true
+        observed_max_latency:
+          value: 180.17
+          unit: ms
+          reported_statistic: observed_max
+          sample_count: 423
+          note: >-
+            observed maximum over 423 frames, NOT WCET; the source does not present
+            it as worst-case execution time, so the term is not used
+        transcription_ledger:
+          document_version: IET Intelligent Transport Systems
+          section: "Results"
+          table: Table 5
+          requirement_id: n/a
+          column: "soft real-time deadline"
+          value: "150"
+          unit: ms
+          evidence_file: spec/automotive_mc_v1/evidence/IET_ITS_JETSON_ORIN.md
+          evidence_sha256: ee0d4c309570817a14354adcae76cfd46a7702f8d4ec4ae865623669951d9131
       - parameter_name: perception_mean_latency
-        value: 133
+        value: 133.03
         unit: ms
+        table: Table 5
         measurement_scope: processing_stage
         semantic_role: measured_latency
         label: measured
-        source_verification: secondary_lead_unverified
-        transcription_verified: false   # pending primary/full-text check
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
         required_by_generator: true
-        allowed_for_generation: false
-        platform: jetson_orin_nano
-        margo_use: second, independent platform for the perception t_ref_i range
+        allowed_for_generation: true
+        conversion_to_cycles: forbidden
+        eligible_for_t_ref: false
+        eligibility_reason: >-
+          per-stage CPU/GPU allocation is not stated by the source, so t*f -> cycles
+          is not defensible; usable for distribution calibration and scale audits
+        execution_context:
+          platform: Jetson Orin Nano with TensorRT / INT8
+          stage: perception end-to-end
+          input_size_or_workload_context: 423 recorded frames
+          software_framework: TensorRT, INT8 quantized YOLOv8n
+          reported_statistic: mean
+          unit: ms
+          sample_count: 423
+          frequency_or_power_mode: not reported
+          measurement_setup: on-vehicle measurement over a recorded frame sequence
+        transcription_ledger:
+          document_version: IET Intelligent Transport Systems
+          section: "Results"
+          table: Table 5
+          requirement_id: n/a
+          column: "mean end-to-end latency"
+          value: "133.03"
+          unit: ms
+          evidence_file: spec/automotive_mc_v1/evidence/IET_ITS_JETSON_ORIN.md
+          evidence_sha256: ee0d4c309570817a14354adcae76cfd46a7702f8d4ec4ae865623669951d9131
 
   - source_id: WATERS-2015-REAL-WORLD-BENCHMARKS
     type: peer-reviewed workshop paper + released benchmark

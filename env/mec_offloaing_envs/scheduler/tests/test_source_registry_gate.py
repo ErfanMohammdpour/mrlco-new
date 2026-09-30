@@ -82,6 +82,7 @@ class TestSourceRegistryGate(unittest.TestCase):
                 "document_version": "TS 22.186 V16.2.0", "section": "5.3",
                 "table": "Table 5.3-1", "requirement_id": "R.5.3-001",
                 "column": "Max. end-to-end latency (ms)", "value": "10", "unit": "ms",
+                "evidence_file": "spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt",
                 "evidence_sha256": hashlib.sha256(evidence.read_bytes()).hexdigest(),
             }
         row.update(extra)
@@ -273,6 +274,7 @@ class TestConversionDeclaration(unittest.TestCase):
                    "document_version": "TS 22.186 V16.2.0", "section": "5.3",
                    "table": "Table 5.3-1", "requirement_id": "R.5.3-001",
                    "column": "x", "value": "10", "unit": "ms",
+                   "evidence_file": "spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt",
                    "evidence_sha256": __import__("hashlib").sha256(
                        _validator().EVIDENCE.read_bytes()).hexdigest()}}
         row.update(extra)
@@ -319,6 +321,7 @@ class TestTRefEligibility(unittest.TestCase):
                    "document_version": "TS 22.186 V16.2.0", "section": "5.3",
                    "table": "Table 5.3-1", "requirement_id": "R.5.3-001", "column": "x",
                    "value": "10", "unit": "ms",
+                   "evidence_file": "spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt",
                    "evidence_sha256": __import__("hashlib").sha256(
                        _validator().EVIDENCE.read_bytes()).hexdigest()}}
         row.update(extra)
@@ -379,6 +382,7 @@ class TestTranscriptionLedger(unittest.TestCase):
                                               "section": "5.3", "table": "Table 5.3-1",
                                               "requirement_id": "R.5.3-001", "column": "x",
                                               "value": "10", "unit": "ms",
+                                              "evidence_file": "spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt",
                                               "evidence_sha256": "0" * 64})
         violations, _s = self.module.validate({"sources": [{"parameters": [row]}]})
         self.assertTrue(any("stale evidence" in v for v in violations), violations)
