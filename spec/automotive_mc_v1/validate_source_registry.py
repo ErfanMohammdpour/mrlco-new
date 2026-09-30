@@ -179,6 +179,20 @@ def validate(doc: dict) -> tuple[list[str], dict]:
                 violations.append(
                     f"{name}: accelerator measurement claims a legitimate t*f->cycles "
                     "conversion without a conversion_rule_id")
+            verdict = row.get("eligible_for_t_ref")
+            if not isinstance(verdict, bool):
+                violations.append(
+                    f"{name}: transcribed execution row must declare eligible_for_t_ref "
+                    "(true|false) separately from its verification status")
+            elif verdict:
+                if row.get("conversion_to_cycles") != "allowed":
+                    violations.append(
+                        f"{name}: eligible_for_t_ref=true requires conversion_to_cycles=allowed")
+                accelerator = any(k in hw for k in ("gpu", "jetson", "accelerator", "tpu"))
+                if accelerator and not row.get("conversion_rule_id"):
+                    violations.append(
+                        f"{name}: accelerator row cannot be eligible for t_ref without a "
+                        "conversion_rule_id")
             missing = [f for f in EXEC_CONTEXT if not ctx.get(f)]
             if missing:
                 violations.append(
@@ -197,6 +211,12 @@ def validate(doc: dict) -> tuple[list[str], dict]:
         "blocked_required_parameters": blocked_required,
         "allowed_rows": sum(1 for r in rows if r.get("allowed_for_generation")),
         "ledger_entries": sum(1 for r in rows if r.get("transcription_ledger")),
+        "execution_evidence_verified": sum(
+            1 for r in rows if r.get("semantic_role") in EXEC_ROLES
+            and r.get("transcription_verified") is True),
+        "execution_rows_eligible_for_t_ref": sum(
+            1 for r in rows if r.get("semantic_role") in EXEC_ROLES
+            and r.get("transcription_verified") is True and r.get("eligible_for_t_ref") is True),
         "evidence_sha256_current": expected_evidence,
         "violations": len(violations),
     }

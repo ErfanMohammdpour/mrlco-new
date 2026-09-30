@@ -73,6 +73,7 @@ class TestSourceRegistryGate(unittest.TestCase):
                     "reported_statistic": "mean", "unit": "ms",
                 }
                 row["conversion_to_cycles"] = "allowed"
+                row["eligible_for_t_ref"] = True
             # a row claiming transcription must carry a complete, fresh ledger
             import hashlib
 
@@ -266,6 +267,8 @@ class TestConversionDeclaration(unittest.TestCase):
                "allowed_for_generation": True,
                "execution_context": {"platform": platform, "stage": "s", "reported_statistic": "mean", "unit": "ms"},
                "conversion_to_cycles": conv,
+               "eligible_for_t_ref": conv == "allowed" and (
+                   "gpu" not in platform.lower() and "jetson" not in platform.lower()),
                "transcription_ledger": {
                    "document_version": "TS 22.186 V16.2.0", "section": "5.3",
                    "table": "Table 5.3-1", "requirement_id": "R.5.3-001",
@@ -296,6 +299,52 @@ class TestConversionDeclaration(unittest.TestCase):
         violations, _s = self.module.validate(
             {"sources": [{"parameters": [self._row("Jetson Orin Nano GPU", "forbidden")]}]})
         self.assertEqual(violations, [])
+
+
+class TestTRefEligibility(unittest.TestCase):
+    """Verified evidence and t_ref eligibility are different verdicts."""
+
+    def setUp(self):
+        self.module = _validator()
+
+    def _row(self, platform, conv, eligible, **extra):
+        row = {"parameter_name": "x", "required_by_generator": True,
+               "source_verification": "official_verified", "transcription_verified": True,
+               "measurement_scope": "processing_stage", "semantic_role": "measured_latency",
+               "allowed_for_generation": True, "conversion_to_cycles": conv,
+               "eligible_for_t_ref": eligible,
+               "execution_context": {"platform": platform, "stage": "s",
+                                     "reported_statistic": "mean", "unit": "ms"},
+               "transcription_ledger": {
+                   "document_version": "TS 22.186 V16.2.0", "section": "5.3",
+                   "table": "Table 5.3-1", "requirement_id": "R.5.3-001", "column": "x",
+                   "value": "10", "unit": "ms",
+                   "evidence_sha256": __import__("hashlib").sha256(
+                       _validator().EVIDENCE.read_bytes()).hexdigest()}}
+        row.update(extra)
+        return row
+
+    def test_gpu_row_verified_but_not_eligible_is_accepted(self):
+        _v, stats = self.module.validate(
+            {"sources": [{"parameters": [self._row("Jetson Orin Nano GPU", "forbidden", False)]}]})
+        self.assertEqual(stats["execution_evidence_verified"], 1)
+        self.assertEqual(stats["execution_rows_eligible_for_t_ref"], 0)
+
+    def test_eligible_without_allowed_conversion_is_a_violation(self):
+        violations, _s = self.module.validate(
+            {"sources": [{"parameters": [self._row("cpu", "forbidden", True)]}]})
+        self.assertTrue(any("requires conversion_to_cycles=allowed" in v for v in violations), violations)
+
+    def test_accelerator_eligibility_needs_a_rule(self):
+        violations, _s = self.module.validate(
+            {"sources": [{"parameters": [self._row("Jetson Orin Nano GPU", "allowed", True)]}]})
+        self.assertTrue(any("cannot be eligible for t_ref" in v for v in violations), violations)
+
+    def test_missing_eligibility_flag_is_a_violation(self):
+        row = self._row("cpu", "allowed", True)
+        del row["eligible_for_t_ref"]
+        violations, _s = self.module.validate({"sources": [{"parameters": [row]}]})
+        self.assertTrue(any("eligible_for_t_ref" in v for v in violations), violations)
 
 
 class TestTranscriptionLedger(unittest.TestCase):

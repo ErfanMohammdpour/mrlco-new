@@ -49,6 +49,22 @@ conversion_rules:
   field: conversion_to_cycles        # allowed | forbidden
   rule_id_field: conversion_rule_id  # required when the conversion is justified anyway
   default: forbidden
+# Eligibility is reported SEPARATELY from verification: a peer-reviewed timing row
+# measured on a GPU/accelerator can be perfectly valid evidence (useful for
+# distribution calibration, C_LO/C_HI shapes, physical-scale audits) while being
+# INELIGIBLE as the direct source of t_ref, because the current contract turns
+# t_ref into compute demand through f_ref. A row is eligible only when the
+# conversion is allowed AND the hardware is CPU-like or a conversion_rule_id
+# justifies crossing hardware classes. The generator reports both counts:
+#   execution_evidence_verified      = how many rows are verified
+#   execution_rows_eligible_for_t_ref = how many may feed W_i
+# If zero rows are eligible, reference_execution_tier stays missing; a GPU latency
+# is never force-fitted to a CPU frequency just to reach zero.
+t_ref_eligibility:
+  field: eligible_for_t_ref
+  requires_conversion: allowed
+  accelerator_needs_rule_id: true
+
 
 
 dataset: MARGO-AUTOMOTIVE-MC-v1
