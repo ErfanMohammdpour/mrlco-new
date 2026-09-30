@@ -121,6 +121,10 @@ def check_pin(doc_hash: str) -> tuple[list[str], dict]:
             {"registry_pin_stale": stale, "pinned_sha256": recorded})
 
 
+EXEC_CONTEXT = ("platform", "stage", "reported_statistic", "unit")
+EXEC_ROLES = ("measured_latency", "execution_time")
+
+
 def validate(doc: dict) -> tuple[list[str], dict]:
     violations: list[str] = []
     expected_evidence = (hashlib.sha256(EVIDENCE.read_bytes()).hexdigest()
@@ -158,6 +162,14 @@ def validate(doc: dict) -> tuple[list[str], dict]:
                     violations.append(
                         f"{name}: ledger references stale evidence {str(recorded)[:16]} "
                         f"!= current {expected_evidence[:16]}")
+        if (row.get("transcription_verified") is True
+                and row.get("semantic_role") in EXEC_ROLES):
+            ctx = row.get("execution_context") or {}
+            missing = [f for f in EXEC_CONTEXT if not ctx.get(f)]
+            if missing:
+                violations.append(
+                    f"{name}: transcribed execution row lacks measurement context "
+                    f"{missing}; a latency without a platform and a stage is not evidence")
         if row.get("defines_D_G"):
             if row.get("semantic_role") == "measured_latency":
                 violations.append(f"{name}: measured_latency may not define D_G")

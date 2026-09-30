@@ -527,6 +527,29 @@ sources:
           evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
           evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
 
+  - source_id: ZHAO2018-CYCLES-PER-BIT-LEAD
+    type: secondary lead (repository comment, paper not yet read)
+    title: 'Zhao2018 Table I, cited only by a comment in spec/frozen_experiment.yaml'
+    verification_status: >-
+      the citation exists only as a comment in this repository; the paper has not
+      been obtained, so the value is a lead and not evidence
+    source_verification: secondary_lead_unverified
+    parameters:
+      - parameter_name: cycles_per_bit_xu
+        value: 300.0
+        unit: cycles/bit
+        table: Table I
+        measurement_scope: processing_stage
+        semantic_role: execution_time
+        source_verification: secondary_lead_unverified
+        transcription_verified: false
+        required_by_generator: true
+        allowed_for_generation: false
+        note: >-
+          conversion parameter of the locked W_i formula; must be verified against
+          the primary paper or replaced by a declared synthetic_calibrated rule
+          before any workload is generated
+
   - source_id: ECLIPSE-APP4MC-AMALTHEA
     type: official tool documentation / model specification
     body: Eclipse APP4MC project (AMALTHEA model)

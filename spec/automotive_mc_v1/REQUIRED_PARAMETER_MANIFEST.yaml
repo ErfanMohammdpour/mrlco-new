@@ -26,7 +26,23 @@
 #   single                exactly one row (default when one binding is declared)
 #   use_case_conditioned  rows are selected per use case via binding_map; the map
 #                         must cover exactly the declared bindings
-schema_version: required_parameter_manifest_v2
+schema_version: required_parameter_manifest_v3
+
+# Execution-evidence rows must carry their measurement context, otherwise a number
+# like "object detection 40 ms" cannot be used for calibration: a value without a
+# platform and an input size is not evidence.
+execution_context_fields:
+  - platform
+  - stage
+  - input_size_or_workload_context
+  - software_framework
+  - reported_statistic
+  - unit
+  - sample_count
+  - frequency_or_power_mode
+  - measurement_setup
+execution_context_required_minimum: [platform, stage, reported_statistic, unit]
+
 dataset: MARGO-AUTOMOTIVE-MC-v1
 
 application_families:
@@ -221,6 +237,35 @@ required_parameters:
     requires_numeric: true
     registry_binding: []
     required_for_families: [mapping_background]
+
+  # ---- conversion parameters the W_i formula silently needs -------------
+  - id: cycles_per_bit_conversion
+    category: execution
+    requires_numeric: true
+    registry_binding: [cycles_per_bit_xu]
+    required_for_families: [perception_planning_control, cooperative_perception,
+                             localization_prediction_planning, mapping_background]
+    note: >-
+      W_i = t_ref_i * f_ref / (8 * xi) is the LOCKED formula, so xi is a required
+      generator parameter and must not stay invisible. The historical 300.0 lives
+      only in frozen_experiment.yaml with a repository comment citing Zhao2018
+      Table I; that comment is not a primary artifact, so the value is registered
+      as an unverified lead and stays blocked until the paper is read.
+      ALTERNATIVE (pending a formal contract decision, deliberately NOT applied):
+      keep canonical compute demand in cycles, C_i = t_ref_i * f_ref and
+      T_i^x = C_i / f_x, which is semantically cleaner because compute demand is
+      then separate from communication payload and xi becomes a legacy integration
+      conversion only.
+
+  - id: reference_execution_tier
+    category: execution
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, cooperative_perception,
+                             localization_prediction_planning, mapping_background]
+    note: >-
+      f_ref in the W_i formula must be declared explicitly; the reference tier is a
+      calibration device, not a claim about where tasks run
 
   # ---- rules satisfied by structural sources, no numeric row needed -----
   - id: criticality_role_taxonomy

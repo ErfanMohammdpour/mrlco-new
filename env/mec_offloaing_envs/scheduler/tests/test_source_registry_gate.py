@@ -66,6 +66,12 @@ class TestSourceRegistryGate(unittest.TestCase):
             "allowed_for_generation": allowed,
         }
         if tv:
+            # a transcribed EXECUTION row must also carry its measurement context
+            if row["semantic_role"] in ("measured_latency", "execution_time"):
+                row["execution_context"] = {
+                    "platform": "unit-test fixture", "stage": "stage",
+                    "reported_statistic": "mean", "unit": "ms",
+                }
             # a row claiming transcription must carry a complete, fresh ledger
             import hashlib
 
