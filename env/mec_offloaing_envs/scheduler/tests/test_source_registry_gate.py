@@ -99,5 +99,89 @@ class TestSourceRegistryGate(unittest.TestCase):
         self.assertIn("contradicts the gate", violations[0])
 
 
+class TestRequiredManifest(unittest.TestCase):
+    """Parameters that are not in the registry yet must not be invisible."""
+
+    def setUp(self):
+        import yaml
+
+        self.module = _validator()
+        self.rows = {"present_allowed": {"allowed_for_generation": True},
+                     "present_blocked": {"allowed_for_generation": False}}
+        self.base = {"application_families": ["fam_a"]}
+
+    def _manifest(self, entries, families=("fam_a",)):
+        return {"application_families": list(families), "required_parameters": entries}
+
+    def test_absent_parameter_counts_as_missing(self):
+        m = self.module
+        man = self._manifest([
+            {"id": "never_registered", "category": "payload", "requires_numeric": True, "registry_binding": []},
+            {"id": "fam_a_e2e", "category": "application_e2e", "requires_numeric": True,
+             "registry_binding": [], "required_for_families": ["fam_a"]},
+        ])
+        violations, stats = m.validate_manifest(man, self.rows)
+        self.assertEqual(stats["missing_required_parameters"], 2)
+        self.assertEqual(stats["blocked_required_parameters"], 0)
+
+    def test_bound_but_not_allowed_counts_as_blocked(self):
+        m = self.module
+        man = self._manifest([
+            {"id": "b", "category": "execution", "requires_numeric": True,
+             "registry_binding": ["present_blocked"]},
+            {"id": "fam_a_e2e", "category": "application_e2e", "requires_numeric": True,
+             "registry_binding": [], "required_for_families": ["fam_a"]},
+        ])
+        _v, stats = m.validate_manifest(man, self.rows)
+        self.assertEqual(stats["blocked_required_parameters"], 1)
+
+    def test_rule_only_parameter_is_never_missing(self):
+        m = self.module
+        man = self._manifest([
+            {"id": "r", "category": "rule", "requires_numeric": False, "registry_binding": []},
+            {"id": "fam_a_e2e", "category": "application_e2e", "requires_numeric": True,
+             "registry_binding": [], "required_for_families": ["fam_a"]},
+        ])
+        violations, stats = m.validate_manifest(man, self.rows)
+        self.assertEqual(stats["rule_only_parameters"], 1)
+        self.assertEqual(stats["missing_required_parameters"], 1)  # only the e2e anchor
+        self.assertEqual(violations, [])
+
+    def test_family_without_e2e_entry_is_a_violation(self):
+        m = self.module
+        man = self._manifest([], families=["fam_a", "fam_b"])
+        violations, _s = m.validate_manifest(man, self.rows)
+        self.assertEqual(len(violations), 2)
+
+    def test_binding_an_unknown_row_is_a_violation(self):
+        m = self.module
+        man = self._manifest([
+            {"id": "x", "category": "radio", "requires_numeric": True, "registry_binding": ["nope"]},
+            {"id": "fam_a_e2e", "category": "application_e2e", "requires_numeric": True,
+             "registry_binding": [], "required_for_families": ["fam_a"]},
+        ])
+        violations, _s = m.validate_manifest(man, self.rows)
+        self.assertTrue(any("unknown registry rows" in v for v in violations))
+
+
+class TestPin(unittest.TestCase):
+    def test_real_pin_is_fresh(self):
+        import hashlib
+
+        from pathlib import Path as _P
+
+        reg = _P(__file__).resolve().parents[4] / "spec" / "automotive_mc_v1" / "SOURCE_REGISTRY.yaml"
+        if not reg.exists():
+            self.skipTest("registry not present")
+        violations, stats = _validator().check_pin(hashlib.sha256(reg.read_bytes()).hexdigest())
+        self.assertEqual(violations, [])
+        self.assertFalse(stats["registry_pin_stale"])
+
+    def test_wrong_hash_is_stale(self):
+        violations, stats = _validator().check_pin("0" * 64)
+        self.assertTrue(stats["registry_pin_stale"])
+        self.assertTrue(any("registry_pin_stale" in v for v in violations))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

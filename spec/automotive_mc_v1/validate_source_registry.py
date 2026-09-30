@@ -18,6 +18,7 @@ row is admissible.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -34,6 +35,10 @@ ADMISSION_FIELDS = (
     "required_by_generator",
 )
 REGISTRY = Path(__file__).resolve().parent / "SOURCE_REGISTRY.yaml"
+MANIFEST = Path(__file__).resolve().parent / "REQUIRED_PARAMETER_MANIFEST.yaml"
+PIN = Path(__file__).resolve().parent / "registry_pin.json"
+CATEGORIES = {"execution", "payload", "radio", "application_e2e",
+              "communication_budget", "rule"}
 
 
 def expected_allowed(row: dict) -> bool:
@@ -43,6 +48,54 @@ def expected_allowed(row: dict) -> bool:
     if sv == "synthetic_calibrated":
         return bool(row.get("generation_rule_verified")) and bool(row.get("generation_rule_id"))
     return False
+
+
+def validate_manifest(manifest: dict, registry_rows: dict[str, dict]) -> tuple[list[str], dict]:
+    """Missing/blocked required parameters, including ones absent from the registry."""
+    violations: list[str] = []
+    missing = blocked = 0
+    seen: set[str] = set()
+    families = set(manifest.get("application_families") or [])
+    covered: set[str] = set()
+    for entry in manifest.get("required_parameters") or []:
+        pid = entry.get("id", "?")
+        if pid in seen:
+            violations.append(f"manifest: duplicate required parameter id {pid}")
+        seen.add(pid)
+        if entry.get("category") not in CATEGORIES:
+            violations.append(f"manifest: {pid} has unknown category {entry.get('category')!r}")
+        binds = entry.get("registry_binding") or []
+        present = [b for b in binds if b in registry_rows]
+        if entry.get("requires_numeric"):
+            if binds and not present:
+                violations.append(f"manifest: {pid} binds unknown registry rows {binds}")
+            if not binds:
+                missing += 1                      # not registered yet: invisible before
+            elif any(registry_rows[b].get("allowed_for_generation") is not True for b in present):
+                blocked += 1
+        if entry.get("category") == "application_e2e":
+            covered.update(entry.get("required_for_families") or [])
+    for family in sorted(families - covered):
+        violations.append(f"manifest: application family {family} has no application_e2e required parameter")
+    stats = {
+        "required_parameter_entries": len(seen),
+        "missing_required_parameters": missing,
+        "blocked_required_parameters": blocked,
+        "rule_only_parameters": sum(1 for e in (manifest.get("required_parameters") or [])
+                                    if not e.get("requires_numeric")),
+    }
+    return violations, stats
+
+
+def check_pin(doc_hash: str) -> tuple[list[str], dict]:
+    """A stale pin means the registry changed without regenerating the pin."""
+    if not PIN.exists():
+        return ["registry_pin.json missing"], {"registry_pin_stale": True}
+    pin = json.loads(PIN.read_text())
+    recorded = pin.get("source_registry_sha256")
+    stale = recorded != doc_hash
+    return ([f"registry_pin_stale: pin {str(recorded)[:16]} != registry {doc_hash[:16]}"] if stale else [],
+            {"registry_pin_stale": stale, "pinned_sha256": recorded})
 
 
 def validate(doc: dict) -> tuple[list[str], dict]:
@@ -86,9 +139,18 @@ def validate(doc: dict) -> tuple[list[str], dict]:
 
 def main() -> int:
     doc = yaml.safe_load(REGISTRY.read_text())
-    violations, stats = validate(doc)
-    print(json.dumps({"registry_schema": doc.get("schema_version"), **stats,
-                      "gate": "PASS" if not violations and stats["blocked_required_parameters"] == 0 else "BLOCKED",
+    row_violations, stats = validate(doc)
+    rows = {q["parameter_name"]: q for s in doc.get("sources", [])
+            for q in (s.get("parameters") or [])}
+    manifest = yaml.safe_load(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    man_violations, man_stats = validate_manifest(manifest, rows)
+    pin_violations, pin_stats = check_pin(hashlib.sha256(REGISTRY.read_bytes()).hexdigest())
+    violations = row_violations + man_violations + pin_violations
+    passed = (not violations and man_stats["missing_required_parameters"] == 0
+              and man_stats["blocked_required_parameters"] == 0
+              and pin_stats.get("registry_pin_stale") is False)
+    print(json.dumps({"registry_schema": doc.get("schema_version"), **stats, **man_stats,
+                      **pin_stats, "gate": "PASS" if passed else "BLOCKED",
                       "details": violations}, indent=2, sort_keys=True))
     return 1 if violations else 0
 

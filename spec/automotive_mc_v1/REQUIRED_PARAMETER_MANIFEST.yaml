@@ -1,0 +1,203 @@
+# REQUIRED_PARAMETER_MANIFEST — what the v1 generator needs, INDEPENDENT of what
+# the source registry happens to contain yet.
+#
+# Rationale: counting only rows that already exist makes blocked_required a LOWER
+# BOUND, because a parameter that was never registered is invisible. Step 2 passes
+# only when missing_required == 0 AND blocked_required == 0 AND violations == 0 AND
+# the registry pin is fresh.
+#
+# Binding semantics:
+#   registry_binding: [row ids in SOURCE_REGISTRY.yaml]
+#   requires_numeric: true  -> the parameter is MISSING until at least one bound
+#                              row exists; it is BLOCKED while any bound row has
+#                              allowed_for_generation: false
+#   requires_numeric: false -> satisfied by structural sources (kind: rule); never
+#                              counts as missing or blocked
+#
+# Payload sizing semantics (raw image) — never ambiguous:
+#   bits_per_pixel:    B = W * H * bits_per_pixel / 8
+#   bits_per_channel:  B = W * H * C * bits_per_channel / 8
+#   Do NOT multiply C by a value that is already per pixel. LiDAR, radar and camera
+#   keep separate rules; they are not one "raw_sensor" bucket.
+
+schema_version: required_parameter_manifest_v1
+dataset: MARGO-AUTOMOTIVE-MC-v1
+
+application_families:
+  - perception_planning_control
+  - cooperative_perception
+  - localization_prediction_planning
+  - mapping_background
+
+required_parameters:
+
+  # ---- execution timing -------------------------------------------------
+  - id: perception_execution_distribution
+    category: execution
+    requires_numeric: true
+    registry_binding: [ros2_stage_latency_distributions]
+    required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning]
+    note: needs mu/P50/P95/P99/Max as reported; missing quantiles stay missing
+
+  - id: perception_execution_distribution_platform2
+    category: execution
+    requires_numeric: true
+    registry_binding: [perception_mean_latency]
+    required_for_families: [perception_planning_control]
+    note: second independent platform, so the dataset does not overfit one device
+
+  - id: pipeline_reference_latency
+    category: execution
+    requires_numeric: true
+    registry_binding: [ros2_pipeline_end_to_end_latency]
+    required_for_families: [perception_planning_control]
+
+  - id: perception_stage_soft_deadline
+    category: execution
+    requires_numeric: true
+    registry_binding: [perception_soft_deadline]
+    required_for_families: [perception_planning_control]
+
+  # ---- payload models (per category, never one shared distribution) -----
+  - id: raw_camera_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, cooperative_perception]
+    note: rule RAW-FRAME-SIZE-V1, derived from sourced resolution and pixel format
+
+  - id: lidar_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, localization_prediction_planning]
+    note: point-cloud rule, distinct from raw image
+
+  - id: radar_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control]
+
+  - id: feature_tensor_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [cooperative_perception, perception_planning_control]
+
+  - id: object_list_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [cooperative_perception, localization_prediction_planning]
+
+  - id: trajectory_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, localization_prediction_planning]
+
+  - id: control_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, localization_prediction_planning]
+
+  - id: v2x_message_payload_model
+    category: payload
+    requires_numeric: true
+    registry_binding: [cooperative_collision_avoidance_payload, emergency_trajectory_alignment_payload, platooning_payload_range]
+    required_for_families: [cooperative_perception]
+
+  # ---- communication budgets (never D_G) --------------------------------
+  - id: v2x_message_latency_budget
+    category: communication_budget
+    requires_numeric: true
+    registry_binding: [cooperative_collision_avoidance_max_e2e_latency, emergency_trajectory_alignment_max_e2e_latency, platooning_max_e2e_latency]
+    required_for_families: [cooperative_perception]
+
+  - id: v2x_message_rate
+    category: communication_budget
+    requires_numeric: true
+    registry_binding: [cooperative_collision_avoidance_message_rate, platooning_message_rate]
+    required_for_families: [cooperative_perception]
+
+  - id: extended_sensors_latency_budget
+    category: communication_budget
+    requires_numeric: true
+    registry_binding: [extended_sensors_high_automation_latency_set]
+    required_for_families: [cooperative_perception]
+
+  # ---- radio resource profiles (achievable capacity only) ---------------
+  - id: mec_ul_achievable_capacity_profile
+    category: radio
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]
+    note: nominal/degraded/strong; separate from service_required_rate and offered_load
+
+  - id: mec_dl_achievable_capacity_profile
+    category: radio
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, cooperative_perception]
+
+  - id: v2v_achievable_capacity_profile
+    category: radio
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [cooperative_perception]
+
+  - id: helper_compute_profile
+    category: radio
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [cooperative_perception]
+
+  # ---- application-level E2E anchors, ONE PER FAMILY --------------------
+  - id: e2e_sla_perception_planning_control
+    category: application_e2e
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control]
+    note: direct requirement, or an E2E-SLA-V1 instance with frozen family parameters
+
+  - id: e2e_sla_cooperative_perception
+    category: application_e2e
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [cooperative_perception]
+
+  - id: e2e_sla_localization_prediction_planning
+    category: application_e2e
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [localization_prediction_planning]
+
+  - id: e2e_sla_mapping_background
+    category: application_e2e
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [mapping_background]
+
+  # ---- rules satisfied by structural sources, no numeric row needed -----
+  - id: criticality_role_taxonomy
+    category: rule
+    requires_numeric: false
+    registry_binding: []
+    evidence_source_ids: [AUTOWARE-OFFICIAL-DOCS, ECLIPSE-APP4MC-AMALTHEA]
+    note: semantic roles per application family; must not be depth-derived
+
+  - id: subdeadline_allocation_method
+    category: rule
+    requires_numeric: false
+    registry_binding: []
+    evidence_source_ids: [ECRTS-2024-DAG-TIME-CONSTRAINTS]
+    note: E_i, L_i allocation from the frozen D_G
+
+  - id: mixed_criticality_budget_model
+    category: rule
+    requires_numeric: false
+    registry_binding: []
+    evidence_source_ids: [VESTAL-2007-RTSS]
+    note: C_LO/C_HI structure; values come from the execution distributions

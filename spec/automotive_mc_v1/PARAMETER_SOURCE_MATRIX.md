@@ -110,3 +110,67 @@ unresolved *schema* fields, but zero rows are admissible to the generator becaus
 no transcription has been verified against full text yet. Step 3 does not start
 until gates 1-5 close and this matrix has no blocked field that the generator
 needs.
+
+---
+
+# GATE DEFINITION v2 — made non-blind to absent parameters
+
+Counting only rows that already exist made `blocked_required` a **lower bound**: a
+parameter the generator needs but that was never registered was invisible. A
+manifest independent of the registry now declares what the generator requires:
+
+```
+spec/automotive_mc_v1/REQUIRED_PARAMETER_MANIFEST.yaml
+```
+
+Step 2 passes only when ALL FOUR hold:
+
+```
+missing_required_parameters == 0
+blocked_required_parameters == 0
+violations                  == 0
+registry_pin_stale          == false
+```
+
+Current report (validator, `spec/automotive_mc_v1/validate_source_registry.py`):
+
+```
+required_parameter_entries   = 26   (of which rule-only = 3, satisfied by structural sources)
+missing_required_parameters  = 15   <- parameters with no registry row at all
+blocked_required_parameters  = 8    <- bound rows that are not yet allowed
+registry_pin_stale           = false
+violations                   = 0
+gate                         = BLOCKED
+```
+
+`registry_pin_stale` is checked by comparing `sha256(SOURCE_REGISTRY.yaml)` with
+the hash recorded in `registry_pin.json`, so editing the registry without
+regenerating the pin now fails instead of silently passing.
+
+The 15 missing parameters are the invisible ones: per-category payload models
+(`raw_camera`, `lidar`, `radar`, `feature_tensor`, `object_list`, `trajectory`,
+`control`), the achievable-capacity radio profiles (`mec_ul`, `mec_dl`, `v2v`,
+`helper_compute`), and one `application_e2e` anchor per v1 family
+(`perception_planning_control`, `cooperative_perception`,
+`localization_prediction_planning`, `mapping_background`).
+
+## Payload sizing semantics (corrected, unambiguous)
+
+```
+bits_per_pixel:    B = W * H * bits_per_pixel / 8
+bits_per_channel:  B = W * H * C * bits_per_channel / 8
+```
+
+Never multiply the channel count by a quantity that is already per pixel. Camera,
+LiDAR and radar keep **separate** rules — there is no single `raw_sensor` bucket —
+and compressed payloads never follow the raw formula: they need a measurement or a
+calibrated distribution with provenance.
+
+## Per-family E2E anchors (one is not enough)
+
+A single shared `D_G` distribution across families is forbidden. Each family listed
+in the manifest must have either a direct application-level requirement or its own
+`E2E-SLA-V1` instance with frozen `period_source`, `period_s`, `rho_distribution`,
+`rho_source` and `rule_id`, hashed before the first scheduling call. A family that
+is deliberately not SLA-constrained in v1 must say so explicitly in the manifest
+instead of inheriting another family's deadline.
