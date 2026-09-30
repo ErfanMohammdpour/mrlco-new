@@ -72,6 +72,7 @@ class TestSourceRegistryGate(unittest.TestCase):
                     "platform": "unit-test fixture", "stage": "stage",
                     "reported_statistic": "mean", "unit": "ms",
                 }
+                row["conversion_to_cycles"] = "allowed"
             # a row claiming transcription must carry a complete, fresh ledger
             import hashlib
 
@@ -250,6 +251,51 @@ class TestResourceOntology(unittest.TestCase):
             if len(entry.get("registry_binding") or []) > 1:
                 self.assertIn(entry.get("binding_policy"),
                               ("single", "use_case_conditioned", "all_must_be_allowed"))
+
+
+class TestConversionDeclaration(unittest.TestCase):
+    """A GPU measurement must not silently become CPU cycles."""
+
+    def setUp(self):
+        self.module = _validator()
+
+    def _row(self, platform, conv, **extra):
+        row = {"parameter_name": "x", "required_by_generator": True,
+               "source_verification": "official_verified", "transcription_verified": True,
+               "measurement_scope": "processing_stage", "semantic_role": "measured_latency",
+               "allowed_for_generation": True,
+               "execution_context": {"platform": platform, "stage": "s", "reported_statistic": "mean", "unit": "ms"},
+               "conversion_to_cycles": conv,
+               "transcription_ledger": {
+                   "document_version": "TS 22.186 V16.2.0", "section": "5.3",
+                   "table": "Table 5.3-1", "requirement_id": "R.5.3-001",
+                   "column": "x", "value": "10", "unit": "ms",
+                   "evidence_sha256": __import__("hashlib").sha256(
+                       _validator().EVIDENCE.read_bytes()).hexdigest()}}
+        row.update(extra)
+        return row
+
+    def test_missing_declaration_is_a_violation(self):
+        row = self._row("cpu-like embedded", "allowed")
+        del row["conversion_to_cycles"]
+        violations, _s = self.module.validate({"sources": [{"parameters": [row]}]})
+        self.assertTrue(any("conversion_to_cycles" in v for v in violations), violations)
+
+    def test_accelerator_without_rule_cannot_claim_conversion(self):
+        violations, _s = self.module.validate(
+            {"sources": [{"parameters": [self._row("Jetson Orin Nano GPU", "allowed")]}]})
+        self.assertTrue(any("conversion_rule_id" in v for v in violations), violations)
+
+    def test_accelerator_with_a_rule_is_accepted(self):
+        violations, _s = self.module.validate(
+            {"sources": [{"parameters": [self._row("Jetson Orin Nano GPU", "allowed",
+                                                   conversion_rule_id="GPU-TO-CYCLES-V1")]}]})
+        self.assertEqual(violations, [])
+
+    def test_forbidden_conversion_is_accepted(self):
+        violations, _s = self.module.validate(
+            {"sources": [{"parameters": [self._row("Jetson Orin Nano GPU", "forbidden")]}]})
+        self.assertEqual(violations, [])
 
 
 class TestTranscriptionLedger(unittest.TestCase):

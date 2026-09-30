@@ -42,6 +42,14 @@ execution_context_fields:
   - frequency_or_power_mode
   - measurement_setup
 execution_context_required_minimum: [platform, stage, reported_statistic, unit]
+# Every execution row that feeds t_ref must state whether the t*f -> cycles
+# conversion is legitimate for its hardware class. CPU-like: allowed. GPU or
+# accelerator: forbidden unless conversion_rule_id justifies it.
+conversion_rules:
+  field: conversion_to_cycles        # allowed | forbidden
+  rule_id_field: conversion_rule_id  # required when the conversion is justified anyway
+  default: forbidden
+
 
 dataset: MARGO-AUTOMOTIVE-MC-v1
 
@@ -265,7 +273,11 @@ required_parameters:
                              localization_prediction_planning, mapping_background]
     note: >-
       f_ref in the W_i formula must be declared explicitly; the reference tier is a
-      calibration device, not a claim about where tasks run
+      calibration device, not a claim about where tasks run. The declaration must
+      bind the tier to the platform a t_ref was MEASURED on
+      (t_i^ref <-> f_ref <-> measurement platform); a tier name alone is not enough.
+      W_i is compute demand only and must never be used as a communication edge
+      payload, and B_e must never be derived from it.
 
   # ---- rules satisfied by structural sources, no numeric row needed -----
   - id: criticality_role_taxonomy

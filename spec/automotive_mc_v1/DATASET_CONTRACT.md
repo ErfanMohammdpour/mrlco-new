@@ -95,6 +95,29 @@ Only `requirement` rows with `measurement_scope: application_e2e` may anchor
 `D_G`. A `measured_latency` row is evidence, never a requirement, and may not be
 declared an SLA.
 
+## 4b. Compute demand is not communication payload (locked)
+
+`W_i`, built from the workload formula, is the ENCODING OF COMPUTE LOAD for one
+task. It must never be used as an edge payload, and an edge payload `B_e` must
+never be derived from it. The two semantics stay separate end to end: compute
+demand drives execution time per tier, payload drives transfer time per link.
+
+## 4c. Reference tier coupling (locked)
+
+A measured reference time is only convertible into compute demand if the tier
+frequency and the measurement platform belong together:
+
+```
+t_i^ref  <->  f_ref  <->  the platform on which t_i^ref was measured
+```
+
+Taking a Jetson Orin Nano latency and dividing by an assumed 10 GHz MEC frequency
+would fabricate a workload. Every execution row used for `t_i^ref` must therefore
+declare its hardware class and whether the `t * f -> cycles` conversion is
+legitimate: for a GPU/accelerator measurement the conversion is FORBIDDEN unless
+an explicit conversion rule (with a rule id) justifies it, because
+`t * f -> cycles` presumes CPU-like execution.
+
 ## 5. Calibration order (hard gate)
 
 ```

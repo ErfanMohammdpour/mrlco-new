@@ -165,6 +165,20 @@ def validate(doc: dict) -> tuple[list[str], dict]:
         if (row.get("transcription_verified") is True
                 and row.get("semantic_role") in EXEC_ROLES):
             ctx = row.get("execution_context") or {}
+            hw = str(ctx.get("platform") or "").lower()
+            conv = row.get("conversion_to_cycles")
+            if conv not in ("allowed", "forbidden"):
+                violations.append(
+                    f"{name}: transcribed execution row must declare conversion_to_cycles "
+                    "(allowed|forbidden) for its hardware class")
+            elif conv == "forbidden" and not row.get("conversion_rule_id") and any(
+                    k in hw for k in ("gpu", "jetson", "accelerator", "tpu")):
+                pass  # correctly forbidden for an accelerator measurement
+            elif conv == "allowed" and any(
+                    k in hw for k in ("gpu", "jetson", "accelerator", "tpu")) and not row.get("conversion_rule_id"):
+                violations.append(
+                    f"{name}: accelerator measurement claims a legitimate t*f->cycles "
+                    "conversion without a conversion_rule_id")
             missing = [f for f in EXEC_CONTEXT if not ctx.get(f)]
             if missing:
                 violations.append(
