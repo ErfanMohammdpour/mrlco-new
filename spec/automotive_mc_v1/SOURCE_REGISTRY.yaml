@@ -235,12 +235,15 @@ sources:
     verification_status: structural model confirmed from official documentation
     parameters: []
     used_for:
-      - semantic structure of the generator: task/runnable decomposition,
+      - >-
+        semantic structure of the generator: task/runnable decomposition,
         activity-graph composition, labels/channels carrying data
-      - justification that a "task" carries execution needs separate from data
+      - >-
+        justification that a "task" carries execution needs separate from data
         movement, which supports the invariant-task rule (W_i per task, B_e per edge)
     used_for_forbidden:
-      - tutorial/demo numbers (example deadlines, example instruction counts) are
+      - >-
+        tutorial/demo numbers (example deadlines, example instruction counts) are
         NOT automotive measurements and MUST NOT enter the dataset as empirical timing
     label_for_structure: standard-derived
     label_for_any_number: forbidden
