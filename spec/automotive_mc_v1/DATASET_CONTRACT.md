@@ -58,9 +58,14 @@ about where tasks run.
 
 ## 4. SLA scope (locked) — a communication requirement is not a DAG deadline
 
-Every entry in `sla_registry.yaml` carries an explicit scope:
+Every numeric row in `SOURCE_REGISTRY.yaml` and every SLA row in
+`sla_registry.yaml` carries TWO independent fields. Scope alone is not enough:
+two values can share a scope while meaning different things (for example a stage
+deadline requirement versus a measured P95 latency of that stage).
 
-| scope | meaning | may it define `D_G`? |
+`measurement_scope`:
+
+| measurement_scope | meaning | may it define `D_G`? |
 |---|---|---|
 | `communication` | radio/interface latency or message transfer budget (e.g. a V2X service requirement) | no |
 | `processing_stage` | one application stage or a chain segment (perception, planning, ...) | only via composition |
@@ -75,6 +80,21 @@ Rules:
   is used (recorded), and the chosen bin is stored per graph;
 - the same numeric value with different scopes is stored as different entries.
 
+`semantic_role` (independent of scope):
+
+| semantic_role | meaning |
+|---|---|
+| `requirement` | a required bound/deadline stated by a standard, an application or a paper's contract |
+| `measured_latency` | an observed latency (mean/P95/max) reported by a source |
+| `execution_time` | observed execution/compute time of a task or stage |
+| `payload` | a message/frame/dataset size |
+| `offered_load` | a traffic/message-rate demand |
+| `capacity` | an achievable rate/capacity of a resource |
+
+Only `requirement` rows with `measurement_scope: application_e2e` may anchor
+`D_G`. A `measured_latency` row is evidence, never a requirement, and may not be
+declared an SLA.
+
 ## 5. Calibration order (hard gate)
 
 ```
@@ -84,10 +104,12 @@ external SLA fixed first
   -> independent certification last
 ```
 
-The old second-scale timing scale is rejected: automotive `application_e2e`
-deadlines are milliseconds while the current legacy stack produces 528–1245 s of
-makespan, so workloads derived from MB-scale data at the present tiers cannot
-coexist with those SLAs. Workloads are derived from **measured/reference stage
+Current status: `timing_scale = UNRESOLVED`. The historical co-physical stack
+produces 528–1245 s of makespan, and no source-backed application-level E2E target
+has been frozen yet, so the mismatch cannot honestly be called an inconsistency
+until such a target exists. What IS established is that the present
+`communication`-scope values (3–50 ms message requirements) cannot be attached to
+a perception+planning+control chain deadline. Workloads are derived from **measured/reference stage
 times** (`t_ref_i`) at a declared reference tier, not invented as bytes and hoped
 to be realistic.
 

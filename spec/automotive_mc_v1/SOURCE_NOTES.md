@@ -47,9 +47,50 @@ model.
 | gap | what is needed | why it blocks |
 |---|---|---|
 | `application_e2e_deadlines` | source-backed application-level E2E deadlines or measured chain times | without it `D_G` cannot be fixed before scheduling, and the whole non-circular deadline construction has no anchor |
-| `per_stage_execution_distributions` | measured per-stage distributions for perception, localization, prediction, planning, control | `t_ref_i` and the empirical `C_LO`/`C_HI` come from here; without it workloads would be invented bytes |
+| `per_stage_execution_distributions` | measured per-stage distributions for perception, localization, prediction, planning, control, from at least two platform families | `t_ref_i` and the empirical `C_LO`/`C_HI` come from here; without it workloads would be invented bytes. PARTIAL: scaled-vehicle (1:10) stages + Jetson Orin Nano perception |
 | `payload_message_semantics` | sensor-frame / feature-map / trajectory / control message sizes | payloads must be properties of edges, calibrated from application semantics |
 | `radio_resource_profiles` | defensible radio throughput model | `resource_profiles.yaml` must not be frozen on the current frozen 7/5 Mbps assumptions |
+
+## Step 2 completion gates (all four must close before Step 3)
+
+| gate | requirement | state |
+|---|---|---|
+| application-level E2E | a source must state a requirement/deadline for the WHOLE chain, not a measured latency. If no defensible public number exists, `D_G` becomes `source-calibrated-synthetic` with a stated rule rather than mislabelling a measured latency as an SLA | **OPEN** |
+| execution distributions | at least TWO platform/source families so the dataset does not overfit one Raspberry/Jetson/scale car | **PARTIAL** — scaled vehicle (1:10) stage distributions and a Jetson Orin Nano perception measurement are registered; WATERS extraction still pending |
+| payload semantics | raw frame, feature-level data, object list / CPM, trajectory and control messages must be separated; a 2000 B V2X message is not a camera frame | **PARTIAL** — TS 22.186 message payloads registered; sensor-frame and feature-map sizes still need sources or an explicit synthetic rule |
+| radio profiles | a defensible throughput model, not the frozen 7/5 Mbps and not a TS 22.186 required data rate used as capacity | **OPEN** |
+
+Two further rules recorded with the gates:
+
+- a `requirement` and a `measured_latency` with the same `measurement_scope` are
+  different quantities; the registry keeps them apart with `semantic_role`;
+- the 150 ms soft deadline and ~133 ms mean perception latency on Jetson Orin Nano
+  and the 40-50 ms fresh-perception-input constraint are **stage-level** values.
+  They constrain perception, not the end-to-end DAG.
+
+## Identifiers confirmed in recon (read before use)
+
+- [ROS 2-Based Architecture for Autonomous Driving Systems: Design and
+  Implementation](https://www.mdpi.com/1424-8220/26/2/463) — Sensors (MDPI) 2026,
+  26(2):463, Bonci, Brunella et al. Stage-level mean/P95/max plus pipeline
+  end-to-end for lane/object/obstacle. **Platform is a 1:10 scale vehicle**, so it
+  is registered with `platform_qualifier: scaled_vehicle_1_10` and must not be
+  presented as production-vehicle timing.
+- [Deadline-Adherent Edge AI for Intelligent Vehicles (quantized YOLOv8n on Jetson
+  Orin Nano)](https://ietresearch.onlinelibrary.wiley.com/doi/pdf/10.1049/itr2.70135)
+  — IET Intelligent Transport Systems, doi 10.1049/itr2.70135. Supplies the second,
+  independent platform for perception.
+- [Real World Automotive Benchmarks For
+  Free](http://waters.ecrts.org/forum/download/RealWorldAutomotiveBenchmarksForFree-ECRTS-WATERS2015.pdf)
+  — WATERS (ECRTS) 2015, Bosch benchmark: realistic but IP-free automotive task
+  sets with period/ACET/WCET properties; the structural and distributional
+  grounding for the generator. Values still to be extracted with table numbers.
+- [Deadline Miss Early Detection Method for DAG Tasks Considering Variable
+  Execution Time](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECRTS.2024.8)
+  — ECRTS 2024, doi 10.4230/LIPIcs.ECRTS.2024.8: autonomous-driving-style DAG from
+  sensor input to control command with time constraints allocated to nodes from an
+  end-to-end deadline. The closest methodological match for the sub-deadline
+  scheme; to be read in full before Step 6.
 
 ## Next recon steps
 

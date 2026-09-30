@@ -48,7 +48,8 @@ sources:
         table: Table 5.3-1
         scenario: Advanced Driving - Cooperative collision avoidance
         requirement_id: R.5.3-001
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         interpretation: V2X message payload size required by the service
         margo_use: constrains edge/task payload semantics B_e (message payload),
@@ -58,7 +59,8 @@ sources:
         unit: msg/s
         table: Table 5.3-1
         requirement_id: R.5.3-001
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         interpretation: message transmission rate for the service
         margo_use: candidate generation rate for cooperative-perception messages;
@@ -68,7 +70,8 @@ sources:
         unit: ms
         table: Table 5.3-1
         requirement_id: R.5.3-001
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         interpretation: maximum end-to-end latency of the V2X message exchange
           between UEs for this service
@@ -79,7 +82,8 @@ sources:
         unit: percent
         table: Table 5.3-1
         requirement_id: R.5.3-001
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: reliability context for stress/sensitivity reporting only
       - parameter_name: cooperative_collision_avoidance_data_rate
@@ -87,7 +91,8 @@ sources:
         unit: Mbps
         table: Table 5.3-1
         requirement_id: R.5.3-001
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         interpretation: required data rate for the service
         margo_use: upper-bound sanity check for radio profiles; NOT a link capacity
@@ -98,7 +103,8 @@ sources:
         table: Table 5.3-1
         scenario: Advanced Driving - Emergency trajectory alignment
         requirement_id: R.5.3-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: payload semantics for a high-criticality cooperative message
       - parameter_name: emergency_trajectory_alignment_max_e2e_latency
@@ -106,7 +112,8 @@ sources:
         unit: ms
         table: Table 5.3-1
         requirement_id: R.5.3-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: communication-scope latency budget; NOT D_G
       - parameter_name: emergency_trajectory_alignment_reliability
@@ -114,7 +121,8 @@ sources:
         unit: percent
         table: Table 5.3-1
         requirement_id: R.5.3-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: reliability context only
       - parameter_name: emergency_trajectory_alignment_data_rate
@@ -122,7 +130,8 @@ sources:
         unit: Mbps
         table: Table 5.3-1
         requirement_id: R.5.3-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: radio-profile sanity upper bound; not a capacity claim
       - parameter_name: emergency_trajectory_alignment_range
@@ -130,7 +139,8 @@ sources:
         unit: m
         table: Table 5.3-1
         requirement_id: R.5.3-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: V2V reachability context (not modelled in v1 scheduling)
       - parameter_name: extended_sensors_high_automation_latency_set
@@ -138,7 +148,8 @@ sources:
         unit: ms
         table: Table 5.4-1
         scenario: Extended Sensors - sensor information sharing (high degree of automation)
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         interpretation: per-row maximum end-to-end latency for sensor information
           sharing, with row-specific reliability and data rate
@@ -149,7 +160,8 @@ sources:
         unit: ms
         table: Table 5.4-1
         scenario: Extended Sensors - video sharing
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: video-sharing message budget; note the associated data rates are
           much higher (up to ~700 Mbps) and cannot be treated as link capacity here
@@ -157,7 +169,8 @@ sources:
         value: 700
         unit: Mbps
         table: Table 5.4-1
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: context only; explicitly NOT used as a simulated link rate
       - parameter_name: remote_driving_max_e2e_latency
@@ -165,28 +178,32 @@ sources:
         unit: ms
         table: Table 5.5-1
         scenario: Remote Driving
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: communication-scope budget; NOT D_G
       - parameter_name: remote_driving_reliability
         value: 99.999
         unit: percent
         table: Table 5.5-1
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: reliability context only
       - parameter_name: remote_driving_ul_rate
         value: 25
         unit: Mbps
         table: Table 5.5-1
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: uplink profile sanity bound; not a capacity claim
       - parameter_name: remote_driving_dl_rate
         value: 1
         unit: Mbps
         table: Table 5.5-1
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: downlink profile sanity bound; not a capacity claim
       - parameter_name: platooning_payload_range
@@ -195,7 +212,8 @@ sources:
         table: Table 5.2-1
         scenario: Platooning (highest degree of automation)
         requirement_id: R.5.2-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         sampling_rule_required: true
         margo_use: payload range for platooning messages; a deterministic binning
@@ -205,7 +223,8 @@ sources:
         unit: msg/s
         table: Table 5.2-1
         requirement_id: R.5.2-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: platooning message periodicity context
       - parameter_name: platooning_max_e2e_latency
@@ -213,7 +232,8 @@ sources:
         unit: ms
         table: Table 5.2-1
         requirement_id: R.5.2-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: communication-scope budget; NOT D_G
       - parameter_name: platooning_reliability
@@ -221,7 +241,8 @@ sources:
         unit: percent
         table: Table 5.2-1
         requirement_id: R.5.2-006
-        scope: communication
+        measurement_scope: communication
+        semantic_role: requirement
         label: standard-derived
         margo_use: reliability context only
 
@@ -268,6 +289,113 @@ sources:
       empirical_execution_budget_lo / empirical_execution_budget_hi; the term
       WCET may only be used where a source genuinely provides WCET
     margo_use: MC model authority only, with zero numerical parameters
+
+  - source_id: MDPI-SENSORS-2026-ROS2-AD
+    type: peer-reviewed paper
+    title: "ROS 2-Based Architecture for Autonomous Driving Systems: Design and Implementation"
+    authors: Bonci, Brunella, et al.
+    venue: Sensors (MDPI), 2026, vol. 26, issue 2, article 463
+    url: https://www.mdpi.com/1424-8220/26/2/463
+    verification_status: >-
+      identifiers confirmed; stage-level mean/P95/max and pipeline end-to-end
+      values reported by the project owner still require independent full-text
+      extraction with table/figure numbers before use in calibration
+    platform_qualifier: scaled_vehicle_1_10
+    platform_warning: >-
+      measurements were taken on a 1:10 scale vehicle, so they are NOT
+      production-vehicle timing; they must be recorded as measured-then-scaled
+      evidence and must not be presented as automotive-grade execution times
+    parameters:
+      - parameter_name: ros2_stage_latency_distributions
+        value: reported (mean / P95 / max per stage)
+        unit: ms
+        stages: [preprocessing, lane_detection, object_detection, decision_making, state_machine]
+        measurement_scope: processing_stage
+        semantic_role: measured_latency
+        label: measured
+        platform: scaled_vehicle_1_10
+        margo_use: >-
+          candidate source for t_ref_i distributions of the corresponding semantic
+          roles, TOGETHER with at least one other platform source
+      - parameter_name: ros2_pipeline_end_to_end_latency
+        value: reported per pipeline (lane / object / obstacle)
+        unit: ms
+        measurement_scope: processing_stage
+        semantic_role: measured_latency
+        label: measured
+        platform: scaled_vehicle_1_10
+        margo_use: sanity range for composed chains; NOT D_G
+      - parameter_name: fresh_perception_input_constraint
+        value: 40-50
+        unit: ms
+        measurement_scope: processing_stage
+        semantic_role: requirement
+        label: source-calibrated-synthetic
+        notes: >-
+          the paper discusses a freshness constraint on perception input; it is a
+          stage-level requirement, not an application end-to-end deadline for a
+          perception+planning+control DAG
+        margo_use: candidate firm sub-deadline for perception stages only
+
+  - source_id: IET-ITS-2025-JETSON-ORIN-NANO
+    type: peer-reviewed paper
+    title: "Deadline-Adherent Edge AI for Intelligent Vehicles: Real-Time Obstacle and
+      Traffic Light Detection Using Quantized YOLOv8n on Jetson Orin Nano"
+    venue: IET Intelligent Transport Systems
+    doi: 10.1049/itr2.70135
+    url: https://ietresearch.onlinelibrary.wiley.com/doi/pdf/10.1049/itr2.70135
+    verification_status: identifiers confirmed; numeric values reported by the
+      project owner pending independent full-text check
+    parameters:
+      - parameter_name: perception_soft_deadline
+        value: 150
+        unit: ms
+        measurement_scope: processing_stage
+        semantic_role: requirement
+        label: measured
+        notes: soft real-time deadline for the perception stage
+        margo_use: candidate firm/soft sub-deadline for perception; NOT D_G
+      - parameter_name: perception_mean_latency
+        value: 133
+        unit: ms
+        measurement_scope: processing_stage
+        semantic_role: measured_latency
+        label: measured
+        platform: jetson_orin_nano
+        margo_use: second, independent platform for the perception t_ref_i range
+
+  - source_id: WATERS-2015-REAL-WORLD-BENCHMARKS
+    type: peer-reviewed workshop paper + released benchmark
+    title: "Real World Automotive Benchmarks For Free"
+    venue: WATERS workshop (ECRTS) 2015
+    url: http://waters.ecrts.org/forum/download/RealWorldAutomotiveBenchmarksForFree-ECRTS-WATERS2015.pdf
+    verification_status: identifiers confirmed; task-set values not yet extracted
+    used_for:
+      - >-
+        structure and realistic-but-IP-free properties of automotive task sets:
+        periods, average-case and worst-case execution times, chain/topology
+        structure derived from real automotive software
+      - generator grounding for period/ACET/WCET-style distributions and for
+        composed chains (replacing pure random topologies)
+    parameters: []
+    label_for_any_number: standard-derived (only after explicit extraction with
+      table numbers)
+
+  - source_id: ECRTS-2024-DAG-TIME-CONSTRAINTS
+    type: peer-reviewed paper
+    title: "Deadline Miss Early Detection Method for DAG Tasks Considering Variable Execution Time"
+    venue: ECRTS 2024
+    doi: 10.4230/LIPIcs.ECRTS.2024.8
+    url: https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECRTS.2024.8
+    verification_status: identifiers confirmed; method to be read before Step 6
+    parameters: []
+    used_for:
+      - >-
+        closely matching framing for Step 6/13: an autonomous-driving-style DAG
+        from sensor input to control command with time constraints allocated to
+        nodes from an end-to-end deadline
+      - candidate methodological authority for the sub-deadline allocation scheme
+    margo_use: methodology authority only, subject to full-text review
 
 evidence_gaps:
   # Generator calibration MUST NOT start until these four groups are populated.
