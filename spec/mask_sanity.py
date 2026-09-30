@@ -242,18 +242,61 @@ def constraint_spec_for_scenario(scenario):
     raise ValueError("unknown constraints scenario %r" % (scenario,))
 
 
-def primary_scheduler_config():
-    """The resolved primary scheduler config used by the smoke stack.
+SCHEDULER_CONFIG_CHOICES = ("co_physical", "primary", "control", "reproduction")
+
+
+def primary_scheduler_config(choice: str | None = None):
+    """The resolved scheduler config used by the smoke stack.
 
     Without it the cluster falls back to the legacy rebuild, which carries no
     `energy_scope`; the E3.1 latency-only reward and the E4.2 validation channel
     both require the declared `system` boundary, so the smoke must state it.
+
+    Selection (default `co_physical`, the only label the energy/timing consistency
+    gate accepts for energy work, and the approved final primary):
+      co_physical  physical timing + physical energy + system scope
+      primary      the legacy-timing `mixed_physics` label (kept for comparison)
+      control      physical accounting on the legacy rate table (energy-only)
+      reproduction the historical legacy stack, byte-exact
     """
+    import os
+
     from env.mec_offloaing_envs.scheduler.primary_config import (
+        resolved_physical_scheduler_config,
         resolved_primary_scheduler_config,
     )
 
-    return resolved_primary_scheduler_config()
+    choice = (choice or os.environ.get("MARGO_SCHEDULER_CONFIG") or "co_physical").strip()
+    if choice not in SCHEDULER_CONFIG_CHOICES:
+        raise ValueError(
+            "MARGO_SCHEDULER_CONFIG must be one of %s, got %r"
+            % (list(SCHEDULER_CONFIG_CHOICES), choice)
+        )
+    if choice == "co_physical":
+        return resolved_physical_scheduler_config()
+    if choice == "primary":
+        return resolved_primary_scheduler_config()
+    if choice == "control":
+        # energy-only contrast: identical schedule to the legacy stack
+        return resolved_primary_scheduler_config(
+            overrides={
+                "timing_model": "legacy_frozen_rates",
+                "radio_timing_model": "legacy_frozen_rates",
+                "energy_model": "physical_v1",
+                "radio_model": "physical_v1",
+                "energy_scope": "system",
+            }
+        )
+    # reproduction: the historical stack, byte-exact
+    return resolved_primary_scheduler_config(
+        overrides={
+            "timing_model": "legacy_frozen_rates",
+            "radio_timing_model": "legacy_frozen_rates",
+            "energy_model": "legacy",
+            "radio_model": "legacy",
+            "energy_scope": "mobile",
+        }
+    )
 
 
 def _train_masked(args, payload, rd):
