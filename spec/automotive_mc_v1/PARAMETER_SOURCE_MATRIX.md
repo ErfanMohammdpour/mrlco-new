@@ -174,3 +174,61 @@ in the manifest must have either a direct application-level requirement or its o
 `rho_source` and `rule_id`, hashed before the first scheduling call. A family that
 is deliberately not SLA-constrained in v1 must say so explicitly in the manifest
 instead of inheriting another family's deadline.
+
+---
+
+# ONTOLOGY, NAMING AND BINDING POLICY (locked)
+
+## Resource ontology
+
+A profile must be able to say "poor V2V but strong helper CPU" independently, so
+the two capacity kinds are separate categories:
+
+| kind | members |
+|---|---|
+| `communication_capacity` | `MEC_UL`, `MEC_DL`, `V2V` |
+| `compute_capacity` | `UE`, `HELPER`, `MEC` |
+
+`helper_compute_profile` is a compute resource, not a radio profile. The three
+compute entries carry `satisfied_by: co_physical_config(f_hz=...)` and
+`pending_source: true`, so the tier frequencies are recognised explicitly rather
+than inherited implicitly; they become admissible only once sourced or backed by a
+declared rule. A physical profile is the tuple
+`R_p = (f_UE, f_H, f_MEC, R_UL, R_DL, R_V2V)`.
+
+## Two manifest hashes, two names
+
+```
+required_parameter_manifest_sha   hash of REQUIRED_PARAMETER_MANIFEST.yaml
+dataset_manifest_sha              hash of the MATERIALIZED dataset manifest (not created)
+```
+
+The earlier single `manifest_sha` label was ambiguous and is retired.
+
+## Binding policy
+
+A required parameter backed by more than one registry row must declare
+`binding_policy`; otherwise a value would satisfy every family by accident, e.g. a
+2000 B cooperative message silently becoming the payload of every use case.
+
+```
+single                exactly one row (default)
+use_case_conditioned  rows selected per use case via binding_map, which must cover
+                      exactly the declared bindings
+all_must_be_allowed   every bound row must be admissible
+```
+
+Current multi-row bindings, all `use_case_conditioned` with explicit maps:
+`v2x_message_payload_model`, `v2x_message_latency_budget`, `v2x_message_rate`.
+
+## Gate state after the cleanup
+
+```
+required_parameter_entries   = 28   (rule-only = 3)
+missing_required_parameters  = 17   (payload 7, communication_capacity 3,
+                                     compute_capacity 3, application_e2e 4)
+blocked_required_parameters  = 8
+violations                   = 0
+registry_pin_stale           = false
+gate                         = BLOCKED
+```

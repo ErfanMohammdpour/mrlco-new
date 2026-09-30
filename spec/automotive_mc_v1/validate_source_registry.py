@@ -37,8 +37,9 @@ ADMISSION_FIELDS = (
 REGISTRY = Path(__file__).resolve().parent / "SOURCE_REGISTRY.yaml"
 MANIFEST = Path(__file__).resolve().parent / "REQUIRED_PARAMETER_MANIFEST.yaml"
 PIN = Path(__file__).resolve().parent / "registry_pin.json"
-CATEGORIES = {"execution", "payload", "radio", "application_e2e",
-              "communication_budget", "rule"}
+CATEGORIES = {"execution", "payload", "communication_budget",
+              "communication_capacity", "compute_capacity", "application_e2e", "rule"}
+BINDING_POLICIES = {"single", "use_case_conditioned", "all_must_be_allowed"}
 
 
 def expected_allowed(row: dict) -> bool:
@@ -65,6 +66,25 @@ def validate_manifest(manifest: dict, registry_rows: dict[str, dict]) -> tuple[l
         if entry.get("category") not in CATEGORIES:
             violations.append(f"manifest: {pid} has unknown category {entry.get('category')!r}")
         binds = entry.get("registry_binding") or []
+        policy = entry.get("binding_policy") or ("single" if len(binds) <= 1 else None)
+        if len(binds) > 1:
+            if policy not in BINDING_POLICIES:
+                violations.append(
+                    f"manifest: {pid} binds {len(binds)} rows without an explicit "
+                    "binding_policy (an aggregated value must not satisfy every family by accident)"
+                )
+            elif policy == "use_case_conditioned":
+                bmap = entry.get("binding_map") or {}
+                mapped = [r for rows_ in bmap.values() for r in rows_]
+                if sorted(mapped) != sorted(binds):
+                    violations.append(
+                        f"manifest: {pid} binding_map {sorted(mapped)} does not cover "
+                        f"its bindings {sorted(binds)}"
+                    )
+                for use_case, rows_ in bmap.items():
+                    for r in rows_:
+                        if r not in registry_rows:
+                            violations.append(f"manifest: {pid} binding_map[{use_case}] names unknown row {r}")
         present = [b for b in binds if b in registry_rows]
         if entry.get("requires_numeric"):
             if binds and not present:

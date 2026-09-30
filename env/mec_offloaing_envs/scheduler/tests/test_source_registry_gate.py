@@ -164,6 +164,77 @@ class TestRequiredManifest(unittest.TestCase):
         self.assertTrue(any("unknown registry rows" in v for v in violations))
 
 
+class TestBindingPolicy(unittest.TestCase):
+    """An aggregated value must not satisfy every family by accident."""
+
+    def setUp(self):
+        self.module = _validator()
+        self.rows = {"row_a": {"allowed_for_generation": True},
+                     "row_b": {"allowed_for_generation": False}}
+
+    def _manifest(self, entries):
+        return {"application_families": ["fam_a"], "required_parameters": list(entries) + [
+            {"id": "fam_a_e2e", "category": "application_e2e", "requires_numeric": True,
+             "registry_binding": [], "required_for_families": ["fam_a"]}]}
+
+    def test_multi_row_binding_without_policy_is_a_violation(self):
+        man = self._manifest([{"id": "agg", "category": "payload", "requires_numeric": True,
+                               "registry_binding": ["row_a", "row_b"]}])
+        violations, _s = self.module.validate_manifest(man, self.rows)
+        self.assertTrue(any("binding_policy" in v for v in violations), violations)
+
+    def test_use_case_map_must_cover_every_binding(self):
+        man = self._manifest([{"id": "agg", "category": "payload", "requires_numeric": True,
+                               "registry_binding": ["row_a", "row_b"],
+                               "binding_policy": "use_case_conditioned",
+                               "binding_map": {"uc": ["row_a"]}}])
+        violations, _s = self.module.validate_manifest(man, self.rows)
+        self.assertTrue(any("does not cover" in v for v in violations), violations)
+
+    def test_complete_use_case_map_is_accepted_and_still_blocked(self):
+        man = self._manifest([{"id": "agg", "category": "payload", "requires_numeric": True,
+                               "registry_binding": ["row_a", "row_b"],
+                               "binding_policy": "use_case_conditioned",
+                               "binding_map": {"uc1": ["row_a"], "uc2": ["row_b"]}}])
+        violations, stats = self.module.validate_manifest(man, self.rows)
+        self.assertEqual(violations, [])
+        self.assertEqual(stats["blocked_required_parameters"], 1)
+
+    def test_binding_map_naming_an_unknown_row_is_a_violation(self):
+        man = self._manifest([{"id": "agg", "category": "payload", "requires_numeric": True,
+                               "registry_binding": ["row_a", "row_b"],
+                               "binding_policy": "use_case_conditioned",
+                               "binding_map": {"uc1": ["row_a"], "uc2": ["ghost"]}}])
+        violations, _s = self.module.validate_manifest(man, self.rows)
+        self.assertTrue(any("unknown row" in v for v in violations), violations)
+
+
+class TestResourceOntology(unittest.TestCase):
+    """Communication capacity and compute capacity are different resources."""
+
+    def test_manifest_separates_capacity_kinds(self):
+        import yaml
+
+        man = yaml.safe_load(
+            (Path(__file__).resolve().parents[4] / "spec" / "automotive_mc_v1"
+             / "REQUIRED_PARAMETER_MANIFEST.yaml").read_text())
+        by_cat = {}
+        for entry in man["required_parameters"]:
+            by_cat.setdefault(entry["category"], []).append(entry["id"])
+        self.assertIn("communication_capacity", by_cat)
+        self.assertIn("compute_capacity", by_cat)
+        self.assertEqual(sorted(by_cat["communication_capacity"]),
+                         ["mec_dl_achievable_capacity_profile",
+                          "mec_ul_achievable_capacity_profile",
+                          "v2v_achievable_capacity_profile"])
+        self.assertEqual(sorted(by_cat["compute_capacity"]),
+                         ["helper_compute_profile", "mec_compute_profile", "ue_compute_profile"])
+        for entry in man["required_parameters"]:
+            if len(entry.get("registry_binding") or []) > 1:
+                self.assertIn(entry.get("binding_policy"),
+                              ("single", "use_case_conditioned", "all_must_be_allowed"))
+
+
 class TestPin(unittest.TestCase):
     def test_real_pin_is_fresh(self):
         import hashlib

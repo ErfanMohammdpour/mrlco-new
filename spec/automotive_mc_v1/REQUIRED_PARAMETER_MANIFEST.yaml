@@ -20,7 +20,13 @@
 #   Do NOT multiply C by a value that is already per pixel. LiDAR, radar and camera
 #   keep separate rules; they are not one "raw_sensor" bucket.
 
-schema_version: required_parameter_manifest_v1
+# binding_policy is mandatory when a required parameter is backed by more than one
+# registry row: without it, a value would satisfy every family by accident (a 2000 B
+# cooperative message would silently become the payload of every use case).
+#   single                exactly one row (default when one binding is declared)
+#   use_case_conditioned  rows are selected per use case via binding_map; the map
+#                         must cover exactly the declared bindings
+schema_version: required_parameter_manifest_v2
 dataset: MARGO-AUTOMOTIVE-MC-v1
 
 application_families:
@@ -107,6 +113,11 @@ required_parameters:
     category: payload
     requires_numeric: true
     registry_binding: [cooperative_collision_avoidance_payload, emergency_trajectory_alignment_payload, platooning_payload_range]
+    binding_policy: use_case_conditioned
+    binding_map:
+      cooperative_collision_avoidance: [cooperative_collision_avoidance_payload]
+      emergency_trajectory_alignment: [emergency_trajectory_alignment_payload]
+      platooning: [platooning_payload_range]
     required_for_families: [cooperative_perception]
 
   # ---- communication budgets (never D_G) --------------------------------
@@ -114,12 +125,21 @@ required_parameters:
     category: communication_budget
     requires_numeric: true
     registry_binding: [cooperative_collision_avoidance_max_e2e_latency, emergency_trajectory_alignment_max_e2e_latency, platooning_max_e2e_latency]
+    binding_policy: use_case_conditioned
+    binding_map:
+      cooperative_collision_avoidance: [cooperative_collision_avoidance_max_e2e_latency]
+      emergency_trajectory_alignment: [emergency_trajectory_alignment_max_e2e_latency]
+      platooning: [platooning_max_e2e_latency]
     required_for_families: [cooperative_perception]
 
   - id: v2x_message_rate
     category: communication_budget
     requires_numeric: true
     registry_binding: [cooperative_collision_avoidance_message_rate, platooning_message_rate]
+    binding_policy: use_case_conditioned
+    binding_map:
+      cooperative_collision_avoidance: [cooperative_collision_avoidance_message_rate]
+      platooning: [platooning_message_rate]
     required_for_families: [cooperative_perception]
 
   - id: extended_sensors_latency_budget
@@ -130,29 +150,51 @@ required_parameters:
 
   # ---- radio resource profiles (achievable capacity only) ---------------
   - id: mec_ul_achievable_capacity_profile
-    category: radio
+    category: communication_capacity
     requires_numeric: true
     registry_binding: []
     required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]
     note: nominal/degraded/strong; separate from service_required_rate and offered_load
 
   - id: mec_dl_achievable_capacity_profile
-    category: radio
+    category: communication_capacity
     requires_numeric: true
     registry_binding: []
     required_for_families: [perception_planning_control, cooperative_perception]
 
   - id: v2v_achievable_capacity_profile
-    category: radio
+    category: communication_capacity
     requires_numeric: true
     registry_binding: []
     required_for_families: [cooperative_perception]
 
+  # ---- compute capacity (NOT radio): a profile must be able to say
+  # ---- "poor V2V but strong helper CPU" independently
+  - id: ue_compute_profile
+    category: compute_capacity
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]
+    satisfied_by: co_physical_config(f_hz=1.0e9)
+    pending_source: true
+    note: f_UE must be a recognised compute resource, sourced or rule-backed, not implicit
+
+  - id: mec_compute_profile
+    category: compute_capacity
+    requires_numeric: true
+    registry_binding: []
+    required_for_families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]
+    satisfied_by: co_physical_config(f_hz=10.0e9)
+    pending_source: true
+
   - id: helper_compute_profile
-    category: radio
+    category: compute_capacity
     requires_numeric: true
     registry_binding: []
     required_for_families: [cooperative_perception]
+    satisfied_by: co_physical_config(f_hz=1.5e9)
+    pending_source: true
+    note: compute resource, not a radio profile
 
   # ---- application-level E2E anchors, ONE PER FAMILY --------------------
   - id: e2e_sla_perception_planning_control
