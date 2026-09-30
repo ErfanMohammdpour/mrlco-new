@@ -288,17 +288,37 @@ sources:
         semantic_role: requirement
         label: standard-derived
         source_verification: official_verified
-        transcription_verified: false   # pending primary/full-text check
+        transcription_verified: true   # ledger below; header recovered from the same artifact
         required_by_generator: true
-        blocked_reason: >-
-          flattened Table 5.4-1 stream carries no per-row column labels, so the
-          correspondence between the 3/10/50 ms values and their reliability/data-rate
-          columns is not yet established; the flag stays closed until it is
-        allowed_for_generation: false
-        interpretation: per-row maximum end-to-end latency for sensor information
-          sharing, with row-specific reliability and data rate
-        margo_use: communication budgets for sensor-sharing messages; the row-level
-          reliability/data-rate pairing must be recorded when a row is selected
+        allowed_for_generation: true
+        transcription_ledger:
+          document_version: TS 22.186 V16.2.0
+          section: "5.4"
+          table: Table 5.4-1
+          requirement_id: R.5.4-002, R.5.4-003, R.5.4-004, R.5.4-005
+          column: "Max. end-to-end latency (ms)"
+          value: "[3, 10, 50]"
+          unit: ms
+          extracted_sequence: >-
+            header recovered verbatim: Payload (Bytes) | Tx rate (Message/Sec) |
+            Max. end-to-end latency (ms) | Reliability (pct) | Data rate (Mbps) |
+            Min required communication range (meters); high-automation rows read as
+            R.5.4-002 "10 95 25 (NOTE 1)", R.5.4-003 "3 99.999 50 200",
+            R.5.4-004 "10 99.99 25 500", R.5.4-005 "50 99 10 1000"
+          mapping_justification: >-
+            in each of these four rows the trailing values map cleanly onto
+            reliability / data rate / range (99.999, 50, 200; 99.99, 25, 500; 99, 10,
+            1000) and NOTE 1 on R.5.4-002 binds to the data-rate column ("peak data
+            rate"), so payload and Tx rate are N/A and the leading value is the
+            latency. The competing reading (leading value = payload or Tx rate) is
+            rejected: 3 bytes of payload and 3 msg/s for sensor information sharing
+            are not plausible performance requirements, and it would leave the
+            latency column empty in a table whose latency values are cited for this
+            scenario. R.5.4-001 belongs to the LOWER automation row (latency 100 ms)
+            and is deliberately excluded.
+          excluded: R.5.4-001 (lower degree of automation, 100 ms)
+          evidence_file: spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt
+          evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
       - parameter_name: extended_sensors_video_sharing_latency_set
         value: [10, 50]
         unit: ms
