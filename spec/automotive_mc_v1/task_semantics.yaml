@@ -1,0 +1,87 @@
+# MARGO-AUTOMOTIVE-MC-v1 task/edge/family semantics (Step 4).
+# Semantic vocabulary only: NO numeric workloads, deadlines or criticality here.
+# Composition is honestly labelled "source-grounded synthetic motif composition".
+schema_version: task_semantics_v1
+label: source-grounded synthetic motif composition
+
+payload_classes: [camera, lidar, radar, feature_tensor, object_list,
+                  trajectory, control, v2x_message]
+
+payload_models:
+  camera: payload_raw_camera_v1
+  lidar: payload_lidar_v1
+  radar: payload_radar_v1
+  feature_tensor: payload_feature_tensor_v1
+  object_list: payload_object_list_v1
+  trajectory: payload_trajectory_v1
+  control: payload_control_v1
+  v2x_message: v2x_message_payload_model
+
+families:
+  perception_planning_control:
+    function: on-board perception to control chain for automated driving
+    provenance_refs: [AUTOWARE-OFFICIAL-DOCS, ECLIPSE-APP4MC-AMALTHEA, OBI-2026-OJIES]
+    required_motifs: [sensing, perception, planning_control]
+    optional_motifs: [localization_prediction, background_service]
+    sla_rule_ref: e2e_sla_perception_planning_control_v1
+    criticality_policy_ref: criticality_policy_v1
+    resource_profile_compatibility: [nominal, degraded, strong]
+  cooperative_perception:
+    function: V2X-assisted perception where peers exchange messages
+    provenance_refs: [3GPP-TS22186-R16, MDPI-SENSORS-2026-ROS2-AD, AUTOWARE-OFFICIAL-DOCS]
+    required_motifs: [sensing, cooperative_exchange, perception, planning_control]
+    optional_motifs: [localization_prediction, background_service]
+    sla_rule_ref: e2e_sla_cooperative_perception_v1
+    criticality_policy_ref: criticality_policy_v1
+    resource_profile_compatibility: [nominal, degraded, strong]
+  localization_prediction_planning:
+    function: ego-state estimation and motion prediction feeding planning
+    provenance_refs: [AUTOWARE-OFFICIAL-DOCS, OBI-2026-OJIES]
+    required_motifs: [sensing, localization_prediction, planning_control]
+    optional_motifs: [perception, background_service]
+    sla_rule_ref: e2e_sla_localization_prediction_planning_v1
+    criticality_policy_ref: criticality_policy_v1
+    resource_profile_compatibility: [nominal, strong]
+  mapping_background:
+    function: map maintenance and non-safety background work
+    provenance_refs: [ECLIPSE-APP4MC-AMALTHEA, AUTOWARE-OFFICIAL-DOCS]
+    required_motifs: [sensing, mapping, background_service]
+    optional_motifs: [localization_prediction, perception]
+    sla_rule_ref: e2e_sla_mapping_background_v1
+    criticality_policy_ref: criticality_policy_v1
+    resource_profile_compatibility: [nominal, degraded]
+
+# semantic roles: 17 v1 roles. criticality_class is deliberately ABSENT here;
+# it is assigned later from application semantics/policy, never from graph position.
+roles:
+  - {semantic_role: sensor_ingest,            motif_role: sensing,              payload_in: [],              payload_out: [camera, lidar, radar],                 families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]}
+  - {semantic_role: preprocessing,            motif_role: sensing,              payload_in: [camera, lidar, radar], payload_out: [feature_tensor],                families: [perception_planning_control, cooperative_perception, localization_prediction_planning, mapping_background]}
+  - {semantic_role: feature_extraction,       motif_role: perception,           payload_in: [feature_tensor], payload_out: [feature_tensor, object_list],          families: [perception_planning_control, cooperative_perception]}
+  - {semantic_role: object_detection,         motif_role: perception,           payload_in: [camera, feature_tensor], payload_out: [object_list],                   families: [perception_planning_control, cooperative_perception]}
+  - {semantic_role: lane_detection,           motif_role: perception,           payload_in: [camera, feature_tensor], payload_out: [object_list],                   families: [perception_planning_control]}
+  - {semantic_role: tracking,                 motif_role: perception,           payload_in: [object_list], payload_out: [object_list],                            families: [perception_planning_control, cooperative_perception]}
+  - {semantic_role: sensor_fusion,            motif_role: perception,           payload_in: [object_list, feature_tensor, radar], payload_out: [object_list],           families: [perception_planning_control, cooperative_perception]}
+  - {semantic_role: cooperative_perception,   motif_role: cooperative_exchange, payload_in: [v2x_message, object_list], payload_out: [object_list, v2x_message],   families: [cooperative_perception]}
+  - {semantic_role: localization,             motif_role: localization_prediction, payload_in: [lidar, radar, camera], payload_out: [object_list],               families: [perception_planning_control, localization_prediction_planning, mapping_background]}
+  - {semantic_role: prediction,               motif_role: localization_prediction, payload_in: [object_list], payload_out: [trajectory],                      families: [perception_planning_control, localization_prediction_planning]}
+  - {semantic_role: trajectory_generation,    motif_role: planning_control,     payload_in: [object_list, trajectory], payload_out: [trajectory],                    families: [perception_planning_control, cooperative_perception, localization_prediction_planning]}
+  - {semantic_role: planning,                 motif_role: planning_control,     payload_in: [object_list, trajectory], payload_out: [trajectory],                    families: [perception_planning_control, cooperative_perception, localization_prediction_planning]}
+  - {semantic_role: collision_safety_check,   motif_role: planning_control,     payload_in: [trajectory], payload_out: [trajectory],                             families: [perception_planning_control, cooperative_perception, localization_prediction_planning]}
+  - {semantic_role: control,                  motif_role: planning_control,     payload_in: [trajectory], payload_out: [control],                               families: [perception_planning_control, cooperative_perception, localization_prediction_planning]}
+  - {semantic_role: map_update,               motif_role: mapping,              payload_in: [object_list, lidar], payload_out: [feature_tensor],                 families: [mapping_background]}
+  - {semantic_role: telemetry,                motif_role: background_service,   payload_in: [control], payload_out: [v2x_message],                               families: [perception_planning_control, cooperative_perception, mapping_background]}
+  - {semantic_role: background,               motif_role: background_service,   payload_in: [feature_tensor], payload_out: [feature_tensor],                    families: [perception_planning_control, localization_prediction_planning, mapping_background]}
+
+defaults:
+  workload_model_ref: workload_model_v1
+  criticality_policy_ref: criticality_policy_v1
+  allowed_execution_locations: [UE, HELPER, MEC]
+  source_status: source-grounded synthetic motif composition
+
+rules:
+  forbidden_payload_class: raw_sensor
+  compute_payload_separation: "W_i is compute demand and must never feed B_e"
+  criticality_forbidden_derivations: [depth, topological_position, decoder_position,
+                                       workload_magnitude, deadline_tightness]
+  cooperative_edges_must_be_v2x: true
+  background_must_be_distinguishable: true

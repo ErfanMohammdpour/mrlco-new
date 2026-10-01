@@ -1,0 +1,822 @@
+schema_version: application_templates_v1
+label: source-grounded synthetic motif composition
+task_count_per_template: 20
+templates:
+- template_id: perception_planning_control_v1
+  family_id: perception_planning_control
+  template_lineage: perception_planning_control_lineage_v1
+  parent_template_id: null
+  semantic_signature: perception_planning_control|20task|v1
+  tasks:
+  - task_id: 0
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#0
+  - task_id: 1
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#1
+  - task_id: 2
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#2
+  - task_id: 3
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#3
+  - task_id: 4
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#4
+  - task_id: 5
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#5
+  - task_id: 6
+    semantic_role: feature_extraction
+    motif_id: perception
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#6
+  - task_id: 7
+    semantic_role: object_detection
+    motif_id: perception
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#7
+  - task_id: 8
+    semantic_role: lane_detection
+    motif_id: perception
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#8
+  - task_id: 9
+    semantic_role: tracking
+    motif_id: perception
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#9
+  - task_id: 10
+    semantic_role: sensor_fusion
+    motif_id: perception
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#10
+  - task_id: 11
+    semantic_role: localization
+    motif_id: localization_prediction
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#11
+  - task_id: 12
+    semantic_role: prediction
+    motif_id: localization_prediction
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#12
+  - task_id: 13
+    semantic_role: trajectory_generation
+    motif_id: planning_control
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#13
+  - task_id: 14
+    semantic_role: planning
+    motif_id: planning_control
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#14
+  - task_id: 15
+    semantic_role: collision_safety_check
+    motif_id: planning_control
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#15
+  - task_id: 16
+    semantic_role: control
+    motif_id: planning_control
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#16
+  - task_id: 17
+    semantic_role: telemetry
+    motif_id: background_service
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#17
+  - task_id: 18
+    semantic_role: background
+    motif_id: background_service
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#18
+  - task_id: 19
+    semantic_role: map_update
+    motif_id: mapping
+    family_id: perception_planning_control
+    lineage_id: perception_planning_control_v1#19
+  edges:
+  - src: 0
+    dst: 3
+    payload_class: camera
+    payload_model_ref: payload_raw_camera_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 1
+    dst: 4
+    payload_class: lidar
+    payload_model_ref: payload_lidar_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 2
+    dst: 5
+    payload_class: radar
+    payload_model_ref: payload_radar_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 3
+    dst: 6
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 4
+    dst: 6
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 5
+    dst: 10
+    payload_class: radar
+    payload_model_ref: payload_radar_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 6
+    dst: 7
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 6
+    dst: 8
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 7
+    dst: 9
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 8
+    dst: 9
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 9
+    dst: 10
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 10
+    dst: 11
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 11
+    dst: 12
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 12
+    dst: 13
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 13
+    dst: 14
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 14
+    dst: 15
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 15
+    dst: 16
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 16
+    dst: 17
+    payload_class: control
+    payload_model_ref: payload_control_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 6
+    dst: 18
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+  - src: 1
+    dst: 19
+    payload_class: lidar
+    payload_model_ref: payload_lidar_v1
+    provenance_or_rule_ref: compose_perception_planning_control_v1
+- template_id: cooperative_perception_v1
+  family_id: cooperative_perception
+  template_lineage: cooperative_perception_lineage_v1
+  parent_template_id: null
+  semantic_signature: cooperative_perception|20task|v1
+  tasks:
+  - task_id: 0
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#0
+  - task_id: 1
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#1
+  - task_id: 2
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#2
+  - task_id: 3
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#3
+  - task_id: 4
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#4
+  - task_id: 5
+    semantic_role: feature_extraction
+    motif_id: perception
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#5
+  - task_id: 6
+    semantic_role: object_detection
+    motif_id: perception
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#6
+  - task_id: 7
+    semantic_role: cooperative_perception
+    motif_id: cooperative_exchange
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#7
+  - task_id: 8
+    semantic_role: cooperative_perception
+    motif_id: cooperative_exchange
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#8
+  - task_id: 9
+    semantic_role: tracking
+    motif_id: perception
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#9
+  - task_id: 10
+    semantic_role: sensor_fusion
+    motif_id: perception
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#10
+  - task_id: 11
+    semantic_role: localization
+    motif_id: localization_prediction
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#11
+  - task_id: 12
+    semantic_role: prediction
+    motif_id: localization_prediction
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#12
+  - task_id: 13
+    semantic_role: trajectory_generation
+    motif_id: planning_control
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#13
+  - task_id: 14
+    semantic_role: planning
+    motif_id: planning_control
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#14
+  - task_id: 15
+    semantic_role: collision_safety_check
+    motif_id: planning_control
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#15
+  - task_id: 16
+    semantic_role: control
+    motif_id: planning_control
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#16
+  - task_id: 17
+    semantic_role: telemetry
+    motif_id: background_service
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#17
+  - task_id: 18
+    semantic_role: background
+    motif_id: background_service
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#18
+  - task_id: 19
+    semantic_role: map_update
+    motif_id: mapping
+    family_id: cooperative_perception
+    lineage_id: cooperative_perception_v1#19
+  edges:
+  - src: 0
+    dst: 3
+    payload_class: camera
+    payload_model_ref: payload_raw_camera_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 1
+    dst: 4
+    payload_class: lidar
+    payload_model_ref: payload_lidar_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 2
+    dst: 10
+    payload_class: radar
+    payload_model_ref: payload_radar_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 3
+    dst: 5
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 4
+    dst: 5
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 5
+    dst: 6
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 6
+    dst: 7
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 7
+    dst: 8
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 9
+    dst: 10
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 10
+    dst: 11
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 11
+    dst: 12
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 12
+    dst: 13
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 13
+    dst: 14
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 14
+    dst: 15
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 15
+    dst: 16
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 16
+    dst: 17
+    payload_class: control
+    payload_model_ref: payload_control_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 5
+    dst: 18
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 4
+    dst: 19
+    payload_class: lidar
+    payload_model_ref: payload_lidar_v1
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+  - src: 8
+    dst: 9
+    payload_class: v2x_message
+    payload_model_ref: v2x_message_payload_model
+    provenance_or_rule_ref: compose_cooperative_perception_v1
+- template_id: localization_prediction_planning_v1
+  family_id: localization_prediction_planning
+  template_lineage: localization_prediction_planning_lineage_v1
+  parent_template_id: null
+  semantic_signature: localization_prediction_planning|20task|v1
+  tasks:
+  - task_id: 0
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#0
+  - task_id: 1
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#1
+  - task_id: 2
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#2
+  - task_id: 3
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#3
+  - task_id: 4
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#4
+  - task_id: 5
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#5
+  - task_id: 6
+    semantic_role: feature_extraction
+    motif_id: perception
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#6
+  - task_id: 7
+    semantic_role: localization
+    motif_id: localization_prediction
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#7
+  - task_id: 8
+    semantic_role: tracking
+    motif_id: perception
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#8
+  - task_id: 9
+    semantic_role: sensor_fusion
+    motif_id: perception
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#9
+  - task_id: 10
+    semantic_role: prediction
+    motif_id: localization_prediction
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#10
+  - task_id: 11
+    semantic_role: prediction
+    motif_id: localization_prediction
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#11
+  - task_id: 12
+    semantic_role: trajectory_generation
+    motif_id: planning_control
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#12
+  - task_id: 13
+    semantic_role: planning
+    motif_id: planning_control
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#13
+  - task_id: 14
+    semantic_role: collision_safety_check
+    motif_id: planning_control
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#14
+  - task_id: 15
+    semantic_role: control
+    motif_id: planning_control
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#15
+  - task_id: 16
+    semantic_role: telemetry
+    motif_id: background_service
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#16
+  - task_id: 17
+    semantic_role: background
+    motif_id: background_service
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#17
+  - task_id: 18
+    semantic_role: map_update
+    motif_id: mapping
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#18
+  - task_id: 19
+    semantic_role: localization
+    motif_id: localization_prediction
+    family_id: localization_prediction_planning
+    lineage_id: localization_prediction_planning_v1#19
+  edges:
+  - src: 0
+    dst: 3
+    payload_class: lidar
+    payload_model_ref: payload_lidar_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 1
+    dst: 4
+    payload_class: camera
+    payload_model_ref: payload_raw_camera_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 2
+    dst: 5
+    payload_class: radar
+    payload_model_ref: payload_radar_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 3
+    dst: 6
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 4
+    dst: 6
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 5
+    dst: 7
+    payload_class: radar
+    payload_model_ref: payload_radar_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 6
+    dst: 8
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 8
+    dst: 9
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 7
+    dst: 9
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 7
+    dst: 10
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 9
+    dst: 11
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 10
+    dst: 12
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 11
+    dst: 13
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 12
+    dst: 13
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 13
+    dst: 14
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 14
+    dst: 15
+    payload_class: trajectory
+    payload_model_ref: payload_trajectory_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 15
+    dst: 16
+    payload_class: control
+    payload_model_ref: payload_control_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 6
+    dst: 17
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 3
+    dst: 18
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+  - src: 6
+    dst: 19
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_localization_prediction_planning_v1
+- template_id: mapping_background_v1
+  family_id: mapping_background
+  template_lineage: mapping_background_lineage_v1
+  parent_template_id: null
+  semantic_signature: mapping_background|20task|v1
+  tasks:
+  - task_id: 0
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#0
+  - task_id: 1
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#1
+  - task_id: 2
+    semantic_role: sensor_ingest
+    motif_id: sensing
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#2
+  - task_id: 3
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#3
+  - task_id: 4
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#4
+  - task_id: 5
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#5
+  - task_id: 6
+    semantic_role: feature_extraction
+    motif_id: perception
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#6
+  - task_id: 7
+    semantic_role: sensor_fusion
+    motif_id: perception
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#7
+  - task_id: 8
+    semantic_role: localization
+    motif_id: localization_prediction
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#8
+  - task_id: 9
+    semantic_role: map_update
+    motif_id: mapping
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#9
+  - task_id: 10
+    semantic_role: map_update
+    motif_id: mapping
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#10
+  - task_id: 11
+    semantic_role: map_update
+    motif_id: mapping
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#11
+  - task_id: 12
+    semantic_role: background
+    motif_id: background_service
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#12
+  - task_id: 13
+    semantic_role: background
+    motif_id: background_service
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#13
+  - task_id: 14
+    semantic_role: background
+    motif_id: background_service
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#14
+  - task_id: 15
+    semantic_role: telemetry
+    motif_id: background_service
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#15
+  - task_id: 16
+    semantic_role: telemetry
+    motif_id: background_service
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#16
+  - task_id: 17
+    semantic_role: feature_extraction
+    motif_id: perception
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#17
+  - task_id: 18
+    semantic_role: preprocessing
+    motif_id: sensing
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#18
+  - task_id: 19
+    semantic_role: map_update
+    motif_id: mapping
+    family_id: mapping_background
+    lineage_id: mapping_background_v1#19
+  edges:
+  - src: 0
+    dst: 3
+    payload_class: camera
+    payload_model_ref: payload_raw_camera_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 1
+    dst: 4
+    payload_class: lidar
+    payload_model_ref: payload_lidar_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 2
+    dst: 5
+    payload_class: radar
+    payload_model_ref: payload_radar_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 3
+    dst: 6
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 4
+    dst: 6
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 5
+    dst: 8
+    payload_class: radar
+    payload_model_ref: payload_radar_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 6
+    dst: 7
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 7
+    dst: 8
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 6
+    dst: 9
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 8
+    dst: 10
+    payload_class: object_list
+    payload_model_ref: payload_object_list_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 9
+    dst: 11
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 6
+    dst: 12
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 12
+    dst: 13
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 13
+    dst: 14
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 10
+    dst: 15
+    payload_class: v2x_message
+    payload_model_ref: v2x_message_payload_model
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 14
+    dst: 16
+    payload_class: v2x_message
+    payload_model_ref: v2x_message_payload_model
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 4
+    dst: 17
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 3
+    dst: 18
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
+  - src: 11
+    dst: 19
+    payload_class: feature_tensor
+    payload_model_ref: payload_feature_tensor_v1
+    provenance_or_rule_ref: compose_mapping_background_v1
