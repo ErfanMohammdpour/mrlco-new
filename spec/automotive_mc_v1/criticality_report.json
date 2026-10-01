@@ -1,0 +1,752 @@
+{
+  "axes": {
+    "budget_axis": "execution_demand_uncertainty",
+    "budget_not_safety_level": true,
+    "criticality_forbidden_inputs": [
+      "depth",
+      "topological_position",
+      "decoder_position",
+      "task_id",
+      "workload",
+      "payload",
+      "deadline",
+      "slack",
+      "execution_location",
+      "resource_profile",
+      "edge_count",
+      "in_degree",
+      "out_degree"
+    ],
+    "criticality_inputs": [
+      "semantic_role",
+      "application_family",
+      "motif_role",
+      "explicit_safety_policy"
+    ],
+    "hi_exit": "sticky_until_graph_completion",
+    "initial_mode": "LO",
+    "wcet_claim": false
+  },
+  "classes": [
+    "LOW",
+    "MEDIUM",
+    "HIGH"
+  ],
+  "criticality_is_not_deadline_tightness": {
+    "deadline_urgency_association": {
+      "conditional_entropy_bits": 0.9350018506306925,
+      "criticality_is_a_function_of_probe": false,
+      "entropy_criticality_bits": 1.5606768901568628,
+      "levels_with_mixed_classes": 4,
+      "normalized_mutual_information": 0.4008997912843344,
+      "probe": "urgency"
+    },
+    "depth_association": {
+      "conditional_entropy_bits": 0.8428240245652572,
+      "criticality_is_a_function_of_probe": false,
+      "entropy_criticality_bits": 1.5606768901568628,
+      "levels_with_mixed_classes": 9,
+      "normalized_mutual_information": 0.4599625137778869,
+      "probe": "depth"
+    },
+    "independent": true
+  },
+  "criticality_model_version": "criticality_model_v1",
+  "criticality_policy_sha256": "fb187edcdf3bc6db027bca9562c4a38db095ec5cb7c86a46ab4ea646638a422f",
+  "family_rows": [
+    {
+      "budget_hi_max_s": 0.11070825,
+      "budget_lo_min_s": 0.000275,
+      "criticality_mixture": {
+        "HIGH": 10,
+        "LOW": 3,
+        "MEDIUM": 7
+      },
+      "deadline_output_sha256": "e91f011949d67cbd49ec772e42380b0a759c78b4b6c17e4f2efca6be31181efc",
+      "family_id": "perception_planning_control",
+      "high_share": 0.5,
+      "nominal_hi_overrun_tasks": [],
+      "safety_scope": "safety",
+      "template_id": "perception_planning_control_v1"
+    },
+    {
+      "budget_hi_max_s": 0.11070825,
+      "budget_lo_min_s": 0.000275,
+      "criticality_mixture": {
+        "HIGH": 11,
+        "LOW": 3,
+        "MEDIUM": 6
+      },
+      "deadline_output_sha256": "2778d3019df901e128b4a62e6281c3d55815a8e269391523bc4e024fe4f4e124",
+      "family_id": "cooperative_perception",
+      "high_share": 0.55,
+      "nominal_hi_overrun_tasks": [],
+      "safety_scope": "safety",
+      "template_id": "cooperative_perception_v1"
+    },
+    {
+      "budget_hi_max_s": 0.11070825,
+      "budget_lo_min_s": 0.000275,
+      "criticality_mixture": {
+        "HIGH": 10,
+        "LOW": 3,
+        "MEDIUM": 7
+      },
+      "deadline_output_sha256": "88b647dfda5c7c919da535e45e662a15347591bd4194f282ae547adda2f8a192",
+      "family_id": "localization_prediction_planning",
+      "high_share": 0.5,
+      "nominal_hi_overrun_tasks": [],
+      "safety_scope": "safety",
+      "template_id": "localization_prediction_planning_v1"
+    },
+    {
+      "budget_hi_max_s": null,
+      "budget_lo_min_s": 0.00105,
+      "criticality_mixture": {
+        "HIGH": 0,
+        "LOW": 20,
+        "MEDIUM": 0
+      },
+      "deadline_output_sha256": "f865ee3d8c0a4ad4a071fd38a55115e0f56c12b072fdd6b2f162a4852b4f2c4c",
+      "family_id": "mapping_background",
+      "high_share": 0.0,
+      "nominal_hi_overrun_tasks": [],
+      "safety_scope": "non_safety_background",
+      "template_id": "mapping_background_v1"
+    }
+  ],
+  "immutability": {
+    "frozen_fields_untouched": [
+      "D_G",
+      "E_i",
+      "L_i",
+      "d_i",
+      "S_i",
+      "W_i",
+      "B_e",
+      "resource profiles",
+      "SLA config"
+    ],
+    "m6_deadline_output_sha256_after_m7": {
+      "cooperative_perception": "2778d3019df901e128b4a62e6281c3d55815a8e269391523bc4e024fe4f4e124",
+      "localization_prediction_planning": "88b647dfda5c7c919da535e45e662a15347591bd4194f282ae547adda2f8a192",
+      "mapping_background": "f865ee3d8c0a4ad4a071fd38a55115e0f56c12b072fdd6b2f162a4852b4f2c4c",
+      "perception_planning_control": "e91f011949d67cbd49ec772e42380b0a759c78b4b6c17e4f2efca6be31181efc"
+    },
+    "m6_deadline_output_sha256_pinned": {
+      "cooperative_perception": "2778d3019df901e128b4a62e6281c3d55815a8e269391523bc4e024fe4f4e124",
+      "localization_prediction_planning": "88b647dfda5c7c919da535e45e662a15347591bd4194f282ae547adda2f8a192",
+      "mapping_background": "f865ee3d8c0a4ad4a071fd38a55115e0f56c12b072fdd6b2f162a4852b4f2c4c",
+      "perception_planning_control": "e91f011949d67cbd49ec772e42380b0a759c78b4b6c17e4f2efca6be31181efc"
+    },
+    "m7_writes_only": [
+      "criticality_policy.yaml",
+      "criticality_model.py",
+      "validate_automotive_m7.py",
+      "criticality_report.json"
+    ],
+    "pinned_artifact_sha256": {
+      "REQUIRED_PARAMETER_MANIFEST.yaml": "02e79ee1f09b40020d00c1db6db439ae9da4fac4a5e679e693cfa9da5fb95a4d",
+      "SOURCE_REGISTRY.yaml": "6f3aaa727a67c1c84ea43a6e7235fc4c7101b88990241f724bbedb008dd0b573",
+      "application_templates.yaml": "7316a2feba91e8d729a9fb6726810a95495c01ae553540f1e9527db7748d8044",
+      "deadline_report_v2.json": "9b9fcc6f22e7f70b8112b3b7afd6317d5d13a6c03d94beb83fa1a432c06f9256",
+      "registry_pin.json": "15efc25904e27dc293d4b9e8b976e96d7104b62824e8f2d3c2946cf963087aff",
+      "resource_profiles.yaml": "970b34e45ca1dde133b90248049c7388a5483b0ddcd081546643afb8e893e32a",
+      "sla_registry_v2.yaml": "669184ccf3b06db290347dd21dbbe4408efb3c2ff66946003778663d4c81e74c",
+      "task_semantics.yaml": "d87eadb287c1e5e32d8da2d5adf33fb7d28b9028936779751456f143d24bd206",
+      "workload_model_v2.yaml": "f83df6945563023ab842c790ae308125d5ce58e568c42460370c0deb7923cb4f"
+    },
+    "pinned_artifact_sha256_before": {
+      "REQUIRED_PARAMETER_MANIFEST.yaml": "02e79ee1f09b40020d00c1db6db439ae9da4fac4a5e679e693cfa9da5fb95a4d",
+      "SOURCE_REGISTRY.yaml": "6f3aaa727a67c1c84ea43a6e7235fc4c7101b88990241f724bbedb008dd0b573",
+      "application_templates.yaml": "7316a2feba91e8d729a9fb6726810a95495c01ae553540f1e9527db7748d8044",
+      "deadline_report_v2.json": "9b9fcc6f22e7f70b8112b3b7afd6317d5d13a6c03d94beb83fa1a432c06f9256",
+      "registry_pin.json": "15efc25904e27dc293d4b9e8b976e96d7104b62824e8f2d3c2946cf963087aff",
+      "resource_profiles.yaml": "970b34e45ca1dde133b90248049c7388a5483b0ddcd081546643afb8e893e32a",
+      "sla_registry_v2.yaml": "669184ccf3b06db290347dd21dbbe4408efb3c2ff66946003778663d4c81e74c",
+      "task_semantics.yaml": "d87eadb287c1e5e32d8da2d5adf33fb7d28b9028936779751456f143d24bd206",
+      "workload_model_v2.yaml": "f83df6945563023ab842c790ae308125d5ce58e568c42460370c0deb7923cb4f"
+    }
+  },
+  "milestone": "M7",
+  "mode_switch": {
+    "drop_degrade_policy": {
+      "HIGH": {
+        "degrade_allowed_hi_mode": false,
+        "degrade_allowed_lo_mode": false,
+        "drop_allowed_hi_mode": false,
+        "drop_allowed_lo_mode": false
+      },
+      "LOW": {
+        "degrade_allowed_hi_mode": true,
+        "degrade_allowed_lo_mode": false,
+        "drop_allowed_hi_mode": true,
+        "drop_allowed_lo_mode": false
+      },
+      "MEDIUM": {
+        "degrade_allowed_hi_mode": true,
+        "degrade_allowed_lo_mode": false,
+        "drop_allowed_hi_mode": false,
+        "drop_allowed_lo_mode": false
+      }
+    },
+    "high_never_silently_dropped": true,
+    "probe_traces": {
+      "cooperative_perception": {
+        "final_mode": "HI",
+        "initial_mode": "LO",
+        "switches": [
+          {
+            "C_LO": 0.006500000000000001,
+            "criticality": "HIGH",
+            "logical_schedule_point": 7,
+            "new_mode": "HI",
+            "observed_execution": 0.013000000000000001,
+            "previous_mode": "LO",
+            "reason": "high_task_exceeded_empirical_execution_budget_lo",
+            "semantic_role": "cooperative_perception",
+            "triggering_task_id": 7
+          }
+        ]
+      },
+      "localization_prediction_planning": {
+        "final_mode": "HI",
+        "initial_mode": "LO",
+        "switches": [
+          {
+            "C_LO": 0.00775,
+            "criticality": "HIGH",
+            "logical_schedule_point": 8,
+            "new_mode": "HI",
+            "observed_execution": 0.0155,
+            "previous_mode": "LO",
+            "reason": "high_task_exceeded_empirical_execution_budget_lo",
+            "semantic_role": "tracking",
+            "triggering_task_id": 8
+          }
+        ]
+      },
+      "perception_planning_control": {
+        "final_mode": "HI",
+        "initial_mode": "LO",
+        "switches": [
+          {
+            "C_LO": 0.00775,
+            "criticality": "HIGH",
+            "logical_schedule_point": 8,
+            "new_mode": "HI",
+            "observed_execution": 0.0155,
+            "previous_mode": "LO",
+            "reason": "high_task_exceeded_empirical_execution_budget_lo",
+            "semantic_role": "lane_detection",
+            "triggering_task_id": 8
+          }
+        ]
+      }
+    },
+    "rule_id": "MC-MODE-SWITCH-V1",
+    "switch_log_fields": [
+      "triggering_task_id",
+      "semantic_role",
+      "criticality",
+      "observed_execution",
+      "C_LO",
+      "reason",
+      "previous_mode",
+      "new_mode",
+      "logical_schedule_point"
+    ]
+  },
+  "policy_id": "criticality_policy_v1",
+  "role_policy_table": {
+    "cooperative_perception/background": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/collision_safety_check": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/control": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/cooperative_perception": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "cooperative_exchange",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/feature_extraction": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/localization": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "localization_prediction",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/map_update": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "mapping",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/object_detection": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/planning": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/prediction": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "localization_prediction",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/preprocessing": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/sensor_fusion": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/sensor_ingest": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/telemetry": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/tracking": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "cooperative_perception/trajectory_generation": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/background": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/collision_safety_check": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/control": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/feature_extraction": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/localization": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "localization_prediction",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/map_update": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "mapping",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/planning": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/prediction": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "localization_prediction",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/preprocessing": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/sensor_fusion": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/sensor_ingest": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/telemetry": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/tracking": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "localization_prediction_planning/trajectory_generation": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "mapping_background/background": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "family_class_override"
+    },
+    "mapping_background/feature_extraction": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "family_class_override"
+    },
+    "mapping_background/localization": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "HIGH",
+      "motif_role": "localization_prediction",
+      "source_rule": "family_class_override"
+    },
+    "mapping_background/map_update": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "mapping",
+      "source_rule": "family_class_override"
+    },
+    "mapping_background/preprocessing": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "family_class_override"
+    },
+    "mapping_background/sensor_fusion": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "family_class_override"
+    },
+    "mapping_background/sensor_ingest": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "family_class_override"
+    },
+    "mapping_background/telemetry": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "family_class_override"
+    },
+    "perception_planning_control/background": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/collision_safety_check": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/control": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/feature_extraction": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/lane_detection": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/localization": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "localization_prediction",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/map_update": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "mapping",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/object_detection": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/planning": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/prediction": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "localization_prediction",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/preprocessing": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/sensor_fusion": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/sensor_ingest": {
+      "baseline_class": "MEDIUM",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "MEDIUM",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "sensing",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/telemetry": {
+      "baseline_class": "LOW",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "LOW",
+      "motif_floor_class": "LOW",
+      "motif_role": "background_service",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/tracking": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-RANGE-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "MEDIUM",
+      "motif_role": "perception",
+      "source_rule": "role_baseline_class"
+    },
+    "perception_planning_control/trajectory_generation": {
+      "baseline_class": "HIGH",
+      "budget_evidence_class": "source_calibrated_synthetic",
+      "budget_rule_id": "MC-BUDGET-FIXED-V1",
+      "criticality": "HIGH",
+      "motif_floor_class": "HIGH",
+      "motif_role": "planning_control",
+      "source_rule": "role_baseline_class"
+    }
+  },
+  "schema_version": "criticality_report_v1",
+  "status": "PASS",
+  "violations": []
+}

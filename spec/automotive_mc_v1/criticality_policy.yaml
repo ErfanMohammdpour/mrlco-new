@@ -1,0 +1,239 @@
+# MARGO-AUTOMOTIVE-MC-v1 — M7 mixed-criticality policy (frozen before generation).
+#
+# Criticality is an APPLICATION SEMANTICS property. It is derived ONLY from
+# (semantic_role, application_family, motif_role, this explicit safety policy).
+# It is NOT an alias of deadline tightness, tardiness weight or execution-demand
+# uncertainty; those are separate axes (DATASET_CONTRACT.md §6).
+#
+# C_LO / C_HI are execution-DEMAND uncertainty budgets, not safety levels and not
+# WCET: no source in the registry reports a WCET, so the field names stay
+# `empirical_execution_budget_*` and `wcet_claim` stays false everywhere.
+schema_version: criticality_policy_v1
+policy_id: criticality_policy_v1
+dataset: MARGO-AUTOMOTIVE-MC-v1
+label: semantic safety policy (source-grounded synthetic)
+
+# The three M4 rule-only required parameters this policy instantiates. They are
+# structural (requires_numeric: false) sources in REQUIRED_PARAMETER_MANIFEST.yaml,
+# so they can ground a policy without pretending to supply a measurement.
+provenance:
+  required_parameter_ids:
+    - criticality_role_taxonomy
+    - subdeadline_allocation_method
+    - mixed_criticality_budget_model
+  evidence_source_ids:
+    - AUTOWARE-OFFICIAL-DOCS
+    - ECLIPSE-APP4MC-AMALTHEA
+    - VESTAL-2007-RTSS
+    - ECRTS-2024-DAG-TIME-CONSTRAINTS
+  labels:
+    role_and_family_classification: source-calibrated-synthetic
+    motif_semantics: source-calibrated-synthetic
+    execution_demand_budgets: source-calibrated-synthetic
+    mode_switch_rule: synthetic
+  note: >-
+    the taxonomy is grounded in the official Autoware/APP4MC functional decomposition
+    (recorded rule-only in the manifest) and the AMC-style budget/mode model follows
+    the Vestal mixed-criticality formulation; no number here is claimed as measured
+
+classes: [LOW, MEDIUM, HIGH]
+class_order: {LOW: 0, MEDIUM: 1, HIGH: 2}
+
+axis_separation:
+  criticality_is_not: [deadline_tightness, deadline_type, tardiness_weight,
+                       execution_demand_uncertainty, execution_location]
+  allowed_inputs: [semantic_role, application_family, motif_role, explicit_safety_policy]
+  forbidden_inputs: [depth, topological_position, decoder_position, task_id, workload,
+                     payload, deadline, slack, execution_location, resource_profile,
+                     edge_count, in_degree, out_degree]
+
+safety_scope:
+  perception_planning_control: safety
+  cooperative_perception: safety
+  localization_prediction_planning: safety
+  mapping_background: non_safety_background
+
+# Motif semantics: the meaning of each application motif, independent of graph position.
+motif_semantics:
+  sensing:
+    baseline_class: MEDIUM
+    meaning: >-
+      acquire and condition raw sensor streams; a failure degrades every downstream
+      consumer but the stage itself issues no motion command
+  perception:
+    baseline_class: MEDIUM
+    meaning: >-
+      turn conditioned sensor data into an object/scene representation; roles whose
+      output directly gates the motion plan are raised to HIGH by the role policy
+  cooperative_exchange:
+    baseline_class: HIGH
+    meaning: >-
+      V2X exchange that participates in the safety function of cooperative perception;
+      a dropped or late cooperative message can remove a hazard from the shared plan
+  localization_prediction:
+    baseline_class: HIGH
+    meaning: >-
+      ego-state estimation and motion prediction; an error here propagates directly
+      into the trajectory that the vehicle will execute
+  planning_control:
+    baseline_class: HIGH
+    meaning: >-
+      trajectory generation, planning, collision safety checking and actuation; a
+      failure is a direct motion-safety failure
+  mapping:
+    baseline_class: LOW
+    meaning: map maintenance; non-safety background work, explicitly not on the driving chain
+  background_service:
+    baseline_class: LOW
+    meaning: telemetry and best-effort background work; failure is a service-quality event
+
+role_motif:
+  sensor_ingest: sensing
+  preprocessing: sensing
+  feature_extraction: perception
+  object_detection: perception
+  lane_detection: perception
+  tracking: perception
+  sensor_fusion: perception
+  cooperative_perception: cooperative_exchange
+  localization: localization_prediction
+  prediction: localization_prediction
+  trajectory_generation: planning_control
+  planning: planning_control
+  collision_safety_check: planning_control
+  control: planning_control
+  map_update: mapping
+  telemetry: background_service
+  background: background_service
+
+# Baseline class per semantic role. Roles inside a HIGH motif whose output directly
+# gates motion are HIGH; supporting stages of a safety motif stay MEDIUM.
+role_baseline_class:
+  sensor_ingest: MEDIUM
+  preprocessing: MEDIUM
+  feature_extraction: MEDIUM
+  object_detection: HIGH
+  lane_detection: HIGH
+  tracking: HIGH
+  sensor_fusion: HIGH
+  cooperative_perception: HIGH
+  localization: HIGH
+  prediction: HIGH
+  trajectory_generation: HIGH
+  planning: HIGH
+  collision_safety_check: HIGH
+  control: HIGH
+  map_update: LOW
+  telemetry: LOW
+  background: LOW
+
+rationale:
+  sensor_ingest: raw acquisition; MEDIUM because downstream safety roles depend on it
+  preprocessing: conditioning; MEDIUM, no motion decision
+  feature_extraction: shared encoder; MEDIUM, its output is re-checked downstream
+  object_detection: hazard detection; HIGH
+  lane_detection: drivable-space detection; HIGH
+  tracking: temporal association for prediction; HIGH
+  sensor_fusion: multi-sensor consistency; HIGH
+  cooperative_perception: shared-hazard V2X function; HIGH
+  localization: ego pose; HIGH
+  prediction: motion forecast; HIGH
+  trajectory_generation: candidate trajectory; HIGH
+  planning: committed plan; HIGH
+  collision_safety_check: last safety gate before actuation; HIGH
+  control: actuation command; HIGH
+  map_update: map maintenance; LOW, declared non-safety background
+  telemetry: service telemetry; LOW
+  background: best-effort background; LOW
+
+# Per-family explicit overrides. A safety family may only RAISE a role's class
+# (a safety role is never downgraded); a non-safety family may lower roles that are
+# inside its declared non-safety scope. Nothing here is derived from graph position.
+family_class_override:
+  perception_planning_control: {}
+  cooperative_perception: {}
+  localization_prediction_planning: {}
+  mapping_background:
+    sensor_ingest: LOW
+    preprocessing: LOW
+    feature_extraction: LOW
+    sensor_fusion: LOW
+    localization: LOW
+    map_update: LOW
+    telemetry: LOW
+    background: LOW
+
+override_rules:
+  safety_family_override_direction: raise_only
+  non_safety_family_override_direction: explicit_downgrade_allowed
+  motif_floor_enforced_in_scopes: [safety]
+  total_function_required: true
+  unknown_role_or_family: refuse
+
+budgets:
+  axis: execution_demand_uncertainty
+  not_safety_level: true
+  wcet_claim: false
+  nomenclature: empirical_execution_budget
+  classes_with_hi_budget: [HIGH]
+  lo_budget_statistic: nominal_demand
+  hi_budget_statistic: upper_demand_bound
+  range_rule:
+    rule_id: MC-BUDGET-RANGE-V1
+    evidence_class: source_calibrated_synthetic
+    definition: >-
+      for a role charged by a declared demand RANGE [lo, hi], C_LO is the range
+      midpoint (nominal demand) and C_HI is the range upper bound
+  fixed_point_rule:
+    rule_id: MC-BUDGET-FIXED-V1
+    evidence_class: source_calibrated_synthetic
+    lo_multiplier: 1.0
+    hi_multiplier: 1.5
+    definition: >-
+      for a role charged by a fixed motif-partition value (no per-node range exists),
+      C_LO is that value and C_HI is a DECLARED multiplier of it; this is a
+      calibrated demand band, never a measured WCET
+  invariants:
+    - empirical_execution_budget_lo_s > 0 for every task
+    - empirical_execution_budget_hi_s >= empirical_execution_budget_lo_s for every class that has an HI budget
+    - empirical_execution_budget_hi_s is not_applicable for LOW and MEDIUM
+
+mode_semantics:
+  modes: [LO, HI]
+  mode_labels: {LO: nominal, HI: overload}
+  initial_mode: LO
+  switch_rule_id: MC-MODE-SWITCH-V1
+  lo_to_hi_trigger:
+    condition: high_task_observed_execution_exceeds_empirical_execution_budget_lo
+    triggering_class: HIGH
+    non_high_overrun_switches_mode: false
+  hi_exit: sticky_until_graph_completion
+  hi_to_lo: forbidden_in_v1
+  high_never_silently_dropped: true
+  drop_or_degrade_requires_log: true
+  switch_log_fields:
+    - triggering_task_id
+    - semantic_role
+    - criticality
+    - observed_execution
+    - C_LO
+    - reason
+    - previous_mode
+    - new_mode
+    - logical_schedule_point
+  drop_degrade_policy:
+    HIGH:
+      drop_allowed_lo_mode: false
+      drop_allowed_hi_mode: false
+      degrade_allowed_lo_mode: false
+      degrade_allowed_hi_mode: false
+    MEDIUM:
+      drop_allowed_lo_mode: false
+      drop_allowed_hi_mode: false
+      degrade_allowed_lo_mode: false
+      degrade_allowed_hi_mode: true
+    LOW:
+      drop_allowed_lo_mode: false
+      drop_allowed_hi_mode: true
+      degrade_allowed_lo_mode: false
+      degrade_allowed_hi_mode: true
