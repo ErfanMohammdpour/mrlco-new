@@ -1,0 +1,67 @@
+{
+  "dataset_dir": "/Users/erfanmhp/Desktop/ErfanMhp/publications/MARGO/MARGO_BASELINE/mrlco-new/env/mec_offloaing_envs/data/automotive_mc_v1",
+  "dataset_manifest_sha256": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+  "determinism": {
+    "canonical_hashes_identical": true,
+    "dataset_manifest_sha256": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+    "graph_counts_identical": true,
+    "graphs_sha256": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+    "lineage_fields_identical": true,
+    "manifest_content_identical": true,
+    "materialized_files_byte_identical": true,
+    "raw_hashes_identical": true,
+    "semantic_annotations_identical": true,
+    "status": "PASS"
+  },
+  "deterministic_regeneration": "PASS",
+  "generation_config_sha256": "899167b2a495bc1915c2e251fd44557e6e392590894bd0a1567c9f476af634b9",
+  "generator_sha256": "ef5ef162fc1a119e7a270175ef1597de7be095c3f9f562b3d45ed42b066a049b",
+  "generator_version": "automotive_generator_v1",
+  "graph_count": 240,
+  "milestone": "M8",
+  "schema_version": "m8_materialization_report_v1",
+  "stale_on_disk": null,
+  "stats": {
+    "edges": 4680,
+    "graphs": 240,
+    "high_task_total": 1860,
+    "payload_bands": {
+      "camera": [
+        18016,
+        21992
+      ],
+      "control": [
+        153,
+        250
+      ],
+      "feature_tensor": [
+        10804,
+        13200
+      ],
+      "lidar": [
+        7202,
+        8797
+      ],
+      "object_list": [
+        2600,
+        3200
+      ],
+      "radar": [
+        3602,
+        4400
+      ],
+      "trajectory": [
+        1350,
+        1500
+      ],
+      "v2x_message": [
+        2000,
+        2000
+      ]
+    },
+    "safety_family_graphs": 180,
+    "tasks": 4800
+  },
+  "status": "PASS",
+  "violations": []
+}

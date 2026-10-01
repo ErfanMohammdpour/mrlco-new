@@ -1,0 +1,189 @@
+# MARGO-AUTOMOTIVE-MC-v1 — M8 generation configuration (frozen before generation).
+#
+# Every draw in the generator is a deterministic function of (ataset_version,
+# family, parent seed, cell) through a sha256-counter PRNG. There is no wall-clock,
+# no Python `random`, no dict-order dependence and no filesystem-order dependence,
+# so materializing twice into two clean directories must be byte-identical.
+#
+# PROVENANCE LABELS (DATASET_CONTRACT.md §2):
+#   measured | standard-derived | trace-fitted | source-calibrated-synthetic | synthetic
+schema_version: generation_config_v1
+dataset_version: MARGO-AUTOMOTIVE-MC-v1
+generator_version: automotive_generator_v1
+task_count_per_graph: 20
+
+# --------------------------------------------------------------------------- #
+# Latent generating factors. The split is built from these, never from files.
+# --------------------------------------------------------------------------- #
+seeds:
+  parent_seed_indices: [0, 1, 2, 3, 4]
+  parent_seed_derivation: "int(sha256('parent|' + dataset_version + '|' + family_id + '|' + str(seed_index)).hexdigest()[:18], 16)"
+  graph_seed_derivation: "int(sha256('graph|' + str(parent_seed) + '|' + cell_id).hexdigest()[:18], 16)"
+  rng: sha256_counter_v1
+  rng_definition: >-
+    state_k = sha256(seed_material + '|' + str(counter)); the counter increments once
+    per 8-byte word; uniform(lo, hi) = lo + (u64 / 2**64) * (hi - lo)
+
+cells:
+  workload_regime:
+    nominal: [0.3333333334, 0.6666666666]
+    high: [0.6666666667, 1.0]
+  sla_regime:
+    tight: [0.0, 0.3333333333]
+    nominal: [0.3333333334, 0.6666666666]
+    loose: [0.6666666667, 1.0]
+  resource_level:
+    low_end: [0.0, 0.5]
+    high_end: [0.5, 1.0]
+  cell_id_format: "w{workload_regime}_d{sla_regime}_r{resource_level}"
+  graph_id_format: "mcv1_{family_abbrev}_s{seed_index}_{cell_id}"
+  family_abbrev:
+    perception_planning_control: ppc
+    cooperative_perception: coop
+    localization_prediction_planning: lpp
+    mapping_background: map
+
+grid:
+  counts_per_family: 60
+  design: "5 parent seeds x 12 cells (2 workload x 3 sla x 2 resource)"
+  locked: true
+
+# --------------------------------------------------------------------------- #
+# Topology. v1 does NOT mutate template edges: every edge carries a semantic
+# payload class and a provenance/rule ref from M4, and rewiring could silently
+# invalidate either. Topology is therefore a LINEAGE attribute (template-derived),
+# not a per-graph random variable; the split treats it as a hard non-crossing key.
+# --------------------------------------------------------------------------- #
+topology_regimes:
+  perception_planning_control_v1: layered_perception_to_control
+  cooperative_perception_v1: cooperative_exchange_fan_in
+  localization_prediction_planning_v1: dual_prediction_branch
+  mapping_background_v1: mapping_background_chain
+topology_mutation: none
+topology_note: >-
+  a template lineage is a topological near-duplicate family; because topology is
+  frozen per template, structural near-duplicates cannot be spread across splits
+
+# --------------------------------------------------------------------------- #
+# Draws
+# --------------------------------------------------------------------------- #
+workload_draw:
+  rule_id: WORKLOAD-DRAW-BAND-V1
+  evidence_class: source_calibrated_synthetic
+  parent_model: workload_model_v2
+  fixed_roles: [planning, trajectory_generation, collision_safety_check]
+  fixed_roles_note: >-
+    planning, trajectory_generation and collision_safety_check are charged by the
+    measured planning-motif partition; their per-task t_ref is INVARIANT and is
+    never re-drawn (sum over the motif must stay 86.83 ms)
+  range_roles_note: >-
+    all other roles are drawn inside their frozen workload_model_v2 t_ref_s_range
+    using the graph's workload-regime band
+  statistic: mean
+  freeze: before_any_scheduling_or_search
+
+deadline_draw:
+  rule_id: E2E-SLA-V2-BIN-V1
+  parent_rule_id: E2E-SLA-V2
+  parent_artifact: sla_registry_v2.yaml
+  evidence_class: source_calibrated_synthetic
+  scope: application_e2e
+  semantic_role: requirement
+  position: within_family_D_f_s_range
+  statistic: mean
+  note: >-
+    D_G is the family application-E2E deadline drawn from the frozen D_f range using
+    the graph's SLA-regime band. It is fixed before the first schedule/search call,
+    is stored per graph and is NEVER adjusted after observing feasibility. The
+    eta * B_G branch stays inactive (sla_registry_v2.eta_b_g_branch_active = false).
+  forbidden:
+    - "D_G = kappa * CP_graph"
+    - "D_G from a witness or a certification result"
+    - "D_G adjusted after observing feasibility"
+    - "communication-scope latency promoted to D_G"
+
+resource_draw:
+  rule_id: RESOURCE-DRAW-BAND-V1
+  evidence_class: source_calibrated_synthetic
+  parent_artifact: resource_profiles.yaml
+  compatible_profile_axis: application_families[*].resource_profile_compatibility
+  note: >-
+    the graph picks one profile from its family's compatible set, then draws each of
+    the six rates inside that profile's frozen range using the graph's resource-level
+    band; the historical 1.0/1.5/10.0 GHz and 7/7/5 Mbps points are used only as the
+    comparison recorded in the audit report, never as an anchor
+  profile_choice_rule: "uniform over the family's compatible profile list"
+
+payload_bands:
+  rule_id: PAYLOAD-BAND-V1
+  evidence_class_rules: source_calibrated_synthetic
+  anchor: workload_model_v2.payload_models[*].nominal_construction_bytes
+  disjointness_required: pairwise_disjoint_realized_bands
+  classes:
+    camera:         {parameter: scale_factor,        band: [0.90, 1.10], nominal_construction_bytes: 20000}
+    lidar:          {parameter: scale_factor,        band: [0.90, 1.10], nominal_construction_bytes: 8000}
+    radar:          {parameter: scale_factor,        band: [0.90, 1.10], nominal_construction_bytes: 4000}
+    feature_tensor: {parameter: scale_factor,        band: [0.90, 1.10], nominal_construction_bytes: 12000}
+    object_list:    {parameter: n_objects,           band: [13, 16], bytes_per_record: 200,
+                     nominal_construction_bytes: 2000, nominal_n_objects: 10}
+    trajectory:     {parameter: n_waypoints,         band: [9, 10], bytes_per_waypoint: 150,
+                     nominal_construction_bytes: 1500, nominal_n_waypoints: 10}
+    control:        {parameter: scale_factor,        band: [0.75, 1.25], nominal_construction_bytes: 200}
+    v2x_message:
+      parameter: use_case_selection
+      bytes: 2000
+      use_cases:
+        - cooperative_collision_avoidance_payload
+        - emergency_trajectory_alignment_payload
+      registry_binding: [cooperative_collision_avoidance_payload, emergency_trajectory_alignment_payload]
+      evidence_class: standard-derived
+      unused_alternative: platooning_payload_range
+      unused_reason: >-
+        the registered platooning range [50, 1200] B would overlap the control-message
+        band; v1 restricts the use-case selection to the two official Table 5.3-1
+        use cases, both 2000 B, so the eight payload classes stay separable
+  byte_rounding: ceil_to_integer
+
+deadline_type:
+  task_level: firm
+  graph_level: hard
+  task_level_note: >-
+    d_i is a subdeadline TARGET between E_i and L_i (SUBDEADLINE-ALPHA-V2, alpha=0.5);
+    it is declared `firm` for every task so deadline urgency never becomes an alias of
+    criticality, and so the graph-level requirement (makespan <= D_G) stays the single
+    hard requirement. Misses against d_i are reported, never promoted into an
+    infeasibility claim.
+  tardiness_weight: 1.0
+
+external_input:
+  bytes: 0
+  note: >-
+    roots are assumed to have their external input resident on the executing tier;
+    dependency transfers are the edge payloads B_e (contract §3), and no edge payload
+    is ever derived from W_i
+
+mode_semantics:
+  policy_ref: criticality_policy.yaml
+  initial_mode: LO
+  switch_rule_id: MC-MODE-SWITCH-V1
+  hi_exit: sticky_until_graph_completion
+  predicted_overrun_annotation: generated_demand_exceeds_C_LO
+
+materialization:
+  output_relpath: env/mec_offloaing_envs/data/automotive_mc_v1
+  graph_order: ascending_graph_id
+  files:
+    - graphs.jsonl
+    - dataset_manifest.jsonl
+    - generation_config.yaml
+    - dataset_card.json
+  no_timestamps: true
+  no_random_ordering: true
+
+determinism:
+  requirement: "materialize twice into two clean directories; graph counts, canonical
+    hashes, manifest content, semantic annotations and split-relevant lineage fields
+    must be identical"
+  hash_scheme: sha256
+  raw_hash_covers: "generator inputs + realised draws (family, parent seed, cell, quantiles)"
+  canonical_hash_covers: "the full frozen graph record with sorted keys, excluding the two hash fields"

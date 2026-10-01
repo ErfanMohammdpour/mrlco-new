@@ -1,0 +1,89 @@
+{
+  "criticality_counts_total": {
+    "HIGH": 1860,
+    "LOW": 1740,
+    "MEDIUM": 1200
+  },
+  "dataset_manifest_sha256": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+  "dataset_version": "MARGO-AUTOMOTIVE-MC-v1",
+  "deadline_count": 4800,
+  "deterministic": true,
+  "factor_distributions": {
+    "application_family": {
+      "cooperative_perception": 60,
+      "localization_prediction_planning": 60,
+      "mapping_background": 60,
+      "perception_planning_control": 60
+    },
+    "criticality_mixture": {
+      "LOW:20,MEDIUM:0,HIGH:0": 60,
+      "LOW:3,MEDIUM:6,HIGH:11": 60,
+      "LOW:3,MEDIUM:7,HIGH:10": 120
+    },
+    "resource_level": {
+      "high_end": 120,
+      "low_end": 120
+    },
+    "resource_profile": {
+      "degraded": 81,
+      "nominal": 101,
+      "strong": 58
+    },
+    "safety_scope": {
+      "non_safety_background": 60,
+      "safety": 180
+    },
+    "sla_regime": {
+      "loose": 80,
+      "nominal": 80,
+      "tight": 80
+    },
+    "template_lineage": {
+      "cooperative_perception_lineage_v1": 60,
+      "localization_prediction_planning_lineage_v1": 60,
+      "mapping_background_lineage_v1": 60,
+      "perception_planning_control_lineage_v1": 60
+    },
+    "topology_regime": {
+      "cooperative_exchange_fan_in": 60,
+      "dual_prediction_branch": 60,
+      "layered_perception_to_control": 60,
+      "mapping_background_chain": 60
+    },
+    "workload_regime": {
+      "high": 120,
+      "nominal": 120
+    }
+  },
+  "family_counts": {
+    "cooperative_perception": 60,
+    "localization_prediction_planning": 60,
+    "mapping_background": 60,
+    "perception_planning_control": 60
+  },
+  "generator_version": "automotive_generator_v1",
+  "graph_count": 240,
+  "graphs_sha256": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+  "high_task_total": 1860,
+  "immutable_inputs": [
+    "workload_model_v2.yaml",
+    "sla_registry_v2.yaml",
+    "resource_profiles.yaml",
+    "application_templates.yaml",
+    "task_semantics.yaml"
+  ],
+  "input_sha256": {
+    "REQUIRED_PARAMETER_MANIFEST.yaml": "4cc1f1560fda76ce2a0599bbbb199433b5dcf72ca11fa418a5e6457c2493aac6",
+    "SOURCE_REGISTRY.yaml": "2dddfc0ff709f2c344c4f2cbd7477e03da7166eac0b05d8357a4caf149cdb0d8",
+    "application_templates.yaml": "f0b27897534af343f8ba425576f552689d1d9c4dde3805cb8a6db11e2383b927",
+    "criticality_policy.yaml": "fb187edcdf3bc6db027bca9562c4a38db095ec5cb7c86a46ab4ea646638a422f",
+    "generation_config.yaml": "3e693a0f836e31a99c9702d4f2ba1258e0df040fed71c3825e3022427a188366",
+    "registry_pin.json": "9e8e4edbf4234ecc549fe8b24efdad5311bf7e18a138d18b64746c2ec8f8bf05",
+    "resource_profiles.yaml": "cbe77f2f4e83d2f9675506bfc1ddfd14deb4fe963d4e4e9d8b019dcfe6857b31",
+    "sla_registry_v2.yaml": "ab964327b08c5241794f0f8ba05336f95bab5eb38f0d85cad041c8761dea6d39",
+    "task_semantics.yaml": "ba8967f4af2e7b316815ba86929d40bbcac465063e6be520b41e80f9daeb881d",
+    "workload_model_v2.yaml": "f4652b605f41401fe0bba8b2094a71e1ccc8a024bebd48b4306db7af208d4081"
+  },
+  "schema_version": "automotive_mc_v1_graph",
+  "task_total": 4800
+}
