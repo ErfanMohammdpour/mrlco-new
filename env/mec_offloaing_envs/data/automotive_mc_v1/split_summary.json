@@ -1,0 +1,173 @@
+{
+  "calibration_source": "meta_train",
+  "counts": {
+    "meta_test": 60,
+    "meta_train": 120,
+    "validation": 60
+  },
+  "dataset_version": "MARGO-AUTOMOTIVE-MC-v1",
+  "factor_distributions": {
+    "application_family": {
+      "meta_test": {
+        "cooperative_perception": 60
+      },
+      "meta_train": {
+        "mapping_background": 60,
+        "perception_planning_control": 60
+      },
+      "validation": {
+        "localization_prediction_planning": 60
+      }
+    },
+    "criticality_mixture": {
+      "meta_test": {
+        "LOW:3,MEDIUM:6,HIGH:11": 60
+      },
+      "meta_train": {
+        "LOW:20,MEDIUM:0,HIGH:0": 60,
+        "LOW:3,MEDIUM:7,HIGH:10": 60
+      },
+      "validation": {
+        "LOW:3,MEDIUM:7,HIGH:10": 60
+      }
+    },
+    "resource_level": {
+      "meta_test": {
+        "high_end": 30,
+        "low_end": 30
+      },
+      "meta_train": {
+        "high_end": 60,
+        "low_end": 60
+      },
+      "validation": {
+        "high_end": 30,
+        "low_end": 30
+      }
+    },
+    "resource_profile": {
+      "meta_test": {
+        "degraded": 17,
+        "nominal": 22,
+        "strong": 21
+      },
+      "meta_train": {
+        "degraded": 64,
+        "nominal": 41,
+        "strong": 15
+      },
+      "validation": {
+        "nominal": 38,
+        "strong": 22
+      }
+    },
+    "safety_scope": {
+      "meta_test": {
+        "safety": 60
+      },
+      "meta_train": {
+        "non_safety_background": 60,
+        "safety": 60
+      },
+      "validation": {
+        "safety": 60
+      }
+    },
+    "sla_regime": {
+      "meta_test": {
+        "loose": 20,
+        "nominal": 20,
+        "tight": 20
+      },
+      "meta_train": {
+        "loose": 40,
+        "nominal": 40,
+        "tight": 40
+      },
+      "validation": {
+        "loose": 20,
+        "nominal": 20,
+        "tight": 20
+      }
+    },
+    "template_lineage": {
+      "meta_test": {
+        "cooperative_perception_lineage_v1": 60
+      },
+      "meta_train": {
+        "mapping_background_lineage_v1": 60,
+        "perception_planning_control_lineage_v1": 60
+      },
+      "validation": {
+        "localization_prediction_planning_lineage_v1": 60
+      }
+    },
+    "topology_regime": {
+      "meta_test": {
+        "cooperative_exchange_fan_in": 60
+      },
+      "meta_train": {
+        "layered_perception_to_control": 60,
+        "mapping_background_chain": 60
+      },
+      "validation": {
+        "dual_prediction_branch": 60
+      }
+    },
+    "workload_regime": {
+      "meta_test": {
+        "high": 30,
+        "nominal": 30
+      },
+      "meta_train": {
+        "high": 60,
+        "nominal": 60
+      },
+      "validation": {
+        "high": 30,
+        "nominal": 30
+      }
+    }
+  },
+  "graph_count": 240,
+  "leakage": "PASS",
+  "meta_test_isolation": {
+    "forbidden_uses": [
+      "calibration",
+      "tuning",
+      "model_selection",
+      "hyperparameter_search"
+    ],
+    "note": "meta-test stays unopened until the model-side freeze; this dataset milestone only assigns the role",
+    "opened": false,
+    "opened_for": []
+  },
+  "role_counts": {
+    "meta_test/query": 40,
+    "meta_test/support": 20,
+    "meta_train/train": 120,
+    "validation/query": 40,
+    "validation/support": 20
+  },
+  "schema_version": "automotive_split_summary_v1",
+  "split_policy_sha256": "9a4413c9abc5746c6245d6f244dd1d6f32f171d9da07324bb9c52d1ce4bf2efa",
+  "split_rule_id": "family_holdout_by_template_lineage_v1",
+  "support_query": {
+    "allocation": "proportional largest-remainder over strata, ascending stratum-id tie-break",
+    "applies_to": [
+      "validation",
+      "meta_test"
+    ],
+    "disjointness": "support and query are disjoint by construction and re-checked by the leakage checker",
+    "query_count": 40,
+    "rank_rule": "sha256(split_rule_id + '\\0' + split_seed + '\\0' + graph_id + '\\0' + canonical_sha256) ascending",
+    "rule_id": "stratified_cell_seed_sha256_rank_v1",
+    "strata": [
+      "workload_regime",
+      "sla_regime",
+      "resource_level"
+    ],
+    "support_count": 20
+  },
+  "violations": []
+}

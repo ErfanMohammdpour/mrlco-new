@@ -1,0 +1,59 @@
+{
+  "schema_version": "automotive_split_policy_v1",
+  "dataset_version": "MARGO-AUTOMOTIVE-MC-v1",
+  "split_rule_id": "family_holdout_by_template_lineage_v1",
+  "split_unit": "template_lineage",
+  "split_seed": "3f0c3d5bb3d1a1c4c2c7f8b1e0d9a6b4c5d6e7f8091a2b3c4d5e6f708192a3b4",
+  "rationale": "In v1 the edge set of every template is frozen: an edge carries a semantic payload class and a provenance/rule ref, and rewiring could silently invalidate either. Two graphs of the same template therefore share a structural signature and are topological near-duplicates. A leakage-free split can only put a template lineage on one side of the boundary, so the split is a FAMILY holdout by template lineage, exactly the 'held-out application families' generalisation axis declared in the dataset card. Regime factors (workload/resource/SLA) and parent-seed sibling groups are used to stratify support/query and to check leakage, never to spread one lineage across roles.",
+  "roles": {
+    "meta_train": ["perception_planning_control", "mapping_background"],
+    "validation": ["localization_prediction_planning"],
+    "meta_test": ["cooperative_perception"]
+  },
+  "support_query": {
+    "rule_id": "stratified_cell_seed_sha256_rank_v1",
+    "applies_to": ["validation", "meta_test"],
+    "strata": ["workload_regime", "sla_regime", "resource_level"],
+    "support_count": 20,
+    "query_count": 40,
+    "allocation": "proportional largest-remainder over strata, ascending stratum-id tie-break",
+    "rank_rule": "sha256(split_rule_id + '\\0' + split_seed + '\\0' + graph_id + '\\0' + canonical_sha256) ascending",
+    "disjointness": "support and query are disjoint by construction and re-checked by the leakage checker"
+  },
+  "calibration": {
+    "source": "meta_train",
+    "forbidden_sources": ["validation", "meta_test"],
+    "note": "every calibration/normalisation statistic must be computed from meta-train graphs only"
+  },
+  "meta_test_isolation": {
+    "opened": false,
+    "opened_for": [],
+    "forbidden_uses": ["calibration", "tuning", "model_selection", "hyperparameter_search"],
+    "note": "meta-test stays unopened until the model-side freeze; this dataset milestone only assigns the role"
+  },
+  "leakage_keys": [
+    "graph_id",
+    "canonical_sha256",
+    "parent_seed",
+    "template_lineage",
+    "semantic_signature",
+    "topology_signature",
+    "near_duplicate_signature"
+  ],
+  "leakage_tolerance": {
+    "parent_seed": "exact",
+    "template_lineage": "exact",
+    "semantic_signature": "exact",
+    "topology_signature": "exact",
+    "near_duplicate_signature": "exact",
+    "canonical_sha256": "exact",
+    "graph_id": "exact"
+  },
+  "forbidden": [
+    "random_split_of_graph_files",
+    "sibling_crossing_a_split_boundary",
+    "support_query_overlap",
+    "meta_test_used_for_calibration_or_model_selection",
+    "splitting_one_template_lineage_across_roles"
+  ]
+}
