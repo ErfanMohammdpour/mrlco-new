@@ -261,8 +261,9 @@ def run_automotive_gpu_smoke(seed, allow_gpu, n_itr=1, dataset_dir=None,
     return run_dir
 
 
-def run_automotive_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS, dataset_dir=None):
-    """The final automotive long run. NOT executed by this integration."""
+def run_automotive_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS, dataset_dir=None,
+                                meta_batch_size=10, support_trajectories=20):
+    """The final automotive long run (frozen structural budgets by default)."""
     require_gpu_permission(allow_gpu)
     run_dir = automotive_run_dir(seed, kind="primary")
     payload = provenance_template(seed)
