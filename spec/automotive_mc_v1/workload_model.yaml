@@ -1,0 +1,162 @@
+# M5 workload + payload models. Compute demand and payload stay separate.
+schema_version: workload_model_v1
+
+reference_compute_model:
+  formula: "W_i = t_ref_i * f_ref / (8 * xi)"
+  f_ref_hz: 2.30e9
+  reference_tier: Intel Core i9-12900HX (CPU)
+  xi_cycles_per_bit: 300.0
+  xi_class: simulation_parameter
+  xi_provenance: HU-2018-TWC-T1
+  reference_timing_statistic: mean      # ONE statistic globally; classes may not mix
+  C_ref_definition: >-
+    C_ref = t_ref * f_ref is a reference-equivalent compute model, NOT measured
+    retired CPU cycles.
+  caveats:
+    - reference timings come from a research WSL2 setup (Obi et al.)
+    - the base/reference frequency does not prove the effective clock over execution
+    - this is an engineering-equivalent workload normalisation, not a hardware law
+  forbidden:
+    - multiplying a GPU/accelerator latency by the CPU f_ref without a frozen cross-hardware conversion rule
+    - mixing timing statistics (mean/P95/max) between task classes
+
+task_class_rules:
+  # directly measured CPU anchors (eligible Obi rows)
+  - class_id: planning_frenet
+    applies_to_roles: [planning]
+    evidence_class: measured_cpu_anchor
+    source_row: ref_time_frenet_1thread
+    t_ref_statistic: mean
+    t_ref_s: 8.683e-2
+    rule_id: WORKLOAD-CPU-FRENET-V1
+  - class_id: safety_validator
+    applies_to_roles: [collision_safety_check]
+    evidence_class: measured_cpu_anchor
+    source_row: ref_time_validator_single_thread
+    t_ref_statistic: mean
+    t_ref_s: 5.0e-5
+    rule_id: WORKLOAD-CPU-VALIDATOR-V1
+  - class_id: trajectory_solver
+    applies_to_roles: [trajectory_generation]
+    evidence_class: measured_cpu_anchor
+    source_row: ref_time_trajectory_single_thread
+    t_ref_statistic: mean
+    t_ref_s: 4.42e-6
+    rule_id: WORKLOAD-CPU-TRAJECTORY-V1
+  # classes without a direct CPU measurement: frozen calibrated rules on the SAME tier
+  - class_id: sensing_ingest
+    applies_to_roles: [sensor_ingest, preprocessing]
+    evidence_class: source_calibrated_synthetic
+    t_ref_statistic: mean
+    t_ref_s_range: [1.0e-4, 2.0e-3]
+    rule_id: WORKLOAD-CAL-SENSING-V1
+    note: frozen engineering range on the reference tier; NOT derived from GPU latencies
+  - class_id: perception_heavy
+    applies_to_roles: [feature_extraction, object_detection, lane_detection, tracking, sensor_fusion]
+    evidence_class: derived_from_cpu_anchor
+    t_ref_statistic: mean
+    t_ref_s_range: [5.0e-4, 1.5e-2]
+    rule_id: WORKLOAD-CAL-PERCEPTION-V1
+    note: >-
+      anchored to the reference tier by scaling relative to the measured planning
+      anchor with a frozen factor range; the GPU-measured distributions inform the
+      SHAPE only under an explicit normalisation rule and are never multiplied by
+      the CPU frequency
+  - class_id: localization_fusion
+    applies_to_roles: [localization, prediction]
+    evidence_class: source_calibrated_synthetic
+    t_ref_statistic: mean
+    t_ref_s_range: [2.0e-4, 8.0e-3]
+    rule_id: WORKLOAD-CAL-LOCALIZATION-V1
+  - class_id: cooperative_v2x
+    applies_to_roles: [cooperative_perception]
+    evidence_class: derived_from_cpu_anchor
+    t_ref_statistic: mean
+    t_ref_s_range: [1.0e-3, 1.2e-2]
+    rule_id: WORKLOAD-CAL-COOPERATIVE-V1
+  - class_id: control_command
+    applies_to_roles: [control]
+    evidence_class: derived_from_cpu_anchor
+    t_ref_statistic: mean
+    t_ref_s_range: [5.0e-5, 5.0e-4]
+    rule_id: WORKLOAD-CAL-CONTROL-V1
+  - class_id: background_service
+    applies_to_roles: [map_update, telemetry, background]
+    evidence_class: source_calibrated_synthetic
+    t_ref_statistic: mean
+    t_ref_s_range: [1.0e-4, 5.0e-3]
+    rule_id: WORKLOAD-CAL-BACKGROUND-V1
+
+payload_models:
+  camera:
+    model_ref: payload_raw_camera_v1
+    formula_kind: bits_per_pixel
+    formula: "B = W * H * bits_per_pixel / 8"
+    units: bytes
+    variables: {W: pixels, H: pixels, bits_per_pixel: bits}
+    rule_id: RAW-FRAME-SIZE-V1
+    evidence_class: derived
+    note: channels must NOT be multiplied again when bits_per_pixel is used
+  lidar:
+    model_ref: payload_lidar_v1
+    formula_kind: points
+    formula: "B = N_points * fields_per_point * bytes_per_field"
+    units: bytes
+    variables: {N_points: count, fields_per_point: count, bytes_per_field: bytes}
+    rule_id: LIDAR-POINTS-V1
+    evidence_class: derived
+  radar:
+    model_ref: payload_radar_v1
+    formula_kind: detections
+    formula: "B = N_detections * fields_per_detection * bytes_per_field"
+    units: bytes
+    variables: {N_detections: count, fields_per_detection: count, bytes_per_field: bytes}
+    rule_id: RADAR-DETECTIONS-V1
+    evidence_class: derived
+  feature_tensor:
+    model_ref: payload_feature_tensor_v1
+    formula_kind: tensor
+    formula: "B = prod(shape) * dtype_bytes"
+    units: bytes
+    variables: {shape: dims, dtype_bytes: bytes}
+    rule_id: FEATURE-TENSOR-V1
+    evidence_class: source_calibrated_synthetic
+    note: shape and dtype must be fixed by the rule before generation
+  object_list:
+    model_ref: payload_object_list_v1
+    formula_kind: records
+    formula: "B = N_objects * bytes_per_record + overhead_bytes"
+    units: bytes
+    variables: {N_objects: count, bytes_per_record: bytes, overhead_bytes: bytes}
+    rule_id: OBJECT-LIST-V1
+    evidence_class: source_calibrated_synthetic
+  trajectory:
+    model_ref: payload_trajectory_v1
+    formula_kind: waypoints
+    formula: "B = N_waypoints * fields_per_waypoint * datatype_bytes + overhead_bytes"
+    units: bytes
+    variables: {N_waypoints: count, fields_per_waypoint: count, datatype_bytes: bytes, overhead_bytes: bytes}
+    rule_id: TRAJECTORY-V1
+    evidence_class: source_calibrated_synthetic
+  control:
+    model_ref: payload_control_v1
+    formula_kind: command_fields
+    formula: "B = N_channels * bytes_per_sample * horizon"
+    units: bytes
+    variables: {N_channels: count, bytes_per_sample: bytes, horizon: count}
+    rule_id: CONTROL-MESSAGE-V1
+    evidence_class: source_calibrated_synthetic
+  v2x_message:
+    model_ref: v2x_message_payload_model
+    formula_kind: use_case_conditioned
+    formula: "B = payload of the selected 3GPP use case (use_case_conditioned binding)"
+    units: bytes
+    rule_id: V2X-PAYLOAD-USE-CASE-V1
+    evidence_class: standard-derived
+    binding: v2x_message_payload_model
+    note: a 2000 B cooperative message applies only to its own use case
+
+forbidden:
+  - deriving B_e from W_i
+  - a generic raw_sensor payload model
+  - resizing payload to make a deadline feasible
