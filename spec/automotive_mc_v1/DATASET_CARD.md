@@ -6,7 +6,7 @@
 |---|---|
 | dataset name | MARGO-AUTOMOTIVE-MC-v1 |
 | version | v1 (annotations frozen at materialization; any semantic change needs a version bump) |
-| status | Step 2 PASS; M3/M4 DONE; M5 v1 DONE but SUPERSEDED by REV2; M6 v1 BLOCKED with REV2 spec frozen; generation not yet materialized |
+| status | **MATERIALIZED**. Step 2 PASS; M3/M4 DONE; M5 v1 SUPERSEDED by v2; M6 v1 BLOCKED-historical; M5-v2 and M6-v2 DONE and immutable; M7 (mixed criticality), M8 (deterministic generator + materialization), M9 (splits + leakage) and M10 (independent certification + audit) DONE; 240 graphs materialized under `env/mec_offloaing_envs/data/automotive_mc_v1/`; status READY_FOR_INTEGRATION (M7_M10_STATUS.md) |
 | nature | **semantics-, source- and trace-grounded SYNTHETIC** automotive mixed-criticality DAG benchmark |
 | not | a collection of measured production automotive DAGs; a real-world measurement dataset; a reproduction of any single published vehicle stack |
 
@@ -115,4 +115,36 @@ collapsed into a bare `manifest_sha`:
 required_parameter_manifest_sha   hash of REQUIRED_PARAMETER_MANIFEST.yaml
 dataset_manifest_sha              hash of the materialized dataset manifest
 ```
+
+## Materialized v1 at a glance (M8–M10)
+
+| field | value |
+|---|---|
+| graphs | 240 (4 families x 5 sibling parent seeds x 12 regime cells) |
+| tasks | 4800 (exactly 20 per graph) |
+| splits | meta_train 120 / validation 60 / meta_test 60; held-out roles 20 support + 40 query |
+| split rule | `family_holdout_by_template_lineage_v1` (topology is template-frozen, so a lineage is a structural near-duplicate family) |
+| criticality | HIGH 1860 / MEDIUM 1200 / LOW 1740 tasks; `mapping_background` is declared `non_safety_background` and carries LOW by policy |
+| MC budgets | `C_HI >= C_LO > 0` on every HIGH task; no field is named WCET |
+| payload classes | all 8 instantiated with pairwise-disjoint realised byte bands |
+| certification | 240/240 `certified_feasible`, 0 `witness_not_found`, 0 `stress_or_infeasible`; rho_G median 0.10, max 0.74 |
+| leakage | 0 violations on all declared keys; support/query disjoint |
+| deterministic regeneration | PASS (two clean directories byte-identical) |
+| timing scale | median best makespan ~0.07 s, max ~0.13 s — no return to the historical 528–1245 s regime |
+
+Known scientific caveat for v1: feasibility is **saturated by construction**. The
+frozen M6-v2 family deadline ranges sit above the achievable makespan of the frozen
+resource model, so every graph admits a witness; the population expresses difficulty
+through the optimality gap `rho_G` and through placement structure (mixed placement
+strictly beats every pure-location plan on 240/240 graphs), not through
+infeasibility. Requirements were **not** tightened after certification to manufacture
+unfeasible cases.
+
+## Training-integration entry point (next step, not part of this dataset milestone)
+
+A training integration should consume `env/mec_offloaing_envs/data/automotive_mc_v1/`:
+`graphs.jsonl` (frozen graph records), `splits.jsonl` (graph -> split/role),
+`dataset_manifest.jsonl` (frozen manifest), `manifest.jsonl` (manifest + certification
+status), `calibration_report.json` (meta-train-only constants), `provenance.json`
+(SHA pins). No training/PPO/sampler/policy code was touched by M7–M10.
 
