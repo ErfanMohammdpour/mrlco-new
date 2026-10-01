@@ -730,7 +730,8 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                dataset="legacy_meta_offloading",
                                dataset_dir=None,
                                meta_batch_size=10,
-                               support_trajectories=20):
+                               support_trajectories=20,
+                               run_kind="primary"):
     """Frozen v0.1 train+val stack. Caller must set CUDA_VISIBLE_DEVICES before importing TF.
 
     `dataset="automotive_mc_v1"` routes the SAME policy/sampler/MRLCO/Trainer chain to
@@ -752,6 +753,7 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
             constraint_dual_lr=float(constraint_dual_lr),
             meta_batch_size=int(meta_batch_size),
             support_trajectories=int(support_trajectories),
+            run_kind=str(run_kind),
         )
     from env.mec_offloaing_envs.offloading_env import Resources
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment

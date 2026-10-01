@@ -106,6 +106,51 @@ class TestAutomotiveLongRunEntry(unittest.TestCase):
         self.assertEqual(int(recorded["args"][1]), 500)
         self.assertEqual(recorded["kwargs"].get("run_kind"), "primary_500")
 
+    def test_train_forwards_only_supported_kwargs_to_the_stack_builder(self):
+        """Every kwarg `_train` forwards must exist on build_frozen_primary_stack.
+
+        A missing `run_kind` parameter once aborted the launch with
+        TypeError: build_frozen_primary_stack() got an unexpected keyword argument.
+        """
+        import inspect
+        import tempfile
+
+        import meta_trainer as mt
+        from spec import phase4_train_driver as drv
+
+        recorded = {}
+
+        class FakeAlgo:
+            def sync_task_policies_from_core(self):
+                return None
+
+        class FakeTrainer:
+            def train(self):
+                return None
+
+        def fake_builder(**kwargs):
+            recorded.update(kwargs)
+            params = inspect.signature(mt.build_frozen_primary_stack).parameters
+            unknown = sorted(set(kwargs) - set(params))
+            self.assertEqual(unknown, [], "unsupported kwargs: %s" % unknown)
+            return FakeTrainer(), FakeAlgo()
+
+        original = mt.build_frozen_primary_stack
+        mt.build_frozen_primary_stack = fake_builder
+        import utils.logger as logger
+        original_configure = logger.configure
+        logger.configure = lambda *a, **k: None
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                drv._train(0, 1, Path(tmp), dataset="automotive_mc_v1",
+                           run_kind="primary_500")
+        finally:
+            mt.build_frozen_primary_stack = original
+            logger.configure = original_configure
+        self.assertEqual(recorded.get("run_kind"), "primary_500")
+        self.assertEqual(recorded.get("dataset"), "automotive_mc_v1")
+        self.assertEqual(int(recorded.get("n_itr")), 1)
+
     def test_smoke_entry_uses_the_smoke_dataset_too(self):
         from spec import phase4_train_driver as drv
 
