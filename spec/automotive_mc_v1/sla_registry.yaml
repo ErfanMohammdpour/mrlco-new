@@ -1,0 +1,84 @@
+# M6 frozen SLA configuration. Only the approved v1 branch: D_G = rho_f * P_f.
+# This block is hashed and frozen before ANY graph deadline is generated.
+schema_version: sla_registry_v1
+rule_id: E2E-SLA-V1
+branch: rho_period
+eta_b_g_branch_active: false
+
+deadline_construction_reference:
+  # analytic construction model; NOT a scheduler calendar and NOT certification
+  timing_statistic: mean
+  include_communication: true
+  communication_model: >-
+    q_e = 8 * B_e / R_ref with B_e from the payload class's frozen nominal size and
+    R_ref the declared reference rate below. This is a construction/reference model
+    only: it carries no contention, no calendar and no queueing state.
+  reference_rate_bps: 2.0e7
+  provenance_or_rule_ref: DEADLINE-CONSTRUCTION-REF-V1
+  nominal_payload_bytes:
+    camera: 20000
+    lidar: 8000
+    radar: 4000
+    feature_tensor: 12000
+    object_list: 2000
+    trajectory: 1500
+    control: 200
+    v2x_message: 2000
+  payload_provenance:
+    v2x_message: 3GPP-TS22186-R16 (use-case payload, 2000 B for cooperative collision avoidance)
+    other: DEADLINE-CONSTRUCTION-REF-V1 (nominal construction sizes, not measurements)
+
+subdeadline_rule:
+  rule_id: SUBDEADLINE-ALPHA-V1
+  alpha_f: 0.5
+  definition: "d_i = E_i + alpha_f * (L_i - E_i)"
+  criticality_neutral: true
+
+families:
+  perception_planning_control:
+    rule_id: E2E-SLA-V1
+    branch: rho_period
+    period_rule_id: PERIOD-PPC-V1
+    period_s_range: [0.05, 0.15]
+    period_source: source_calibrated_synthetic (actuation/update period of the chain)
+    rho_rule_id: RHO-PPC-V1
+    rho_range: [0.6, 0.9]
+    rho_distribution: uniform
+    family_provenance: [AUTOWARE-OFFICIAL-DOCS, OBI-2026-OJIES]
+  cooperative_perception:
+    rule_id: E2E-SLA-V1
+    branch: rho_period
+    period_rule_id: PERIOD-COOP-V1
+    period_s_range: [0.05, 0.20]
+    period_source: source_calibrated_synthetic (V2X cooperative message cadence)
+    rho_rule_id: RHO-COOP-V1
+    rho_range: [0.5, 0.9]
+    rho_distribution: uniform
+    family_provenance: [3GPP-TS22186-R16]
+  localization_prediction_planning:
+    rule_id: E2E-SLA-V1
+    branch: rho_period
+    period_rule_id: PERIOD-LPP-V1
+    period_s_range: [0.05, 0.15]
+    period_source: source_calibrated_synthetic
+    rho_rule_id: RHO-LPP-V1
+    rho_range: [0.6, 0.9]
+    rho_distribution: uniform
+    family_provenance: [AUTOWARE-OFFICIAL-DOCS]
+  mapping_background:
+    rule_id: E2E-SLA-V1
+    branch: rho_period
+    period_rule_id: PERIOD-MAP-V1
+    period_s_range: [0.5, 2.0]
+    period_source: source_calibrated_synthetic (background maintenance cadence)
+    rho_rule_id: RHO-MAP-V1
+    rho_range: [0.7, 1.0]
+    rho_distribution: uniform
+    family_provenance: [ECLIPSE-APP4MC-AMALTHEA]
+
+forbidden:
+  - activating D_G = eta * B_G in v1
+  - any communication-scope 3GPP latency as D_G
+  - any measured latency as D_G
+  - any witness/scheduler/search result influencing D_G
+  - tuning rho or P after observing feasibility

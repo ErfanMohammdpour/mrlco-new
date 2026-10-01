@@ -1,0 +1,107 @@
+{
+  "CP_ref_range": [
+    0.048049999999999995,
+    0.16888941999999998
+  ],
+  "D_G_range": [
+    0.07500000000000001,
+    1.0625
+  ],
+  "branch": "rho_period",
+  "deadline_model_version": "deadline_model_v1",
+  "deterministic_rerun": "PASS",
+  "families": [
+    "cooperative_perception",
+    "localization_prediction_planning",
+    "mapping_background",
+    "perception_planning_control"
+  ],
+  "graphs_evaluated": 4,
+  "infeasible_lower_bound_count": 3,
+  "negative_slack_count": 0,
+  "not_certification": "this report makes no scheduler feasibility claim",
+  "rows": [
+    {
+      "CP_ref": 0.15428941999999998,
+      "D_G": 0.07500000000000001,
+      "family_id": "perception_planning_control",
+      "input_fingerprint": "249b18e882eedfe511b0acf220f5170539e8b5a127d60e27ba90df04a3f33783",
+      "output_sha256": "c2e7613b68b2befbb7d870295f30dfac8a10d9fd7d47569f7ffbcab0397b05dc",
+      "period_used": 0.1,
+      "rho_used": 0.75,
+      "slack_max": null,
+      "slack_median": null,
+      "slack_min": null,
+      "status": "infeasible_reference_lower_bound",
+      "tasks": 0,
+      "template_id": "perception_planning_control_v1",
+      "zero_slack_tasks": 0
+    },
+    {
+      "CP_ref": 0.16888941999999998,
+      "D_G": 0.0875,
+      "family_id": "cooperative_perception",
+      "input_fingerprint": "dfb868bc61385936720c12eff7aaec05edc72672d6454a574780c6bd03fb00e3",
+      "output_sha256": "28afda84b97d913fdd5df7dab33611e003cfa140eecdb2652b1e98f9c918070f",
+      "period_used": 0.125,
+      "rho_used": 0.7,
+      "slack_max": null,
+      "slack_median": null,
+      "slack_min": null,
+      "status": "infeasible_reference_lower_bound",
+      "tasks": 0,
+      "template_id": "cooperative_perception_v1",
+      "zero_slack_tasks": 0
+    },
+    {
+      "CP_ref": 0.14023499999999997,
+      "D_G": 0.07500000000000001,
+      "family_id": "localization_prediction_planning",
+      "input_fingerprint": "25cc9dc3e9c14ee9266b7a41a9987a61f450e0823a5177f308e6f165cbbc2e2c",
+      "output_sha256": "0f8b6aae7fff763b4ee05b021d88ecd815b18206886eb71924cd19d0d71f0505",
+      "period_used": 0.1,
+      "rho_used": 0.75,
+      "slack_max": null,
+      "slack_median": null,
+      "slack_min": null,
+      "status": "infeasible_reference_lower_bound",
+      "tasks": 0,
+      "template_id": "localization_prediction_planning_v1",
+      "zero_slack_tasks": 0
+    },
+    {
+      "CP_ref": 0.048049999999999995,
+      "D_G": 1.0625,
+      "family_id": "mapping_background",
+      "input_fingerprint": "c9230a227a585cae3336981098d1578afbfa917b8e8b1f4954ec0eeeabdb41a0",
+      "output_sha256": "a5dff19426be1509f1693e8957539e4b3189d8ec6d50c7fed8ccaee157cbf6cf",
+      "period_used": 1.25,
+      "rho_used": 0.85,
+      "slack_max": 1.04655,
+      "slack_median": 1.0157000000000003,
+      "slack_min": 1.01445,
+      "status": "ok",
+      "tasks": 20,
+      "template_id": "mapping_background_v1",
+      "zero_slack_tasks": 0
+    }
+  ],
+  "scheduler_import_independence": "PASS (no scheduler/search import)",
+  "schema_version": "deadline_report_v1",
+  "sla_config_sha256": "acbf04a06ca1e3754cbe0868a216557a43c90567114af594afbcbf5276fb9e07",
+  "slack_range": [
+    1.01445,
+    1.04655
+  ],
+  "status": "PASS",
+  "subdeadline_rule": {
+    "alpha_f": 0.5,
+    "criticality_neutral": true,
+    "definition": "d_i = E_i + alpha_f * (L_i - E_i)",
+    "rule_id": "SUBDEADLINE-ALPHA-V1"
+  },
+  "templates_checked": 4,
+  "violations": [],
+  "witness_independence": "PASS (the model takes only template + M5 data + frozen SLA)",
+  "zero_slack_task_count": 0
+}
