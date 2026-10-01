@@ -183,6 +183,7 @@ class _AutomotiveReportMixin(object):
             "graph_specific_resources": True,
             "scheduler_config_sha256_first_graph": getattr(self, "auto_scheduler_fingerprint", None),
             "executed_outer_iterations": int(getattr(self, "n_itr", 0)),
+            "run_kind": str(getattr(self, "auto_run_kind", "primary")),
             "wall_seconds": float(getattr(self, "auto_wall_seconds", 0.0)),
             "sampler_counters": dict(getattr(sampler, "counters", {}) if sampler else {}),
             "sampler_budget": {
@@ -220,7 +221,9 @@ class _AutomotiveReportMixin(object):
                 run_dir, obs_version=OBS_VERSION,
                 scheduler_axes=dict(getattr(self, "auto_axes", {})),
                 checkpoint_rule_sha=checkpoint_rule_sha(),
-                sampler_budget=report["sampler_budget"])
+                sampler_budget=report["sampler_budget"],
+                run_kind=str(getattr(self, "auto_run_kind", "primary")),
+                outer_iterations=int(getattr(self, "n_itr", 0)))
             report["training_fingerprint"] = fp["fingerprint"]
             report["training_fingerprint_parts"] = {
                 k: fp["parts"][k] for k in ("git_sha", "dataset_manifest_sha", "graphs_sha",

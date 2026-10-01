@@ -34,6 +34,10 @@ def main() -> int:
     ap.add_argument("--gpu", default=None, help="CUDA_VISIBLE_DEVICES value")
     ap.add_argument("--cpu", action="store_true", help="CPU-only plumbing smoke")
     ap.add_argument("--dataset-dir", default=None)
+    ap.add_argument("--iters", type=int, default=None,
+                    help="outer iterations for --long (default: the frozen 3500)")
+    ap.add_argument("--run-kind", default=None,
+                    help="output root under runs/automotive_mc_v1/ (default: primary)")
     ap.add_argument("--long", action="store_true",
                     help="launch the frozen 3500-iteration automotive primary run (NOT executed here)")
     ap.add_argument("--plumbing", action="store_true",
@@ -58,8 +62,13 @@ def main() -> int:
     if args.long:
         if not args.allow_gpu:
             raise SystemExit("--long requires --i-allow-gpu")
-        run_dir = run_automotive_primary_seed(args.seed, True, dataset_dir=args.dataset_dir)
-        print(json.dumps({"long_run_dir": str(run_dir), "seed": int(args.seed)},
+        n_itr = 3500 if args.iters is None else int(args.iters)
+        run_kind = args.run_kind or "primary"
+        run_dir = run_automotive_primary_seed(args.seed, True, n_itr=n_itr,
+                                              dataset_dir=args.dataset_dir,
+                                              run_kind=run_kind)
+        print(json.dumps({"long_run_dir": str(run_dir), "seed": int(args.seed),
+                          "outer_iterations": n_itr, "run_kind": run_kind},
                          indent=2, sort_keys=True))
         return 0
     run_dir = run_automotive_gpu_smoke(args.seed, args.allow_gpu, n_itr=int(args.iters),

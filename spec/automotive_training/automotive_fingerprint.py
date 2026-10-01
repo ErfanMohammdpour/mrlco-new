@@ -66,6 +66,7 @@ def _git_sha() -> str:
 
 def training_fingerprint(*, obs_version: str, scheduler_axes: Mapping[str, str],
                          checkpoint_rule_sha: str, sampler_budget: Mapping[str, Any],
+                         run_kind: str = "primary", outer_iterations: int | None = None,
                          dataset_dir: Path | None = None) -> dict:
     d = Path(dataset_dir) if dataset_dir else DATASET
     provenance = json.loads((d / "provenance.json").read_text())
@@ -86,6 +87,8 @@ def training_fingerprint(*, obs_version: str, scheduler_axes: Mapping[str, str],
         "scheduler_axes": dict(scheduler_axes),
         "checkpoint_rule_sha": str(checkpoint_rule_sha),
         "sampler_budget": dict(sampler_budget),
+        "run_kind": str(run_kind),
+        "outer_iterations": (None if outer_iterations is None else int(outer_iterations)),
         "energy_constraint": "not_configured",
         "deadline_mask": "off",
         "objective_mode": "latency_only",

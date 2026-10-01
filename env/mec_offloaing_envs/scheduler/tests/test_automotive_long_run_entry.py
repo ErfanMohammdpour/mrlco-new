@@ -57,6 +57,28 @@ class TestAutomotiveLongRunEntry(unittest.TestCase):
         self.assertEqual(int(kwargs.get("meta_batch_size", 0)), 10)
         self.assertEqual(int(kwargs.get("support_trajectories", 0)), 20)
         self.assertEqual(int(recorded["args"][1]), 1, "n_itr must reach _train")
+        self.assertEqual(kwargs.get("run_kind"), "primary")
+
+    def test_pilot_run_kind_and_iterations_reach_train(self):
+        from spec import phase4_train_driver as drv
+
+        recorded = {}
+        original_train = drv._train
+        original_write = drv._write_payload
+        original_gpu = drv.require_gpu_permission
+        drv._train = lambda *a, **k: recorded.update({"args": a, "kwargs": k})
+        drv._write_payload = lambda run_dir, payload: None
+        drv.require_gpu_permission = lambda allow_gpu: None
+        try:
+            run_dir = drv.run_automotive_primary_seed(0, True, n_itr=500,
+                                                      run_kind="primary_500")
+        finally:
+            drv._train = original_train
+            drv._write_payload = original_write
+            drv.require_gpu_permission = original_gpu
+        self.assertTrue(str(run_dir).endswith("primary_500/seed_0"))
+        self.assertEqual(int(recorded["args"][1]), 500)
+        self.assertEqual(recorded["kwargs"].get("run_kind"), "primary_500")
 
     def test_smoke_entry_uses_the_smoke_dataset_too(self):
         from spec import phase4_train_driver as drv

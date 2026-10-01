@@ -371,7 +371,8 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                                    obs_version: str = OBS_VERSION,
                                    energy_config: Mapping[str, Any] | None = None,
                                    meta_batch_size: int = META_BATCH_SIZE,
-                                   support_trajectories: int = SUPPORT_TRAJECTORIES_PER_META_TASK):
+                                   support_trajectories: int = SUPPORT_TRAJECTORIES_PER_META_TASK,
+                                   run_kind: str = "primary"):
     """Build (Trainer, MRLCO) on the frozen automotive dataset."""
     if obs_version != OBS_VERSION:
         raise AutomotivePrimaryError("obs_version must be %r" % OBS_VERSION)
@@ -488,6 +489,7 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     trainer.auto_legacy_axes = dict(LEGACY_MIXED_AXES)
     trainer.auto_env = env
     trainer.auto_run_dir = Path(ckpt_dir).resolve().parent
+    trainer.auto_run_kind = str(run_kind)
     mc_probe_graph = next((g for g in train_graphs
                            if any(str(t.criticality) == "HIGH" for t in g.tasks)),
                           train_graphs[0])
