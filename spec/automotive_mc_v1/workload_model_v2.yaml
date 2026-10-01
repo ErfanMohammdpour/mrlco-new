@@ -1,0 +1,109 @@
+# M5-v2 / REV2: motif-level workload granularity. Replaces v1 planning-node misuse.
+schema_version: workload_model_v2
+supersedes: workload_model_v1
+
+reference_compute_model:
+  formula: "W_i = t_ref_i * f_ref / (8 * xi)"
+  f_ref_hz: 2.30e9
+  reference_tier: Intel Core i9-12900HX (CPU)
+  xi_cycles_per_bit: 300.0
+  xi_class: simulation_parameter
+  xi_provenance: HU-2018-TWC-T1
+  reference_timing_statistic: mean
+  C_ref_definition: >-
+    C_ref = t_ref * f_ref is a reference-equivalent compute model, NOT measured
+    retired CPU cycles.
+  caveats:
+    - reference timings come from a research WSL2 setup (Obi et al.)
+    - the base frequency does not prove the effective clock over execution
+    - engineering-equivalent normalisation, not a hardware law
+
+# Motif aggregates are measured; per-node splits are NOT measured.
+motif_aggregates:
+  planning_motif:
+    aggregate_s: 8.683e-2
+    aggregate_source_row: ref_time_frenet_1thread
+    aggregate_evidence_class: measured_cpu_anchor
+    aggregate_interpretation: >-
+      the measured 86.83 ms is the latency of the planning MOTIF (Frenet plus the
+      planning-related Autoware nodes it represents), not one node's independent
+      execution time
+    partition_rule_id: WORKLOAD-PARTITION-PLANNING-V1
+    partition_weights:
+      planning: 0.85
+      trajectory_generation: 0.10
+      collision_safety_check: 0.05
+    partition_evidence_class: source_calibrated_synthetic
+    partition_invariant: "sum of partitioned t_ref_i over the motif == 86.83 ms"
+    subsumed_anchors:
+      ref_time_validator_single_thread: >-
+        measured separately at 0.05 ms and treated as a sub-component of the same
+        planning pipeline; used for consistency checks only and NOT charged again
+      ref_time_trajectory_single_thread: >-
+        measured separately at 4.42 us, likewise subsumed by the motif partition and
+        not charged again
+
+task_class_rules:
+  - class_id: planning_motif_split
+    applies_to_roles: [planning, trajectory_generation, collision_safety_check]
+    evidence_class: source_calibrated_synthetic
+    t_ref_statistic: mean
+    t_ref_s:
+      planning: 7.38055e-2
+      trajectory_generation: 8.683e-3
+      collision_safety_check: 4.3415e-3
+    rule_id: WORKLOAD-PARTITION-PLANNING-V1
+    motif: planning_motif
+  - class_id: control_command
+    applies_to_roles: [control]
+    evidence_class: derived_from_cpu_anchor
+    t_ref_statistic: mean
+    t_ref_s_range: [5.0e-5, 5.0e-4]
+    rule_id: WORKLOAD-CAL-CONTROL-V1
+  - class_id: sensing_ingest
+    applies_to_roles: [sensor_ingest, preprocessing]
+    evidence_class: source_calibrated_synthetic
+    t_ref_statistic: mean
+    t_ref_s_range: [1.0e-4, 2.0e-3]
+    rule_id: WORKLOAD-CAL-SENSING-V1
+  - class_id: perception_heavy
+    applies_to_roles: [feature_extraction, object_detection, lane_detection, tracking, sensor_fusion]
+    evidence_class: derived_from_cpu_anchor
+    t_ref_statistic: mean
+    t_ref_s_range: [5.0e-4, 1.5e-2]
+    rule_id: WORKLOAD-CAL-PERCEPTION-V1
+  - class_id: localization_fusion
+    applies_to_roles: [localization, prediction]
+    evidence_class: source_calibrated_synthetic
+    t_ref_statistic: mean
+    t_ref_s_range: [2.0e-4, 8.0e-3]
+    rule_id: WORKLOAD-CAL-LOCALIZATION-V1
+  - class_id: cooperative_v2x
+    applies_to_roles: [cooperative_perception]
+    evidence_class: derived_from_cpu_anchor
+    t_ref_statistic: mean
+    t_ref_s_range: [1.0e-3, 1.2e-2]
+    rule_id: WORKLOAD-CAL-COOPERATIVE-V1
+  - class_id: background_service
+    applies_to_roles: [map_update, telemetry, background]
+    evidence_class: source_calibrated_synthetic
+    t_ref_statistic: mean
+    t_ref_s_range: [1.0e-4, 5.0e-3]
+    rule_id: WORKLOAD-CAL-BACKGROUND-V1
+
+payload_models:
+  camera: {model_ref: payload_raw_camera_v1, formula_kind: bits_per_pixel, formula: "B = W * H * bits_per_pixel / 8", units: bytes, rule_id: RAW-FRAME-SIZE-V1, evidence_class: derived, nominal_construction_bytes: 20000, allowed_co_location: true}
+  lidar: {model_ref: payload_lidar_v1, formula_kind: points, formula: "B = N_points * fields_per_point * bytes_per_field", units: bytes, rule_id: LIDAR-POINTS-V1, evidence_class: derived, nominal_construction_bytes: 8000, allowed_co_location: true}
+  radar: {model_ref: payload_radar_v1, formula_kind: detections, formula: "B = N_detections * fields_per_detection * bytes_per_field", units: bytes, rule_id: RADAR-DETECTIONS-V1, evidence_class: derived, nominal_construction_bytes: 4000, allowed_co_location: true}
+  feature_tensor: {model_ref: payload_feature_tensor_v1, formula_kind: tensor, formula: "B = prod(shape) * dtype_bytes", units: bytes, rule_id: FEATURE-TENSOR-V1, evidence_class: source_calibrated_synthetic, nominal_construction_bytes: 12000, allowed_co_location: true}
+  object_list: {model_ref: payload_object_list_v1, formula_kind: records, formula: "B = N_objects * bytes_per_record + overhead_bytes", units: bytes, rule_id: OBJECT-LIST-V1, evidence_class: source_calibrated_synthetic, nominal_construction_bytes: 2000, allowed_co_location: true}
+  trajectory: {model_ref: payload_trajectory_v1, formula_kind: waypoints, formula: "B = N_waypoints * fields_per_waypoint * datatype_bytes + overhead_bytes", units: bytes, rule_id: TRAJECTORY-V1, evidence_class: source_calibrated_synthetic, nominal_construction_bytes: 1500, allowed_co_location: true}
+  control: {model_ref: payload_control_v1, formula_kind: command_fields, formula: "B = N_channels * bytes_per_sample * horizon", units: bytes, rule_id: CONTROL-MESSAGE-V1, evidence_class: source_calibrated_synthetic, nominal_construction_bytes: 200, allowed_co_location: true}
+  v2x_message: {model_ref: v2x_message_payload_model, formula_kind: use_case_conditioned, formula: "B = payload of the selected 3GPP use case", units: bytes, rule_id: V2X-PAYLOAD-USE-CASE-V1, evidence_class: standard-derived, nominal_construction_bytes: 2000, allowed_co_location: true}
+
+reference_scenario:
+  note: >-
+    the fixed 20 Mbps transfer used in v1 is retained ONLY as a labelled reporting
+    scenario; it must never participate in lower-bound feasibility
+  rate_bps: 2.0e7
+  role: diagnostic_only

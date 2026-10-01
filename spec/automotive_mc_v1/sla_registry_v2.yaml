@@ -1,0 +1,88 @@
+# M6-v2 / REV2: activation period and application deadline are independent axes.
+schema_version: sla_registry_v2
+supersedes: sla_registry_v1
+rule_id: E2E-SLA-V2
+deadline_axis: D_f
+period_axis: P_f
+eta_b_g_branch_active: false
+
+period_registry:
+  source_note: >-
+    activation/update periods; provenance is kept separate from deadline provenance.
+    Periods are never increased to rescue feasibility.
+  families:
+    perception_planning_control: {P_f_s: 0.100, period_rule_id: PERIOD-PPC-V2, period_evidence: road_scene_update_rate_10Hz_class}
+    cooperative_perception:      {P_f_s: 0.100, period_rule_id: PERIOD-COOP-V2, period_evidence: v2x_message_cadence}
+    localization_prediction_planning: {P_f_s: 0.100, period_rule_id: PERIOD-LPP-V2, period_evidence: road_scene_update_rate_10Hz_class}
+    mapping_background:          {P_f_s: 1.000, period_rule_id: PERIOD-MAP-V2, period_evidence: background_map_maintenance_cadence}
+  independent_evidence:
+    date_2021_chain_periodicity_s: 0.120
+    interpretation: >-
+      the ~120 ms chain periodicity reported by DATE 2021 is an ACTIVATION period
+      observation for a driving chain, not an execution time and not a deadline
+
+deadline_registry:
+  construction_rule: >-
+    D_f is a frozen family-level application-E2E budget range, declared before any
+    generation and independent of per-graph CP, witness, search or feasibility.
+    Deterministic pick: midpoint (mean statistic), then D_G = D_f draw.
+  calibration_rule: >-
+    D_f range = P_f * margin_range, with the margin range the declared design
+    allowance for delivering the whole chain within one activation period.
+  forbidden:
+    - D_G = kappa * CP_graph
+    - D_G from scheduler witness or certification result
+    - D_G adjusted after observing feasibility
+    - communication latency promoted to D_G
+    - measured latency mislabelled as an SLA
+  families:
+    perception_planning_control:
+      D_f_s_range: [0.150, 0.400]
+      margin_range: [1.5, 4.0]
+      source_type: source_calibrated_synthetic
+      measurement_scope: application_e2e
+      semantic_role: requirement
+      deadline_rule_id: E2E-SLA-V2-PPC
+      sla_class: safety_driving_chain
+    cooperative_perception:
+      D_f_s_range: [0.150, 0.400]
+      margin_range: [1.5, 4.0]
+      source_type: source_calibrated_synthetic
+      measurement_scope: application_e2e
+      semantic_role: requirement
+      deadline_rule_id: E2E-SLA-V2-COOP
+      sla_class: safety_driving_chain
+    localization_prediction_planning:
+      D_f_s_range: [0.150, 0.400]
+      margin_range: [1.5, 4.0]
+      source_type: source_calibrated_synthetic
+      measurement_scope: application_e2e
+      semantic_role: requirement
+      deadline_rule_id: E2E-SLA-V2-LPP
+      sla_class: safety_driving_chain
+    mapping_background:
+      D_f_s_range: [1.000, 2.000]
+      margin_range: [1.0, 2.0]
+      source_type: source_calibrated_synthetic
+      measurement_scope: application_e2e
+      semantic_role: requirement
+      deadline_rule_id: E2E-SLA-V2-MAP
+      sla_class: non_safety_background
+      slack_note: >-
+        background maintenance is deliberately loose: its budget is its maintenance
+        cadence, not a safety deadline, so large slack is DECLARED here rather than
+        hidden
+
+subdeadline_rule:
+  rule_id: SUBDEADLINE-ALPHA-V2
+  alpha_f: 0.5
+  definition: "d_i = E_i + alpha_f * (L_i - E_i)"
+  criticality_neutral: true
+
+lower_bound_communication:
+  rule_id: Q-LB-V2
+  definition: >-
+    q_e^LB = 0 when legal producer/consumer co-location exists (all v2 roles permit
+    UE/HELPER/MEC), otherwise q_e^LB = 8 * B_e / R_max_allowed under the frozen
+    resource model
+  co_location_rule: all_roles_permit_all_tiers

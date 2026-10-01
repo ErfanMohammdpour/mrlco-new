@@ -73,7 +73,7 @@ roles:
   - {semantic_role: background,               motif_role: background_service,   payload_in: [feature_tensor], payload_out: [feature_tensor],                    families: [perception_planning_control, localization_prediction_planning, mapping_background]}
 
 defaults:
-  workload_model_ref: workload_model_v1
+  workload_model_ref: workload_model_v2
   criticality_policy_ref: criticality_policy_v1
   allowed_execution_locations: [UE, HELPER, MEC]
   source_status: source-grounded synthetic motif composition

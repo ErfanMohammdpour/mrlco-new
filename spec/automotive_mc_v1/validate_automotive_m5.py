@@ -112,8 +112,12 @@ def cross_check_m4(workload: dict, semantics: dict, templates: dict) -> tuple[li
     v: list[str] = []
     expected_workload = (workload.get("reference_compute_model") or {}).get("schema_version", "workload_model_v1")
     default_wl = (semantics.get("defaults") or {}).get("workload_model_ref", "workload_model_v1")
-    if default_wl != "workload_model_v1":
-        v.append(f"task_semantics workload_model_ref {default_wl!r} does not resolve to an M5 model")
+    # v2 supersedes v1; the final chain must reference v2, and v1 stays resolvable
+    known_versions = {"workload_model_v1", "workload_model_v2"}
+    if default_wl not in known_versions:
+        v.append(f"task_semantics workload_model_ref {default_wl!r} does not resolve to any M5 model")
+    elif default_wl != "workload_model_v2":
+        v.append("the final chain must reference workload_model_v2 (REV2)")
     payloads = workload.get("payload_models") or {}
     known_models = set(payloads) | {m.get("model_ref") for m in payloads.values() if m.get("model_ref")}
     for tpl in (templates.get("templates") or []):
