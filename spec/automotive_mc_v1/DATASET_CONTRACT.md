@@ -118,6 +118,16 @@ legitimate: for a GPU/accelerator measurement the conversion is FORBIDDEN unless
 an explicit conversion rule (with a rule id) justifies it, because
 `t * f -> cycles` presumes CPU-like execution.
 
+## 4d. What the reference execution tier is (locked interpretation)
+
+`reference_execution_tier` is ONE canonical CPU-compatible tier: a declared
+platform with an exact frequency plus at least a small set of exact, CPU-measured
+task timings. It is NOT a requirement that a single source measured all semantic
+roles of the dataset. Task classes without a direct CPU measurement are built on
+this same tier by a frozen `source-calibrated-synthetic` rule, and are recorded as
+calibrated, never as measured. A tier whose timings come from a GPU/accelerator
+cannot serve this role unless a frozen conversion rule crosses hardware classes.
+
 ## 5. Calibration order (hard gate)
 
 ```

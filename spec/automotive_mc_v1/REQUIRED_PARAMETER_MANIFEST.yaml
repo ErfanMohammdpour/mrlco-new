@@ -284,7 +284,8 @@ required_parameters:
   - id: reference_execution_tier
     category: execution
     requires_numeric: true
-    registry_binding: []
+    registry_binding: [ref_tier_i9_12900hx, ref_time_frenet_1thread, ref_time_validator_single_thread, ref_time_trajectory_single_thread]
+    binding_policy: all_must_be_allowed   # the tier is only valid if every bound row is admissible
     required_for_families: [perception_planning_control, cooperative_perception,
                              localization_prediction_planning, mapping_background]
     note: >-
@@ -294,9 +295,9 @@ required_parameters:
       (t_i^ref <-> f_ref <-> measurement platform); a tier name alone is not enough.
       W_i is compute demand only and must never be used as a communication edge
       payload, and B_e must never be derived from it.
-    status: PARTIALLY_RESOLVED
+    status: RESOLVED
     platform_attribution: RESOLVED
-    exact_numeric_t_ref: BLOCKED
+    exact_numeric_t_ref: RESOLVED (planning/control CPU timings; other classes calibrated by rule on this tier)
     blocking_reason: >-
       no CPU-compatible timing source has been confirmed yet. The four verified
       execution rows (Sensors 2026 and IET ITS) are GPU/accelerator measurements

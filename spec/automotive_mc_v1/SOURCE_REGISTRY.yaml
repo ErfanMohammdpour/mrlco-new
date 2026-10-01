@@ -1120,6 +1120,140 @@ sources:
         rule_note: >-
           branch rho_period ONLY
 
+
+  - source_id: OBI-2026-OJIES
+    type: peer-reviewed journal paper
+    title: Obi et al., IEEE Open Journal of the Industrial Electronics Society, 2026
+    hardware_table: Table 4
+    timing_table: Table 11
+    verification_status: >-
+      hardware (Table 4) and timings (Table 11) are numeric values in text/tables,
+      not plots, so they are transcribable; the setup is a research WSL2 host and is
+      NOT presented as production-vehicle timing
+    parameters:
+      - parameter_name: ref_tier_i9_12900hx
+        value: "2.30e9"
+        unit: Hz
+        table: Table 4
+        parameter_class: platform_spec
+        measurement_scope: processing_stage
+        semantic_role: capacity
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
+        required_by_generator: true
+        allowed_for_generation: true
+        hardware_class: CPU
+        cpu_pinned_logical: 8
+        transcription_ledger:
+          document_version: Obi et al., IEEE OJIES 2026
+          section: "Experimental setup"
+          table: Table 4
+          requirement_id: n/a
+          column: "CPU frequency / pinned logical CPUs"
+          value: "Intel Core i9-12900HX @ 2.30 GHz, 8 logical CPUs pinned"
+          unit: Hz
+          evidence_file: spec/automotive_mc_v1/evidence/OBI_2026_OJIES_T4_T11.md
+          evidence_sha256: bdd9ad71fb96f73a692b840db2e226ef339a105405a03db8b10e9d3b1e5b62c0
+      - parameter_name: ref_time_frenet_1thread
+        value: "mean 86.83 / max 101.55"
+        unit: ms
+        table: Table 11
+        measurement_scope: processing_stage
+        semantic_role: measured_latency
+        label: measured
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
+        required_by_generator: true
+        allowed_for_generation: true
+        conversion_to_cycles: allowed
+        eligible_for_t_ref: true
+        execution_context:
+          platform: Intel Core i9-12900HX @ 2.30 GHz, 8 logical CPUs pinned
+          stage: planning-to-control pipeline node
+          input_size_or_workload_context: research WSL2 setup, scenario not restated
+          software_framework: Autoware-based pipeline under ROS 2 / WSL2
+          reported_statistic: mean and max
+          unit: ms
+          sample_count: not reported
+          frequency_or_power_mode: 2.30 GHz, 8 logical CPUs pinned
+          measurement_setup: empirical characterisation on the Table 4 host
+        transcription_ledger:
+          document_version: Obi et al., IEEE OJIES 2026
+          section: "Results"
+          table: Table 11
+          requirement_id: n/a
+          column: "Frenet (1 thread) mean/max"
+          value: "mean 86.83 / max 101.55"
+          unit: ms
+          evidence_file: spec/automotive_mc_v1/evidence/OBI_2026_OJIES_T4_T11.md
+          evidence_sha256: bdd9ad71fb96f73a692b840db2e226ef339a105405a03db8b10e9d3b1e5b62c0
+      - parameter_name: ref_time_validator_single_thread
+        value: "mean 0.05 / max 0.51"
+        unit: ms
+        table: Table 11
+        measurement_scope: processing_stage
+        semantic_role: measured_latency
+        label: measured
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
+        required_by_generator: true
+        allowed_for_generation: true
+        conversion_to_cycles: allowed
+        eligible_for_t_ref: true
+        execution_context:
+          platform: Intel Core i9-12900HX @ 2.30 GHz, 8 logical CPUs pinned
+          stage: planning-to-control pipeline node
+          input_size_or_workload_context: research WSL2 setup, scenario not restated
+          software_framework: Autoware-based pipeline under ROS 2 / WSL2
+          reported_statistic: mean and max
+          unit: ms
+          sample_count: not reported
+          frequency_or_power_mode: 2.30 GHz, 8 logical CPUs pinned
+          measurement_setup: empirical characterisation on the Table 4 host
+        transcription_ledger:
+          document_version: Obi et al., IEEE OJIES 2026
+          section: "Results"
+          table: Table 11
+          requirement_id: n/a
+          column: "Validator (single-threaded) mean/max"
+          value: "mean 0.05 / max 0.51"
+          unit: ms
+          evidence_file: spec/automotive_mc_v1/evidence/OBI_2026_OJIES_T4_T11.md
+          evidence_sha256: bdd9ad71fb96f73a692b840db2e226ef339a105405a03db8b10e9d3b1e5b62c0
+      - parameter_name: ref_time_trajectory_single_thread
+        value: "mean 4.42e-3 / max 28.76e-3"
+        unit: ms
+        table: Table 11
+        measurement_scope: processing_stage
+        semantic_role: measured_latency
+        label: measured
+        source_verification: peer_reviewed_verified
+        transcription_verified: true
+        required_by_generator: true
+        allowed_for_generation: true
+        conversion_to_cycles: allowed
+        eligible_for_t_ref: true
+        execution_context:
+          platform: Intel Core i9-12900HX @ 2.30 GHz, 8 logical CPUs pinned
+          stage: planning-to-control pipeline node
+          input_size_or_workload_context: research WSL2 setup, scenario not restated
+          software_framework: Autoware-based pipeline under ROS 2 / WSL2
+          reported_statistic: mean and max
+          unit: ms
+          sample_count: not reported
+          frequency_or_power_mode: 2.30 GHz, 8 logical CPUs pinned
+          measurement_setup: empirical characterisation on the Table 4 host
+        transcription_ledger:
+          document_version: Obi et al., IEEE OJIES 2026
+          section: "Results"
+          table: Table 11
+          requirement_id: n/a
+          column: "Trajectory (single-threaded) mean/max"
+          value: "mean 4.42e-3 / max 28.76e-3"
+          unit: ms
+          evidence_file: spec/automotive_mc_v1/evidence/OBI_2026_OJIES_T4_T11.md
+          evidence_sha256: bdd9ad71fb96f73a692b840db2e226ef339a105405a03db8b10e9d3b1e5b62c0
+
 generation_rules:
 
   - rule_id: E2E-SLA-V1
