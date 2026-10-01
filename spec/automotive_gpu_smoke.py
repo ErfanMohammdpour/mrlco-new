@@ -30,12 +30,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--i-allow-gpu", dest="allow_gpu", action="store_true")
-    ap.add_argument("--iters", type=int, default=1)
+    ap.add_argument("--iters", type=int, default=None,
+                    help="outer iterations (smoke default 1, --long default 3500)")
     ap.add_argument("--gpu", default=None, help="CUDA_VISIBLE_DEVICES value")
     ap.add_argument("--cpu", action="store_true", help="CPU-only plumbing smoke")
     ap.add_argument("--dataset-dir", default=None)
-    ap.add_argument("--iters", type=int, default=None,
-                    help="outer iterations for --long (default: the frozen 3500)")
     ap.add_argument("--run-kind", default=None,
                     help="output root under runs/automotive_mc_v1/ (default: primary)")
     ap.add_argument("--long", action="store_true",
@@ -71,13 +70,14 @@ def main() -> int:
                           "outer_iterations": n_itr, "run_kind": run_kind},
                          indent=2, sort_keys=True))
         return 0
-    run_dir = run_automotive_gpu_smoke(args.seed, args.allow_gpu, n_itr=int(args.iters),
+    smoke_iters = 1 if args.iters is None else int(args.iters)
+    run_dir = run_automotive_gpu_smoke(args.seed, args.allow_gpu, n_itr=smoke_iters,
                                       dataset_dir=args.dataset_dir)
     wall = time.time() - started
     summary = {
         "run_dir": str(run_dir),
         "wall_seconds": wall,
-        "outer_iterations": int(args.iters),
+        "outer_iterations": int(smoke_iters),
         "seed": int(args.seed),
         "cpu_only": bool(args.cpu),
         "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", ""),

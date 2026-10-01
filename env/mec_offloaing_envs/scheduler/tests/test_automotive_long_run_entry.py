@@ -26,6 +26,32 @@ except Exception:  # pragma: no cover
     HAS_TF = False
 
 
+class TestEntryArgumentParsing(unittest.TestCase):
+    """The CLI must parse (no TensorFlow needed): a duplicate option string once made
+    every campaign seed exit 1 before any iteration ran."""
+
+    def test_help_exits_zero_and_options_are_unique(self):
+        import subprocess
+
+        out = subprocess.run([sys.executable, "spec/automotive_gpu_smoke.py", "--help"],
+                             cwd=str(ROOT), capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr[-500:])
+        for flag in ("--seed", "--iters", "--run-kind", "--long", "--i-allow-gpu", "--gpu"):
+            self.assertIn(flag, out.stdout)
+        # a duplicated option makes argparse itself fail (exit 2 + "conflicting option
+        # string"), so a clean exit 0 plus a present option is the regression guard
+        self.assertNotIn("conflicting option", out.stderr + out.stdout)
+        self.assertIn("--iters", out.stdout)
+
+    def test_long_without_gpu_permission_is_refused(self):
+        import subprocess
+
+        out = subprocess.run([sys.executable, "spec/automotive_gpu_smoke.py", "--long",
+                              "--seed", "0"], cwd=str(ROOT), capture_output=True, text=True)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("--long requires --i-allow-gpu", out.stderr + out.stdout)
+
+
 @unittest.skipUnless(HAS_TF, "long-run entry test requires TensorFlow (run in the TF1.15 image)")
 class TestAutomotiveLongRunEntry(unittest.TestCase):
     def test_long_run_calls_train_with_the_automotive_dataset(self):
