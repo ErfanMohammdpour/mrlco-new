@@ -121,8 +121,10 @@ class TestAutomotiveLongRunEntry(unittest.TestCase):
         import meta_trainer as mt
         from spec import phase4_train_driver as drv
 
-        src = inspect.getsource(drv._train)
-        tree = ast.parse(src)
+        # read the module FILE: a monkeypatched drv._train attribute must not change
+        # what this static check inspects
+        source = Path(inspect.getsourcefile(drv)).read_text()
+        tree = ast.parse(source)
         forwarded = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -140,14 +142,16 @@ class TestAutomotiveLongRunEntry(unittest.TestCase):
         from spec import phase4_train_driver as drv
 
         recorded = {}
-        drv._train = lambda *a, **k: recorded.update({"kwargs": k})
+        original_train = drv._train
         original_write = drv._write_payload
         original_gpu = drv.require_gpu_permission
+        drv._train = lambda *a, **k: recorded.update({"kwargs": k})
         drv._write_payload = lambda run_dir, payload: None
         drv.require_gpu_permission = lambda allow_gpu: None
         try:
             drv.run_automotive_gpu_smoke(0, True, n_itr=1)
         finally:
+            drv._train = original_train
             drv._write_payload = original_write
             drv.require_gpu_permission = original_gpu
         self.assertEqual(recorded["kwargs"].get("dataset"), "automotive_mc_v1")

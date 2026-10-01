@@ -499,9 +499,10 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     trainer.auto_fingerprint = write_fingerprint(
         trainer.auto_run_dir, obs_version=OBS_VERSION, scheduler_axes=dict(CO_PHYSICAL_AXES),
         checkpoint_rule_sha=checkpoint_rule_sha(),
-        sampler_budget={"support_trajectories_per_meta_task": SUPPORT_TRAJECTORIES_PER_META_TASK,
+        sampler_budget={"support_trajectories_per_meta_task": int(support_trajectories),
                         "tokens_per_trajectory": TOKENS_PER_TRAJECTORY,
-                        "meta_batch_size": META_BATCH_SIZE},
+                        "meta_batch_size": int(meta_batch_size)},
+        run_kind=str(run_kind), outer_iterations=int(n_itr),
         dataset_dir=dataset_dir)["fingerprint"]
     return trainer, algo
 
