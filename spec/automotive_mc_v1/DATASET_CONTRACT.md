@@ -178,11 +178,19 @@ deferred only where `drop_allowed_hi_mode` is true.
 ## 8. Deadline construction (non-circular, locked)
 
 ```
-D_G  <- external application_e2e anchor (frozen before any scheduling)
+D_G  = rho_f * P_f            <- E2E-SLA-V1, rho_period branch ONLY
+                                 (eta * B_G is NOT active in v1, because B_G depends
+                                  on the compute calibration and would reintroduce
+                                  circularity through t_ref)
+D_G  <- frozen before any scheduling, hashed, then immutable
 E_i  <- forward earliest achievable bounds
 L_i  <- backward latest admissible times from D_G
 S_i  = L_i - E_i >= 0        E_i <= d_i <= L_i
 ```
+
+`rho_f` is drawn from the per-family set `R_family` and `P_f` is the externally
+defined activation/update period of that family; both are frozen before the first
+scheduler or search call and may never be adjusted after observing feasibility.
 
 Forbidden: `D_G = kappa * T_witness`; scheduling a graph and choosing its deadline
 from the observed completion; replaying the witness schedule as the feasibility
