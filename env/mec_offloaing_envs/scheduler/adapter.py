@@ -48,6 +48,23 @@ def to_canonical_dag(task_graph: Any) -> CanonicalDAG:
                 tardiness_weight=float(
                     getattr(task, "tardiness_weight", getattr(task, "criticality", 1.0))
                 ),
+                # MARGO-AUTOMOTIVE-MC-v1 budgets: optional on the legacy task
+                # object exactly like the deadline fields above.
+                c_lo_s=getattr(task, "c_lo_s", None),
+                c_hi_s=getattr(task, "c_hi_s", None),
+                drop_allowed_lo_mode=bool(
+                    getattr(task, "drop_allowed_lo_mode", False)
+                ),
+                drop_allowed_hi_mode=bool(
+                    getattr(task, "drop_allowed_hi_mode", False)
+                ),
+                degrade_allowed_lo_mode=bool(
+                    getattr(task, "degrade_allowed_lo_mode", False)
+                ),
+                degrade_allowed_hi_mode=bool(
+                    getattr(task, "degrade_allowed_hi_mode", False)
+                ),
+                mc_mode_is_hi=bool(getattr(task, "mc_mode_is_hi", False)),
             )
         )
     return CanonicalDAG.from_records(tasks, _raw_edges_from_task_graph(task_graph))

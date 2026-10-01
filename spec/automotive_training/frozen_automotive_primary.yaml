@@ -1,0 +1,119 @@
+# MARGO-AUTOMOTIVE-MC-v1 — FROZEN primary training configuration (Gate 21).
+#
+# Pins every component whose change must change the training fingerprint. The exact
+# SHAs are resolved at run time into <run_dir>/training_fingerprint.json; this file
+# fixes the *contract*, not the bytes.
+schema_version: automotive_primary_config_v1
+status: frozen_before_smoke
+method_id: margo_automotive_mc_v1_primary
+
+dataset:
+  version: MARGO-AUTOMOTIVE-MC-v1
+  release_sha: abe432163ad7df7263339130b48f20fbce3787b1
+  dir: env/mec_offloaing_envs/data/automotive_mc_v1
+  files: [graphs.jsonl, splits.jsonl, manifest.jsonl, provenance.json, calibration_report.json]
+  splits: {meta_train: 120, validation: 60, meta_test: 60}
+  support_query: {support: 20, query: 40}
+  calibration_source: meta_train_only
+  meta_test: {opened: false, rule: "unopened until the model-side freeze; any access fails the run"}
+  meta_task: one_frozen_graph          # support/query are rollouts on that graph
+  rewrite_requirements: false
+
+observation:
+  schema: automotive_mc_obs_v1
+  packed_dim: 79
+  feature_dim: 40
+  base: v3 (31 features) + 9 bounded mixed-criticality columns
+  normalization: identity rows for the 9 MC columns; v3 rows copied from the frozen v3 stats
+  criticality_encoding: one-hot (low/medium/high), never coupled to the deadline
+  c_hi_na: explicit has_c_hi flag; N/A is never a zero budget
+  mode_is_hi_in_static_obs: 0        # mode is an execution-time event; decoder is open-loop
+
+scheduler:
+  axes: {timing_model: physical_rates, radio_timing_model: physical_rates,
+         energy_model: physical_v1, radio_model: physical_v1, energy_scope: system}
+  graph_specific_resources: true
+  radio_rate_rule: "R = B*eta with eta from spec/frozen_experiment.yaml; B = R_graph/eta"
+  legacy_mixed_axes_kept_under_name: legacy_mixed_physics_reproduction_only
+  energy_metric: system_scope
+  energy_constraint: not_configured    # the dataset defines no justified hard energy budget
+
+mixed_criticality:
+  runtime_policy: M7 criticality_policy_v1 (frozen dataset artifact)
+  uncertainty: execution_uncertainty_v1
+  uncertainty_sha: spec/automotive_training/execution_uncertainty_v1.yaml
+  evidence_class: source_calibrated_synthetic
+  frozen_before_smoke: true
+  tuning_after_smoke: forbidden
+  initial_mode: LO
+  lo_to_hi_trigger: high_task_exceeds_c_lo_in_equivalent_work
+  hi_exit: sticky_until_graph_completion
+  high_dropped_or_degraded: forbidden
+  degradation: unsupported_not_applied   # no transformation model exists in M7
+  dependency_safe_dropping: true
+  open_loop_fixed_placement_plan: true
+  no_action_replanning_after_switch: true
+
+objective:
+  mode: latency_only
+  reward: telescoping latency (all-UE completion), terminal Lagrangian penalty
+  energy_term_in_reward: false
+  constraints:
+    - {name: C_GRAPH_HARD_DEADLINE, kind: hard, budget: graph_D_G_s, enabled: true}
+    - {name: C_HI_TASK_TARDINESS, kind: firm, budget: 0.0, enabled: true}
+    - {name: C_MED_TASK_TARDINESS, kind: firm, budget: 0.0, enabled: true}
+  dual_lr: 0.05
+  energy_constraint: not_configured
+  log_separately: [latency_only_objective, constraint_violations, constraint_lambdas, constraint_penalty, penalized_objective]
+
+learning:                              # unchanged from the frozen v0.1 primary
+  plan: autoregressive_20_token_macro_placement
+  actions: {0: UE, 1: MEC, 2: HELPER}
+  inner_learning_rate: 5.0e-4
+  inner_ppo_apply_steps: 3
+  policy_clip_epsilon: 0.2
+  value_clip_epsilon: 0.2
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  discount_gamma: 0.99
+  gae_lambda: 0.95
+  entropy_coefficient: 0.0
+  meta_batch_size: 10
+  support_trajectories_per_meta_task: 20
+  tokens_per_trajectory: 20
+  outer_update_method: mrlco_first_order_mean_pseudogradient
+  outer_lr: 5.0e-4
+  outer_applications_per_meta_batch: 1
+  max_path_length_role: episode_cap_only   # never a trajectory budget
+
+validation:
+  split: validation
+  support: 20
+  query: 40
+  conditions: [k0 (core -> query), k3 (3 inner steps on support -> disjoint query)]
+  meta_test_access_allowed: false
+
+checkpoint_selection:
+  rule_id: automotive_lexicographic_v1
+  order:
+    - zero graph hard-deadline violation rate
+    - zero MC policy violations (HIGH drop/degrade must always be zero)
+    - lowest HIGH task tardiness violation
+    - lowest MEDIUM firm tardiness violation
+    - energy feasibility only if configured (energy is not_configured)
+    - minimum validation latency among the remaining feasible checkpoints
+  frozen_before_meta_test: true
+
+mask:
+  deadline_mask: off                   # the static mask is queue-blind; no hard-deadline claim
+  legality_mask: semantic_allowed_locations_only
+
+seeds:
+  long_run: [0, 1, 2, 3, 4]
+  smoke: [0]
+
+provenance:
+  require_git_sha: true
+  require_dataset_provenance_sha: true
+  require_scheduler_fingerprint: true
+  output: training_fingerprint.json

@@ -17,8 +17,15 @@ Obs version:
       these the policy is structurally blind to deadlines and the shield becomes
       the only source of feasibility information — see
       reports/PRE_PPO_ARCHITECTURE_REVIEW.md.
-  Select with env MARGO_OBS_VERSION=v2|v3 before importing policies, or call
-  set_obs_version.  v1/v2 stay byte-identical; only v3 needs a resource model.
+  automotive_mc_obs_v1: FEATURE_DIM=40, PACKED_DIM=79 — frozen MARGO-AUTOMOTIVE-MC-v1
+      (append-only extension of v3).  Adds, per task, 9 bounded mixed-criticality
+      columns (C_LO/C_HI budget, C_HI presence, C_HI/C_LO ratio, drop/degrade
+      permission, mode, slack ratio, deadline/D_G) supplied by the caller as
+      `mc_context`.  All 9 are identity-normalized [0,1] (mc_c_hi_over_lo [0,4])
+      and are written as zeros when no mc_context is supplied — never NaN.
+  Select with env MARGO_OBS_VERSION=v2|v3|automotive_mc_obs_v1 before importing
+  policies, or call set_obs_version.  v1/v2 stay byte-identical; v3 and
+  automotive_mc_obs_v1 need a resource model.
 """
 
 from __future__ import annotations
@@ -27,6 +34,7 @@ import hashlib
 import json
 import math
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -92,10 +100,29 @@ DEADLINE_FEATURE_NAMES: tuple[str, ...] = (
     "feasible_helper",
 )
 FEATURE_NAMES_V3: tuple[str, ...] = FEATURE_NAMES_V2 + DEADLINE_FEATURE_NAMES
+
+# --- automotive_mc_obs_v1: append-only mixed-criticality extension of v3 -----
+# MARGO-AUTOMOTIVE-MC-v1 carries per-task execution budgets C_LO/C_HI plus
+# drop/degrade permission and the active criticality mode. Like the v3 block
+# these are bounded by construction (0/1 flags and clipped ratios), so their
+# frozen stats rows are identity and no corpus refit is needed.
+MC_FEATURE_NAMES: tuple[str, ...] = (
+    "mc_c_lo_scaled",
+    "mc_c_hi_scaled",
+    "mc_has_c_hi",
+    "mc_c_hi_over_lo",
+    "mc_drop_allowed",
+    "mc_degrade_allowed",
+    "mc_mode_is_hi",
+    "mc_slack_ratio",
+    "mc_deadline_over_D_G",
+)
+FEATURE_NAMES_AUTOMOTIVE_MC_V1: tuple[str, ...] = FEATURE_NAMES_V3 + MC_FEATURE_NAMES
+
 NON_STANDARDIZED_FEATURES: tuple[str, ...] = (
     "is_root",
     "is_sink",
-) + DEADLINE_FEATURE_NAMES
+) + DEADLINE_FEATURE_NAMES + MC_FEATURE_NAMES
 
 # Mutable active schema (default v1). Policies import these names at load time —
 # set MARGO_OBS_VERSION before importing graph2seq / policies for v2 jobs.
@@ -107,10 +134,18 @@ FEATURE_DIM = len(FEATURE_NAMES)
 PACKED_DIM = FEATURE_DIM + 2 * MAX_NEIGH + 1
 OBS_VERSION = "v1"
 
+# Version sets. Append-only: the new schema shares the v3 deadline/feasibility
+# block, so the guards below key off these tuples instead of literal equality.
+DEADLINE_OBS_VERSIONS: tuple[str, ...] = ("v3", "automotive_mc_obs_v1")
+RESOURCE_OBS_VERSIONS: tuple[str, ...] = ("v2",) + DEADLINE_OBS_VERSIONS
+
 _SPEC_DIR = Path(__file__).resolve().parents[3] / "spec"
 _DEFAULT_STATS_PATH = _SPEC_DIR / "encoder_feature_stats.json"
 _DEFAULT_STATS_PATH_V2 = _SPEC_DIR / "encoder_feature_stats_v2.json"
 _DEFAULT_STATS_PATH_V3 = _SPEC_DIR / "encoder_feature_stats_v3.json"
+_DEFAULT_STATS_PATH_AUTOMOTIVE_MC_V1 = (
+    _SPEC_DIR / "encoder_feature_stats_automotive_mc_v1.json"
+)
 _STATS_CACHE = None  # type: ignore[var-annotated]
 _STATS_CACHE_VERSION: str | None = None
 
@@ -124,14 +159,18 @@ def set_obs_version(version: str) -> None:
     global FEATURE_NAMES, STANDARDIZE_FEATURES, FEATURE_DIM, PACKED_DIM, OBS_VERSION
     global _STATS_CACHE, _STATS_CACHE_VERSION
     version = str(version).lower().strip()
-    if version not in ("v1", "v2", "v3"):
-        raise EncoderGraphError("obs version must be v1, v2 or v3, got %r" % version)
+    if version not in ("v1", "v2", "v3", "automotive_mc_obs_v1"):
+        raise EncoderGraphError(
+            "obs version must be v1, v2, v3 or automotive_mc_obs_v1, got %r" % version
+        )
     if version == "v1":
         FEATURE_NAMES = FEATURE_NAMES_V1
     elif version == "v2":
         FEATURE_NAMES = FEATURE_NAMES_V2
-    else:
+    elif version == "v3":
         FEATURE_NAMES = FEATURE_NAMES_V3
+    else:
+        FEATURE_NAMES = FEATURE_NAMES_AUTOMOTIVE_MC_V1
     STANDARDIZE_FEATURES = frozenset(
         name for name in FEATURE_NAMES if name not in NON_STANDARDIZED_FEATURES
     )
@@ -310,7 +349,9 @@ def load_feature_stats(path: str | Path | None = None) -> FeatureStats:
 def default_feature_stats() -> FeatureStats:
     global _STATS_CACHE, _STATS_CACHE_VERSION
     if _STATS_CACHE is None or _STATS_CACHE_VERSION != OBS_VERSION:
-        if OBS_VERSION == "v3":
+        if OBS_VERSION == "automotive_mc_obs_v1":
+            path = _DEFAULT_STATS_PATH_AUTOMOTIVE_MC_V1
+        elif OBS_VERSION == "v3":
             path = _DEFAULT_STATS_PATH_V3
         elif OBS_VERSION == "v2":
             path = _DEFAULT_STATS_PATH_V2
@@ -411,9 +452,10 @@ def feasibility_channel_indices() -> tuple[int, int, int]:
     hard action shield is only legitimate for hard deadlines; see
     `masking.observation_mask` and `hard_deadline_channel_index`.
     """
-    if OBS_VERSION != "v3":
+    if OBS_VERSION not in DEADLINE_OBS_VERSIONS:
         raise EncoderGraphError(
-            "feasibility channels exist only in obs v3 (active %r)" % OBS_VERSION
+            "feasibility channels exist only in obs v3/automotive_mc_obs_v1 "
+            "(active %r)" % OBS_VERSION
         )
     return tuple(
         FEATURE_NAMES.index(name)
@@ -427,9 +469,10 @@ def hard_deadline_channel_index() -> int:
     A soft/firm deadline penalises tardiness, it does not make an action
     impossible, so the shield is gated on this channel.
     """
-    if OBS_VERSION != "v3":
+    if OBS_VERSION not in DEADLINE_OBS_VERSIONS:
         raise EncoderGraphError(
-            "deadline channels exist only in obs v3 (active %r)" % OBS_VERSION
+            "deadline channels exist only in obs v3/automotive_mc_obs_v1 "
+            "(active %r)" % OBS_VERSION
         )
     return FEATURE_NAMES.index("deadline_is_hard")
 
@@ -497,12 +540,108 @@ def _transfer_lb(nbytes: int, src: Any, dst: Any, resources: Any) -> float:
     return transfer_lower_bound(int(nbytes), src, dst, resources)
 
 
+def _as_finite_float(value: Any) -> float | None:
+    """float(value) or None when absent/non-numeric/non-finite (never NaN/inf)."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if math.isfinite(out) else None
+
+
+def _clip(value: float, lo: float, hi: float) -> float:
+    return float(min(hi, max(lo, value)))
+
+
+def _mc_task_entry(per_task: Mapping, tid: int) -> Any:
+    entry = per_task.get(int(tid))
+    if entry is None:
+        entry = per_task.get(tid)
+    return entry if isinstance(entry, Mapping) else None
+
+
+def _mc_block(
+    dag: CanonicalDAG,
+    order: Sequence[int],
+    mc_context: Any,
+) -> np.ndarray:
+    """[N, len(MC_FEATURE_NAMES)] bounded mixed-criticality features.
+
+    `mc_context` layout (all optional; missing -> 0.0, never NaN):
+        {
+          "per_task": {task_id: {"c_lo_s", "c_hi_s", "has_c_hi",
+                                 "c_hi_over_lo", "drop_allowed",
+                                 "degrade_allowed", "slack_ratio"}},
+          "mode_is_hi": bool, "D_G_s": float, "max_c_lo_s": float,
+        }
+
+    `mc_context=None` means "no MC context supplied": the whole block stays zero,
+    which is the documented encoding for an automotive episode that has not been
+    annotated with mixed-criticality metadata yet.
+    """
+    n = len(order)
+    out = np.zeros((n, len(MC_FEATURE_NAMES)), dtype=np.float64)
+    if not isinstance(mc_context, Mapping):
+        return out
+    idx = {name: i for i, name in enumerate(MC_FEATURE_NAMES)}
+    per_task = mc_context.get("per_task")
+    per_task = per_task if isinstance(per_task, Mapping) else {}
+    mode_is_hi = 1.0 if bool(mc_context.get("mode_is_hi", False)) else 0.0
+
+    d_g = _as_finite_float(mc_context.get("D_G_s"))
+    scale = _as_finite_float(mc_context.get("max_c_lo_s"))
+    if scale is None or scale <= 0.0:
+        candidates = [
+            c
+            for entry in per_task.values()
+            if isinstance(entry, Mapping)
+            for c in (_as_finite_float(entry.get("c_lo_s")),)
+            if c is not None and c > 0.0
+        ]
+        scale = max(candidates) if candidates else 1.0
+
+    for pos, tid in enumerate(order):
+        row = out[pos]
+        row[idx["mc_mode_is_hi"]] = mode_is_hi
+        entry = _mc_task_entry(per_task, int(tid))
+        if entry is not None:
+            c_lo = _as_finite_float(entry.get("c_lo_s"))
+            if c_lo is not None and c_lo > 0.0:
+                row[idx["mc_c_lo_scaled"]] = _clip(c_lo / scale, 0.0, 1.0)
+            has_c_hi = bool(entry.get("has_c_hi", False))
+            c_hi = _as_finite_float(entry.get("c_hi_s"))
+            if has_c_hi:
+                row[idx["mc_has_c_hi"]] = 1.0
+                if c_hi is not None:
+                    row[idx["mc_c_hi_scaled"]] = _clip(c_hi / scale, 0.0, 1.0)
+                ratio = _as_finite_float(entry.get("c_hi_over_lo"))
+                if ratio is None and c_hi is not None and c_lo is not None and c_lo > 0.0:
+                    ratio = c_hi / c_lo
+                if ratio is not None:
+                    row[idx["mc_c_hi_over_lo"]] = _clip(ratio, 0.0, 4.0)
+            row[idx["mc_drop_allowed"]] = (
+                1.0 if bool(entry.get("drop_allowed", False)) else 0.0
+            )
+            row[idx["mc_degrade_allowed"]] = (
+                1.0 if bool(entry.get("degrade_allowed", False)) else 0.0
+            )
+            slack = _as_finite_float(entry.get("slack_ratio"))
+            row[idx["mc_slack_ratio"]] = 0.0 if slack is None else _clip(slack, 0.0, 1.0)
+        deadline = dag.tasks[int(tid)].deadline_s
+        if deadline is not None and d_g is not None and d_g > 0.0:
+            row[idx["mc_deadline_over_D_G"]] = _clip(float(deadline) / d_g, 0.0, 1.0)
+    return out
+
+
 def raw_node_features(
     dag: CanonicalDAG,
     decoder_order: Sequence[Any],
     resource_vec: Sequence[float] | None = None,
     resources: Any = None,
     cycles_per_bit: float | None = None,
+    mc_context: Any = None,
 ) -> np.ndarray:
     order = _decoder_ids(decoder_order)
     if len(order) != len(set(order)):
@@ -545,7 +684,7 @@ def raw_node_features(
         row[name_index["is_root"]] = 1.0 if indeg == 0 else 0.0
         row[name_index["is_sink"]] = 1.0 if outdeg == 0 else 0.0
 
-    if OBS_VERSION in ("v2", "v3"):
+    if OBS_VERSION in RESOURCE_OBS_VERSIONS:
         if resource_vec is None:
             raise EncoderGraphError("obs %s requires resource_vec [4]" % OBS_VERSION)
         rv = np.asarray(resource_vec, dtype=np.float64).reshape(4)
@@ -554,22 +693,31 @@ def raw_node_features(
         for j, name in enumerate(RESOURCE_FEATURE_NAMES):
             rows[:, name_index[name]] = rv[j]
     elif resource_vec is not None:
-        raise EncoderGraphError("resource_vec only valid for obs v2/v3")
+        raise EncoderGraphError("resource_vec only valid for obs v2/v3/automotive_mc_obs_v1")
 
-    if OBS_VERSION == "v3":
+    if OBS_VERSION in DEADLINE_OBS_VERSIONS:
         if resources is None:
             raise EncoderGraphError(
-                "obs v3 requires the scheduler ResourceConfig (static bounds for "
-                "deadline/feasibility features)"
+                "obs %s requires the scheduler ResourceConfig (static bounds for "
+                "deadline/feasibility features)" % OBS_VERSION
             )
         from .static_bounds import static_action_bounds
 
         bounds = static_action_bounds(
             dag, order, resources, cycles_per_bit=cycles_per_bit
         )
-        rows[:, name_index[DEADLINE_FEATURE_NAMES[0]]:] = _deadline_block(
+        # BOUNDED write: `rows[:, start:]` used to run to the end of the row, so
+        # any column appended AFTER the deadline block (the MC block) was
+        # silently overwritten. The slice width must equal the block width.
+        deadline_start = name_index[DEADLINE_FEATURE_NAMES[0]]
+        deadline_end = deadline_start + len(DEADLINE_FEATURE_NAMES)
+        rows[:, deadline_start:deadline_end] = _deadline_block(
             dag, order, bounds, resources, cycles_per_bit
         )
+        if OBS_VERSION == "automotive_mc_obs_v1":
+            mc_start = name_index[MC_FEATURE_NAMES[0]]
+            mc_end = mc_start + len(MC_FEATURE_NAMES)
+            rows[:, mc_start:mc_end] = _mc_block(dag, order, mc_context)
     return rows
 
 
@@ -716,6 +864,7 @@ def encode_canonical_dag(
     resource_cluster: Any = None,
     resources: Any = None,
     cycles_per_bit: float | None = None,
+    mc_context: Any = None,
 ) -> np.ndarray:
     order = _decoder_ids(decoder_order)
     if enforce_task_count:
@@ -732,6 +881,7 @@ def encode_canonical_dag(
         resource_vec=resource_vec,
         resources=resources,
         cycles_per_bit=cycles_per_bit,
+        mc_context=mc_context,
     )
     features = stats.standardize(raw)
     fw, bw, _, _ = neighbor_index_tables(dag, order)
@@ -746,6 +896,7 @@ def encode_task_graph(
     resource_cluster: Any = None,
     resources: Any = None,
     cycles_per_bit: float | None = None,
+    mc_context: Any = None,
 ) -> np.ndarray:
     dag = to_canonical_dag(task_graph)
     if resources is None and resource_cluster is not None:
@@ -761,6 +912,7 @@ def encode_task_graph(
         resource_cluster=resource_cluster,
         resources=resources,
         cycles_per_bit=cycles_per_bit,
+        mc_context=mc_context,
     )
 
 

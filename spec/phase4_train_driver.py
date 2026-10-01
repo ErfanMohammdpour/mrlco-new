@@ -156,7 +156,8 @@ def _write_payload(run_dir, payload):
 
 def _train(seed, n_itr, run_dir, audit=False, print_action_choices=False, parallel=False,
            reward_mode="publication", learning_mode="publication",
-           vocab_size=3, use_energy=True):
+           vocab_size=3, use_energy=True, dataset="legacy_meta_offloading",
+           dataset_dir=None, meta_batch_size=10, support_trajectories=20):
     from utils import logger
     from meta_trainer import build_frozen_primary_stack
     import tensorflow as tf
@@ -195,6 +196,10 @@ def _train(seed, n_itr, run_dir, audit=False, print_action_choices=False, parall
         use_energy=bool(use_energy),
         constraints=constraint_spec,
         constraint_dual_lr=constraint_dual_lr,
+        dataset=str(dataset),
+        dataset_dir=dataset_dir,
+        meta_batch_size=int(meta_batch_size),
+        support_trajectories=int(support_trajectories),
     )
     bc_stats = None
     with tf.compat.v1.Session() as sess:
@@ -213,6 +218,72 @@ def _train(seed, n_itr, run_dir, audit=False, print_action_choices=False, parall
         algo.sync_task_policies_from_core()
         trainer.train()
     return bc_stats
+
+
+AUTOMOTIVE_METHOD_ID = "margo_automotive_mc_v1_primary"
+
+
+def automotive_run_dir(seed, kind="primary"):
+    from pathlib import Path as _Path
+
+    root = _Path("runs") / "automotive_mc_v1" / kind
+    return root / ("seed_%d" % int(seed))
+
+
+def run_automotive_gpu_smoke(seed, allow_gpu, n_itr=1, dataset_dir=None,
+                             meta_batch_size=10, support_trajectories=20):
+    """ONE outer iteration through the REAL automotive primary path.
+
+    Not a paper result and not the long run: it exercises run_automotive_primary_seed's
+    exact chain with the production structural budgets at n_itr=1.
+    """
+    require_gpu_permission(allow_gpu)
+    run_dir = automotive_run_dir(seed, kind="smoke")
+    payload = provenance_template(seed)
+    payload.update({
+        "method_id": AUTOMOTIVE_METHOD_ID + "_smoke",
+        "dataset": "MARGO-AUTOMOTIVE-MC-v1",
+        "paper_result": False,
+        "gpu_requested": True,
+        "gpu_finished": False,
+        "outer_iterations": int(n_itr),
+        "outer_update_count": int(n_itr),
+        "run_dir": str(run_dir),
+        "note": "one-iteration automotive primary smoke; do not cite as evaluation",
+    })
+    _write_payload(run_dir, payload)
+    _train(seed, int(n_itr), run_dir, audit=False,
+           reward_mode="latency_only", learning_mode="publication",
+           use_energy=True, dataset="automotive_mc_v1", dataset_dir=dataset_dir,
+           meta_batch_size=meta_batch_size, support_trajectories=support_trajectories)
+    payload["gpu_finished"] = True
+    _write_payload(run_dir, payload)
+    return run_dir
+
+
+def run_automotive_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS, dataset_dir=None):
+    """The final automotive long run. NOT executed by this integration."""
+    require_gpu_permission(allow_gpu)
+    run_dir = automotive_run_dir(seed, kind="primary")
+    payload = provenance_template(seed)
+    payload.update({
+        "method_id": AUTOMOTIVE_METHOD_ID,
+        "dataset": "MARGO-AUTOMOTIVE-MC-v1",
+        "paper_result": False,
+        "gpu_requested": True,
+        "gpu_finished": False,
+        "outer_iterations": int(n_itr),
+        "outer_update_count": int(n_itr),
+        "run_dir": str(run_dir),
+    })
+    _write_payload(run_dir, payload)
+    _train(seed, int(n_itr), run_dir, audit=False,
+           reward_mode="latency_only", learning_mode="publication",
+           use_energy=True, dataset="automotive_mc_v1", dataset_dir=dataset_dir,
+           meta_batch_size=meta_batch_size, support_trajectories=support_trajectories)
+    payload["gpu_finished"] = True
+    _write_payload(run_dir, payload)
+    return run_dir
 
 
 def run_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS):

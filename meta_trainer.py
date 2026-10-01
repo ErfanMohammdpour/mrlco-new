@@ -597,6 +597,14 @@ class Trainer(object):
             logger.logkv('split_role', 'meta_train_support')
             self._log_protocol_fields(itr, FROZEN_K_STEPS)
 
+            # --- automotive: observe this iteration on the TRAINING controller ---
+            # The legacy path observed inside cloned worker envs, so lambda never
+            # moved. Here the violations travel in the rollout telemetry and are
+            # observed by the one controller the trainer owns.
+            _observer = getattr(self, "constraint_observer", None)
+            if _observer is not None:
+                _observer(new_samples_data, task_specs, new_paths)
+
             # --- Lagrangian dual ascent (constrained V2V/energy budgets) ----
             # The env observed every trajectory's signed constraint cost during
             # this iteration; one dual step per outer iteration closes the loop.
@@ -626,6 +634,9 @@ class Trainer(object):
                         "status": controller.status(),
                     })
 
+            _broadcast = getattr(self, "broadcast_constraint_lambdas", None)
+            if _broadcast is not None:
+                _broadcast()
             if itr % self.validation_interval == 0:
                 k0, k3 = self._run_validation(itr)
                 self._audit(itr, "validation", {"k0": k0, "k3": k3})
@@ -715,8 +726,33 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
                                objective_mode="off",
                                objective_spec=None,
                                scheduler_config=None,
-                               strict_scheduler_config=False):
-    """Frozen v0.1 train+val stack. Caller must set CUDA_VISIBLE_DEVICES before importing TF."""
+                               strict_scheduler_config=False,
+                               dataset="legacy_meta_offloading",
+                               dataset_dir=None,
+                               meta_batch_size=10,
+                               support_trajectories=20):
+    """Frozen v0.1 train+val stack. Caller must set CUDA_VISIBLE_DEVICES before importing TF.
+
+    `dataset="automotive_mc_v1"` routes the SAME policy/sampler/MRLCO/Trainer chain to
+    the frozen MARGO-AUTOMOTIVE-MC-v1 dataset (see
+    spec/automotive_training/automotive_primary.py). Every other value keeps the
+    historical legacy path byte-for-byte unchanged.
+    """
+    if str(dataset) == "automotive_mc_v1":
+        from spec.automotive_training.automotive_primary import (
+            build_automotive_primary_stack,
+        )
+
+        names = list(constraints) if isinstance(constraints, (list, tuple)) else None
+        return build_automotive_primary_stack(
+            seed=int(seed), n_itr=int(n_itr), ckpt_dir=str(ckpt_dir),
+            dataset_dir=dataset_dir, reward_mode=str(reward_mode),
+            use_energy=bool(use_energy),
+            constraints=names if names else None,
+            constraint_dual_lr=float(constraint_dual_lr),
+            meta_batch_size=int(meta_batch_size),
+            support_trajectories=int(support_trajectories),
+        )
     from env.mec_offloaing_envs.offloading_env import Resources
     from env.mec_offloaing_envs.offloading_env import OffloadingEnvironment
     from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy

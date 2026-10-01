@@ -1,0 +1,68 @@
+# MARGO-AUTOMOTIVE-MC-v1 -- primary-path constraint channels (frozen definitions)
+#
+# Scope: the deadline / mixed-criticality constraint channels used by the
+# MARGO-AUTOMOTIVE-MC-v1 primary training path.  This file defines NAMES, KINDS,
+# UNITS and PROVENANCE only; it defines no energy budget.
+#
+# Semantics (spec/automotive_mc_v1/DATASET_CONTRACT.md section 8 and section 9):
+#   D_G  is the HARD graph-level requirement (makespan <= D_G).
+#   d_i  are FIRM per-task subdeadline targets; a miss is measured on
+#        all_consumers_ready, i.e. arrival at EVERY required consumer.
+# HIGH and MEDIUM subdeadlines are FIRM, never "hard": only D_G is hard.
+#
+# This file is NOT spec/constraints.yaml.  The energy budgets in
+# spec/constraints.yaml are `proposal_not_frozen` and must not be enabled here.
+
+schema_version: automotive-constraints-v1
+dataset: MARGO-AUTOMOTIVE-MC-v1
+status: frozen_channel_definition
+# Outer-level projected dual ascent step: lambda <- clip(lambda + dual_lr * mean_violation)
+dual_lr: 0.05
+dual_clip: [0.0, 1000000.0]
+
+constraints:
+  - name: C_GRAPH_HARD_DEADLINE
+    kind: hard
+    # Resolved per graph from the frozen, hashed D_G_s; never a constant, never
+    # derived from an observed schedule or witness makespan.
+    budget: from_graph:D_G_s
+    unit: s
+    enabled: true
+    source: frozen_dataset_contract
+    formula: max(0, makespan_s - D_G_s)
+    violation_basis: graph makespan (ScheduleResult.makespan_seconds)
+
+  - name: C_HI_TASK_TARDINESS
+    kind: firm
+    # Aggregate allowance of a sum of non-negative tardiness terms.
+    budget: 0.0
+    unit: s
+    enabled: true
+    source: frozen_dataset_contract
+    formula: sum over HIGH tasks of max(0, availability_s - d_i)
+    violation_basis: all_consumers_ready
+    aggregate_over: HIGH
+
+  - name: C_MED_TASK_TARDINESS
+    kind: firm
+    budget: 0.0
+    unit: s
+    enabled: true
+    source: frozen_dataset_contract
+    formula: sum over MEDIUM tasks of max(0, availability_s - d_i)
+    violation_basis: all_consumers_ready
+    aggregate_over: MEDIUM
+
+# Energy: truthfully unconfigured.  The module raises unless a caller passes an
+# explicitly provenance-tagged budget (non-empty provenance string + numeric
+# budget); no placeholder or default number exists here.
+energy_constraint: not_configured
+energy_constraint_reason: >-
+  The only energy budgets in this repository live in spec/constraints.yaml, which is
+  `proposal_not_frozen` (requires ADR-013 and the phase6 gate), and M7_M10_STATUS.md
+  records that energy accounting is a diagnostic frozen legacy-normalized model with
+  no energy claim for MARGO-AUTOMOTIVE-MC-v1.  Inventing a budget here would be a
+  fabricated requirement, so the energy channel is not_configured until a
+  provenance-tagged budget is supplied by a caller.
+
+forbidden: [fake_energy_budget, renaming_HIGH_subdeadlines_as_hard, penalty_inside_latency]

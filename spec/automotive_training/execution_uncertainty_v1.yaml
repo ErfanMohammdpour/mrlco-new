@@ -1,0 +1,184 @@
+# execution_uncertainty_v1 — PRE-DECLARED realized-demand distribution for
+# MARGO-AUTOMOTIVE-MC-v1 runtime mixed-criticality semantics.
+#
+# WHAT THIS IS
+#   The frozen dataset fixes, per task, a nominal demand `C_LO`
+#   (`empirical_execution_budget_lo_s`) and — for HIGH tasks only — an upper demand
+#   bound `C_HI` (`empirical_execution_budget_hi_s`). Both are *reference-equivalent*
+#   execution times in seconds on the M5-v2 reference compute model
+#   (`W_i = t_ref_i * f_ref / (8 * xi)`). The dataset does NOT contain a per-run
+#   realization of the demand.
+#
+#   This file declares, BEFORE any smoke run, the distribution from which a single
+#   rollout draws that realization. It is a runtime input, not a dataset edit: the
+#   frozen files under `env/mec_offloaing_envs/data/automotive_mc_v1/` are never
+#   written or re-derived here.
+#
+# WHAT THIS IS NOT
+#   Nothing below is measured. There is no trace of per-task realized execution on
+#   any tier, so no row of this file may be reported as an empirical distribution.
+#   The regimes are calibrated to the frozen C_LO/C_HI *band* the dataset already
+#   declares: the band edges are data, the probability mass and the within-band
+#   shapes are declared assumptions.
+#
+# UNITS (the whole point of the design)
+#   Every quantity in this file is stated in EQUIVALENT WORK units, i.e. in the same
+#   units as `demand_lo_equiv = C_LO_ref * f_ref / (8 * xi)`. A realized draw is
+#   therefore a property of the DEMAND ALONE. Tier placement (UE / MEC / HELPER)
+#   only converts work to wall-clock via `tier_duration_seconds` AFTER the mode
+#   decision has been made, so "did the realized demand exceed C_LO?" can never
+#   depend on where the task was placed.
+
+schema_version: execution_uncertainty_v1
+model_id: execution_uncertainty_v1
+dataset_id: MARGO-AUTOMOTIVE-MC-v1
+evidence_class: source_calibrated_synthetic
+label: pre-declared synthetic realized-demand model, calibrated to the frozen C_LO/C_HI band
+frozen_before_smoke: true
+
+# ---------------------------------------------------------------- evidence note
+evidence_note: >-
+  Calibrated, not measured. The regime EDGES are the frozen dataset budgets
+  (C_LO, C_HI) converted to equivalent work; the regime PROBABILITIES and the
+  within-regime demand_scale shapes are declared synthetic assumptions. No source
+  in SOURCE_REGISTRY.yaml reports per-task realized execution on this hardware, and
+  `wcet_claim` is false everywhere in the parent policy. Treat every frequency in
+  this file as a modelling assumption with a rule_id, not as a measurement.
+forbidden: [tuning_after_smoke, measured_claim]
+
+# -------------------------------------------------- parent (read-only) contract
+parent_contract:
+  criticality_policy: spec/automotive_mc_v1/criticality_policy.yaml
+  criticality_policy_id: criticality_policy_v1
+  workload_model: spec/automotive_mc_v1/workload_model_v2.yaml
+  workload_model_id: workload_model_v2
+  switch_rule_id: MC-MODE-SWITCH-V1
+  drop_degrade_source: dataset task fields drop_allowed_*/degrade_allowed_* (M7 policy), resolved per mode
+
+# --------------------------------------------- tier-independent demand identity
+demand_model:
+  rule_id: MC-EQUIV-WORK-V1
+  work_unit: reference_equivalent_cycles_per_bit_normalised  # == W_i units of workload_model_v2
+  lo_equivalent_work_rule: "demand_lo_equiv = C_LO_ref_s * f_ref_hz / (8 * xi_cycles_per_bit)"
+  hi_equivalent_work_rule: "demand_hi_equiv = C_HI_ref_s * f_ref_hz / (8 * xi_cycles_per_bit)"
+  realized_draw_reference_seconds_rule: "realized_seconds_ref = 8 * xi * realized_equiv / f_ref_hz"
+  tier_duration_rule: "tier_duration_seconds(equiv, f_hz) = 8 * xi * equiv / f_hz"
+  tier_independence_invariant: >-
+    the draw and the LO->HI trigger are computed from this demand vector only; no
+    location, tier, frequency or tier duration is an input to either. Placement is
+    applied afterwards and cannot change the mode decision.
+  reference_compute_model:  # mirrored from workload_model_v2.yaml; runtime asserts equality
+    f_ref_hz: 2.30e9
+    xi_cycles_per_bit: 300.0
+
+# --------------------------------------------------------------------- regimes
+# Regime assignment rule (deterministic, per (graph_id, task_id, rollout_seed)):
+#   u = unit draw of the sha256-counter PRNG seeded by seed_derivation.rule
+#   u <  p_below_lo                                  -> nominal_below_lo
+#   u <  p_below_lo + p_lo_to_hi                     -> overrun_to_hi
+#   otherwise                                        -> overrun_above_hi   (HIGH only)
+# Eligibility rule: a task with no C_HI (LOW / MEDIUM) is only eligible for the two
+# regimes whose `C_HI_band_required` is false; the "otherwise" mass is REDISTRIBUTED
+# over the eligible regimes by renormalising their probabilities (see
+# `no_hi_redistribution`). LOW/MEDIUM can therefore never land above a C_HI that
+# does not exist.
+regimes:
+  - regime_id: nominal_below_lo
+    label: nominal
+    rule_id: MC-EXEC-REGIME-NOMINAL-V1
+    demand_band: "0 < realized_equiv <= demand_lo_equiv"
+    C_HI_band_required: false
+    probability: 0.68
+    draw_rule: uniform_multiplicative_band
+    demand_scale: [0.70, 1.00]
+    demand_scale_semantics: >-
+      realized_equiv = U(0.70, 1.00) * demand_lo_equiv; the draw is inside the
+      nominal band, so the observed execution is at or below C_LO and no mode
+      switch can be triggered by this task.
+  - regime_id: overrun_to_hi
+    label: above C_LO, at or below C_HI
+    rule_id: MC-EXEC-REGIME-LO2HI-V1
+    demand_band: "demand_lo_equiv < realized_equiv <= demand_hi_equiv"
+    C_HI_band_required: true
+    probability: 0.22
+    draw_rule: uniform_multiplicative_band
+    demand_scale: [1.02, 1.38]
+    demand_scale_semantics: >-
+      realized_equiv = U(1.02, 1.38) * demand_lo_equiv. Valid only for tasks that
+      carry C_HI (HIGH); the engine additionally requires the draw to stay at or
+      below demand_hi_equiv so the band semantics are honoured exactly.
+  - regime_id: overrun_above_hi
+    label: overrun
+    rule_id: MC-EXEC-REGIME-OVERRUN-V1
+    demand_band: "realized_equiv > demand_hi_equiv"
+    C_HI_band_required: true
+    probability: 0.10
+    draw_rule: uniform_multiplicative_band
+    demand_scale: [1.45, 2.20]
+    demand_scale_semantics: >-
+      realized_equiv = U(1.45, 2.20) * demand_lo_equiv, above the C_HI upper demand
+      bound. HIGH only. In HI mode the realized value is later CAPPED at C_HI by
+      the mode machine (the HI budget is the commitment); the uncapped draw is
+      what the regime classification reports.
+
+regime_invariants:
+  - probabilities sum to exactly 1.0 over `regimes`
+  - demand_band edges are the task's own C_LO / C_HI converted to equivalent work
+  - LOW/MEDIUM tasks are ineligible for regimes with C_HI_band_required: true
+  - renormalisation of the eligible probabilities is exact (implemented as a
+    cumulative-probability walk over eligible regimes only, not by dropping mass)
+
+no_hi_redistribution:
+  rule_id: MC-EXEC-NOHI-RENORM-V1
+  applies_to: [LOW, MEDIUM]
+  method: renormalise_eligible_regime_probabilities
+  forbidden: inventing a C_HI for a task that the frozen dataset declares not_applicable
+
+# ------------------------------------------------------------- seed derivation
+seed_derivation:
+  rule_id: MC-EXEC-SEED-V1
+  kind: sha256_hex_prefix_int_base16
+  material_template: "margo-mc|{graph_id}|{task_id}|{rollout_seed}"
+  expression: 'seed = int(sha256("margo-mc|" + graph_id + "|" + str(task_id) + "|" + str(rollout_seed)).hexdigest()[:15], 16)'
+  hex_digits: 15
+  base: 16
+  prng:
+    kind: sha256_counter
+    counter_material_template: "{seed}|{counter}"
+    word: "int.from_bytes(sha256(material).digest()[:8], 'big')"
+    unit: "word / 2**64"
+  properties:
+    - pure function of (graph_id, task_id, rollout_seed): no clock, no process state
+    - independent per task and per rollout seed
+    - identical on every platform and Python version
+    - one draw per task per rollout (the regime draw); no other stochastic input
+
+# --------------------------------------------------- declared uncertainties etc.
+declared_uncertainties:
+  - id: UN-SHAPE-V1
+    statement: within-regime demand_scale shapes are declared uniform bands, not fitted.
+  - id: UN-MASS-V1
+    statement: regime probabilities (0.68/0.22/0.10) are declared, not estimated from data.
+  - id: UN-NOHI-V1
+    statement: >-
+      non-HIGH tasks have no C_HI by construction, so their overrun mass is
+      renormalised into the nominal/to-hi bands; a MEDIUM realization can exceed
+      C_LO, which never switches the mode (triggering class is HIGH only).
+  - id: UN-CAP-V1
+    statement: >-
+      HI-mode capping at C_HI is a budget commitment for scheduling, not a claim
+      that the hardware finishes within C_HI.
+
+# ------------------------------------------------------------------ consumers
+consumers:
+  runtime_module: spec/automotive_training/mc_runtime.py
+  api:
+    - load_uncertainty(path=None) -> dict
+    - draw_realized_demands(graph, rollout_seed, uncertainty=None) -> dict
+    - tier_duration_seconds(equiv_work, f_hz, xi) -> float
+    - resolve_mode_and_execution(graph, realized, plan_order=None) -> dict
+    - assert_high_preserved(result, graph) -> None
+    - mode_switch_fixtures(graph) -> dict
+  mode_switch_log_fields:
+    [triggering_task_id, semantic_role, criticality, observed_execution, C_LO,
+     reason, previous_mode, new_mode, logical_schedule_point]

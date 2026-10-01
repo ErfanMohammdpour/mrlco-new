@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable
@@ -62,6 +63,17 @@ class CanonicalTask:
     # Coefficient used by soft-tardiness aggregation. This is NOT "criticality":
     # it is a penalty weight, and it is what a paper must call a weight.
     tardiness_weight: float = 1.0
+    # --- MARGO-AUTOMOTIVE-MC-v1 mixed-criticality budgets (append-only) --------
+    # C_LO/C_HI are the empirical execution budgets for the LOW/HIGH mode of the
+    # task. C_HI is optional (`None` == N/A, distinguishable from 0). Drop and
+    # degrade permission are mode-dependent, so both modes carry their own flag.
+    c_lo_s: float | None = None
+    c_hi_s: float | None = None
+    drop_allowed_lo_mode: bool = False
+    drop_allowed_hi_mode: bool = False
+    degrade_allowed_lo_mode: bool = False
+    degrade_allowed_hi_mode: bool = False
+    mc_mode_is_hi: bool = False
 
     def __post_init__(self) -> None:
         require_nonneg_int("task_id", self.task_id)
@@ -83,6 +95,21 @@ class CanonicalTask:
             raise ValueError(
                 "deadline_type must be one of %s, got %r" % (DEADLINE_TYPES, self.deadline_type)
             )
+        # Mixed-criticality budgets (MARGO-AUTOMOTIVE-MC-v1). Optional, but when
+        # given they must be physically meaningful: C_LO > 0 and C_HI >= C_LO.
+        if self.c_lo_s is not None:
+            c_lo = float(self.c_lo_s)
+            if not math.isfinite(c_lo) or c_lo <= 0.0:
+                raise ValueError("c_lo_s must be > 0 when given, got %r" % (self.c_lo_s,))
+        if self.c_hi_s is not None:
+            c_hi = float(self.c_hi_s)
+            if not math.isfinite(c_hi) or c_hi < 0.0:
+                raise ValueError("c_hi_s must be >= 0 when given, got %r" % (self.c_hi_s,))
+            if self.c_lo_s is not None and c_hi < float(self.c_lo_s):
+                raise ValueError(
+                    "c_hi_s must be >= c_lo_s when both are given, got %r < %r"
+                    % (self.c_hi_s, self.c_lo_s)
+                )
 
     def compute_cycles(self, global_cycles_per_bit: float) -> float:
         """Total CPU cycles for this task: C = bytes * 8 * cycles_per_bit."""
