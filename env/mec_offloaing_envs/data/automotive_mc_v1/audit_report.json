@@ -1,0 +1,295 @@
+{
+  "audits": {
+    "10_provenance": {
+      "detail": {
+        "card_extra_labels": [
+          "derived"
+        ],
+        "contract_label_vocabulary": [
+          "measured",
+          "standard-derived",
+          "trace-fitted",
+          "source-calibrated-synthetic",
+          "synthetic"
+        ],
+        "field_groups": [
+          "compute_workload_bytes",
+          "criticality",
+          "execution_budgets",
+          "graph_deadline",
+          "mode_semantics",
+          "payload_bytes",
+          "resource_rates",
+          "subdeadlines",
+          "t_ref_fixed_planning_motif",
+          "t_ref_range_roles",
+          "topology"
+        ],
+        "label_vocabulary": [
+          "measured",
+          "standard-derived",
+          "trace-fitted",
+          "source-calibrated-synthetic",
+          "synthetic",
+          "derived"
+        ],
+        "labels": [
+          "derived",
+          "source-calibrated-synthetic",
+          "synthetic"
+        ],
+        "missing_groups": [],
+        "note": "every generated numeric group resolves to a verified source, a derived rule or a frozen source-calibrated-synthetic rule",
+        "unresolved_groups": []
+      },
+      "status": "PASS"
+    },
+    "11_mixed_placement": {
+      "detail": {
+        "mixed_placement_useful_graphs": 240,
+        "mixed_placement_useful_rate": 1.0,
+        "note": "a mixed plan matters when it strictly beats every pure-location plan",
+        "threshold": 0.1
+      },
+      "status": "PASS"
+    },
+    "12_family_balance": {
+      "detail": {
+        "families": {
+          "cooperative_perception": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.55,
+            "median_slack_ratio": 0.9824522456935941,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          },
+          "localization_prediction_planning": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.5,
+            "median_slack_ratio": 0.9836908647399907,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          },
+          "mapping_background": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.0,
+            "median_slack_ratio": 0.9978509757468783,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          },
+          "perception_planning_control": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.5,
+            "median_slack_ratio": 0.9871381570995925,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          }
+        },
+        "note": "a declared non-safety family (mapping_background) is expected to be loose; that is declared slack, not a bug",
+        "trivially_loose_families": [
+          "cooperative_perception",
+          "localization_prediction_planning",
+          "mapping_background",
+          "perception_planning_control"
+        ]
+      },
+      "status": "PASS"
+    },
+    "1_timing_scale": {
+      "detail": {
+        "feasible_median_s": 0.03349920076535572,
+        "historical_regression_band_s": [
+          528.0,
+          1245.0
+        ],
+        "max_s": 0.1308087683453202,
+        "median_s": 0.03349920076535572,
+        "min_s": 0.011325633780419425,
+        "note": "a normal graph must never return to the historical 528-1245 s behaviour"
+      },
+      "status": "PASS"
+    },
+    "2_deadlines": {
+      "detail": {
+        "deadline_count": 4800,
+        "deadline_rate": 1.0,
+        "task_total": 4800,
+        "type": "firm (subdeadline target); graph-level requirement is hard (makespan <= D_G)"
+      },
+      "status": "PASS"
+    },
+    "3_criticality": {
+      "detail": {
+        "counts": {
+          "HIGH": 1860,
+          "LOW": 1740,
+          "MEDIUM": 1200
+        },
+        "high_task_total": 1860,
+        "non_safety_family_high": "mapping_background is declared non_safety_background and carries LOW by policy"
+      },
+      "status": "PASS"
+    },
+    "4_mc_budgets": {
+      "detail": {
+        "high_tasks_with_hi_budget": 1860,
+        "max_C_HI_s": 0.11070825,
+        "min_C_LO_s": 0.000275,
+        "wcet_claim": false
+      },
+      "status": "PASS"
+    },
+    "5_payload_semantics": {
+      "detail": {
+        "class_count": 8,
+        "classes": {
+          "camera": [
+            18016,
+            21992
+          ],
+          "control": [
+            153,
+            250
+          ],
+          "feature_tensor": [
+            10804,
+            13200
+          ],
+          "lidar": [
+            7202,
+            8797
+          ],
+          "object_list": [
+            2600,
+            3200
+          ],
+          "radar": [
+            3602,
+            4400
+          ],
+          "trajectory": [
+            1350,
+            1500
+          ],
+          "v2x_message": [
+            2000,
+            2000
+          ]
+        },
+        "note": "all eight payload classes are instantiated and their realised byte bands do not overlap",
+        "pairwise_disjoint": true
+      },
+      "status": "PASS"
+    },
+    "6_placement_difficulty": {
+      "detail": {
+        "method_comparison": {
+          "all_HELPER": {
+            "mean_makespan_s": 0.28324940195413306,
+            "median_makespan_s": 0.23816530177450657,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "all_MEC": {
+            "mean_makespan_s": 0.05347917963065122,
+            "median_makespan_s": 0.04092233334606871,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "all_UE": {
+            "mean_makespan_s": 0.37628440654787354,
+            "median_makespan_s": 0.3171800537674836,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "greedy": {
+            "mean_makespan_s": 0.06555483494623061,
+            "median_makespan_s": 0.05090078602535918,
+            "win_rate": 0.0625,
+            "wins": 15
+          },
+          "heft_reference": {
+            "mean_makespan_s": 0.28324940195413306,
+            "median_makespan_s": 0.23816530177450657,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "mixed_search": {
+            "mean_makespan_s": 0.04364165381947091,
+            "median_makespan_s": 0.03349920076535572,
+            "win_rate": 0.9375,
+            "wins": 225
+          }
+        },
+        "mixed_plan_best_share": 1.0,
+        "note": "a pure location may win some graphs; a near-total pure dominance would make placement trivial",
+        "pure_plan_best_share": 0.0
+      },
+      "status": "PASS"
+    },
+    "7_feasibility": {
+      "detail": {
+        "certified_feasible_rate": 1.0,
+        "min_relative_margin": 0.2642542291628503,
+        "note": "witness_not_found is not mathematical infeasibility; no requirement was relaxed",
+        "population_feasibility_saturated": true,
+        "requirements_rewritten": false,
+        "saturation_note": "the frozen family deadline ranges sit above the achievable makespan of the frozen resource model, so feasibility is saturated by construction; difficulty in this population is expressed through the optimality gap rho_G and the placement structure, not through infeasibility. Requirements are NOT tightened here to manufacture failures.",
+        "status_counts": {
+          "certified_feasible": 240,
+          "stress_or_infeasible": 0,
+          "witness_not_found": 0
+        },
+        "status_rates": {
+          "certified_feasible": 1.0,
+          "stress_or_infeasible": 0.0,
+          "witness_not_found": 0.0
+        },
+        "stress_or_infeasible_rate": 0.0,
+        "witness_not_found_rate": 0.0
+      },
+      "status": "PASS"
+    },
+    "8_split_leakage": {
+      "detail": {
+        "counts": {
+          "meta_test": 60,
+          "meta_train": 120,
+          "validation": 60
+        },
+        "leakage_status": "PASS",
+        "role_counts": {
+          "meta_test/query": 40,
+          "meta_test/support": 20,
+          "meta_train/train": 120,
+          "validation/query": 40,
+          "validation/support": 20
+        },
+        "violations": []
+      },
+      "status": "PASS"
+    },
+    "9_deterministic_regeneration": {
+      "detail": {
+        "canonical_hashes_equal": true,
+        "dataset_manifest_sha256": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+        "dataset_manifest_sha_equal": true,
+        "graph_count_equal": true,
+        "graphs_sha256": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+        "graphs_sha_equal": true,
+        "lineage_fields_equal": true,
+        "materialized_files_equal": true,
+        "raw_hashes_equal": true,
+        "semantic_annotations_equal": true,
+        "status": "PASS"
+      },
+      "status": "PASS"
+    }
+  },
+  "failed": [],
+  "status": "PASS"
+}

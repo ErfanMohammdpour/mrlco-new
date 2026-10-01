@@ -1,0 +1,456 @@
+{
+  "audit_detail": {
+    "10_provenance": {
+      "detail": {
+        "card_extra_labels": [
+          "derived"
+        ],
+        "contract_label_vocabulary": [
+          "measured",
+          "standard-derived",
+          "trace-fitted",
+          "source-calibrated-synthetic",
+          "synthetic"
+        ],
+        "field_groups": [
+          "compute_workload_bytes",
+          "criticality",
+          "execution_budgets",
+          "graph_deadline",
+          "mode_semantics",
+          "payload_bytes",
+          "resource_rates",
+          "subdeadlines",
+          "t_ref_fixed_planning_motif",
+          "t_ref_range_roles",
+          "topology"
+        ],
+        "label_vocabulary": [
+          "measured",
+          "standard-derived",
+          "trace-fitted",
+          "source-calibrated-synthetic",
+          "synthetic",
+          "derived"
+        ],
+        "labels": [
+          "derived",
+          "source-calibrated-synthetic",
+          "synthetic"
+        ],
+        "missing_groups": [],
+        "note": "every generated numeric group resolves to a verified source, a derived rule or a frozen source-calibrated-synthetic rule",
+        "unresolved_groups": []
+      },
+      "status": "PASS"
+    },
+    "11_mixed_placement": {
+      "detail": {
+        "mixed_placement_useful_graphs": 240,
+        "mixed_placement_useful_rate": 1.0,
+        "note": "a mixed plan matters when it strictly beats every pure-location plan",
+        "threshold": 0.1
+      },
+      "status": "PASS"
+    },
+    "12_family_balance": {
+      "detail": {
+        "families": {
+          "cooperative_perception": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.55,
+            "median_slack_ratio": 0.9824522456935941,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          },
+          "localization_prediction_planning": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.5,
+            "median_slack_ratio": 0.9836908647399907,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          },
+          "mapping_background": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.0,
+            "median_slack_ratio": 0.9978509757468783,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          },
+          "perception_planning_control": {
+            "certified_feasible": 60,
+            "graphs": 60,
+            "high_share": 0.5,
+            "median_slack_ratio": 0.9871381570995925,
+            "stress_or_infeasible": 0,
+            "witness_not_found": 0
+          }
+        },
+        "note": "a declared non-safety family (mapping_background) is expected to be loose; that is declared slack, not a bug",
+        "trivially_loose_families": [
+          "cooperative_perception",
+          "localization_prediction_planning",
+          "mapping_background",
+          "perception_planning_control"
+        ]
+      },
+      "status": "PASS"
+    },
+    "1_timing_scale": {
+      "detail": {
+        "feasible_median_s": 0.03349920076535572,
+        "historical_regression_band_s": [
+          528.0,
+          1245.0
+        ],
+        "max_s": 0.1308087683453202,
+        "median_s": 0.03349920076535572,
+        "min_s": 0.011325633780419425,
+        "note": "a normal graph must never return to the historical 528-1245 s behaviour"
+      },
+      "status": "PASS"
+    },
+    "2_deadlines": {
+      "detail": {
+        "deadline_count": 4800,
+        "deadline_rate": 1.0,
+        "task_total": 4800,
+        "type": "firm (subdeadline target); graph-level requirement is hard (makespan <= D_G)"
+      },
+      "status": "PASS"
+    },
+    "3_criticality": {
+      "detail": {
+        "counts": {
+          "HIGH": 1860,
+          "LOW": 1740,
+          "MEDIUM": 1200
+        },
+        "high_task_total": 1860,
+        "non_safety_family_high": "mapping_background is declared non_safety_background and carries LOW by policy"
+      },
+      "status": "PASS"
+    },
+    "4_mc_budgets": {
+      "detail": {
+        "high_tasks_with_hi_budget": 1860,
+        "max_C_HI_s": 0.11070825,
+        "min_C_LO_s": 0.000275,
+        "wcet_claim": false
+      },
+      "status": "PASS"
+    },
+    "5_payload_semantics": {
+      "detail": {
+        "class_count": 8,
+        "classes": {
+          "camera": [
+            18016,
+            21992
+          ],
+          "control": [
+            153,
+            250
+          ],
+          "feature_tensor": [
+            10804,
+            13200
+          ],
+          "lidar": [
+            7202,
+            8797
+          ],
+          "object_list": [
+            2600,
+            3200
+          ],
+          "radar": [
+            3602,
+            4400
+          ],
+          "trajectory": [
+            1350,
+            1500
+          ],
+          "v2x_message": [
+            2000,
+            2000
+          ]
+        },
+        "note": "all eight payload classes are instantiated and their realised byte bands do not overlap",
+        "pairwise_disjoint": true
+      },
+      "status": "PASS"
+    },
+    "6_placement_difficulty": {
+      "detail": {
+        "method_comparison": {
+          "all_HELPER": {
+            "mean_makespan_s": 0.28324940195413306,
+            "median_makespan_s": 0.23816530177450657,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "all_MEC": {
+            "mean_makespan_s": 0.05347917963065122,
+            "median_makespan_s": 0.04092233334606871,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "all_UE": {
+            "mean_makespan_s": 0.37628440654787354,
+            "median_makespan_s": 0.3171800537674836,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "greedy": {
+            "mean_makespan_s": 0.06555483494623061,
+            "median_makespan_s": 0.05090078602535918,
+            "win_rate": 0.0625,
+            "wins": 15
+          },
+          "heft_reference": {
+            "mean_makespan_s": 0.28324940195413306,
+            "median_makespan_s": 0.23816530177450657,
+            "win_rate": 0.0,
+            "wins": 0
+          },
+          "mixed_search": {
+            "mean_makespan_s": 0.04364165381947091,
+            "median_makespan_s": 0.03349920076535572,
+            "win_rate": 0.9375,
+            "wins": 225
+          }
+        },
+        "mixed_plan_best_share": 1.0,
+        "note": "a pure location may win some graphs; a near-total pure dominance would make placement trivial",
+        "pure_plan_best_share": 0.0
+      },
+      "status": "PASS"
+    },
+    "7_feasibility": {
+      "detail": {
+        "certified_feasible_rate": 1.0,
+        "min_relative_margin": 0.2642542291628503,
+        "note": "witness_not_found is not mathematical infeasibility; no requirement was relaxed",
+        "population_feasibility_saturated": true,
+        "requirements_rewritten": false,
+        "saturation_note": "the frozen family deadline ranges sit above the achievable makespan of the frozen resource model, so feasibility is saturated by construction; difficulty in this population is expressed through the optimality gap rho_G and the placement structure, not through infeasibility. Requirements are NOT tightened here to manufacture failures.",
+        "status_counts": {
+          "certified_feasible": 240,
+          "stress_or_infeasible": 0,
+          "witness_not_found": 0
+        },
+        "status_rates": {
+          "certified_feasible": 1.0,
+          "stress_or_infeasible": 0.0,
+          "witness_not_found": 0.0
+        },
+        "stress_or_infeasible_rate": 0.0,
+        "witness_not_found_rate": 0.0
+      },
+      "status": "PASS"
+    },
+    "8_split_leakage": {
+      "detail": {
+        "counts": {
+          "meta_test": 60,
+          "meta_train": 120,
+          "validation": 60
+        },
+        "leakage_status": "PASS",
+        "role_counts": {
+          "meta_test/query": 40,
+          "meta_test/support": 20,
+          "meta_train/train": 120,
+          "validation/query": 40,
+          "validation/support": 20
+        },
+        "violations": []
+      },
+      "status": "PASS"
+    },
+    "9_deterministic_regeneration": {
+      "detail": {
+        "canonical_hashes_equal": true,
+        "dataset_manifest_sha256": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+        "dataset_manifest_sha_equal": true,
+        "graph_count_equal": true,
+        "graphs_sha256": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+        "graphs_sha_equal": true,
+        "lineage_fields_equal": true,
+        "materialized_files_equal": true,
+        "raw_hashes_equal": true,
+        "semantic_annotations_equal": true,
+        "status": "PASS"
+      },
+      "status": "PASS"
+    }
+  },
+  "audit_status": "PASS",
+  "certification_read_only": true,
+  "certification_version": "automotive_certification_v1",
+  "failed_audits": [],
+  "frozen_hashes_after": {
+    "dataset_manifest.jsonl": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+    "graphs.jsonl": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+    "splits.jsonl": "cd391da6ac12ef12e0f552f11f3c4bb551df50592a5a9753b08873d37c912907"
+  },
+  "frozen_hashes_before": {
+    "dataset_manifest.jsonl": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+    "graphs.jsonl": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+    "splits.jsonl": "cd391da6ac12ef12e0f552f11f3c4bb551df50592a5a9753b08873d37c912907"
+  },
+  "method_comparison": {
+    "all_HELPER": {
+      "mean_makespan_s": 0.28324940195413306,
+      "median_makespan_s": 0.23816530177450657,
+      "win_rate": 0.0,
+      "wins": 0
+    },
+    "all_MEC": {
+      "mean_makespan_s": 0.05347917963065122,
+      "median_makespan_s": 0.04092233334606871,
+      "win_rate": 0.0,
+      "wins": 0
+    },
+    "all_UE": {
+      "mean_makespan_s": 0.37628440654787354,
+      "median_makespan_s": 0.3171800537674836,
+      "win_rate": 0.0,
+      "wins": 0
+    },
+    "greedy": {
+      "mean_makespan_s": 0.06555483494623061,
+      "median_makespan_s": 0.05090078602535918,
+      "win_rate": 0.0625,
+      "wins": 15
+    },
+    "heft_reference": {
+      "mean_makespan_s": 0.28324940195413306,
+      "median_makespan_s": 0.23816530177450657,
+      "win_rate": 0.0,
+      "wins": 0
+    },
+    "mixed_search": {
+      "mean_makespan_s": 0.04364165381947091,
+      "median_makespan_s": 0.03349920076535572,
+      "win_rate": 0.9375,
+      "wins": 225
+    }
+  },
+  "milestone": "M10",
+  "mixed_placement_useful_rate": 1.0,
+  "provenance": {
+    "application_templates_sha": "7316a2feba91e8d729a9fb6726810a95495c01ae553540f1e9527db7748d8044",
+    "audit_report_sha": "96c8f75a0a91b9e8c397418890c042601cd929315d939510ccf3ae2c1af001d8",
+    "audit_status": "PASS",
+    "calibration_report_sha": "3d5db9414b21c7774d0d5e9e8807ffe2f99252d30a0263121c8156b5f3ae7cd7",
+    "certification_manifest_sha": "3ead940d48ef21df058aa74c0e2f28fb426767997a02e869a1587bfd3fc348ee",
+    "certification_module_sha": "5342d8a592ad6712af5a6b324a4839196f6923231c2ba4a64e78ce9fe9d4559a",
+    "criticality_model_sha": "5c27e89f8eaacc99908f47209ab586c2ff3156b31e94cac7a7a7a1d88191d45d",
+    "criticality_policy_sha": "e584197e99b7b414f7d9a014f45465f95218635458f434a368955d1f08017445",
+    "dataset_manifest_sha": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+    "dataset_version": "MARGO-AUTOMOTIVE-MC-v1",
+    "deadline_model_v2_sha": "5b64188e7eb806c7399a651dd83592ccd8d60493ff95790a8a5784dee59a0f44",
+    "evidence_shas": {
+      "BATCH2_SOURCES.md": "606f098856e7e14654b623f9bd71894e4873ea9204c94803bffd4def1f393139",
+      "HU_2018_TWC_T1.md": "987cd2424e6714608440ff80d6ce06fb807ac0369076452ec8b3b8bc1b131842",
+      "IET_ITS_JETSON_ORIN.md": "ee0d4c309570817a14354adcae76cfd46a7702f8d4ec4ae865623669951d9131",
+      "OBI_2026_OJIES_T4_T11.md": "bdd9ad71fb96f73a692b840db2e226ef339a105405a03db8b10e9d3b1e5b62c0",
+      "SENSORS_2026_ROS2_T6_T7.md": "456e48b2ee13bebe98845f555c1f1ca8f12d9baf2b1dfae83484605858084cc0",
+      "TS122186_v160200_tables_excerpt.txt": "8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81"
+    },
+    "feasibility_report_sha": "00cc48b2f780049fcad5e814600d70bc7e4a28e83193f3d0ac277aecdd548905",
+    "generation_config_sha": "899167b2a495bc1915c2e251fd44557e6e392590894bd0a1567c9f476af634b9",
+    "generator_library_sha": "f000df43c807dfeaf7e7ba97d38aa1e262ce1012251a7005924cde1c14be707f",
+    "generator_sha": "ef5ef162fc1a119e7a270175ef1597de7be095c3f9f562b3d45ed42b066a049b",
+    "git_dirty": true,
+    "git_dirty_semantics": "working-tree state at certification start; it is true on the first certification of a new milestone because the untracked certification sources and outputs are not committed yet, not because a frozen input was modified",
+    "git_sha": "07f93b27a80814bbbe6e3ce96629a7dcb4f62012",
+    "git_sha_semantics": "the commit whose tree contained the frozen inputs when certification started; the certification outputs themselves are committed next",
+    "graph_count": 240,
+    "graphs_sha": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+    "input_sha256": {
+      "REQUIRED_PARAMETER_MANIFEST.yaml": "4cc1f1560fda76ce2a0599bbbb199433b5dcf72ca11fa418a5e6457c2493aac6",
+      "SOURCE_REGISTRY.yaml": "2dddfc0ff709f2c344c4f2cbd7477e03da7166eac0b05d8357a4caf149cdb0d8",
+      "application_templates.yaml": "f0b27897534af343f8ba425576f552689d1d9c4dde3805cb8a6db11e2383b927",
+      "criticality_policy.yaml": "fb187edcdf3bc6db027bca9562c4a38db095ec5cb7c86a46ab4ea646638a422f",
+      "generation_config.yaml": "3e693a0f836e31a99c9702d4f2ba1258e0df040fed71c3825e3022427a188366",
+      "registry_pin.json": "9e8e4edbf4234ecc549fe8b24efdad5311bf7e18a138d18b64746c2ec8f8bf05",
+      "resource_profiles.yaml": "cbe77f2f4e83d2f9675506bfc1ddfd14deb4fe963d4e4e9d8b019dcfe6857b31",
+      "sla_registry_v2.yaml": "ab964327b08c5241794f0f8ba05336f95bab5eb38f0d85cad041c8761dea6d39",
+      "task_semantics.yaml": "ba8967f4af2e7b316815ba86929d40bbcac465063e6be520b41e80f9daeb881d",
+      "workload_model_v2.yaml": "f4652b605f41401fe0bba8b2094a71e1ccc8a024bebd48b4306db7af208d4081"
+    },
+    "leakage_status": "PASS",
+    "registry_pin": {
+      "allowed_rows": 36,
+      "blocked_required_parameters": 0,
+      "dataset_manifest_sha": null,
+      "evidence_sha256": "8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81",
+      "evidence_sha256_current": "8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81",
+      "execution_evidence_verified": 7,
+      "execution_rows_eligible_for_t_ref": 3,
+      "gate_definition": "missing_required==0 AND blocked_required==0 AND violations==0 AND registry_pin_stale==false",
+      "ledger_entries": 19,
+      "missing_required_parameters": 0,
+      "numeric_rows": 49,
+      "pinned_sha256": "6f3aaa727a67c1c84ea43a6e7235fc4c7101b88990241f724bbedb008dd0b573",
+      "reference_execution_tier_status": "RESOLVED",
+      "registry_pin_stale": false,
+      "registry_schema": "source_registry_v3",
+      "required_by_generator": 35,
+      "required_parameter_entries": 30,
+      "required_parameter_manifest_sha": "02e79ee1f09b40020d00c1db6db439ae9da4fac4a5e679e693cfa9da5fb95a4d",
+      "rule_only_parameters": 3,
+      "source_registry_sha256": "6f3aaa727a67c1c84ea43a6e7235fc4c7101b88990241f724bbedb008dd0b573",
+      "sources": 8,
+      "step2_gate": "PASS",
+      "violations": 0
+    },
+    "required_parameter_manifest_sha": "02e79ee1f09b40020d00c1db6db439ae9da4fac4a5e679e693cfa9da5fb95a4d",
+    "resource_profile_sha": "970b34e45ca1dde133b90248049c7388a5483b0ddcd081546643afb8e893e32a",
+    "schema_version": "automotive_provenance_v1",
+    "sla_registry_v2_sha": "669184ccf3b06db290347dd21dbbe4408efb3c2ff66946003778663d4c81e74c",
+    "source_registry_sha": "6f3aaa727a67c1c84ea43a6e7235fc4c7101b88990241f724bbedb008dd0b573",
+    "split_counts": {
+      "meta_test": 60,
+      "meta_train": 120,
+      "validation": 60
+    },
+    "split_module_sha": "751243f8956810aea5a08a0c523e3d47f40aa1d4f398fe36765b7a423cd797f1",
+    "split_policy_sha": "7e051478b4b44b8c645d6df21ef0953183bda06bfd735b5440451fee4c606193",
+    "split_summary_sha": "924260a7a7838a789ae8253da5481d04b04250df80f01702527cc49c86bf3715",
+    "splits_sha": "cd391da6ac12ef12e0f552f11f3c4bb551df50592a5a9753b08873d37c912907",
+    "task_semantics_sha": "d87eadb287c1e5e32d8da2d5adf33fb7d28b9028936779751456f143d24bd206",
+    "workload_model_v2_sha": "f83df6945563023ab842c790ae308125d5ce58e568c42460370c0deb7923cb4f"
+  },
+  "pure_plan_best_share": 0.0,
+  "rho_G": {
+    "definition": "T_reference / D_G, DIAGNOSTIC ONLY",
+    "heft_median": 0.6827607706879917,
+    "max": 0.7357457708371498,
+    "median": 0.0995470170962242,
+    "min": 0.008648665915698113,
+    "never_redefines_D_G": true,
+    "reference_method": "heft_reference",
+    "uses_best_found": true
+  },
+  "schema_version": "m10_validation_report_v1",
+  "status": "PASS",
+  "status_counts": {
+    "certified_feasible": 240,
+    "stress_or_infeasible": 0,
+    "witness_not_found": 0
+  },
+  "status_rates": {
+    "certified_feasible": 1.0,
+    "stress_or_infeasible": 0.0,
+    "witness_not_found": 0.0
+  },
+  "violations": []
+}
