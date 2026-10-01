@@ -358,15 +358,18 @@ def conditional_entropy(pairs: Sequence[tuple[str, str]]) -> tuple[float, float]
     if not pairs:
         return 0.0, 0.0
     xs = [p[0] for p in pairs]
-    h_x = _entropy([xs.count(v) for v in set(xs)])
+    # summation order is fixed by sorting: a set iteration order would make the last
+    # float digit depend on PYTHONHASHSEED and break report reproducibility
+    h_x = _entropy([xs.count(v) for v in sorted(set(xs))])
     total = len(pairs)
     groups: dict[str, list[tuple[str, str]]] = {}
     for p in pairs:
         groups.setdefault(p[1], []).append(p)
     h_cond = 0.0
-    for items in groups.values():
+    for key in sorted(groups):
+        items = groups[key]
         sub = [i[0] for i in items]
-        h_cond += (len(items) / total) * _entropy([sub.count(v) for v in set(sub)])
+        h_cond += (len(items) / total) * _entropy([sub.count(v) for v in sorted(set(sub))])
     return h_x, h_cond
 
 
