@@ -6,7 +6,7 @@
 |---|---|
 | dataset name | MARGO-AUTOMOTIVE-MC-v1 |
 | version | v1 (annotations frozen at materialization; any semantic change needs a version bump) |
-| status | Step 2 (source/evidence gate) PASS; generation not yet materialized |
+| status | Step 2 PASS; M3/M4 DONE; M5 v1 DONE but SUPERSEDED by REV2; M6 v1 BLOCKED with REV2 spec frozen; generation not yet materialized |
 | nature | **semantics-, source- and trace-grounded SYNTHETIC** automotive mixed-criticality DAG benchmark |
 | not | a collection of measured production automotive DAGs; a real-world measurement dataset; a reproduction of any single published vehicle stack |
 
@@ -37,6 +37,7 @@ resource regimes that require generalisation rather than memorisation.
 | source | Obi et al., IEEE OJIES 2026 — Table 4 (hardware) and Table 11 (timings) |
 | meaning | ONE canonical CPU-compatible tier with exact frequency and a small set of exact CPU-measured timings. It is **not** a requirement that one source measured all 20 roles. |
 | other classes | built on this same tier by frozen `source-calibrated-synthetic` rules and recorded as calibrated, **never** as measured |
+| workload model | v1 exists and is tested but is **not immutable**: REV2 replaces its granularity (motif-level partitioning) and the final chain must consume `workload_model_v2` |
 | `xi` | **300 cycles/bit** — Hu et al. Table I, a peer-reviewed **simulation parameter**: not a measured automotive constant, not a universal physical property |
 | formula | `W_i = t_ref_i * f_ref / (8 * xi)`; `T_i^UE = 8*xi*W_i/f_UE`, and likewise for HELPER and MEC |
 | invariance | `W_i` is a property of the task; the chosen action must never change it |

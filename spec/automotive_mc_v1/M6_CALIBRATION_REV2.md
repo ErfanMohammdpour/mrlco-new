@@ -5,6 +5,26 @@ until this revision is implemented, M5/M6 are rerun from scratch, and the hashes
 reports are regenerated. No number may be enlarged by hand; every change below is a
 semantic or calibration-rule change.
 
+## Milestone status at the time of freezing (read this before using M5)
+
+```
+Step 2                      = PASS   (gate: missing 0, blocked 0, violations 0, stale false)
+M3 (contract/card/lints)    = DONE
+M4 (semantics/templates)    = DONE
+M5 v1 (workload/payload/Rp) = DONE BUT SUPERSEDED BY REV2
+M6 v1 (SLA/deadlines)       = BLOCKED (3 of 4 templates structurally infeasible)
+M6 REV2                     = SPEC FROZEN, implementation pending
+M7 .. M10                   = not started (M7 requires a green M6)
+```
+
+Because REV2 rewrites the workload granularity (motif-level partitioning), the
+payload construction sizes and the SLA rule, **`workload_model_v1` must not be
+treated as immutable** and must not be consumed by the final chain. M5 is only
+DONE in the sense that its v1 artifacts exist, are tested and are reproducible;
+the immutable M5 for the scientific chain is `workload_model_v2` once it is green.
+Any consumer that resolves `workload_model_ref` must be pinned to the v2 identifier
+at that point.
+
 ## Diagnosis carried over from M6 v1
 
 ```
