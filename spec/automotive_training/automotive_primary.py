@@ -131,6 +131,9 @@ class AutomotiveDualAdapter(object):
     def reset_batch(self):
         return self._controller.reset_batch()
 
+    def batch_size(self, name):
+        return self._controller.batch_size(name)
+
     def as_dict(self):
         return self._controller.as_dict()
 

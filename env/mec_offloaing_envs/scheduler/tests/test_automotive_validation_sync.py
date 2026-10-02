@@ -41,8 +41,11 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
         )
 
         cls.tmp = tempfile.mkdtemp(prefix="automotive_sync_test_")
+        # two iterations: the rollout of iteration 0 runs with lambda = 0 (the dual
+        # has not stepped yet), so the closed constraint loop is only observable from
+        # iteration 1 onward
         cls.trainer, cls.algo = build_automotive_primary_stack(
-            seed=0, n_itr=1, ckpt_dir=cls.tmp)
+            seed=0, n_itr=2, ckpt_dir=cls.tmp)
         cls.evaluator = cls.trainer.held_out_evaluator
         cls.sess = tf.compat.v1.Session()
         cls.sess.__enter__()
@@ -106,7 +109,7 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
         report = trainer.train()
 
         rows = list(csv.DictReader(open(log_dir / "progress.csv")))
-        self.assertTrue(rows)
+        self.assertEqual(len(rows), 2, "two outer iterations must be logged")
         row = rows[0]
         wanted = [
             "validation/query_mean_latency_seconds_k0",
@@ -121,19 +124,21 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
         ]
         for key in wanted:
             self.assertIn(key, row, "missing logged column %s" % key)
-        self.assertEqual(float(row["constraint/batch_size_after_reset_C_HI_TASK_TARDINESS"]), 0.0,
-                         "the dual batch must be empty after each iteration")
-        self.assertGreater(float(row["correctness/lambda_broadcast_targets"]), 0.0)
+        for logged in rows:  # the dual batch is empty at the end of EVERY iteration
+            self.assertEqual(float(logged["constraint/batch_size_after_reset_C_HI_TASK_TARDINESS"]), 0.0)
+        self.assertGreater(float(row["correctness/lambda_broadcast_targets"]), 1.0,
+                           "the broadcast must reach the executor clones")
         self.assertEqual(float(row["correctness/core_unchanged_after_adaptation"]), 1.0)
+        self.assertGreaterEqual(float(row["correctness/core_scratch_sync_count"]), 2.0)
 
         counters = report["sampler_counters"]
-        self.assertEqual(counters["support_calls"], 1)
-        self.assertEqual(counters["query_calls"], 1)
+        self.assertEqual(counters["support_calls"], 2)
+        self.assertEqual(counters["query_calls"], 2)
         self.assertTrue(counters["counter_role_contract_ok"])
         self.assertTrue(report["sampler_counter_contract"]["balanced"])
-        self.assertGreater(report["lambda_broadcast_targets"], 0)
-        self.assertEqual(report["penalty_feedback"]["episodes_with_nonzero_penalty"],
-                         report["penalty_feedback"]["episodes"])
+        self.assertGreater(report["lambda_broadcast_targets"], 1)
+        self.assertGreaterEqual(report["penalty_feedback"]["iteration_with_nonzero_penalty"], 1,
+                                "the closed constraint loop must penalise from iteration 1")
         self.assertGreater(report["penalty_feedback"]["penalty_sum"], 0.0,
                            "the Lagrangian penalty must reach the rollout rewards")
         self.assertEqual(report["query_graph_count"], 40)
