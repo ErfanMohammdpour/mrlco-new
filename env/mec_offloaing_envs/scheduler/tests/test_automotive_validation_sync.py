@@ -72,7 +72,7 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
         self.assertEqual(ev.sync_count, 1, "one evaluation = one verified core sync")
         self.assertLessEqual(ev.last_sync_max_abs_diff, 1e-6)
 
-        ev.evaluate_all(k_steps=3, sess=self.sess)
+        ev.evaluate(3, replicates=1, sess=self.sess)
         self.assertEqual(ev.sync_count, 2, "every evaluation must start from the core")
         self.assertTrue(ev.core_unchanged_after_adaptation,
                         "k-step adaptation must not mutate the core")
