@@ -426,6 +426,9 @@ class AutomotiveHeldOutEvaluator(object):
         # 50). `UpdatePPOTarget` itself creates fresh optimizer state per call.
         self._adaptation_ppo = None
         self._adaptation_ppo_policy_id = None
+        # baseline panels are realization-only: compute once per replicate and reuse
+        # across the k sweep (HEFT plans are additionally cached per graph id)
+        self._panel_cache = {}
 
     def _env(self, graphs, slots: int, seed: int) -> AutomotiveEnv:
         return AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
@@ -564,13 +567,15 @@ class AutomotiveHeldOutEvaluator(object):
                 k_steps=int(adapt_steps))
         return paths
 
-    def baseline_panel(self, query_env) -> dict:
+    def baseline_panel(self, query_env, epoch: int | None = None) -> dict:
         """Deterministic candidates evaluated on the SAME realization as the model."""
-        from .automotive_constraints import evaluate_constraints
-        from .automotive_env import _constraint_view
-        from .automotive_dag import schedule_actions
         from .heft_reference_v2 import heft_reference_v2_plan
 
+        if epoch is not None and epoch in self._panel_cache:
+            return self._panel_cache[epoch]
+        heft_cache = getattr(self, "_heft_plan_cache", None)
+        if heft_cache is None:
+            heft_cache = self._heft_plan_cache = {}
         panel = {}
         graphs = self.query_graphs
         for index, graph in enumerate(graphs):
@@ -582,8 +587,11 @@ class AutomotiveHeldOutEvaluator(object):
             greedy_plan = _greedy_plan(query_env, index, mc)
             result, _e, _m = query_env._schedule(index, greedy_plan, mc)
             entry["greedy_coordinate_descent_MC"] = float(result.makespan_seconds)
-            heft_actions, heft_nominal, _r = heft_reference_v2_plan(graph.as_record(),
-                                                                   co_physical=True)
+            cached_heft = heft_cache.get(graph.graph_id)
+            if cached_heft is None:
+                cached_heft = heft_reference_v2_plan(graph.as_record(), co_physical=True)
+                heft_cache[graph.graph_id] = cached_heft
+            heft_actions, heft_nominal, _r = cached_heft
             result, _e, _m = query_env._schedule(index, list(heft_actions), mc)
             entry["heft_reference_v2"] = float(result.makespan_seconds)
             entry["heft_nominal_s"] = float(heft_nominal)
@@ -591,6 +599,8 @@ class AutomotiveHeldOutEvaluator(object):
             entry["greedy_plan"] = [int(a) for a in greedy_plan]
             entry["_name"], entry["candidate_oracle_s"] = candidate_oracle(entry)
             panel[index] = entry
+        if epoch is not None:
+            self._panel_cache[epoch] = panel
         return panel
 
     def evaluate(self, k_steps: int = 0, *, replicates, decoding: str = PRIMARY_DECODING,
@@ -610,7 +620,8 @@ class AutomotiveHeldOutEvaluator(object):
             k0_env = self._paired_env(self.query_graphs, base_seed, epoch)
             k0_paths = self._rollout_on(k0_env, self.policy, adapt_steps=0, seed=base_seed)
             k0_by_slot = per_graph_makespans(k0_paths)
-            panel = self.baseline_panel(k0_env) if with_baselines else {}
+            panel = self.baseline_panel(k0_env, epoch=epoch) if with_baselines else \
+                self._panel_cache.get(epoch, {})
             k0_block = rollout_metric_block(k0_by_slot)
             entry = {
                 "replicate": epoch, "base_seed": int(base_seed),
