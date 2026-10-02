@@ -68,8 +68,8 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
         ev = self.evaluator
         core_before = snapshot_trainable(ev.source_policy, sess=self.sess)
 
-        ev.evaluate_all(k_steps=0, sess=self.sess)
-        self.assertEqual(ev.sync_count, 1, "k=0 must sync from the core")
+        ev.evaluate(0, replicates=1, sess=self.sess)
+        self.assertEqual(ev.sync_count, 1, "one evaluation = one verified core sync")
         self.assertLessEqual(ev.last_sync_max_abs_diff, 1e-6)
 
         ev.evaluate_all(k_steps=3, sess=self.sess)
@@ -84,7 +84,7 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
         # a second k=3 must not accumulate on the previous adaptation: the sync
         # resets the scratch to the core every time, and the PPO graph is reused
         ppo_before = id(ev._adaptation_ppo)
-        ev.evaluate_all(k_steps=3, sess=self.sess)
+        ev.evaluate(3, replicates=1, sess=self.sess)
         self.assertEqual(ev.sync_count, 3)
         self.assertEqual(id(ev._adaptation_ppo), ppo_before,
                          "the adaptation PPO must be constructed once")
@@ -114,6 +114,19 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
                              rep["k3_metrics"]["mean_mode_switch_count"])
         self.assertIn("paired_k3_minus_k0_mean_s", out)
         self.assertIn("paired_k3_better_count", out)
+
+    def test_frozen_select_panel_is_used_by_evaluate_all(self):
+        from spec.automotive_training.eval_protocol import SELECT_REPLICATES
+
+        before = self.evaluator.sync_count
+        out = self.evaluator.evaluate_all(k_steps=0, sess=self.sess)
+        self.assertEqual(out["replicates"], SELECT_REPLICATES)
+        self.assertEqual(out["base_seeds"],
+                         list(__import__("spec.automotive_training.eval_protocol",
+                                         fromlist=["realization_seeds"]).realization_seeds(
+                                             SELECT_REPLICATES)))
+        self.assertEqual(self.evaluator.sync_count - before, SELECT_REPLICATES,
+                         "evaluate_all must sync once per replicate")
 
     def test_report_contract_and_logged_columns(self):
         from utils import logger
