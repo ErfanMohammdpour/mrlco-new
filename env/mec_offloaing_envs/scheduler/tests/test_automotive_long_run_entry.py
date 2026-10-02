@@ -138,6 +138,38 @@ class TestAutomotiveLongRunEntry(unittest.TestCase):
         self.assertEqual(sorted(forwarded - params), [],
                          "unsupported kwargs at the _train call site")
 
+    def test_validation_can_run_more_than_once(self):
+        """REGRESSION: the adaptation PPO must be built once, not per validation.
+
+        Building it per call raised "Variable ppo_update_validation_policy/... already
+        exists" at the SECOND validation (iteration 50), which killed all five seeds of
+        the first pilot campaign after 50 iterations. This test builds the real stack
+        and evaluates k=0/k=3 three times in one session.
+        """
+        import tempfile
+
+        import tensorflow as tf
+
+        from spec.automotive_training.automotive_primary import (
+            build_automotive_primary_stack,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            trainer, algo = build_automotive_primary_stack(
+                seed=0, n_itr=1, ckpt_dir=tmp)
+            evaluator = trainer.held_out_evaluator
+            with tf.compat.v1.Session() as sess:
+                sess.run(tf.compat.v1.global_variables_initializer())
+                algo.sync_task_policies_from_core()
+                first = evaluator.evaluate_all(k_steps=3)
+                second = evaluator.evaluate_all(k_steps=3)
+                third = evaluator.evaluate_all(k_steps=0)
+            self.assertGreater(first["rollouts"], 0)
+            self.assertGreater(second["rollouts"], 0)
+            self.assertGreater(third["rollouts"], 0)
+            self.assertEqual(getattr(evaluator, "adaptation_ppo_constructions", 0), 1,
+                             "the adaptation PPO must be constructed exactly once")
+
     def test_smoke_entry_uses_the_smoke_dataset_too(self):
         from spec import phase4_train_driver as drv
 

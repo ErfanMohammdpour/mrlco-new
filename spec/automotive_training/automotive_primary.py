@@ -285,6 +285,14 @@ class AutomotiveHeldOutEvaluator(object):
         self.source_policy = source_policy
         self.ppo_batch_size = int(ppo_batch_size)
         self.enable_query_rollout = bool(enable_query_rollout)
+        # The adaptation PPO builds TF variables (inner Adam). It MUST be constructed
+        # once per scratch policy: a second construction in the same graph raises
+        # "Variable ppo_update_validation_policy/... already exists". The frozen
+        # Trainer calls the evaluator every `validation_interval` iterations, so a
+        # per-call construction killed every run at the second validation (iteration
+        # 50). `UpdatePPOTarget` itself creates fresh optimizer state per call.
+        self._adaptation_ppo = None
+        self._adaptation_ppo_policy_id = None
 
     def _env(self, graphs, slots: int, seed: int) -> AutomotiveEnv:
         return AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
@@ -318,12 +326,21 @@ class AutomotiveHeldOutEvaluator(object):
         if adapt_steps > 0:
             processed = processor.process_samples(paths)
             samples = processed[0] if isinstance(processed, tuple) else processed
-            ppo = PPO(policy=policy, meta_sampler=sampler,
-                      meta_sampler_process=processor, lr=5e-4,
-                      num_inner_grad_steps=3, clip_value=0.2, max_grad_norm=0.5,
-                      rng=np.random.RandomState(seed + 1))
-            ppo.UpdatePPOTarget(samples, batch_size=min(20, len(graphs)),
-                                k_steps=int(adapt_steps))
+            if (self._adaptation_ppo is None
+                    or self._adaptation_ppo_policy_id != id(policy)):
+                self._adaptation_ppo = PPO(
+                    policy=policy, meta_sampler=sampler, meta_sampler_process=processor,
+                    lr=5e-4, num_inner_grad_steps=3, clip_value=0.2,
+                    max_grad_norm=0.5, rng=np.random.RandomState(seed + 1))
+                self._adaptation_ppo_policy_id = id(policy)
+                self.adaptation_ppo_constructions = getattr(
+                    self, "adaptation_ppo_constructions", 0) + 1
+            else:
+                # reuse the graph; re-point it at this call's env-backed sampler
+                self._adaptation_ppo.meta_sampler = sampler
+                self._adaptation_ppo.meta_sampler_process = processor
+            self._adaptation_ppo.UpdatePPOTarget(
+                samples, batch_size=min(20, len(graphs)), k_steps=int(adapt_steps))
             env.reset()
             paths = sampler.obtain_samples()
         return paths
