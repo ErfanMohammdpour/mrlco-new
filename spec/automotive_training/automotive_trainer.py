@@ -239,8 +239,12 @@ class _AutomotiveReportMixin(object):
         result = super().train()
         wall = _time.time() - started
         self.auto_wall_seconds = float(wall)
-        self.write_auto_report()
-        return result
+        # the base trainer returns (k0, k3) of the last validation; the automotive
+        # contract returns the full report (the smoke entry point prints it)
+        report = self.write_auto_report()
+        report["last_validation_k0"] = result[0] if isinstance(result, tuple) and result else None
+        report["last_validation_k3"] = result[1] if isinstance(result, tuple) and len(result) > 1 else None
+        return report
 
     def write_auto_report(self) -> dict:
         import json as _json
