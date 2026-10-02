@@ -346,9 +346,21 @@ class _AutomotiveReportMixin(object):
 
 
 def _peak_gpu_bytes():
+    """Peak GPU bytes, or None on a CPU-only run.
+
+    `MaxBytesInUse` only has a GPU kernel, so asking for it on a CPU session raises
+    `InvalidArgumentError: No OpKernel was registered ... MaxBytesInUse`. The CPU
+    smoke and the TF-gated tests must therefore short-circuit before touching it.
+    """
     try:
         import tensorflow as tf
 
+        try:
+            gpus = tf.config.experimental.list_physical_devices("GPU")
+        except Exception:
+            gpus = []
+        if not gpus:
+            return None
         with tf.compat.v1.Session() as sess:
             return int(sess.run(tf.contrib.memory_stats.MaxBytesInUse()))
     except Exception:
