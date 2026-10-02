@@ -1,5 +1,9 @@
 # MARGO-AUTOMOTIVE-MC-v1 primary pilot - 5 seeds x 500 iterations
 
+> **SUPERSEDED for performance claims.** This bundle is kept as diagnostic evidence only.
+> Its k0/k3 numbers and checkpoint selection are invalid (see `PILOT500_ERRATA.md`); the
+> corrected salvage evaluation of the same cores is in `../CORRECTNESS_REPAIR_ANALYSIS.md`.
+
 Everything in this directory is the raw and consolidated output of the pilot campaign
 that ran on Kish (`kish-ai`, `/opt/margo/mrlco-new-6b`) on 2026-10-02. Nothing here is a
 paper result: one pilot budget (500 outer iterations), 5 seeds, validation split only,

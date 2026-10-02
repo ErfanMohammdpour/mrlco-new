@@ -1,0 +1,223 @@
+{
+  "checkpoint_rule": {
+    "rule_id": "automotive_lexicographic_v1",
+    "sha": "a3bd00d5108237acdb706f561212b5d840bac151f48b5250a61c573d9c9ffb6c",
+    "steps": [
+      "1 zero graph hard-deadline violation rate",
+      "2 zero MC policy violations (HIGH drop/degrade must always be zero)",
+      "3 lowest HIGH task tardiness violation",
+      "4 lowest MEDIUM firm tardiness violation",
+      "5 energy feasibility only if configured (energy is not_configured here)",
+      "6 minimum validation latency among the remaining feasible checkpoints"
+    ]
+  },
+  "constraints": {
+    "energy_constraint": "not_configured",
+    "lambdas": {
+      "C_GRAPH_HARD_DEADLINE": 0.017419684641131784,
+      "C_HI_TASK_TARDINESS": 0.14113084667289538,
+      "C_MED_TASK_TARDINESS": 0.008500413981457688
+    },
+    "state": {
+      "clip": [
+        0.0,
+        1000000.0
+      ],
+      "constraints": {
+        "C_GRAPH_HARD_DEADLINE": {
+          "batch_size": 0,
+          "budget": null,
+          "kind": "hard",
+          "lambda": 0.017419684641131784,
+          "last_mean_violation": 3.0337410668645897e-05,
+          "source": "frozen_dataset_contract:D_G_s",
+          "status": "active",
+          "unit": "s",
+          "updates": 55
+        },
+        "C_HI_TASK_TARDINESS": {
+          "batch_size": 0,
+          "budget": 0.0,
+          "kind": "firm",
+          "lambda": 0.14113084667289538,
+          "last_mean_violation": 0.0006182735376439512,
+          "source": "frozen_dataset_contract:d_i",
+          "status": "active",
+          "unit": "s",
+          "updates": 74
+        },
+        "C_MED_TASK_TARDINESS": {
+          "batch_size": 0,
+          "budget": 0.0,
+          "kind": "firm",
+          "lambda": 0.008500413981457688,
+          "last_mean_violation": 0.0,
+          "source": "frozen_dataset_contract:d_i",
+          "status": "active",
+          "unit": "s",
+          "updates": 39
+        }
+      },
+      "dual_lr": 0.05,
+      "energy_constraint": "not_configured",
+      "ignored_names": {},
+      "lambdas": {
+        "C_GRAPH_HARD_DEADLINE": 0.017419684641131784,
+        "C_HI_TASK_TARDINESS": 0.14113084667289538,
+        "C_MED_TASK_TARDINESS": 0.008500413981457688
+      },
+      "rejected_splits": {}
+    }
+  },
+  "correctness": {
+    "adaptation_ppo_constructions": 1,
+    "core_scratch_sync_count": 6,
+    "core_scratch_sync_max_abs_diff": 0.0,
+    "core_unchanged_after_adaptation": true,
+    "dual_batch_sizes_after_reset": [],
+    "lambda_broadcast_targets": 11,
+    "penalty_steps": 74
+  },
+  "dataset": "MARGO-AUTOMOTIVE-MC-v1",
+  "deadline_mask": "off",
+  "dual_batch_size_at_end": {
+    "C_GRAPH_HARD_DEADLINE": 0,
+    "C_HI_TASK_TARDINESS": 0,
+    "C_MED_TASK_TARDINESS": 0
+  },
+  "executed_outer_iterations": 101,
+  "graph_specific_resources": true,
+  "lambda_broadcast_targets": 11,
+  "last_validation": {
+    "firm_task_miss_count": 0.0,
+    "firm_task_miss_rate": 0.0,
+    "graph_hard_violation_rate": 0.0,
+    "graph_high_tardiness_incidence_rate": 0.0,
+    "graph_medium_tardiness_incidence_rate": 0.0,
+    "hi_mode_rate": 0.975,
+    "high_task_tardiness_task_rate": 0.0,
+    "k_steps": 3,
+    "mc_policy_violation_count": 0.0,
+    "mean_dropped_task_count": 2.925,
+    "mean_graph_violation_s": 0.0,
+    "mean_high_tardiness_s": 0.0,
+    "mean_medium_tardiness_s": 0.0,
+    "mean_mode_switch_count": 0.975,
+    "medium_task_tardiness_task_rate": 0.0,
+    "mode_switch_rate": 0.975,
+    "n_high_tasks": 400,
+    "n_medium_tasks": 280,
+    "n_tardy_high_tasks": 0,
+    "n_tardy_medium_tasks": 0,
+    "query_discounted_return": -0.026388906679273887,
+    "query_graphs": 40,
+    "query_mean_latency_seconds": 0.026388906679273887,
+    "rollouts": 40,
+    "split": "validation",
+    "support_graphs": 20
+  },
+  "legacy_mixed_axes": {
+    "energy_model": "physical_v1",
+    "energy_scope": "system",
+    "radio_model": "physical_v1",
+    "radio_timing_model": "legacy_frozen_rates",
+    "timing_model": "legacy_frozen_rates"
+  },
+  "mc_fixture": {
+    "fixtures": {
+      "above_chi": {
+        "capped_to_hi": 1,
+        "dropped": 3,
+        "final_mode": "HI",
+        "high_preserved": true,
+        "switches": 1,
+        "triggering_task_id": 7
+      },
+      "at_or_below_chi": {
+        "capped_to_hi": 0,
+        "dropped": 3,
+        "final_mode": "HI",
+        "high_preserved": true,
+        "switches": 1,
+        "triggering_task_id": 7
+      },
+      "below_clo": {
+        "capped_to_hi": 0,
+        "dropped": 0,
+        "final_mode": "LO",
+        "high_preserved": true,
+        "switches": 0,
+        "triggering_task_id": null
+      }
+    },
+    "graph_id": "mcv1_ppc_s0_whigh_dloose_rhigh_end"
+  },
+  "meta_test_access_count": 0,
+  "method_id": "margo_automotive_mc_v1_gatef_proof",
+  "objective_mode": "latency_only",
+  "obs_version": "automotive_mc_obs_v1",
+  "peak_gpu_bytes": 248857344,
+  "penalty_feedback": {
+    "episodes": 20200,
+    "episodes_with_nonzero_penalty": 1040,
+    "iteration_with_nonzero_penalty": 74,
+    "penalty_sum": 36.22687261955068
+  },
+  "query_graph_count": 40,
+  "queue_blind_mask_used": false,
+  "run_kind": "gatef_proof",
+  "sampler_budget": {
+    "max_path_length_role": "episode_cap_only",
+    "meta_batch_size": 10,
+    "support_trajectories_per_meta_task": 20,
+    "tokens_per_trajectory": 20,
+    "total_samples_tokens": 4000
+  },
+  "sampler_counter_contract": {
+    "balanced": true,
+    "expected_calls_each": 101,
+    "query_calls": 101,
+    "support_calls": 101
+  },
+  "sampler_counters": {
+    "counter_role_contract_ok": true,
+    "query_calls": 101,
+    "query_tokens": 404000,
+    "query_trajectories": 20200,
+    "selected_meta_tasks": 1010,
+    "support_calls": 101,
+    "support_tokens": 404000,
+    "support_trajectories": 20200,
+    "unique_graph_ids": 10,
+    "unique_rollout_seeds": 200
+  },
+  "scheduler_axes": {
+    "energy_model": "physical_v1",
+    "energy_scope": "system",
+    "radio_model": "physical_v1",
+    "radio_timing_model": "physical_rates",
+    "timing_model": "physical_rates"
+  },
+  "scheduler_config_sha256_first_graph": "484ffeac080f9fea52a03ffcfde6a717cae17e4619b28c7935c983436c39f06f",
+  "training_fingerprint": "83b01f1b4b0c9459ca00e5604991a8f3d082f7a054c9df3384cd27d4f1ef1406",
+  "training_fingerprint_parts": {
+    "calibration_report_sha": "3d5db9414b21c7774d0d5e9e8807ffe2f99252d30a0263121c8156b5f3ae7cd7",
+    "checkpoint_rule_sha": "a3bd00d5108237acdb706f561212b5d840bac151f48b5250a61c573d9c9ffb6c",
+    "code_dirty": "unknown_no_git",
+    "dataset_manifest_sha": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+    "git_sha": "54c9e18052512e61622413034da6c23d491b7b4d",
+    "graphs_sha": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+    "obs_version": "automotive_mc_obs_v1",
+    "outer_iterations": 101,
+    "run_kind": "gatef_proof",
+    "scheduler_axes": {
+      "energy_model": "physical_v1",
+      "energy_scope": "system",
+      "radio_model": "physical_v1",
+      "radio_timing_model": "physical_rates",
+      "timing_model": "physical_rates"
+    },
+    "splits_sha": "cd391da6ac12ef12e0f552f11f3c4bb551df50592a5a9753b08873d37c912907"
+  },
+  "wall_seconds": 1498.858609676361
+}
