@@ -1,0 +1,11 @@
+=== pilot500 seed 0 START 2026-10-02T09:49:40Z ===
+=== pilot500 seed 0 EXIT 0 2026-10-02T11:52:23Z ===
+=== pilot500 seed 1 START 2026-10-02T11:52:23Z ===
+=== pilot500 seed 1 EXIT 0 2026-10-02T13:54:05Z ===
+=== pilot500 seed 2 START 2026-10-02T13:54:05Z ===
+=== pilot500 seed 2 EXIT 0 2026-10-02T15:55:58Z ===
+=== pilot500 seed 3 START 2026-10-02T15:55:58Z ===
+=== pilot500 seed 3 EXIT 0 2026-10-02T17:57:18Z ===
+=== pilot500 seed 4 START 2026-10-02T17:57:18Z ===
+=== pilot500 seed 4 EXIT 0 2026-10-02T19:57:34Z ===
+=== pilot500 campaign DONE 2026-10-02T19:57:34Z ===

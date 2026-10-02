@@ -1,0 +1,217 @@
+{
+  "campaign_log_on_server": "/opt/margo/logs/automotive_mc_v1_pilot500_r2.log",
+  "campaign_root_on_server": "/opt/margo/mrlco-new-6b/runs/automotive_mc_v1/primary_500",
+  "checkpoint_tarball": {
+    "bytes": 129966080,
+    "path": "/opt/margo/automotive_pilot500_checkpoints.tar",
+    "sha256": "85cb65dd6969a9f50f23530d3bb814998fbb8441a9bb2c7f05bf5f53ed2329fd"
+  },
+  "files": {
+    "ANALYSIS.md": {
+      "bytes": 13920,
+      "sha256": "6ec9e11d316aca81b0099f1d696a6a97b04e20179feccd9fef8ab62326fdeae7"
+    },
+    "campaign.log.gz": {
+      "bytes": 523784,
+      "sha256": "0b322435dce9fd78d374ccbc1e247d70974d34caf645c1867b006ad415d399d2"
+    },
+    "campaign_crashed_500.log.gz": {
+      "bytes": 68154,
+      "sha256": "fdaf8b62c77f3966b1decf68d4584568078f9d06f0cd8568d45766cc3517ab3d"
+    },
+    "campaign_markers.txt": {
+      "bytes": 567,
+      "sha256": "00af903f936aaecbb4a074bbaf3cdba0217ff85c86114fea54bdf3a6c0d882e2"
+    },
+    "configs/PILOT_500_CONFIG_AUDIT.md": {
+      "bytes": 3048,
+      "sha256": "91a40b71e10e8478646ae9547d4c4cfc473e200917d9d54aa2c88c5626fbd267"
+    },
+    "configs/encoder_feature_stats_automotive_mc_v1.json": {
+      "bytes": 3725,
+      "sha256": "8028f25cd014dc180085ec28088b246edd9a92cebfc770411d0046f1e6d25da7"
+    },
+    "configs/frozen_automotive_pilot_500.yaml": {
+      "bytes": 5393,
+      "sha256": "4568b0940aafd98a5fc3793054e96ce1942790f03850cc63f5a44d22afca320e"
+    },
+    "configs/frozen_automotive_primary.yaml": {
+      "bytes": 4845,
+      "sha256": "3387d4cd312d94ca82d18eaddf8f337f22e8c83047dd9cbfbc596446bb61ec78"
+    },
+    "reference_comparison.json": {
+      "bytes": 1716,
+      "sha256": "d03908e6a98f4d00f117e7fabbb74e268a8dafd5583cd9782786c0efa2a245f3"
+    },
+    "seed_0/automotive_smoke_report.json": {
+      "bytes": 6063,
+      "sha256": "4033769ca329aef9b1ced0be2e58525e34041749b0fe9af1ae5b839be187ebab"
+    },
+    "seed_0/ckpt/checkpoint_sha256.txt": {
+      "bytes": 929,
+      "sha256": "186d267e841e417a650085fb5335ff7a0bf54b7dfd2dd1dd8aa50fbfcca41a86"
+    },
+    "seed_0/ckpt/checkpoint_sizes.txt": {
+      "bytes": 255,
+      "sha256": "6bd9964092fbba479209fc2ab23bd53793578b43c362f55466fe818a054c5235"
+    },
+    "seed_0/ckpt/meta_model_best_val.metric.json": {
+      "bytes": 1142,
+      "sha256": "f4d9744b078bbc9be7fde707d991773b8230cceeebee5215e7ee693b532534de"
+    },
+    "seed_0/config.resolved.json": {
+      "bytes": 1497,
+      "sha256": "25898a29a050cfce573ef094b399cafe62e2a86573a1b173e54f86675ed7c8e3"
+    },
+    "seed_0/logs/progress.csv": {
+      "bytes": 463353,
+      "sha256": "2b60528d8c046947117d3b07719683552bcd497fde0bd85b647561324c13adbb"
+    },
+    "seed_0/provenance.json": {
+      "bytes": 1497,
+      "sha256": "25898a29a050cfce573ef094b399cafe62e2a86573a1b173e54f86675ed7c8e3"
+    },
+    "seed_0/training_fingerprint.json": {
+      "bytes": 4890,
+      "sha256": "b98e70c6b58b4eee25fbc6a4cf21edd18347fdb2b57375333acc315804263bc6"
+    },
+    "seed_1/automotive_smoke_report.json": {
+      "bytes": 6063,
+      "sha256": "1df5a03174d157dda5c0f3e281e46345daf8fff552bd00b2cfa749c1e639353a"
+    },
+    "seed_1/ckpt/checkpoint_sha256.txt": {
+      "bytes": 929,
+      "sha256": "b9f33315cc75b4611d355506c18d568a6c06064ae5ee3847c600c9e5c71197ae"
+    },
+    "seed_1/ckpt/checkpoint_sizes.txt": {
+      "bytes": 255,
+      "sha256": "6bd9964092fbba479209fc2ab23bd53793578b43c362f55466fe818a054c5235"
+    },
+    "seed_1/ckpt/meta_model_best_val.metric.json": {
+      "bytes": 1142,
+      "sha256": "ed0a02be8c0246c75a4fe081ab3c552981d96e03bd83bccab31753f947a5bd7a"
+    },
+    "seed_1/config.resolved.json": {
+      "bytes": 1497,
+      "sha256": "486204d38ebb2387019741442db5c5668959c137cbb535f1bcf4d01a80e15589"
+    },
+    "seed_1/logs/progress.csv": {
+      "bytes": 463993,
+      "sha256": "d22840ac0cb74f070e308d4120549b85059e9bca218f17c59f3175da181ee121"
+    },
+    "seed_1/provenance.json": {
+      "bytes": 1497,
+      "sha256": "486204d38ebb2387019741442db5c5668959c137cbb535f1bcf4d01a80e15589"
+    },
+    "seed_1/training_fingerprint.json": {
+      "bytes": 4890,
+      "sha256": "b98e70c6b58b4eee25fbc6a4cf21edd18347fdb2b57375333acc315804263bc6"
+    },
+    "seed_2/automotive_smoke_report.json": {
+      "bytes": 6015,
+      "sha256": "ed27c519a16b5d5eaf6f21f274dea22e419f2a5e2a0985c44881eca62a501aa5"
+    },
+    "seed_2/ckpt/checkpoint_sha256.txt": {
+      "bytes": 929,
+      "sha256": "c70ad9b8cfe8725e74d4edb1d75be865cec0ac57197b8a90faf2bb85b97d9b2a"
+    },
+    "seed_2/ckpt/checkpoint_sizes.txt": {
+      "bytes": 255,
+      "sha256": "f469f0305bae54613093364ee3458323cbfd1a62272018e39d4f59afc7d69cb1"
+    },
+    "seed_2/ckpt/meta_model_best_val.metric.json": {
+      "bytes": 1109,
+      "sha256": "3625c2bd9bb5a3dea6a7befcfa075cecf7f5c5c9bc944f1a6ef5894e605d55ad"
+    },
+    "seed_2/config.resolved.json": {
+      "bytes": 1497,
+      "sha256": "37aa111e1082b26f5edbd432e356554e70f3afa0f0840502fdd0bec9b9fce331"
+    },
+    "seed_2/logs/progress.csv": {
+      "bytes": 465413,
+      "sha256": "d686383f47cd0f4b4415490ad66816a2ce48d05e16855c3a8769a536cb67a867"
+    },
+    "seed_2/provenance.json": {
+      "bytes": 1497,
+      "sha256": "37aa111e1082b26f5edbd432e356554e70f3afa0f0840502fdd0bec9b9fce331"
+    },
+    "seed_2/training_fingerprint.json": {
+      "bytes": 4890,
+      "sha256": "b98e70c6b58b4eee25fbc6a4cf21edd18347fdb2b57375333acc315804263bc6"
+    },
+    "seed_3/automotive_smoke_report.json": {
+      "bytes": 6048,
+      "sha256": "6ab93bb148acad18f2541a54e13dc78715be5479e32cea273ab0816acd0764c6"
+    },
+    "seed_3/ckpt/checkpoint_sha256.txt": {
+      "bytes": 929,
+      "sha256": "98cefa356c97fb9046d75087a36fee43e0eca94ec9c4678dad18b9c4e1946037"
+    },
+    "seed_3/ckpt/checkpoint_sizes.txt": {
+      "bytes": 255,
+      "sha256": "6c47cc9faa5d67636402682a87ea03cfc20c074c50481aa90eacfc539af105ce"
+    },
+    "seed_3/ckpt/meta_model_best_val.metric.json": {
+      "bytes": 1141,
+      "sha256": "5d82a4d1eb2d7f7621aed83c2b55dec5ca838f385d6a1a9bd956bd5792a6440c"
+    },
+    "seed_3/config.resolved.json": {
+      "bytes": 1497,
+      "sha256": "cf307bb9843b979c26e892b5562b039971e6cebbc49a537f3c95f22fc9c7e4aa"
+    },
+    "seed_3/logs/progress.csv": {
+      "bytes": 465107,
+      "sha256": "6e57e2dd267b51ee89171a665ed7232490a3014dcecd418ddec740b094e6e686"
+    },
+    "seed_3/provenance.json": {
+      "bytes": 1497,
+      "sha256": "cf307bb9843b979c26e892b5562b039971e6cebbc49a537f3c95f22fc9c7e4aa"
+    },
+    "seed_3/training_fingerprint.json": {
+      "bytes": 4890,
+      "sha256": "b98e70c6b58b4eee25fbc6a4cf21edd18347fdb2b57375333acc315804263bc6"
+    },
+    "seed_4/automotive_smoke_report.json": {
+      "bytes": 6064,
+      "sha256": "6d70a5a4c298b9fd7150a3609fa5b8a32e95c9d278fa2c5b160c9b164d717a48"
+    },
+    "seed_4/ckpt/checkpoint_sha256.txt": {
+      "bytes": 929,
+      "sha256": "7ce9bc67583c4d6f7931b0d6f952027055b23bfc491f0e9f7ded5ea1e7c4d242"
+    },
+    "seed_4/ckpt/checkpoint_sizes.txt": {
+      "bytes": 255,
+      "sha256": "6c47cc9faa5d67636402682a87ea03cfc20c074c50481aa90eacfc539af105ce"
+    },
+    "seed_4/ckpt/meta_model_best_val.metric.json": {
+      "bytes": 1141,
+      "sha256": "23cc592ca6e082ec18d4846a0d0f56112b1db44705e2e267b65771e86418e72f"
+    },
+    "seed_4/config.resolved.json": {
+      "bytes": 1497,
+      "sha256": "75bd42c04720422d1b27c3fff5fb09c19e7e1161c34b53c066655e5fca950cc2"
+    },
+    "seed_4/logs/progress.csv": {
+      "bytes": 463268,
+      "sha256": "eb745887589a6b3a1e5c1270961bc5fafc1edc6f2e1c07e31a98882b3161d6b7"
+    },
+    "seed_4/provenance.json": {
+      "bytes": 1497,
+      "sha256": "75bd42c04720422d1b27c3fff5fb09c19e7e1161c34b53c066655e5fca950cc2"
+    },
+    "seed_4/training_fingerprint.json": {
+      "bytes": 4890,
+      "sha256": "b98e70c6b58b4eee25fbc6a4cf21edd18347fdb2b57375333acc315804263bc6"
+    },
+    "summary.json": {
+      "bytes": 20151,
+      "sha256": "a57b56d1cfc078faef43072b4aab08064e468e5df8719f101a2ab671e42c9d3f"
+    },
+    "validation_table.csv": {
+      "bytes": 11028,
+      "sha256": "97f6bd9bd771ff52f95112ff509f57f28a85060453671d649a77449997ab121a"
+    }
+  },
+  "generated_utc": "2026-10-02T21:30:00Z",
+  "schema": "automotive_pilot500_manifest_v1"
+}

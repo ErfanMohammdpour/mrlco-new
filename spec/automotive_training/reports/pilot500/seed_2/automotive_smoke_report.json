@@ -1,0 +1,184 @@
+{
+  "checkpoint_rule": {
+    "rule_id": "automotive_lexicographic_v1",
+    "sha": "a3bd00d5108237acdb706f561212b5d840bac151f48b5250a61c573d9c9ffb6c",
+    "steps": [
+      "1 zero graph hard-deadline violation rate",
+      "2 zero MC policy violations (HIGH drop/degrade must always be zero)",
+      "3 lowest HIGH task tardiness violation",
+      "4 lowest MEDIUM firm tardiness violation",
+      "5 energy feasibility only if configured (energy is not_configured here)",
+      "6 minimum validation latency among the remaining feasible checkpoints"
+    ]
+  },
+  "constraints": {
+    "energy_constraint": "not_configured",
+    "lambdas": {
+      "C_GRAPH_HARD_DEADLINE": 0.032527965378942245,
+      "C_HI_TASK_TARDINESS": 0.34569407274269004,
+      "C_MED_TASK_TARDINESS": 0.034598765212485956
+    },
+    "state": {
+      "clip": [
+        0.0,
+        1000000.0
+      ],
+      "constraints": {
+        "C_GRAPH_HARD_DEADLINE": {
+          "batch_size": 100000,
+          "budget": null,
+          "kind": "hard",
+          "lambda": 0.032527965378942245,
+          "last_mean_violation": 0.0002634986322593687,
+          "source": "frozen_dataset_contract:D_G_s",
+          "status": "active",
+          "unit": "s",
+          "updates": 500
+        },
+        "C_HI_TASK_TARDINESS": {
+          "batch_size": 100000,
+          "budget": 0.0,
+          "kind": "firm",
+          "lambda": 0.34569407274269004,
+          "last_mean_violation": 0.002983636820581756,
+          "source": "frozen_dataset_contract:d_i",
+          "status": "active",
+          "unit": "s",
+          "updates": 500
+        },
+        "C_MED_TASK_TARDINESS": {
+          "batch_size": 100000,
+          "budget": 0.0,
+          "kind": "firm",
+          "lambda": 0.034598765212485956,
+          "last_mean_violation": 0.0003702146693934221,
+          "source": "frozen_dataset_contract:d_i",
+          "status": "active",
+          "unit": "s",
+          "updates": 500
+        }
+      },
+      "dual_lr": 0.05,
+      "energy_constraint": "not_configured",
+      "ignored_names": {},
+      "lambdas": {
+        "C_GRAPH_HARD_DEADLINE": 0.032527965378942245,
+        "C_HI_TASK_TARDINESS": 0.34569407274269004,
+        "C_MED_TASK_TARDINESS": 0.034598765212485956
+      },
+      "rejected_splits": {}
+    }
+  },
+  "dataset": "MARGO-AUTOMOTIVE-MC-v1",
+  "deadline_mask": "off",
+  "executed_outer_iterations": 500,
+  "graph_specific_resources": true,
+  "last_validation": {
+    "firm_task_miss_rate": 0.0,
+    "graph_hard_violation_rate": 0.0,
+    "hi_mode_rate": 0.975,
+    "high_task_tardiness_rate": 0.0,
+    "k_steps": 3,
+    "mc_policy_violation_count": 0.0,
+    "mean_dropped_task_count": 2.925,
+    "mean_graph_violation_s": 0.0,
+    "mean_high_tardiness_s": 0.0,
+    "mean_medium_tardiness_s": 0.0,
+    "mean_mode_switch_count": 0.975,
+    "medium_task_tardiness_rate": 0.0,
+    "mode_switch_rate": 0.975,
+    "query_discounted_return": -0.031047765185470207,
+    "query_graphs": 40,
+    "query_mean_latency_seconds": 0.031047765185470207,
+    "rollouts": 40,
+    "split": "validation",
+    "support_graphs": 20
+  },
+  "legacy_mixed_axes": {
+    "energy_model": "physical_v1",
+    "energy_scope": "system",
+    "radio_model": "physical_v1",
+    "radio_timing_model": "legacy_frozen_rates",
+    "timing_model": "legacy_frozen_rates"
+  },
+  "mc_fixture": {
+    "fixtures": {
+      "above_chi": {
+        "capped_to_hi": 1,
+        "dropped": 3,
+        "final_mode": "HI",
+        "high_preserved": true,
+        "switches": 1,
+        "triggering_task_id": 7
+      },
+      "at_or_below_chi": {
+        "capped_to_hi": 0,
+        "dropped": 3,
+        "final_mode": "HI",
+        "high_preserved": true,
+        "switches": 1,
+        "triggering_task_id": 7
+      },
+      "below_clo": {
+        "capped_to_hi": 0,
+        "dropped": 0,
+        "final_mode": "LO",
+        "high_preserved": true,
+        "switches": 0,
+        "triggering_task_id": null
+      }
+    },
+    "graph_id": "mcv1_ppc_s0_whigh_dloose_rhigh_end"
+  },
+  "meta_test_access_count": 0,
+  "method_id": "margo_automotive_mc_v1_primary_smoke",
+  "objective_mode": "latency_only",
+  "obs_version": "automotive_mc_obs_v1",
+  "peak_gpu_bytes": 257926400,
+  "queue_blind_mask_used": false,
+  "run_kind": "primary_500",
+  "sampler_budget": {
+    "max_path_length_role": "episode_cap_only",
+    "meta_batch_size": 10,
+    "support_trajectories_per_meta_task": 20,
+    "tokens_per_trajectory": 20,
+    "total_samples_tokens": 4000
+  },
+  "sampler_counters": {
+    "query_calls": 999,
+    "query_tokens": 3996000,
+    "query_trajectories": 199800,
+    "selected_meta_tasks": 5000,
+    "support_calls": 1,
+    "support_tokens": 4000,
+    "support_trajectories": 200,
+    "unique_graph_ids": 10,
+    "unique_rollout_seeds": 200
+  },
+  "scheduler_axes": {
+    "energy_model": "physical_v1",
+    "energy_scope": "system",
+    "radio_model": "physical_v1",
+    "radio_timing_model": "physical_rates",
+    "timing_model": "physical_rates"
+  },
+  "scheduler_config_sha256_first_graph": "484ffeac080f9fea52a03ffcfde6a717cae17e4619b28c7935c983436c39f06f",
+  "training_fingerprint": "3b68036f526a3c7917c41321c831a8a63c8373256b62ab5579b7757496f01195",
+  "training_fingerprint_parts": {
+    "calibration_report_sha": "3d5db9414b21c7774d0d5e9e8807ffe2f99252d30a0263121c8156b5f3ae7cd7",
+    "checkpoint_rule_sha": "a3bd00d5108237acdb706f561212b5d840bac151f48b5250a61c573d9c9ffb6c",
+    "dataset_manifest_sha": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+    "git_sha": "unknown",
+    "graphs_sha": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+    "obs_version": "automotive_mc_obs_v1",
+    "scheduler_axes": {
+      "energy_model": "physical_v1",
+      "energy_scope": "system",
+      "radio_model": "physical_v1",
+      "radio_timing_model": "physical_rates",
+      "timing_model": "physical_rates"
+    },
+    "splits_sha": "cd391da6ac12ef12e0f552f11f3c4bb551df50592a5a9753b08873d37c912907"
+  },
+  "wall_seconds": 7261.174147605896
+}

@@ -1,0 +1,32 @@
+{
+  "contract": "automotive_checkpoint_rule_v1",
+  "csv_key": "validation/query_mean_latency_seconds_k3",
+  "discount": 0.99,
+  "energy_constraint": "not_configured",
+  "graph_hard_violation_rate": 0.075,
+  "higher_is_better": false,
+  "itr": 100,
+  "mc_policy_violation_count": 0.0,
+  "metric_name": "validation/automotive_lexicographic_v1",
+  "query_discounted_return": -0.11729950203652698,
+  "reward_mode": "latency_only",
+  "rule_id": "automotive_lexicographic_v1",
+  "rule_sha": "a3bd00d5108237acdb706f561212b5d840bac151f48b5250a61c573d9c9ffb6c",
+  "rule_steps": [
+    "1 zero graph hard-deadline violation rate",
+    "2 zero MC policy violations (HIGH drop/degrade must always be zero)",
+    "3 lowest HIGH task tardiness violation",
+    "4 lowest MEDIUM firm tardiness violation",
+    "5 energy feasibility only if configured (energy is not_configured here)",
+    "6 minimum validation latency among the remaining feasible checkpoints"
+  ],
+  "schema": "best_val_metric_v1",
+  "selection_key": [
+    "1",
+    "0",
+    "0.02624076921093499",
+    "0.0004968712155953937",
+    "0.11729950203652698"
+  ],
+  "value": 0.11729950203652698
+}

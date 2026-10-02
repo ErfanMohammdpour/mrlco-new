@@ -1,0 +1,77 @@
+{
+  "canonical_sha256": "3b68036f526a3c7917c41321c831a8a63c8373256b62ab5579b7757496f01195",
+  "fingerprint": "3b68036f526a3c7917c41321c831a8a63c8373256b62ab5579b7757496f01195",
+  "parts": {
+    "calibration_parameters": {
+      "cycles_per_bit": 300.0,
+      "deadline_slack_scale_s": 0.6942731338448674,
+      "energy_scale_j_diagnostic": null,
+      "f_ref_hz": 2300000000.0,
+      "latency_scale_s": 0.7094731338448674,
+      "latency_scale_s_definition": "median D_G over meta-train graphs",
+      "workload_scale_bytes": 5822.241666666667,
+      "workload_scale_bytes_definition": "mean W_i over meta-train tasks"
+    },
+    "calibration_report_sha": "3d5db9414b21c7774d0d5e9e8807ffe2f99252d30a0263121c8156b5f3ae7cd7",
+    "calibration_source": "meta_train",
+    "certification_manifest_sha": "3ead940d48ef21df058aa74c0e2f28fb426767997a02e869a1587bfd3fc348ee",
+    "checkpoint_rule_sha": "a3bd00d5108237acdb706f561212b5d840bac151f48b5250a61c573d9c9ffb6c",
+    "code_sha256": {
+      "automotive_constraints.py": "acd8e5ed8ecb74f0f680536c631d993b7cbcc9e140441ba1f5eaf2b33cf78c35",
+      "automotive_dag.py": "18aec6b453f2742b6912f5657b644b2ece4e7f8e75b16184bdb9175b7347fecf",
+      "automotive_env.py": "9c1bd7fa96fba1e39ac6a701c3672cd92c9ec9b255f3d4d3af8bd244fc795d75",
+      "automotive_loader.py": "aae13d880f88a89aec10ee77ade20d5ac3a8b523495af573934d4d706e7086ef",
+      "automotive_primary.py": "4de733b489c2325b17d60c6123695a29dc000e7b236aafa16659ade5bc41f3e1",
+      "automotive_resources.py": "b76200c8c4a01b6ccfc86a54c2737ac75e4237de47fc783e41bd4b4bdb826b6c",
+      "automotive_trainer.py": "b45f7b52ff45b22f0d8385879b18eb0fc8ed9bfef5dc26b44830a999dc6866b1",
+      "constraints_automotive_v1.yaml": "2d6f093310493423009775a3535a0998c5e84c1eb2a9086b7b249ead54bc7f72",
+      "execution_uncertainty_v1.yaml": "48ada10a3bd739324ffc496c7c3e908f2ce8b1d54d7b3bb9a13e49acdb74e959",
+      "frozen_automotive_primary.yaml": "3387d4cd312d94ca82d18eaddf8f337f22e8c83047dd9cbfbc596446bb61ec78",
+      "heft_reference_v2.py": "b46d3011badd18821aa903fc03271831c0d075b2842d86c2ceb78c0366aeeb6c",
+      "mc_runtime.py": "922058f5326baff8636b9f8b27839b82214ddb9e5e562fc1b97baee876b92517"
+    },
+    "config_sha256": {
+      "spec/automotive_mc_v1/criticality_policy.yaml": "e584197e99b7b414f7d9a014f45465f95218635458f434a368955d1f08017445",
+      "spec/automotive_mc_v1/deadline_model_v2.py": "5b64188e7eb806c7399a651dd83592ccd8d60493ff95790a8a5784dee59a0f44",
+      "spec/automotive_mc_v1/sla_registry_v2.yaml": "669184ccf3b06db290347dd21dbbe4408efb3c2ff66946003778663d4c81e74c",
+      "spec/automotive_mc_v1/workload_model_v2.yaml": "f83df6945563023ab842c790ae308125d5ce58e568c42460370c0deb7923cb4f",
+      "spec/frozen_experiment.yaml": "25f4df762ee45dd5f16078bf3beb59323abff0a8f30f23d2ea7b7028d95078c6"
+    },
+    "dataset_manifest_sha": "a190e9dbb5599803fd5b9457e3e7648964849a1a7078fd0b82362150757b9e14",
+    "dataset_version": "MARGO-AUTOMOTIVE-MC-v1",
+    "deadline_mask": "off",
+    "energy_constraint": "not_configured",
+    "git_sha": "unknown",
+    "graphs_sha": "4341c3b65c6e07b7fea341e2f3c3947723c6ebe01b5eb115dbf51c8c7f38404f",
+    "objective_mode": "latency_only",
+    "obs_version": "automotive_mc_obs_v1",
+    "outer_iterations": 500,
+    "provenance_sha": "14eda3e7b75cde2e08fb6487ef2971c59b52eb3b5ee577c7bee881245f9d6590",
+    "run_kind": "primary_500",
+    "sampler_budget": {
+      "max_path_length_role": "episode_cap_only",
+      "meta_batch_size": 10,
+      "support_trajectories_per_meta_task": 20,
+      "tokens_per_trajectory": 20,
+      "total_samples_tokens": 4000
+    },
+    "scheduler_axes": {
+      "energy_model": "physical_v1",
+      "energy_scope": "system",
+      "radio_model": "physical_v1",
+      "radio_timing_model": "physical_rates",
+      "timing_model": "physical_rates"
+    },
+    "scheduler_code_sha256": {
+      "env/mec_offloaing_envs/scheduler/adapter.py": "21684c91c9609a934aa41f6088a73b368ac32b08767e337b67960ce166e01950",
+      "env/mec_offloaing_envs/scheduler/encoder_obs.py": "8181661de8ce98f5c09e5838ee338533f05a12592fabfd9062389fc4484594bf",
+      "env/mec_offloaing_envs/scheduler/energy_model.py": "a340a8c2ea3694bc65f5b75f7397cdd88d7aad361af7261da5169e0c16de9b4e",
+      "env/mec_offloaing_envs/scheduler/engine.py": "5e617814eea5fa84ffb1a0f6406d69526a29817b332aa9f6df0d0edd85c34eef",
+      "env/mec_offloaing_envs/scheduler/model.py": "caee0d31a5194e320febc3eb683d89871c1f0f01a4fa61ac9e861dda10476b42",
+      "env/mec_offloaing_envs/scheduler/radio.py": "7c7212a022e6f6698ac57611abba2bc80cb97db94d04630a5a13630220879bbd",
+      "env/mec_offloaing_envs/scheduler/resources.py": "51ec3f55c3405e3a19ddc2d2cf04f8075dd97224f3fa10ae0b965d09e16dfe06"
+    },
+    "split_policy_sha": "7e051478b4b44b8c645d6df21ef0953183bda06bfd735b5440451fee4c606193",
+    "splits_sha": "cd391da6ac12ef12e0f552f11f3c4bb551df50592a5a9753b08873d37c912907"
+  }
+}

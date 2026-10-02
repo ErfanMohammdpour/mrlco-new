@@ -1,0 +1,50 @@
+{
+  "base_seed": 303,
+  "graphs": 40,
+  "note": "deterministic reference plans on the SAME graphs and the SAME MC realizations as the validation evaluator; compare against the model's logged validation/query_mean_latency_seconds_k3 and _k0 (k0 latency = -validation/objective_discounted_return_k0)",
+  "references": {
+    "all_HELPER": {
+      "hard_deadline_violation_rate": 0.125,
+      "max_s": 0.32405370603138073,
+      "mean_s": 0.17488466787893023,
+      "median_s": 0.1707586381447136,
+      "min_s": 0.07558515851955395
+    },
+    "all_MEC": {
+      "hard_deadline_violation_rate": 0.0,
+      "max_s": 0.050289078647522384,
+      "mean_s": 0.026221873699594354,
+      "median_s": 0.023953025706031146,
+      "min_s": 0.010306780616460615
+    },
+    "all_UE": {
+      "hard_deadline_violation_rate": 0.425,
+      "max_s": 0.5713215787921275,
+      "mean_s": 0.2769762893207008,
+      "median_s": 0.2493322887612437,
+      "min_s": 0.1246061576646674
+    },
+    "greedy_coordinate_descent_MC": {
+      "hard_deadline_violation_rate": 0.0,
+      "max_s": 0.07997667332163531,
+      "mean_s": 0.034779065365588197,
+      "median_s": 0.029959240401199218,
+      "min_s": 0.011021344147661025
+    },
+    "heft_reference_v2_nominal": {
+      "hard_deadline_violation_rate": null,
+      "max_s": 0.05387173637488048,
+      "mean_s": 0.029881068165533764,
+      "median_s": 0.02690220398151502,
+      "min_s": 0.01178806349254298
+    },
+    "heft_reference_v2_on_MC_instance": {
+      "hard_deadline_violation_rate": 0.0,
+      "max_s": 0.049812940052809965,
+      "mean_s": 0.027324018797553522,
+      "median_s": 0.025509876637538238,
+      "min_s": 0.010260083949862496
+    }
+  },
+  "split": "validation_query"
+}
