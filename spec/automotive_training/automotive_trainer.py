@@ -307,7 +307,7 @@ class _AutomotiveReportMixin(object):
             "dual_batch_size_at_end": {
                 name: (controller.batch_size(name) if controller is not None
                        and hasattr(controller, "batch_size") else None)
-                for name in (CONSTRAINT_NAMES if controller is None else controller.names)},
+                for name in _controller_names(controller)},
             "correctness": dict(getattr(self, "auto_correctness", {}) or {}),
             "sampler_counter_contract": {
                 "support_calls": int((getattr(sampler, "counters", {}) or {}).get("support_calls", 0)),
@@ -343,6 +343,19 @@ class _AutomotiveReportMixin(object):
         (run_dir / "automotive_smoke_report.json").write_text(
             _json.dumps(report, indent=2, sort_keys=True, default=str) + "\n")
         return report
+
+
+def _controller_names(controller):
+    """Channel names of the raw controller or of its trainer-facing adapter."""
+    if controller is None:
+        return list(CONSTRAINT_NAMES)
+    names = getattr(controller, "names", None)
+    if names:
+        return [str(n) for n in names]
+    specs = getattr(controller, "specs", None)
+    if specs:
+        return [str(n) for n in specs.keys()]
+    return list(CONSTRAINT_NAMES)
 
 
 def _peak_gpu_bytes():
