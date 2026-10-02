@@ -310,6 +310,8 @@ def per_graph_makespans(paths) -> dict:
 
 def _validation_policy(env, decoding: str, flags: Mapping):
     """Scratch validation policy with the frozen primary/secondary decoding."""
+    from policies.meta_seq2seq_policy import Seq2SeqPolicy
+
     policy = Seq2SeqPolicy(obs_dim=env.input_dim, encoder_units=128,
                            decoder_units=128, vocab_size=3,
                            name="validation_policy_%s" % decoding)
