@@ -66,6 +66,21 @@ class MetaIterativeEnvExecutor(object):
             for env in envs:
                 env.set_task(task)
 
+    def set_constraint_lambdas(self, lambdas):
+        """Push the trainer's current Lagrangian multipliers into EVERY env clone.
+
+        The trainer owns the dual controller, but rollouts run on `copy.deepcopy(env)`
+        clones created here, so a broadcast that only touches the original env never
+        reaches the reward. Returns the number of environments updated.
+        """
+        updated = 0
+        for env in self.envs:
+            setter = getattr(env, "set_constraint_lambdas", None)
+            if setter is not None:
+                setter(lambdas)
+                updated += 1
+        return updated
+
     def reset(self):
         """
         Resets the environments
@@ -151,6 +166,24 @@ class MetaParallelEnvExecutor(object):
         obs, rewards, dones, env_infos = map(lambda x: sum(x, []), zip(*results))
 
         return obs, rewards, dones, env_infos
+
+    def set_constraint_lambdas(self, lambdas):
+        """Send the dual multipliers to every worker process.
+
+        Returns the number of workers that acknowledged. Primary training uses the
+        iterative executor (`parallel=False`), but the interface must exist so a
+        parallel run cannot silently lose the constraint feedback.
+        """
+        updated = 0
+        for remote in self.remotes:
+            try:
+                remote.send(("set_constraint_lambdas", (lambdas,)))
+                ack = remote.recv()
+            except Exception:
+                ack = False
+            if ack:
+                updated += 1
+        return updated
 
     def reset(self):
         """
@@ -249,6 +282,16 @@ def worker(remote, parent_remote, env_pickle, n_envs, max_path_length, seed):
             for env in envs:
                 env.set_task(data)
             remote.send(None)
+
+        # push the trainer's Lagrangian multipliers into every env of the worker
+        elif cmd == 'set_constraint_lambdas':
+            updated = 0
+            for env in envs:
+                setter = getattr(env, "set_constraint_lambdas", None)
+                if setter is not None:
+                    setter(data)
+                    updated += 1
+            remote.send(updated == len(envs))
 
         # close the remote and stop the worker
         elif cmd == 'close':

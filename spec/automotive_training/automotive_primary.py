@@ -192,7 +192,11 @@ class AutomotiveMetaSampler(object):
 
     def obtain_samples(self, log=False, log_prefix=""):
         paths = self.sampler.obtain_samples(log=log, log_prefix=log_prefix)
-        role = "support" if self.counters["support_calls"] == 0 else "query"
+        # The frozen Trainer runs exactly two rollouts per outer iteration: the
+        # PPO/support rollout with log=False and the post-update query rollout with
+        # log=True. Keying on the flag (instead of "the first call ever") keeps the
+        # counters exact for the whole run.
+        role = "query" if log else "support"
         self.counters[f"{role}_calls"] += 1
         trajectories = tokens = 0
         graph_ids, seeds = set(), set()
@@ -219,7 +223,25 @@ class AutomotiveMetaSampler(object):
         self.counters[f"{role}_tokens"] += tokens
         self.counters["unique_graph_ids"] = len(graph_ids)
         self.counters["unique_rollout_seeds"] = len(seeds)
+        self._check_counter_contract()
         return paths
+
+    def _check_counter_contract(self) -> dict:
+        """support and query calls must stay balanced (one pair per iteration)."""
+        counters = self.counters
+        balanced = counters["support_calls"] in (counters["query_calls"],
+                                                 counters["query_calls"] + 1)
+        counters["counter_role_contract_ok"] = bool(balanced)
+        if not balanced:
+            raise AutomotivePrimaryError(
+                "sampler counter roles are out of balance: support=%d query=%d"
+                % (counters["support_calls"], counters["query_calls"]))
+        return {"balanced": bool(balanced),
+                "support_calls": counters["support_calls"],
+                "query_calls": counters["query_calls"]}
+
+    def counters_snapshot(self) -> dict:
+        return dict(self.counters)
 
 
 def _iter_paths(paths):
@@ -237,6 +259,7 @@ def metrics_from_paths(paths) -> dict:
     """Aggregate the telemetry of one rollout batch into validation metrics."""
     makespans, violations, modes, switches = [], [], [], []
     high_tard, med_tard, firm_miss, mc_violations, dropped = [], [], [], [], []
+    n_high_tasks = n_medium_tasks = n_tardy_high = n_tardy_medium = 0
     for path in _iter_paths(paths):
         if True:
             telemetry = path.get("energy_telemetry")
@@ -252,6 +275,10 @@ def metrics_from_paths(paths) -> dict:
             modes.append(str(telemetry.get("mode", "NA")))
             switches.append(float(telemetry.get("mode_switch_count", 0)))
             dropped.append(float(telemetry.get("dropped_task_count", 0)))
+            n_high_tasks += int(telemetry.get("n_tasks_high", 0) or 0)
+            n_medium_tasks += int(telemetry.get("n_tasks_medium", 0) or 0)
+            n_tardy_high += int(telemetry.get("n_tardy_high_tasks", 0) or 0)
+            n_tardy_medium += int(telemetry.get("n_tardy_medium_tasks", 0) or 0)
             if not bool(telemetry.get("high_preserved", 1.0)):
                 mc_violations.append(1.0)
     n = max(1, len(makespans))
@@ -259,9 +286,18 @@ def metrics_from_paths(paths) -> dict:
         "query_mean_latency_seconds": float(np.mean(makespans)) if makespans else float("nan"),
         "query_discounted_return": float(-np.mean(makespans)) if makespans else float("nan"),
         "graph_hard_violation_rate": float(np.mean([v > 0.0 for v in violations])) if violations else 0.0,
-        "high_task_tardiness_rate": float(np.mean([v > 0.0 for v in high_tard])) if high_tard else 0.0,
-        "medium_task_tardiness_rate": float(np.mean([v > 0.0 for v in med_tard])) if med_tard else 0.0,
-        "firm_task_miss_rate": float(np.sum(firm_miss) / (20.0 * n)),
+        # Gate E semantics: the previous `high_task_tardiness_rate` was the share of
+        # GRAPHS with a tardy HIGH task (not a task-level rate) and
+        # `firm_task_miss_rate` divided by 20 * graphs instead of the firm-task count.
+        "graph_high_tardiness_incidence_rate": float(np.mean([v > 0.0 for v in high_tard])) if high_tard else 0.0,
+        "graph_medium_tardiness_incidence_rate": float(np.mean([v > 0.0 for v in med_tard])) if med_tard else 0.0,
+        "high_task_tardiness_task_rate": (float(n_tardy_high) / float(n_high_tasks)) if n_high_tasks else 0.0,
+        "medium_task_tardiness_task_rate": (float(n_tardy_medium) / float(n_medium_tasks)) if n_medium_tasks else 0.0,
+        "n_high_tasks": int(n_high_tasks), "n_medium_tasks": int(n_medium_tasks),
+        "n_tardy_high_tasks": int(n_tardy_high), "n_tardy_medium_tasks": int(n_tardy_medium),
+        "firm_task_miss_count": float(np.sum(firm_miss)),
+        "firm_task_miss_rate": (float(np.sum(firm_miss)) / float(n_high_tasks + n_medium_tasks))
+                               if (n_high_tasks + n_medium_tasks) else 0.0,
         "mean_graph_violation_s": float(np.mean(violations)) if violations else 0.0,
         "mean_high_tardiness_s": float(np.mean(high_tard)) if high_tard else 0.0,
         "mean_medium_tardiness_s": float(np.mean(med_tard)) if med_tard else 0.0,
@@ -345,19 +381,62 @@ class AutomotiveHeldOutEvaluator(object):
             paths = sampler.obtain_samples()
         return paths
 
-    def evaluate_all(self, k_steps: int) -> dict:
+    def _sync_from_core(self, sess=None) -> float:
+        """Copy the CURRENT trained core policy into the evaluation scratch policy.
+
+        `Seq2SeqPolicy` has no `assign_trainable` method, so the previous
+        `getattr(self.policy, "assign_trainable", None)` guard silently skipped the
+        copy: k=0 evaluated a stale scratch policy and the k=3 adaptation accumulated
+        across validations. The copy is now explicit, verified, and mandatory.
+        """
+        from meta_algos.variable_io import assign_trainable, snapshot_trainable
+
+        assign_trainable(self.source_policy, self.policy, sess=sess)
+        core = snapshot_trainable(self.source_policy, sess=sess)
+        scratch = snapshot_trainable(self.policy, sess=sess)
+        if len(core) != len(scratch):
+            raise AutomotivePrimaryError("core/scratch variable count mismatch")
+        diff = 0.0
+        for a, b in zip(core, scratch):
+            if np.size(a):
+                diff = max(diff, float(np.max(np.abs(np.asarray(a) - np.asarray(b)))))
+        if not np.isfinite(diff) or diff > 1e-6:
+            raise AutomotivePrimaryError(
+                "core -> scratch weight sync failed (max|diff|=%.3g)" % diff)
+        self.last_sync_max_abs_diff = diff
+        self.core_snapshot = core
+        self.sync_count = int(getattr(self, "sync_count", 0)) + 1
+        return diff
+
+    def _assert_core_unchanged(self, sess=None) -> None:
+        """Adaptation must never mutate the trained core policy."""
+        from meta_algos.variable_io import snapshot_trainable
+
+        now = snapshot_trainable(self.source_policy, sess=sess)
+        diff = 0.0
+        for a, b in zip(self.core_snapshot, now):
+            if np.size(a):
+                diff = max(diff, float(np.max(np.abs(np.asarray(a) - np.asarray(b)))))
+        self.core_unchanged_after_adaptation = bool(diff <= 1e-9)
+        self.core_unchanged_max_abs_diff = diff
+        if not self.core_unchanged_after_adaptation:
+            raise AutomotivePrimaryError(
+                "k-step adaptation mutated the CORE policy (max|diff|=%.3g)" % diff)
+
+    def evaluate_all(self, k_steps: int, sess=None) -> dict:
         if k_steps not in (0, 3):
             raise AutomotivePrimaryError("k_steps must be 0 or 3, got %r" % (k_steps,))
+        # every evaluation starts from the CURRENT trained core, so k=0 always
+        # measures the trained policy and k=3 always adapts a fresh copy
+        self._sync_from_core(sess)
         if k_steps == 0:
             paths = self._rollout(self.query_graphs, 1, self.policy, seed=101,
                                   adapt_steps=0)
         else:
             # scratch adaptation on the validation SUPPORT only, then a DISJOINT
             # query rollout (different graphs, different MC realizations)
-            assign = getattr(self.policy, "assign_trainable", None)
-            if assign is not None:
-                assign(self.source_policy, self.policy)
             self._rollout(self.support_graphs, 1, self.policy, seed=202, adapt_steps=3)
+            self._assert_core_unchanged(sess)
             paths = self._rollout(self.query_graphs, 1, self.policy, seed=303,
                                   adapt_steps=0)
         metrics = metrics_from_paths(paths)
@@ -507,6 +586,8 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     trainer.auto_env = env
     trainer.auto_run_dir = Path(ckpt_dir).resolve().parent
     trainer.auto_run_kind = str(run_kind)
+    trainer.auto_method_id = "margo_automotive_mc_v1_%s" % str(run_kind)
+    trainer.auto_query_graph_count = len(val_query)
     mc_probe_graph = next((g for g in train_graphs
                            if any(str(t.criticality) == "HIGH" for t in g.tasks)),
                           train_graphs[0])

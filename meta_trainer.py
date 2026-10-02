@@ -634,9 +634,24 @@ class Trainer(object):
                         "status": controller.status(),
                     })
 
+            # The dual MUST update from THIS iteration's violations only. Without the
+            # reset the batch accumulated every rollout since iteration 0 (the frozen
+            # legacy controller never cleared it), so at iteration 500 the ascent used
+            # the mean over the whole history instead of the current batch.
+            if controller is not None and controller.spec.enabled:
+                _reset = getattr(controller, "reset_batch", None)
+                if callable(_reset):
+                    _reset()
+                    _sizes = getattr(controller, "batch_size", None)
+                    if callable(_sizes):
+                        for name in controller.names:
+                            logger.logkv("constraint/batch_size_after_reset_%s" % name,
+                                         float(_sizes(name)))
+
             _broadcast = getattr(self, "broadcast_constraint_lambdas", None)
             if _broadcast is not None:
-                _broadcast()
+                logger.logkv("constraint/lambda_broadcast_targets",
+                             float(_broadcast() or 0))
             if itr % self.validation_interval == 0:
                 k0, k3 = self._run_validation(itr)
                 self._audit(itr, "validation", {"k0": k0, "k3": k3})

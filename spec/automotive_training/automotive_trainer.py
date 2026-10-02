@@ -32,6 +32,29 @@ from .automotive_primary import (
 )
 
 
+def _iter_telemetry(paths):
+    """Yield every energy/MC telemetry record in one rollout batch."""
+    if not paths:
+        return
+    groups = paths.values() if isinstance(paths, Mapping) else [paths]
+    for group in groups:
+        records = group if isinstance(group, (list, tuple)) else [group]
+        for path in records:
+            if not isinstance(path, Mapping):
+                continue
+            telemetry = path.get("energy_telemetry")
+            if isinstance(telemetry, Mapping):
+                yield telemetry
+            elif isinstance(telemetry, (list, tuple)):
+                for record in telemetry:
+                    if isinstance(record, Mapping):
+                        yield record
+
+
+class AutomotiveTrainingError(RuntimeError):
+    """Raised when the automotive training contract is violated at runtime."""
+
+
 def constraint_violations_from_telemetry(paths) -> dict:
     """Collect per-episode violations (one value per rollout) from the telemetry."""
     out: dict[str, list[float]] = {name: [] for name in CONSTRAINT_NAMES}
@@ -68,14 +91,45 @@ class AutomotiveTrainerMixin(object):
         costs = constraint_violations_from_telemetry(paths)
         if costs:
             controller.observe(costs, split="meta_train")
+        # penalty statistics straight from the rollout telemetry (the numbers the env
+        # actually used), so a run can prove the Lagrangian feedback reached the reward
+        penalties = [float(r.get("constraint_penalty", 0.0) or 0.0)
+                     for r in _iter_telemetry(paths)]
+        self.auto_penalty_episodes = int(getattr(self, "auto_penalty_episodes", 0)) + len(penalties)
+        self.auto_penalty_episodes_nonzero = int(getattr(self, "auto_penalty_episodes_nonzero", 0)) + sum(
+            1 for p in penalties if abs(p) > 1e-12)
+        self.auto_penalty_sum = float(getattr(self, "auto_penalty_sum", 0.0)) + float(sum(penalties))
+        self.auto_penalty_steps = int(getattr(self, "auto_penalty_steps", 0)) + (
+            1 if any(abs(p) > 1e-12 for p in penalties) else 0)
         return costs
 
     def broadcast_constraint_lambdas(self) -> None:
+        """Push the current multipliers into EVERY env a rollout can run on.
+
+        The sampler's vectorised executor creates `copy.deepcopy(env)` clones, so
+        updating only the original env leaves the clones at lambda=0 and the policy
+        never receives the penalty. Returns the number of environments updated.
+        """
         controller = getattr(self, "auto_controller", None)
+        if controller is None:
+            return 0
+        lambdas = controller.lambdas
+        updated = 0
         env = getattr(self, "auto_env", None)
-        if controller is None or env is None:
-            return
-        env.set_constraint_lambdas(controller.lambdas)
+        if env is not None and hasattr(env, "set_constraint_lambdas"):
+            env.set_constraint_lambdas(lambdas)
+            updated += 1
+        sampler = getattr(self, "meta_sampler", None) or getattr(self, "sampler", None)
+        executor = getattr(sampler, "vec_env", None)
+        if executor is not None and hasattr(executor, "set_constraint_lambdas"):
+            updated += int(executor.set_constraint_lambdas(lambdas))
+        self.auto_lambda_broadcast_targets = updated
+        self.auto_lambda_broadcast_values = dict(lambdas) if hasattr(lambdas, "items") else list(lambdas)
+        if updated == 0:
+            raise AutomotiveTrainingError(
+                "no environment accepted the constraint multipliers; the Lagrangian "
+                "feedback would be silently dropped")
+        return updated
 
     # -- lexicographic validation -------------------------------------------
     def _run_validation(self, itr):
@@ -94,10 +148,41 @@ class AutomotiveTrainerMixin(object):
                      float(k3.get("query_discounted_return", 0.0)))
         logger.logkv("validation/query_mean_latency_seconds_k3",
                      float(k3.get("query_mean_latency_seconds", float("nan"))))
-        for name in ("graph_hard_violation_rate", "high_task_tardiness_rate",
-                     "medium_task_tardiness_rate", "firm_task_miss_rate",
+        # k=0 (not adapted) is logged as a first-class metric; the previous run only
+        # logged its return, so the k0 latency had to be recovered as -return.
+        logger.logkv("validation/query_mean_latency_seconds_k0",
+                     float(k0.get("query_mean_latency_seconds", float("nan"))))
+        logger.logkv("validation/rollouts_k0", float(k0.get("rollouts", 0)))
+        logger.logkv("validation/query_graphs", float(k3.get("query_graphs", 0)))
+        for name in ("graph_hard_violation_rate",
+                     "graph_high_tardiness_incidence_rate",
+                     "graph_medium_tardiness_incidence_rate",
+                     "high_task_tardiness_task_rate",
+                     "medium_task_tardiness_task_rate",
+                     "firm_task_miss_rate", "firm_task_miss_count",
+                     "n_high_tasks", "n_medium_tasks",
+                     "n_tardy_high_tasks", "n_tardy_medium_tasks",
                      "mode_switch_rate", "hi_mode_rate", "mc_policy_violation_count"):
             logger.logkv("validation/%s_k3" % name, float(k3.get(name, 0.0)))
+        # correctness telemetry (Gate B/C/D): these must hold on every validation
+        logger.logkv("correctness/core_scratch_sync_count", float(getattr(evaluator, "sync_count", 0)))
+        logger.logkv("correctness/core_scratch_sync_max_abs_diff",
+                     float(getattr(evaluator, "last_sync_max_abs_diff", float("nan"))))
+        logger.logkv("correctness/core_unchanged_after_adaptation",
+                     1.0 if getattr(evaluator, "core_unchanged_after_adaptation", False) else 0.0)
+        logger.logkv("correctness/lambda_broadcast_targets",
+                     float(getattr(self, "auto_lambda_broadcast_targets", 0)))
+        logger.logkv("correctness/penalty_steps",
+                     float(getattr(self, "auto_penalty_steps", 0)))
+        self.auto_correctness = {
+            "core_scratch_sync_count": int(getattr(evaluator, "sync_count", 0)),
+            "core_scratch_sync_max_abs_diff": float(getattr(evaluator, "last_sync_max_abs_diff", float("nan"))),
+            "core_unchanged_after_adaptation": bool(getattr(evaluator, "core_unchanged_after_adaptation", False)),
+            "adaptation_ppo_constructions": int(getattr(evaluator, "adaptation_ppo_constructions", 0)),
+            "lambda_broadcast_targets": int(getattr(self, "auto_lambda_broadcast_targets", 0)),
+            "penalty_steps": int(getattr(self, "auto_penalty_steps", 0)),
+            "dual_batch_sizes_after_reset": list(getattr(self, "auto_dual_batch_sizes", [])),
+        }
         logger.logkv("checkpoint_selection_metric", "validation/" + CHECKPOINT_RULE_ID)
         logger.logkv("checkpoint_selection_rule_id", CHECKPOINT_RULE_ID)
         logger.logkv("checkpoint_selection_rule_sha", checkpoint_rule_sha())
@@ -175,7 +260,8 @@ class _AutomotiveReportMixin(object):
         sampler = getattr(self, "auto_sampler", None)
         controller = getattr(self, "auto_controller", None)
         report = {
-            "method_id": "margo_automotive_mc_v1_primary_smoke",
+            "method_id": str(getattr(self, "auto_method_id",
+                                      "margo_automotive_mc_v1_%s" % getattr(self, "auto_run_kind", "primary"))),
             "dataset": "MARGO-AUTOMOTIVE-MC-v1",
             "obs_version": OBS_VERSION,
             "scheduler_axes": dict(getattr(self, "auto_axes", {})),
@@ -208,6 +294,27 @@ class _AutomotiveReportMixin(object):
             "last_validation": dict(getattr(self, "auto_last_validation", {}) or {}),
             "mc_fixture": dict(getattr(self, "auto_mc_fixture", {}) or {}),
             "peak_gpu_bytes": _peak_gpu_bytes(),
+            "query_graph_count": int(getattr(self, "auto_query_graph_count",
+                                             len(getattr(getattr(self, "held_out_evaluator", None),
+                                                         "query_graphs", []) or []))),
+            "penalty_feedback": {
+                "episodes": int(getattr(self, "auto_penalty_episodes", 0)),
+                "episodes_with_nonzero_penalty": int(getattr(self, "auto_penalty_episodes_nonzero", 0)),
+                "penalty_sum": float(getattr(self, "auto_penalty_sum", 0.0)),
+                "iteration_with_nonzero_penalty": int(getattr(self, "auto_penalty_steps", 0)),
+            },
+            "lambda_broadcast_targets": int(getattr(self, "auto_lambda_broadcast_targets", 0)),
+            "dual_batch_size_at_end": {
+                name: (controller.batch_size(name) if controller is not None
+                       and hasattr(controller, "batch_size") else None)
+                for name in (CONSTRAINT_NAMES if controller is None else controller.names)},
+            "correctness": dict(getattr(self, "auto_correctness", {}) or {}),
+            "sampler_counter_contract": {
+                "support_calls": int((getattr(sampler, "counters", {}) or {}).get("support_calls", 0)),
+                "query_calls": int((getattr(sampler, "counters", {}) or {}).get("query_calls", 0)),
+                "balanced": bool((getattr(sampler, "counters", {}) or {}).get("counter_role_contract_ok", False)),
+                "expected_calls_each": int(getattr(self, "n_itr", 0)),
+            },
         }
         try:
             from .automotive_loader import META_TEST_GUARD
@@ -226,10 +333,11 @@ class _AutomotiveReportMixin(object):
                 outer_iterations=int(getattr(self, "n_itr", 0)))
             report["training_fingerprint"] = fp["fingerprint"]
             report["training_fingerprint_parts"] = {
-                k: fp["parts"][k] for k in ("git_sha", "dataset_manifest_sha", "graphs_sha",
-                                            "splits_sha", "calibration_report_sha",
-                                            "obs_version", "scheduler_axes",
-                                            "checkpoint_rule_sha")}
+                k: fp["parts"][k] for k in ("git_sha", "code_dirty", "dataset_manifest_sha",
+                                            "graphs_sha", "splits_sha",
+                                            "calibration_report_sha", "obs_version",
+                                            "scheduler_axes", "checkpoint_rule_sha",
+                                            "run_kind", "outer_iterations")}
         except Exception as exc:  # pragma: no cover - report only
             report["training_fingerprint_error"] = repr(exc)
         (run_dir / "automotive_smoke_report.json").write_text(

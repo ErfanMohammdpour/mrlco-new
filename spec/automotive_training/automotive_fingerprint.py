@@ -55,13 +55,45 @@ def sha256_file(path: Path) -> str:
 
 
 def _git_sha() -> str:
+    """Resolve HEAD without requiring the git binary (containers often lack it)."""
     import subprocess
 
     try:
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
-                              capture_output=True, text=True, check=True).stdout.strip()
+        out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
+                             capture_output=True, text=True, check=True).stdout.strip()
+        if out:
+            return out
+    except Exception:
+        pass
+    try:  # read .git/HEAD directly
+        head = (REPO_ROOT / ".git" / "HEAD").read_text().strip()
+        if head.startswith("ref:"):
+            ref = REPO_ROOT / ".git" / head.split(":", 1)[1].strip()
+            if ref.exists():
+                return ref.read_text().strip()
+            packed = REPO_ROOT / ".git" / "packed-refs"
+            if packed.exists():
+                name = head.split(":", 1)[1].strip()
+                for line in packed.read_text().splitlines():
+                    parts = line.split()
+                    if len(parts) == 2 and parts[1] == name:
+                        return parts[0]
+            return "unknown_ref_%s" % head.split("/")[-1]
+        return head
     except Exception:
         return "unknown"
+
+
+def _code_dirty():
+    """True/False when git is available, otherwise the explicit marker string."""
+    import subprocess
+
+    try:
+        out = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
+                             capture_output=True, text=True, check=True).stdout
+        return bool(out.strip())
+    except Exception:
+        return "unknown_no_git"
 
 
 def training_fingerprint(*, obs_version: str, scheduler_axes: Mapping[str, str],
@@ -73,6 +105,7 @@ def training_fingerprint(*, obs_version: str, scheduler_axes: Mapping[str, str],
     calibration = json.loads((d / "calibration_report.json").read_text())
     parts = {
         "git_sha": _git_sha(),
+        "code_dirty": _code_dirty(),
         "dataset_version": provenance.get("dataset_version"),
         "dataset_manifest_sha": provenance.get("dataset_manifest_sha"),
         "graphs_sha": provenance.get("graphs_sha"),

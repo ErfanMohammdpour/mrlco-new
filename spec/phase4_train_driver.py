@@ -275,7 +275,7 @@ def run_automotive_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS, dataset_dir=
     run_dir = automotive_run_dir(seed, kind=str(run_kind))
     payload = provenance_template(seed)
     payload.update({
-        "method_id": AUTOMOTIVE_METHOD_ID,
+        "method_id": "%s_%s" % (AUTOMOTIVE_METHOD_ID, str(run_kind)),
         "dataset": "MARGO-AUTOMOTIVE-MC-v1",
         "paper_result": False,
         "gpu_requested": True,

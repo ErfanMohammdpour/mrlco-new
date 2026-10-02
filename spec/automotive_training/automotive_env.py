@@ -339,18 +339,15 @@ class AutomotiveEnv(object):
             rewards = self._telescoping(index, actions, mc, l_scale)
             result, system_j, macro = self._schedule(index, actions, mc)
             makespan = float(result.makespan_seconds)
-            channels = evaluate_constraints(_constraint_view(graph, mc), result)
-            violations = {name: float(channels[name]["violation"]) for name in CONSTRAINT_NAMES}
-            n_violating = {name: int(channels[name]["n_violating_tasks"]) for name in CONSTRAINT_NAMES}
-            penalty = sum(float(self.constraint_lambdas.get(name, 0.0)) * violations[name]
-                          for name in CONSTRAINT_NAMES)
-            if penalty:
-                rewards[-1] = rewards[-1] - penalty / max(l_scale, 1e-12)
+            # The Lagrangian penalty is computed ONCE and applied ONCE (the previous
+            # version applied it here and again from the telemetry: with a non-zero
+            # lambda the last reward was penalised twice).
             telemetry = self._telemetry(index, graph, order, result, mc, realization,
                                         rewards, slot, system_j)
             penalty = float(telemetry["constraint_penalty"])
             if penalty:
                 rewards[-1] = rewards[-1] - penalty / max(l_scale, 1e-12)
+            self.last_penalty_applied = penalty
             reward_batch.append(np.asarray(rewards, dtype=np.float32))
             finish_batch.append(makespan)
             energy_batch.append(np.full(len(order), float(system_j), dtype=np.float32))
@@ -362,7 +359,7 @@ class AutomotiveEnv(object):
         return observation, reward_batch, True, info
 
     def _telemetry(self, index, graph, order, result, mc, realization, rewards, slot,
-                   system_j) -> dict:
+                   system_j, penalty: float | None = None) -> dict:
         """Energy + constraint + MC telemetry for one episode (penalty NOT applied)."""
         from env.mec_offloaing_envs.scheduler.energy_scope import energy_scalar
         from env.mec_offloaing_envs.scheduler.energy_telemetry import (
@@ -374,8 +371,14 @@ class AutomotiveEnv(object):
         channels = evaluate_constraints(_constraint_view(graph, mc), result)
         violations = {name: float(channels[name]["violation"]) for name in CONSTRAINT_NAMES}
         n_violating = {name: int(channels[name]["n_violating_tasks"]) for name in CONSTRAINT_NAMES}
-        penalty = sum(float(self.constraint_lambdas.get(name, 0.0)) * violations[name]
-                      for name in CONSTRAINT_NAMES)
+        if penalty is None:
+            penalty = sum(float(self.constraint_lambdas.get(name, 0.0)) * violations[name]
+                          for name in CONSTRAINT_NAMES)
+        penalty = float(penalty)
+        counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
+        for task in graph.tasks:
+            key = str(task.criticality).upper()
+            counts[key] = counts.get(key, 0) + 1
         latency_term = -makespan / l_scale
         scoped = {
             "requester_joules": energy_scalar(result, scope="requester"),
@@ -400,6 +403,11 @@ class AutomotiveEnv(object):
             "firm_miss_count": int(n_violating["C_HI_TASK_TARDINESS"]
                                    + n_violating["C_MED_TASK_TARDINESS"]),
             "task_count": len(order),
+            "n_tasks_high": int(counts.get("HIGH", 0)),
+            "n_tasks_medium": int(counts.get("MEDIUM", 0)),
+            "n_tasks_low": int(counts.get("LOW", 0)),
+            "n_tardy_high_tasks": int(n_violating["C_HI_TASK_TARDINESS"]),
+            "n_tardy_medium_tasks": int(n_violating["C_MED_TASK_TARDINESS"]),
             "mode": "NA" if mc is None else str(mc["final_mode"]),
             "mode_switch_count": 0 if mc is None else len(mc["switches"]),
             "dropped_task_count": 0 if mc is None else len(mc["dropped_task_ids"]),
