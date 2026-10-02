@@ -142,6 +142,18 @@ class AutomotiveTrainerMixin(object):
         k3 = evaluator.evaluate_all(k_steps=3)
         self.algo.sync_task_policies_from_core()
 
+        logger.logkv("evaluation/protocol_sha_present", 1.0)
+        logger.logkv("evaluation/replicates", float(k3.get("replicates", 0)))
+        logger.logkv("evaluation/paired_k3_minus_k0_mean_s",
+                     float(k3.get("paired_k3_minus_k0_mean_s", float("nan"))))
+        logger.logkv("evaluation/paired_k3_better_count",
+                     float(k3.get("paired_k3_better_count", 0)))
+        logger.logkv("validation/k0_regret_s_mean", float(k0.get("k0_regret_s", float("nan"))))
+        logger.logkv("validation/k3_regret_s_mean", float(k3.get("k3_regret_s", float("nan"))))
+        logger.logkv("validation/oracle_candidate_s",
+                     float(k3.get("oracle_s", k0.get("oracle_s", float("nan")))))
+        logger.logkv("validation/query_mean_latency_seconds_k0_std",
+                     float(k0.get("query_mean_latency_seconds_std", float("nan"))))
         logger.logkv("validation/objective_discounted_return_k0",
                      float(k0.get("query_discounted_return", 0.0)))
         logger.logkv("validation/objective_discounted_return_k3",
@@ -180,6 +192,15 @@ class AutomotiveTrainerMixin(object):
             "core_unchanged_after_adaptation": bool(getattr(evaluator, "core_unchanged_after_adaptation", False)),
             "adaptation_ppo_constructions": int(getattr(evaluator, "adaptation_ppo_constructions", 0)),
             "lambda_broadcast_targets": int(getattr(self, "auto_lambda_broadcast_targets", 0)),
+            "evaluation_protocol": {
+                "protocol_id": str(getattr(self, "auto_protocol_id", "automotive_eval_protocol_v1")),
+                "protocol_sha": str(getattr(self, "auto_protocol_sha", "")),
+                "decoding": str(getattr(self, "auto_decoding", "deterministic")),
+                "replicates": int(getattr(self, "auto_last_validation", {}).get("replicates", 0))
+                if isinstance(getattr(self, "auto_last_validation", {}), dict) else 0,
+                "paired": True,
+                "baselines_on_same_realizations": True,
+            },
             "penalty_steps": int(getattr(self, "auto_penalty_steps", 0)),
             "dual_batch_sizes_after_reset": list(getattr(self, "auto_dual_batch_sizes", [])),
         }

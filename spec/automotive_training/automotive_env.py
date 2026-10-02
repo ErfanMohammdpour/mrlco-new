@@ -89,6 +89,8 @@ class AutomotiveEnv(object):
         self.energy_telemetry_enabled = bool(energy_telemetry)
         self.constraint_lambdas = dict(constraint_lambdas or {})
         self.single_dist = bool(single_dist)
+        #: pinned realization epoch (None -> use reset_count, the training default)
+        self.realization_epoch = None
         self.constraint_controller = None
         self.uncertainty = dict(uncertainty) if uncertainty is not None else mc_runtime.load_uncertainty()
         self.greedy_actions = (0, 1, 2)
@@ -237,8 +239,20 @@ class AutomotiveEnv(object):
         return np.array(self._slice_current(self.encoder_batchs))
 
     # -- MC realization -----------------------------------------------------
-    def rollout_seed(self, graph_id: str, slot: int, reset_count: int) -> int:
-        return _hash_seed("margo-rollout", self.base_seed, graph_id, slot, reset_count)
+    def rollout_seed(self, graph_id: str, slot: int, epoch: int | None = None) -> int:
+        """MC realization seed.
+
+        `epoch` defaults to `reset_count`, which differs between the k=0 and k=3
+        evaluation paths (the k=3 path resets the env once more before the query
+        rollout) and therefore unpaired the comparison. The frozen evaluation protocol
+        pins an explicit epoch per replicate so that k0, k3 and every baseline draw the
+        SAME realization for the same graph.
+        """
+        if epoch is None:
+            epoch = getattr(self, "realization_epoch", None)
+        if epoch is None:
+            epoch = self.reset_count
+        return _hash_seed("margo-rollout", self.base_seed, graph_id, slot, int(epoch))
 
     def _graph_index(self, slot: int) -> int:
         """Global graph index for one slot (single_dist mode maps slots -> graphs)."""
@@ -251,7 +265,7 @@ class AutomotiveEnv(object):
         self._slot_realizations, self._slot_mc = [], []
         for slot in self.graph_indices:
             graph = self.graph_objects[self._graph_index(int(slot))]
-            seed = self.rollout_seed(graph.graph_id, int(slot), self.reset_count)
+            seed = self.rollout_seed(graph.graph_id, int(slot))
             if self.mc_enabled:
                 realized = mc_runtime.draw_realized_demands(graph, seed, self.uncertainty)
                 mc = mc_runtime.resolve_mode_and_execution(
@@ -421,7 +435,7 @@ class AutomotiveEnv(object):
             "graph_index": int(index),
             "reset_count": int(self.reset_count),
             "rollout_seed": -1 if realization is None else int(
-                self.rollout_seed(graph.graph_id, int(slot), self.reset_count)),
+                self.rollout_seed(graph.graph_id, int(slot))),
             "graph_id_hash": float(int(hashlib.sha256(graph.graph_id.encode())
                                        .hexdigest()[:8], 16) % 1000003),
         }

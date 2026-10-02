@@ -265,7 +265,7 @@ def run_automotive_gpu_smoke(seed, allow_gpu, n_itr=1, dataset_dir=None,
 
 def run_automotive_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS, dataset_dir=None,
                                 meta_batch_size=10, support_trajectories=20,
-                                run_kind="primary"):
+                                run_kind="primary", decoding="deterministic"):
     """The automotive primary run (frozen structural budgets; caller sets n_itr).
 
     `run_kind` selects the output root (`runs/automotive_mc_v1/<run_kind>/seed_N`), so a
@@ -283,6 +283,7 @@ def run_automotive_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS, dataset_dir=
         "outer_iterations": int(n_itr),
         "outer_update_count": int(n_itr),
         "run_kind": str(run_kind),
+        "evaluation_decoding": str(decoding),
         "run_dir": str(run_dir),
     })
     _write_payload(run_dir, payload)
@@ -290,7 +291,7 @@ def run_automotive_primary_seed(seed, allow_gpu, n_itr=OUTER_ITERS, dataset_dir=
            reward_mode="latency_only", learning_mode="publication",
            use_energy=True, dataset="automotive_mc_v1", dataset_dir=dataset_dir,
            meta_batch_size=meta_batch_size, support_trajectories=support_trajectories,
-           run_kind=str(run_kind))
+           run_kind=str(run_kind), decoding=str(decoding))
     payload["gpu_finished"] = True
     _write_payload(run_dir, payload)
     return run_dir

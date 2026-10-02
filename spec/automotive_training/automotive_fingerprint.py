@@ -99,6 +99,8 @@ def _code_dirty():
 def training_fingerprint(*, obs_version: str, scheduler_axes: Mapping[str, str],
                          checkpoint_rule_sha: str, sampler_budget: Mapping[str, Any],
                          run_kind: str = "primary", outer_iterations: int | None = None,
+                         evaluation_protocol_sha: str | None = None,
+                         decoding: str | None = None,
                          dataset_dir: Path | None = None) -> dict:
     d = Path(dataset_dir) if dataset_dir else DATASET
     provenance = json.loads((d / "provenance.json").read_text())
@@ -122,6 +124,8 @@ def training_fingerprint(*, obs_version: str, scheduler_axes: Mapping[str, str],
         "sampler_budget": dict(sampler_budget),
         "run_kind": str(run_kind),
         "outer_iterations": (None if outer_iterations is None else int(outer_iterations)),
+        "evaluation_protocol_sha": evaluation_protocol_sha,
+        "decoding": decoding,
         "energy_constraint": "not_configured",
         "deadline_mask": "off",
         "objective_mode": "latency_only",

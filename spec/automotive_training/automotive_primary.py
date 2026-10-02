@@ -33,6 +33,19 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from .eval_protocol import (
+    BASELINE_CANDIDATES,
+    PRIMARY_DECODING,
+    PROTOCOL_ID,
+    REALIZATION_SEEDS,
+    SELECT_REPLICATES,
+    aggregate,
+    candidate_oracle,
+    decoding_flags,
+    protocol_sha,
+    realization_seeds,
+    regret,
+)
 from .automotive_constraints import (
     CONSTRAINT_NAMES,
     AutomotiveDualController,
@@ -247,6 +260,53 @@ class AutomotiveMetaSampler(object):
         return dict(self.counters)
 
 
+def _greedy_plan(env, index: int, mc, n_tasks: int = 20) -> list:
+    """MC-aware coordinate-descent greedy plan (the Gate I candidate)."""
+    chosen: list[int] = []
+    for k in range(n_tasks):
+        best = None
+        for action in (0, 1, 2):
+            plan = chosen + [action] + [0] * (n_tasks - k - 1)
+            result, _e, _m = env._schedule(index, plan, mc)
+            value = float(result.makespan_seconds)
+            if best is None or value < best[0] - 1e-12 or (
+                    abs(value - best[0]) <= 1e-12 and action < best[1]):
+                best = (value, action)
+        chosen.append(int(best[1]))
+    return chosen
+
+
+def per_graph_makespans(paths) -> dict:
+    """slot -> makespan (and violation flags) for one query rollout batch."""
+    out = {}
+    for path in _iter_paths(paths):
+        telemetry = path.get("energy_telemetry")
+        records = []
+        if isinstance(telemetry, Mapping):
+            records = [telemetry]
+        elif isinstance(telemetry, (list, tuple)):
+            records = [r for r in telemetry if isinstance(r, Mapping)]
+        for record in records:
+            slot = int(record.get("slot", len(out)))
+            out[slot] = {
+                "graph_index": int(record.get("graph_index", -1)),
+                "makespan_s": float(record.get("makespan_s", float("nan"))),
+                "hard_violation": float(record.get("violation/C_GRAPH_HARD_DEADLINE", 0.0)),
+                "high_tardiness": float(record.get("violation/C_HI_TASK_TARDINESS", 0.0)),
+                "medium_tardiness": float(record.get("violation/C_MED_TASK_TARDINESS", 0.0)),
+                "firm_miss": float(record.get("firm_miss_count", 0.0)),
+                "mode": str(record.get("mode", "NA")),
+                "switches": float(record.get("mode_switch_count", 0.0)),
+                "dropped": float(record.get("dropped_task_count", 0.0)),
+                "n_tasks_high": float(record.get("n_tasks_high", 0.0)),
+                "n_tasks_medium": float(record.get("n_tasks_medium", 0.0)),
+                "n_tardy_high": float(record.get("n_tardy_high_tasks", 0.0)),
+                "n_tardy_medium": float(record.get("n_tardy_medium_tasks", 0.0)),
+                "high_preserved": bool(record.get("high_preserved", 1.0)),
+            }
+    return out
+
+
 def _iter_paths(paths):
     """Accept both the meta-sampler dict-of-lists and the plain sampler list."""
     if isinstance(paths, Mapping):
@@ -309,6 +369,40 @@ def metrics_from_paths(paths) -> dict:
         "hi_mode_rate": float(np.mean([m == "HI" for m in modes])) if modes else 0.0,
         "mc_policy_violation_count": float(np.sum(mc_violations)),
         "mean_dropped_task_count": float(np.mean(dropped)) if dropped else 0.0,
+        "rollouts": int(n),
+    }
+
+
+def rollout_metric_block(by_slot: Mapping) -> dict:
+    """Model metrics of one (query or support) rollout, from per-graph records."""
+    values = [v for v in by_slot.values()]
+    if not values:
+        raise AutomotivePrimaryError("empty rollout: no per-graph telemetry")
+    n = float(len(values))
+    n_high = sum(v["n_tasks_high"] for v in values)
+    n_med = sum(v["n_tasks_medium"] for v in values)
+    tardy_high = sum(v["n_tardy_high"] for v in values)
+    tardy_med = sum(v["n_tardy_medium"] for v in values)
+    firm = sum(v["firm_miss"] for v in values)
+    return {
+        "query_mean_latency_seconds": float(np.mean([v["makespan_s"] for v in values])),
+        "graph_hard_violation_rate": float(np.mean([v["hard_violation"] > 0 for v in values])),
+        "mean_graph_violation_s": float(np.mean([v["hard_violation"] for v in values])),
+        "graph_high_tardiness_incidence_rate": float(np.mean([v["high_tardiness"] > 0 for v in values])),
+        "graph_medium_tardiness_incidence_rate": float(np.mean([v["medium_tardiness"] > 0 for v in values])),
+        "high_task_tardiness_task_rate": (tardy_high / n_high) if n_high else 0.0,
+        "medium_task_tardiness_task_rate": (tardy_med / n_med) if n_med else 0.0,
+        "n_high_tasks": int(n_high), "n_medium_tasks": int(n_med),
+        "n_tardy_high_tasks": int(tardy_high), "n_tardy_medium_tasks": int(tardy_med),
+        "mean_high_tardiness_s": float(np.mean([v["high_tardiness"] for v in values])),
+        "mean_medium_tardiness_s": float(np.mean([v["medium_tardiness"] for v in values])),
+        "firm_task_miss_count": float(firm),
+        "firm_task_miss_rate": (firm / (n_high + n_med)) if (n_high + n_med) else 0.0,
+        "mode_switch_rate": float(np.mean([v["switches"] > 0 for v in values])),
+        "mean_mode_switch_count": float(np.mean([v["switches"] for v in values])),
+        "hi_mode_rate": float(np.mean([v["mode"] == "HI" for v in values])),
+        "mc_policy_violation_count": float(sum(1 for v in values if not v["high_preserved"])),
+        "mean_dropped_task_count": float(np.mean([v["dropped"] for v in values])),
         "rollouts": int(n),
     }
 
@@ -426,28 +520,190 @@ class AutomotiveHeldOutEvaluator(object):
             raise AutomotivePrimaryError(
                 "k-step adaptation mutated the CORE policy (max|diff|=%.3g)" % diff)
 
+    def _paired_env(self, graphs, base_seed: int, epoch: int) -> AutomotiveEnv:
+        """Single-distribution env with a PINNED realization epoch (pairing)."""
+        env = AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
+                            single_dist=True, slots_per_task=len(graphs),
+                            base_seed=int(base_seed), mc_enabled=True)
+        env.set_task({"dist_index": 0,
+                      "graph_indices": np.arange(len(graphs), dtype=np.int32)})
+        env.realization_epoch = int(epoch)
+        return env
+
+    def _rollout_on(self, env, policy, *, adapt_steps: int, seed: int):
+        """Rollout on a prepared env; adaptation uses the same (base_seed, epoch)."""
+        from samplers.seq2seq_sampler import Seq2SeqSampler
+        from samplers.seq2seq_sampler_process import Seq2SeSamplerProcessor
+        from baselines.vf_baseline import ValueFunctionBaseline
+        from meta_algos.ppo_offloading import PPO
+
+        sampler = Seq2SeqSampler(env, policy, rollouts_per_meta_task=1,
+                                 max_path_length=TOKENS_PER_TRAJECTORY, parallel=False)
+        sampler.total_samples = len(env.graph_indices) * TOKENS_PER_TRAJECTORY
+        processor = Seq2SeSamplerProcessor(baseline=ValueFunctionBaseline(),
+                                           discount=0.99, gae_lambda=0.95,
+                                           normalize_adv=True, positive_adv=False)
+        paths = sampler.obtain_samples()
+        if adapt_steps > 0:
+            processed = processor.process_samples(paths)
+            samples = processed[0] if isinstance(processed, tuple) else processed
+            if (self._adaptation_ppo is None
+                    or self._adaptation_ppo_policy_id != id(policy)):
+                self._adaptation_ppo = PPO(
+                    policy=policy, meta_sampler=sampler, meta_sampler_process=processor,
+                    lr=5e-4, num_inner_grad_steps=3, clip_value=0.2,
+                    max_grad_norm=0.5, rng=np.random.RandomState(seed + 1))
+                self._adaptation_ppo_policy_id = id(policy)
+                self.adaptation_ppo_constructions = getattr(
+                    self, "adaptation_ppo_constructions", 0) + 1
+            else:
+                self._adaptation_ppo.meta_sampler = sampler
+                self._adaptation_ppo.meta_sampler_process = processor
+            self._adaptation_ppo.UpdatePPOTarget(
+                samples, batch_size=min(self.ppo_batch_size, len(env.graph_indices)),
+                k_steps=int(adapt_steps))
+        return paths
+
+    def baseline_panel(self, query_env) -> dict:
+        """Deterministic candidates evaluated on the SAME realization as the model."""
+        from .automotive_constraints import evaluate_constraints
+        from .automotive_env import _constraint_view
+        from .automotive_dag import schedule_actions
+        from .heft_reference_v2 import heft_reference_v2_plan
+
+        panel = {}
+        graphs = self.query_graphs
+        for index, graph in enumerate(graphs):
+            mc = query_env._slot_mc[index]
+            entry = {}
+            for name, action in (("all_UE", 0), ("all_MEC", 1), ("all_HELPER", 2)):
+                result, _e, _m = query_env._schedule(index, [action] * 20, mc)
+                entry[name] = float(result.makespan_seconds)
+            greedy_plan = _greedy_plan(query_env, index, mc)
+            result, _e, _m = query_env._schedule(index, greedy_plan, mc)
+            entry["greedy_coordinate_descent_MC"] = float(result.makespan_seconds)
+            heft_actions, heft_nominal, _r = heft_reference_v2_plan(graph.as_record(),
+                                                                   co_physical=True)
+            result, _e, _m = query_env._schedule(index, list(heft_actions), mc)
+            entry["heft_reference_v2"] = float(result.makespan_seconds)
+            entry["heft_nominal_s"] = float(heft_nominal)
+            entry["heft_plan"] = [int(a) for a in heft_actions]
+            entry["greedy_plan"] = [int(a) for a in greedy_plan]
+            entry["_name"], entry["candidate_oracle_s"] = candidate_oracle(entry)
+            panel[index] = entry
+        return panel
+
+    def evaluate(self, k_steps: int = 0, *, replicates, decoding: str = PRIMARY_DECODING,
+                 with_baselines: bool = True, sess=None) -> dict:
+        """Paired multi-realization evaluation (the frozen protocol)."""
+        if k_steps not in (0, 1, 2, 3, 5):
+            raise AutomotivePrimaryError("k_steps must be one of 0/1/2/3/5, got %r" % (k_steps,))
+        seeds = realization_seeds(replicates)
+        flags = decoding_flags(decoding)
+        if bool(getattr(self.policy, "_greedy", False)) != bool(flags["greedy"]):
+            raise AutomotivePrimaryError(
+                "validation policy decoding %r does not match the requested %r"
+                % (getattr(self.policy, "_greedy", None), decoding))
+        per_replicate = []
+        for epoch, base_seed in enumerate(seeds):
+            self._sync_from_core(sess)
+            k0_env = self._paired_env(self.query_graphs, base_seed, epoch)
+            k0_paths = self._rollout_on(k0_env, self.policy, adapt_steps=0, seed=base_seed)
+            k0_by_slot = per_graph_makespans(k0_paths)
+            panel = self.baseline_panel(k0_env) if with_baselines else {}
+            k0_block = rollout_metric_block(k0_by_slot)
+            entry = {
+                "replicate": epoch, "base_seed": int(base_seed),
+                "decoding": decoding,
+                "k0_latency_s": k0_block["query_mean_latency_seconds"],
+                "k0_hard_rate": k0_block["graph_hard_violation_rate"],
+                "k0_mc_violations": k0_block["mc_policy_violation_count"],
+                "k0_mode_switch_rate": k0_block["mode_switch_rate"],
+                "k0_metrics": k0_block,
+                "k0_per_graph": {int(k): v["makespan_s"] for k, v in k0_by_slot.items()},
+                "panel": panel,
+            }
+            if panel:
+                entry["oracle_s"] = float(np.mean([p["candidate_oracle_s"] for p in panel.values()]))
+                entry["oracle_mean_s"] = entry["oracle_s"]
+                entry["k0_regret_s"] = float(np.mean([
+                    regret(k0_by_slot[i]["makespan_s"], panel[i]) for i in sorted(panel)]))
+            if k_steps > 0:
+                support_env = self._paired_env(self.support_graphs, base_seed, epoch)
+                self._rollout_on(support_env, self.policy, adapt_steps=int(k_steps),
+                                 seed=base_seed)
+                self._assert_core_unchanged(sess)
+                kq_env = self._paired_env(self.query_graphs, base_seed, epoch)
+                kq_paths = self._rollout_on(kq_env, self.policy, adapt_steps=0,
+                                            seed=base_seed)
+                kq_by_slot = per_graph_makespans(kq_paths)
+                kq_block = rollout_metric_block(kq_by_slot)
+                entry.update({
+                    "k3_latency_s": kq_block["query_mean_latency_seconds"],
+                    "k3_hard_rate": kq_block["graph_hard_violation_rate"],
+                    "k3_mc_violations": kq_block["mc_policy_violation_count"],
+                    "k3_mode_switch_rate": kq_block["mode_switch_rate"],
+                    "k3_metrics": kq_block,
+                    "k3_per_graph": {int(k): v["makespan_s"] for k, v in kq_by_slot.items()},
+                })
+                if panel:
+                    entry["k3_regret_s"] = float(np.mean([
+                        regret(kq_by_slot[i]["makespan_s"], panel[i]) for i in sorted(panel)]))
+            per_replicate.append(entry)
+        out = {
+            "protocol_id": PROTOCOL_ID, "protocol_sha": protocol_sha(),
+            "k_steps": int(k_steps), "decoding": decoding,
+            "replicates": len(per_replicate), "base_seeds": list(seeds),
+            "support_graphs": len(self.support_graphs),
+            "query_graphs": len(self.query_graphs),
+            "split": "validation",
+            "per_replicate": per_replicate,
+        }
+        keys = ["k0_latency_s", "k0_hard_rate", "k0_mc_violations", "k0_mode_switch_rate"]
+        if k_steps > 0:
+            keys += ["k3_latency_s", "k3_hard_rate", "k3_mc_violations", "k3_mode_switch_rate"]
+        if per_replicate and per_replicate[0].get("panel"):
+            keys += ["oracle_s", "k0_regret_s"] + (["k3_regret_s"] if k_steps > 0 else [])
+        out.update(aggregate(per_replicate, keys))
+        # paired k3 - k0 over replicates (the adaptation question)
+        if k_steps > 0:
+            deltas = [r["k3_latency_s"] - r["k0_latency_s"] for r in per_replicate]
+            out["paired_k3_minus_k0_mean_s"] = float(np.mean(deltas))
+            out["paired_k3_better_count"] = int(sum(1 for d in deltas if d < 0))
+        # metrics in the frozen lexicographic key shape (means over replicates)
+        active = "k3" if k_steps > 0 else "k0"
+        out["query_mean_latency_seconds"] = out.get(active + "_latency_s")
+        out["query_mean_latency_seconds_k0"] = out.get("k0_latency_s")
+        out["query_mean_latency_seconds_k3"] = out.get("k3_latency_s")
+        out["graph_hard_violation_rate"] = out.get(active + "_hard_rate")
+        out["mc_policy_violation_count"] = out.get(active + "_mc_violations")
+        out["mode_switch_rate"] = out.get(active + "_mode_switch_rate")
+        out["query_mean_latency_seconds_std"] = out.get(active + "_latency_s_std")
+        out["rollouts"] = int(len(self.query_graphs) * len(per_replicate))
+        # the metric block of the ACTIVE rollout, averaged over replicates
+        blocks = [r[active + "_metrics"] for r in per_replicate if active + "_metrics" in r]
+        if blocks:
+            for key in blocks[0]:
+                if key == "rollouts":
+                    out[key] = int(sum(b[key] for b in blocks))
+                    continue
+                values = [float(b[key]) for b in blocks if b.get(key) is not None]
+                if values:
+                    out[key] = float(np.mean(values))
+        out["energy_constraint"] = "not_configured"
+        return out
+
     def evaluate_all(self, k_steps: int, sess=None) -> dict:
+        """Frozen-protocol validation: SELECT_REPLICATES paired realizations, primary
+        decoding, baselines on the same realizations.
+
+        The legacy `k_steps in (0, 3)` interface is kept because the frozen Trainer and
+        its lexicographic checkpoint rule call it with 0 and 3.
+        """
         if k_steps not in (0, 3):
-            raise AutomotivePrimaryError("k_steps must be 0 or 3, got %r" % (k_steps,))
-        # every evaluation starts from the CURRENT trained core, so k=0 always
-        # measures the trained policy and k=3 always adapts a fresh copy
-        self._sync_from_core(sess)
-        if k_steps == 0:
-            paths = self._rollout(self.query_graphs, 1, self.policy, seed=101,
-                                  adapt_steps=0)
-        else:
-            # scratch adaptation on the validation SUPPORT only, then a DISJOINT
-            # query rollout (different graphs, different MC realizations)
-            self._rollout(self.support_graphs, 1, self.policy, seed=202, adapt_steps=3)
-            self._assert_core_unchanged(sess)
-            paths = self._rollout(self.query_graphs, 1, self.policy, seed=303,
-                                  adapt_steps=0)
-        metrics = metrics_from_paths(paths)
-        metrics["k_steps"] = int(k_steps)
-        metrics["support_graphs"] = len(self.support_graphs)
-        metrics["query_graphs"] = len(self.query_graphs)
-        metrics["split"] = "validation"
-        return metrics
+            raise AutomotivePrimaryError("k_steps must be 0 or 3 here, got %r" % (k_steps,))
+        return self.evaluate(int(k_steps), replicates=SELECT_REPLICATES,
+                             decoding=PRIMARY_DECODING, sess=sess)
 
 
 def lexicographic_key(metrics: Mapping[str, Any]) -> tuple:
@@ -471,7 +727,8 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                                    energy_config: Mapping[str, Any] | None = None,
                                    meta_batch_size: int = META_BATCH_SIZE,
                                    support_trajectories: int = SUPPORT_TRAJECTORIES_PER_META_TASK,
-                                   run_kind: str = "primary"):
+                                   run_kind: str = "primary",
+                                   decoding: str = PRIMARY_DECODING):
     """Build (Trainer, MRLCO) on the frozen automotive dataset."""
     if obs_version != OBS_VERSION:
         raise AutomotivePrimaryError("obs_version must be %r" % OBS_VERSION)
@@ -562,10 +819,13 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                  ppo_batch_size_trajectories=int(support_trajectories),
                  rng=np.random.RandomState(seed), support_select="random")
 
+    flags = decoding_flags(decoding)
     held_out = AutomotiveHeldOutEvaluator(
         support_graphs=val_support, query_graphs=val_query,
         policy=Seq2SeqPolicy(obs_dim=env.input_dim, encoder_units=128,
-                             decoder_units=128, vocab_size=3, name="validation_policy"),
+                             decoder_units=128, vocab_size=3,
+                             greedy=bool(flags["greedy"]),
+                             name="validation_policy_%s" % decoding),
         source_policy=meta_policy.core_policy, ppo_batch_size=int(support_trajectories))
 
     from meta_trainer import Trainer
@@ -590,6 +850,9 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     trainer.auto_run_dir = Path(ckpt_dir).resolve().parent
     trainer.auto_run_kind = str(run_kind)
     trainer.auto_method_id = "margo_automotive_mc_v1_%s" % str(run_kind)
+    trainer.auto_decoding = str(decoding)
+    trainer.auto_protocol_sha = protocol_sha()
+    trainer.auto_protocol_id = PROTOCOL_ID
     trainer.auto_query_graph_count = len(val_query)
     mc_probe_graph = next((g for g in train_graphs
                            if any(str(t.criticality) == "HIGH" for t in g.tasks)),
@@ -604,6 +867,7 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                         "tokens_per_trajectory": TOKENS_PER_TRAJECTORY,
                         "meta_batch_size": int(meta_batch_size)},
         run_kind=str(run_kind), outer_iterations=int(n_itr),
+        evaluation_protocol_sha=protocol_sha(), decoding=str(decoding),
         dataset_dir=dataset_dir)["fingerprint"]
     return trainer, algo
 

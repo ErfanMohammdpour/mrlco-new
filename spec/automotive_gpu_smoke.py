@@ -35,6 +35,8 @@ def main() -> int:
     ap.add_argument("--gpu", default=None, help="CUDA_VISIBLE_DEVICES value")
     ap.add_argument("--cpu", action="store_true", help="CPU-only plumbing smoke")
     ap.add_argument("--dataset-dir", default=None)
+    ap.add_argument("--decoding", default=None,
+                    help="validation decoding: deterministic (primary) or stochastic")
     ap.add_argument("--run-kind", default=None,
                     help="output root under runs/automotive_mc_v1/ (default: primary)")
     ap.add_argument("--long", action="store_true",
@@ -63,11 +65,13 @@ def main() -> int:
             raise SystemExit("--long requires --i-allow-gpu")
         n_itr = 3500 if args.iters is None else int(args.iters)
         run_kind = args.run_kind or "primary"
+        decoding = args.decoding or "deterministic"
         run_dir = run_automotive_primary_seed(args.seed, True, n_itr=n_itr,
                                               dataset_dir=args.dataset_dir,
-                                              run_kind=run_kind)
+                                              run_kind=run_kind, decoding=decoding)
         print(json.dumps({"long_run_dir": str(run_dir), "seed": int(args.seed),
-                          "outer_iterations": n_itr, "run_kind": run_kind},
+                          "outer_iterations": n_itr, "run_kind": run_kind,
+                          "decoding": decoding},
                          indent=2, sort_keys=True))
         return 0
     smoke_iters = 1 if args.iters is None else int(args.iters)

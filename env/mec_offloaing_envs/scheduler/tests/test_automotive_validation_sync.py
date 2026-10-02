@@ -100,6 +100,21 @@ class TestValidationMeasuresTheTrainedCore(unittest.TestCase):
         for a, b in zip(core, scratch):
             self.assertTrue((a == b).all(), "scratch must equal the core")
 
+    def test_paired_multi_realization(self):
+        """k0 and k3 must see the same realization inside a replicate (Gate: pairing)."""
+        out = self.evaluator.evaluate(3, replicates=2, sess=self.sess, with_baselines=False)
+        self.assertEqual(out["replicates"], 2)
+        self.assertEqual(len(out["per_replicate"]), 2)
+        self.assertEqual(out["base_seeds"], [1000, 1017])
+        for rep in out["per_replicate"]:
+            self.assertEqual(rep["k0_metrics"]["hi_mode_rate"],
+                             rep["k3_metrics"]["hi_mode_rate"],
+                             "the MC mode must be realization-only, so k0 and k3 must agree")
+            self.assertEqual(rep["k0_metrics"]["mean_mode_switch_count"],
+                             rep["k3_metrics"]["mean_mode_switch_count"])
+        self.assertIn("paired_k3_minus_k0_mean_s", out)
+        self.assertIn("paired_k3_better_count", out)
+
     def test_report_contract_and_logged_columns(self):
         from utils import logger
 
