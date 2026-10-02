@@ -702,6 +702,10 @@ class Seq2SeqPolicy():
         self.last_feasible_mask = None
         self.last_raw_logits = None
         self.last_sample_pi = None
+        # Deterministic (argmax) decoding for held-out evaluation. The network always
+        # builds both decoders, so this only switches which one `get_actions` fetches;
+        # training keeps the stochastic default.
+        self._deterministic_default = False
         self.reachability_mask = None
         if self.encoder_type == "dagformer":
             self.reachability_mask = tf.compat.v1.placeholder(
@@ -806,7 +810,13 @@ class Seq2SeqPolicy():
             return {}
         return {self.feasible_mask: np.asarray(feasible_mask, dtype=np.float32)}
 
-    def get_actions(self, observations, feasible_mask=None):
+    def set_deterministic(self, flag: bool) -> None:
+        """Switch this policy between stochastic sampling and argmax decoding."""
+        self._deterministic_default = bool(flag)
+
+    def get_actions(self, observations, feasible_mask=None, deterministic=None):
+        if deterministic is None:
+            deterministic = bool(getattr(self, "_deterministic_default", False))
         sess = tf.compat.v1.get_default_session()
         observations = np.asarray(observations)
 
@@ -831,16 +841,28 @@ class Seq2SeqPolicy():
         # a masked argmax cannot be inverted back into the raw one, so the
         # argmax_masked_rate metric needs it captured here. The public return
         # tuple is unchanged (three values, as every existing caller expects).
-        actions, logits, v_value, raw_logits, sample_pi = sess.run(
-            [
-                self.network.sample_decoder_prediction,
-                self.network.sample_decoder_logits,
-                self.network.sample_vf,
-                self.network.sample_decoder_logits_raw,
-                self.network.sample_pi,
-            ],
-            feed_dict=feed_dict,
-        )
+        if deterministic:
+            actions, logits, v_value, raw_logits, sample_pi = sess.run(
+                [
+                    self.network.greedy_decoder_prediction,
+                    self.network.greedy_decoder_logits,
+                    self.network.greedy_vf,
+                    self.network.greedy_decoder_logits_raw,
+                    self.network.greedy_pi,
+                ],
+                feed_dict=feed_dict,
+            )
+        else:
+            actions, logits, v_value, raw_logits, sample_pi = sess.run(
+                [
+                    self.network.sample_decoder_prediction,
+                    self.network.sample_decoder_logits,
+                    self.network.sample_vf,
+                    self.network.sample_decoder_logits_raw,
+                    self.network.sample_pi,
+                ],
+                feed_dict=feed_dict,
+            )
         self.last_raw_logits = np.asarray(raw_logits)
         # the masked distribution of THAT trajectory: the decoder samples its own
         # next input, so fetching pi in a second sess.run would describe a

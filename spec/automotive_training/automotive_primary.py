@@ -37,6 +37,7 @@ from .eval_protocol import (
     BASELINE_CANDIDATES,
     PRIMARY_DECODING,
     PROTOCOL_ID,
+    SECONDARY_DECODING,
     REALIZATION_SEEDS,
     SELECT_REPLICATES,
     aggregate,
@@ -307,6 +308,15 @@ def per_graph_makespans(paths) -> dict:
     return out
 
 
+def _validation_policy(env, decoding: str, flags: Mapping):
+    """Scratch validation policy with the frozen primary/secondary decoding."""
+    policy = Seq2SeqPolicy(obs_dim=env.input_dim, encoder_units=128,
+                           decoder_units=128, vocab_size=3,
+                           name="validation_policy_%s" % decoding)
+    policy.set_deterministic(bool(flags["greedy"]))
+    return policy
+
+
 def _iter_paths(paths):
     """Accept both the meta-sampler dict-of-lists and the plain sampler list."""
     if isinstance(paths, Mapping):
@@ -533,8 +543,17 @@ class AutomotiveHeldOutEvaluator(object):
         env.realization_epoch = int(epoch)
         return env
 
-    def _rollout_on(self, env, policy, *, adapt_steps: int, seed: int):
-        """Rollout on a prepared env; adaptation uses the same (base_seed, epoch)."""
+    def _rollout_on(self, env, policy, *, adapt_steps: int, seed: int,
+                    deterministic: bool = True):
+        """Rollout on a prepared env; adaptation uses the same (base_seed, epoch).
+
+        `deterministic` selects the decoding for THIS rollout: the frozen protocol uses
+        the primary (argmax) decoding for every reported query rollout, while the
+        support adaptation keeps stochastic sampling so the inner PPO still sees a
+        distribution. The flag is restored afterwards.
+        """
+        previous = bool(getattr(policy, "_deterministic_default", False))
+        policy.set_deterministic(bool(deterministic))
         from samplers.seq2seq_sampler import Seq2SeqSampler
         from samplers.seq2seq_sampler_process import Seq2SeSamplerProcessor
         from baselines.vf_baseline import ValueFunctionBaseline
@@ -565,6 +584,7 @@ class AutomotiveHeldOutEvaluator(object):
             self._adaptation_ppo.UpdatePPOTarget(
                 samples, batch_size=min(self.ppo_batch_size, len(env.graph_indices)),
                 k_steps=int(adapt_steps))
+        policy.set_deterministic(previous)
         return paths
 
     def baseline_panel(self, query_env, epoch: int | None = None) -> dict:
@@ -610,15 +630,16 @@ class AutomotiveHeldOutEvaluator(object):
             raise AutomotivePrimaryError("k_steps must be one of 0/1/2/3/5, got %r" % (k_steps,))
         seeds = realization_seeds(replicates)
         flags = decoding_flags(decoding)
-        if bool(getattr(self.policy, "_greedy", False)) != bool(flags["greedy"]):
+        if bool(getattr(self.policy, "_deterministic_default", False)) != bool(flags["greedy"]):
             raise AutomotivePrimaryError(
                 "validation policy decoding %r does not match the requested %r"
-                % (getattr(self.policy, "_greedy", None), decoding))
+                % (getattr(self.policy, "_deterministic_default", None), decoding))
         per_replicate = []
         for epoch, base_seed in enumerate(seeds):
             self._sync_from_core(sess)
             k0_env = self._paired_env(self.query_graphs, base_seed, epoch)
-            k0_paths = self._rollout_on(k0_env, self.policy, adapt_steps=0, seed=base_seed)
+            k0_paths = self._rollout_on(k0_env, self.policy, adapt_steps=0, seed=base_seed,
+                                        deterministic=bool(flags["greedy"]))
             k0_by_slot = per_graph_makespans(k0_paths)
             panel = self.baseline_panel(k0_env, epoch=epoch) if with_baselines else \
                 self._panel_cache.get(epoch, {})
@@ -641,12 +662,15 @@ class AutomotiveHeldOutEvaluator(object):
                     regret(k0_by_slot[i]["makespan_s"], panel[i]) for i in sorted(panel)]))
             if k_steps > 0:
                 support_env = self._paired_env(self.support_graphs, base_seed, epoch)
+                # support adaptation is STOCHASTIC by contract (inner PPO needs a
+                # distribution); only the reported query rollouts are deterministic
                 self._rollout_on(support_env, self.policy, adapt_steps=int(k_steps),
-                                 seed=base_seed)
+                                 seed=base_seed, deterministic=False)
                 self._assert_core_unchanged(sess)
                 kq_env = self._paired_env(self.query_graphs, base_seed, epoch)
                 kq_paths = self._rollout_on(kq_env, self.policy, adapt_steps=0,
-                                            seed=base_seed)
+                                            seed=base_seed,
+                                            deterministic=bool(flags["greedy"]))
                 kq_by_slot = per_graph_makespans(kq_paths)
                 kq_block = rollout_metric_block(kq_by_slot)
                 entry.update({
@@ -664,6 +688,7 @@ class AutomotiveHeldOutEvaluator(object):
         out = {
             "protocol_id": PROTOCOL_ID, "protocol_sha": protocol_sha(),
             "k_steps": int(k_steps), "decoding": decoding,
+            "query_decoding": decoding, "support_adaptation_decoding": SECONDARY_DECODING,
             "replicates": len(per_replicate), "base_seeds": list(seeds),
             "support_graphs": len(self.support_graphs),
             "query_graphs": len(self.query_graphs),
@@ -833,10 +858,7 @@ def build_automotive_primary_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     flags = decoding_flags(decoding)
     held_out = AutomotiveHeldOutEvaluator(
         support_graphs=val_support, query_graphs=val_query,
-        policy=Seq2SeqPolicy(obs_dim=env.input_dim, encoder_units=128,
-                             decoder_units=128, vocab_size=3,
-                             greedy=bool(flags["greedy"]),
-                             name="validation_policy_%s" % decoding),
+        policy=_validation_policy(env, decoding, flags),
         source_policy=meta_policy.core_policy, ppo_batch_size=int(support_trajectories))
 
     from meta_trainer import Trainer
