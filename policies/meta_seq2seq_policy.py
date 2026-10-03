@@ -184,6 +184,35 @@ class FixedSequenceLearningSampleEmbedingHelper(tf.contrib.seq2seq.SampleEmbeddi
         return (finished, next_inputs, state)
 
 
+class FixedSequenceLearningCRNHelper(FixedSequenceLearningSampleEmbedingHelper):
+    """SampleEmbeddingHelper variant using a STATELESS seed tensor.
+
+    Feeding the same `seed_pair` for the same (replicate, sample, graph) makes the sampled
+    tokens reproducible across k and across compared checkpoints; stateful
+    `Categorical.sample()` calls cannot guarantee that. A stateless categorical draw is the
+    Gumbel-max rule with a deterministic noise stream.
+    """
+
+    def __init__(self, sequence_length, embedding, start_tokens, end_token,
+                 seed_pair, softmax_temperature=None, top_p=None, feasible_mask=None):
+        super(FixedSequenceLearningCRNHelper, self).__init__(
+            sequence_length=sequence_length, embedding=embedding, start_tokens=start_tokens,
+            end_token=end_token, softmax_temperature=softmax_temperature, seed=None,
+            top_p=top_p, feasible_mask=feasible_mask, greedy=False)
+        if seed_pair is None:
+            raise ValueError("CRN helper requires a seed_pair tensor")
+        self._seed_pair = seed_pair
+
+    def sample(self, time, outputs, state, name=None):
+        del state
+        logits = outputs if self._softmax_temperature is None else outputs / self._softmax_temperature
+        if self._feasible_mask is not None:
+            logits, _dead_end = mask_logits_tf(logits, self._feasible_mask, time=time)
+        drawn = tf.random.stateless_multinomial(
+            logits, 1, seed=self._seed_pair, output_dtype=tf.int32)
+        return tf.reshape(drawn, [-1])
+
+
 class Seq2SeqNetwork():
     def __init__(self, name,
                  hparams, reuse,
@@ -197,7 +226,8 @@ class Seq2SeqNetwork():
                  ctx_obs=None,
                  ctx_acts=None,
                  ctx_t=None,
-                 ctx_zero=None):
+                 ctx_zero=None,
+                 crn_seed=None):
         self.encoder_hidden_unit = hparams.encoder_units
         self.decoder_hidden_unit = hparams.decoder_units
         self.is_bidencoder = hparams.is_bidencoder
@@ -211,6 +241,7 @@ class Seq2SeqNetwork():
 
         # default setting
         self.mode = tf.contrib.learn.ModeKeys.TRAIN
+        self.crn_seed = crn_seed
 
         self.num_layers = hparams.num_layers
         self.num_residual_layers = hparams.num_residual_layers
@@ -378,6 +409,25 @@ class Seq2SeqNetwork():
             self.greedy_vf = tf.reduce_sum(self.greedy_pi * self.greedy_q, axis=-1)
 
             self.greedy_decoder_prediction = self.greedy_decoder_outputs.sample_id
+
+            # CRN decoder: built ONLY when a seed placeholder is supplied, so the frozen
+            # v1 graph is unchanged for every existing caller.
+            self.crn_decoder_prediction = None
+            self.crn_decoder_logits = None
+            self.crn_pi = None
+            self.crn_vf = None
+            if self.crn_seed is not None:
+                self.crn_decoder_outputs, self.crn_decoder_state = self.create_decoder(
+                    hparams, self.encoder_outputs, self.encoder_state, model="crn")
+                self.crn_decoder_logits_raw = self.crn_decoder_outputs.rnn_output
+                self.crn_decoder_logits, _crn_dead_end = mask_logits_tf(
+                    self.crn_decoder_logits_raw, self.feasible_mask)
+                self.crn_pi = tf.nn.softmax(self.crn_decoder_logits)
+                self.crn_q = tf.compat.v1.layers.dense(
+                    self.crn_decoder_logits_raw, self.n_features, activation=None,
+                    reuse=tf.compat.v1.AUTO_REUSE, name="qvalue_layer")
+                self.crn_vf = tf.reduce_sum(self.crn_pi * self.crn_q, axis=-1)
+                self.crn_decoder_prediction = self.crn_decoder_outputs.sample_id
 
     def predict_training(self, sess, encoder_input_batch, decoder_input, decoder_full_length):
         return sess.run([self.decoder_prediction, self.pi],
@@ -614,6 +664,19 @@ class Seq2SeqNetwork():
                     feasible_mask=self.feasible_mask,
                 )
 
+            elif model == "crn":
+                if self.crn_seed is None:
+                    raise ValueError("crn decoder requires a crn_seed placeholder")
+                helper = FixedSequenceLearningCRNHelper(
+                    sequence_length=self.decoder_full_length,
+                    embedding=embed,
+                    start_tokens=tf.fill([tf.size(self.decoder_full_length)], self.start_token),
+                    end_token=self.end_token,
+                    seed_pair=self.crn_seed,
+                    top_p=self.sample_top_p,
+                    feasible_mask=self.feasible_mask,
+                )
+
             elif model == "train":
                 helper = tf.contrib.seq2seq.TrainingHelper(
                     self.decoder_embeddings,
@@ -679,7 +742,7 @@ class Seq2SeqPolicy():
                  cavia_z_dim=32, enable_oracle_dist=False, oracle_n_dist=26,
                  oracle_z_dim=32, encoder_type="meanagg", readout_type="triple",
                  enable_eas_emb=False, cavia_film_trainable=False,
-                 enable_context_encoder=False):
+                 enable_context_encoder=False, enable_crn=False):
         self.decoder_targets = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_targets_ph_"+name)
         self.decoder_inputs = tf.compat.v1.placeholder(shape=[None, None], dtype=tf.int32, name="decoder_inputs_ph"+name)
         self.obs = tf.compat.v1.placeholder(shape=[None, None, obs_dim], dtype=tf.float32, name="obs_ph"+name)
@@ -706,6 +769,10 @@ class Seq2SeqPolicy():
         # builds both decoders, so this only switches which one `get_actions` fetches;
         # training keeps the stochastic default.
         self._deterministic_default = False
+        self.enable_crn = bool(enable_crn)
+        self.crn_seed = (
+            tf.compat.v1.placeholder(shape=[2], dtype=tf.int32, name="crn_seed_ph_" + name)
+            if self.enable_crn else None)
         self.reachability_mask = None
         if self.encoder_type == "dagformer":
             self.reachability_mask = tf.compat.v1.placeholder(
@@ -781,7 +848,8 @@ class Seq2SeqPolicy():
                  ctx_obs=self.ctx_obs,
                  ctx_acts=self.ctx_acts,
                  ctx_t=self.ctx_t,
-                 ctx_zero=self.ctx_zero)
+                 ctx_zero=self.ctx_zero,
+                 crn_seed=self.crn_seed)
 
         self.vf = self.network.vf
 
@@ -814,9 +882,21 @@ class Seq2SeqPolicy():
         """Switch this policy between stochastic sampling and argmax decoding."""
         self._deterministic_default = bool(flag)
 
-    def get_actions(self, observations, feasible_mask=None, deterministic=None):
+    def set_crn_seed(self, seed_pair) -> None:
+        """Record the CRN seed pair used by the next `get_actions` call (None disables)."""
+        self._crn_seed_pair = None if seed_pair is None else [int(seed_pair[0]), int(seed_pair[1])]
+
+    def crn_actions(self, observations, seed_pair, feasible_mask=None):
+        """Stateless CRN rollout: same (seed_pair, weights) => bit-identical actions."""
+        return self.get_actions(observations, feasible_mask=feasible_mask,
+                                deterministic=False, crn_seed=seed_pair)
+
+    def get_actions(self, observations, feasible_mask=None, deterministic=None,
+                    crn_seed=None):
         if deterministic is None:
             deterministic = bool(getattr(self, "_deterministic_default", False))
+        use_crn = (self.crn_seed is not None and crn_seed is not None
+                   and not deterministic)
         sess = tf.compat.v1.get_default_session()
         observations = np.asarray(observations)
 
@@ -841,7 +921,19 @@ class Seq2SeqPolicy():
         # a masked argmax cannot be inverted back into the raw one, so the
         # argmax_masked_rate metric needs it captured here. The public return
         # tuple is unchanged (three values, as every existing caller expects).
-        if deterministic:
+        if use_crn:
+            feed_dict[self.crn_seed] = np.asarray(crn_seed, dtype=np.int32)
+            actions, logits, v_value, raw_logits, sample_pi = sess.run(
+                [
+                    self.network.crn_decoder_prediction,
+                    self.network.crn_decoder_logits,
+                    self.network.crn_vf,
+                    self.network.crn_decoder_logits_raw,
+                    self.network.crn_pi,
+                ],
+                feed_dict=feed_dict,
+            )
+        elif deterministic:
             actions, logits, v_value, raw_logits, sample_pi = sess.run(
                 [
                     self.network.greedy_decoder_prediction,
