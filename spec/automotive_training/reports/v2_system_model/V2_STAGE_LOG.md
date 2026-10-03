@@ -174,3 +174,18 @@ evaluator returns `V2AutomotiveEnv` for both the plain and the single-dist paire
 (factory call log `[(4, 4, 7, True)]`), and without a factory it returns the frozen
 `AutomotiveEnv`. Tests: 8 stack tests (incl. 3 for this hook) x3 fresh processes; full
 non-TF suite 1252 passed / 0 failed.
+
+## Stage 8 (partial): adversarial fixtures + branch pushed
+
+`test_v2_adversarial.py` (8 fixtures, 3 fresh processes, 1.5 s): 32-way MEC contention makes
+local win; idle MEC beats local on a MEC-heavy graph; a helper with ~zero contact is rejected
+(not crashed) and every completion stays finite; 0.1x V2V removes the helper advantage;
+HIGH criticality under an unreliable link rejects every remote token (all locations UE);
+a degraded-regime outage episode stays finite and logs non-negative outage waits; single-task
+and all-local plans keep every scheduler invariant; the contention ordering is monotone in
+background load (0 <= 4 <= 16).
+
+Branch `phase5-realistic-system-v2` pushed to the `erfan` remote (tracking set). Full non-TF
+suite 1260 passed / 0 failed / 18 skipped. Still open in stage 8: the transfer-count
+quantification versus v1 and the ">=3 fresh processes for every v2 suite" record (currently
+recorded per suite as it was added).
