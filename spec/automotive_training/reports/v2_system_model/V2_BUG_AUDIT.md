@@ -62,3 +62,25 @@ Everything below was checked against the working tree at `d0af6f1`; `git diff 92
 
 * "counts differ because v1 records per EDGE and v2 per HOP" - WRONG; the difference was the missing MC-dropped-successor return.
 * "~8400 schedules per iteration => weeks" throughput BLOCK - WRONG; measured ~0.4-3.5 ms per schedule and 92 s per support rollout on CPU.
+
+## OPEN FAILING TEST (must be resolved before any gate claim)
+
+After the event-based transfer change (`515789a`) the full non-TF suite is **1268 passed /
+1 failed / 19 skipped**, and the earlier "suite green" statement in that commit's message is
+**incorrect for this test**:
+
+```
+env/mec_offloaing_envs/scheduler/tests/test_v2_helper_model.py::
+  TestHelperInScheduler::test_idle_helper_with_long_contact_beats_mec_when_mec_is_overloaded
+  AssertionError: 8.2869 not less than 7.300049999999998
+  (12 concurrent 6 MB DAGs; helper CPU 4 MB/s idle with unlimited contact vs one shared
+   10 MB/s MEC server)
+```
+
+Status: **OPEN / unresolved**. The fixture asserts a helper win under MEC overload; with the
+service-integral transfer path the helper batch now takes 8.2869 s against the MEC's 7.30 s.
+Either (a) the shared V2V serialisation genuinely dominates at this size, in which case the
+fixture's premise (helper CPU advantage wins) is wrong and must be re-derived against the
+scheduler rather than relaxed, or (b) the booking fixed point introduced a real regression.
+Not diagnosed yet; no threshold was changed. This must be settled before any geometry/energy
+gate is regenerated, because helper usefulness is one of the gate criteria.
