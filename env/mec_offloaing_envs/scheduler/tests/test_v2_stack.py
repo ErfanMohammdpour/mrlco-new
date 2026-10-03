@@ -47,7 +47,7 @@ class TestDelegation(unittest.TestCase):
 
         graphs = load_dataset().validation_query()[:2]
         return V2AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
-                               slots_per_task=2, base_seed=303)
+                               slots_per_task=2, base_seed=303, single_dist=True)
 
     def test_v1_attributes_are_delegated(self):
         from spec.automotive_training.automotive_env import AutomotiveEnv
@@ -57,7 +57,7 @@ class TestDelegation(unittest.TestCase):
         for attr in ("configs", "graph_objects", "orders", "dags", "graph_indices",
                      "encoder_batchs"):
             self.assertTrue(hasattr(env, attr), attr)
-        self.assertEqual(env.input_dim, 79)
+        self.assertEqual(env.input_dim, 91)   # the v2 env always emits the v2 schema
         self.assertEqual(len(env.configs), 2)
 
     def test_unknown_attribute_still_raises(self):
@@ -90,7 +90,8 @@ class TestEvaluatorEnvFactory(unittest.TestCase):
             calls.append((len(graphs), int(slots), int(seed), bool(single_dist)))
             env = V2AutomotiveEnv(list(graphs), AutomotiveResourceCluster(),
                                   role="validation", slots_per_task=int(slots),
-                                  base_seed=int(seed), link_regime="degraded")
+                                  base_seed=int(seed), single_dist=bool(single_dist),
+                                  link_regime="degraded")
             if single_dist:
                 env.set_task({"dist_index": 0,
                               "graph_indices": np.arange(len(graphs), dtype=np.int32)})

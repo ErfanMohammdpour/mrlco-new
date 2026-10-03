@@ -21,7 +21,8 @@ from spec.automotive_training.v2.env import (  # noqa: E402
 
 def _env(seed=303, **kw):
     graphs = load_dataset().validation_query()[:3]
-    env = V2AutomotiveEnv(graphs, role="validation", slots_per_task=3, base_seed=seed, **kw)
+    env = V2AutomotiveEnv(graphs, role="validation", slots_per_task=3, base_seed=seed,
+                          single_dist=True, **kw)
     env.set_task({"dist_index": 0, "graph_indices": np.arange(3, dtype=np.int32)})
     env.reset()
     return env
@@ -33,7 +34,7 @@ class TestSurface(unittest.TestCase):
         for attr in ("input_dim", "total_task", "set_task", "reset", "step",
                      "sample_tasks", "set_constraint_lambdas"):
             self.assertTrue(hasattr(env, attr), attr)
-        self.assertEqual(env.input_dim, 79)
+        self.assertEqual(env.input_dim, 91)
         # single-distribution layout: one dist, one slot per graph
         self.assertEqual(env.total_task, 1)
         self.assertEqual(env.slots_per_task, 3)
@@ -41,12 +42,12 @@ class TestSurface(unittest.TestCase):
     def test_reset_returns_v1_observation_shape(self):
         env = _env()
         obs = env.reset()
-        self.assertEqual(np.asarray(obs).shape, (3, 20, 79))
+        self.assertEqual(np.asarray(obs).shape, (3, 20, 91))
 
     def test_step_contract(self):
         env = _env()
         obs, rewards, done, info = env.step(np.ones((3, 20), dtype=int))
-        self.assertEqual(np.asarray(obs).shape, (3, 20, 79))
+        self.assertEqual(np.asarray(obs).shape, (3, 20, 91))
         self.assertEqual(len(rewards), 3)
         self.assertEqual(len(rewards[0]), 20)
         self.assertTrue(done)

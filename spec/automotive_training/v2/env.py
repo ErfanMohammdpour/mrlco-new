@@ -131,12 +131,13 @@ class V2AutomotiveEnv:
     @property
     def input_dim(self) -> int:
         """91 when the v2 obs schema is active, otherwise the frozen 79."""
-        from env.mec_offloaing_envs.scheduler import encoder_obs
-        from spec.automotive_training.v2.observation import V2_OBS_VERSION, V2_PACKED_DIM
+        from spec.automotive_training.v2.observation import V2_PACKED_DIM
 
-        if str(getattr(encoder_obs, "OBS_VERSION", "")) == V2_OBS_VERSION:
-            return int(V2_PACKED_DIM)
-        return self.base.input_dim
+        # The v2 env ALWAYS emits the v2 schema (frozen v1 rows + 12 context columns), so this
+        # is 91 regardless of the globally active version. The stack builder must therefore
+        # activate automotive_v2_obs_v1 before the policy/encoder is imported, or the encoder
+        # would expect 79/50 and fail loudly at construction (which is the desired failure).
+        return int(V2_PACKED_DIM)
 
     @property
     def total_task(self) -> int:
