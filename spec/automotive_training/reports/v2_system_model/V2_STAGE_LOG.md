@@ -8,7 +8,7 @@
 | 4 helper availability/contact/busy | `9d0afcc` | `test_v2_helper_model.py` (10) + scheduler/link suites = 28/28 x3 fresh procs; full non-TF 1202 passed / 0 failed | OK - plus a real calendar fix | `v2/helper_model.py`, `v2/shared_scheduler.py` (earliest-fit calendars, helper admissibility/failure), `tests/test_v2_helper_model.py` | 0 |
 | 5 criticality reliability + fallback hooks | staged | `test_v2_reliability.py` (9) + all v2 suites = 37/37 x3 fresh procs; full non-TF 1211 passed / 0 failed | OK | `v2/{reliability.py,reliability_classes.yaml}`, scheduler gate + standby hook, `tests/test_v2_reliability.py` | 0 |
 | 6 geometry gate + stronger search | `7719661`, `8baf4db`, `2f7d072` | `test_v2_search_and_gate.py` + all v2 suites = 41/41 x3 fresh procs; full non-TF 1215 passed / 0 failed | gate harness ready; full 20x12 run in flight | `v2/{geometry_gate.py,stronger_search.py,heft_bridge.py}`, `tests/test_v2_search_and_gate.py` | 0 |
-| 7 CRN evaluator (Gumbel) | pending | - | - | - | 0 |
+| 7 CRN evaluator (Gumbel) | `3993ead` + fix | `test_v2_crn.py` 11 x3 fresh procs; full non-TF 1226 passed / 0 failed / 18 skipped | protocol + stateless policy path done; TF-gated container check pending | `v2/crn.py`, `policies/meta_seq2seq_policy.py` (opt-in CRN helper), `tests/test_v2_crn.py`, `tests/test_v2_crn_tf.py` | 0 |
 | 8 repeated/adversarial/v1-parity battery | pending | - | - | - | 0 |
 | 9 v2 1x500 + checkpoint eval | BLOCKED until gate 6 passes | - | - | - | 0 |
 
@@ -68,3 +68,25 @@ Stated limits carried forward: no helper/V2V claim (HELPER-only plans never win;
 regimes barely differ), contention is the supported mechanism, and the absolute gap to v1
 includes a measured model difference (+/-2% single-DAG parity bias, transfer accounting
 differs on 24/48 rows).
+
+## Stage-7 notes and open scoping item
+
+Done: the CRN protocol (`automotive_crn_gumbel_v1`) with deterministic Gumbel keys,
+Gumbel-max actions, nested R x S aggregation and paired deltas; plus an opt-in stateless
+sampling path in `Seq2SeqPolicy` (`enable_crn=False` by default, so the frozen v1 graph is
+untouched - the full suite still passes).
+
+Test-isolation defect found and fixed: some suite modules install a lightweight
+`tensorflow` stub in `sys.modules`, so a bare `import tensorflow` made the TF-gated tests
+run against the stub and fail (`3 failed`) when the suite ran as a whole while passing
+(skipping) in isolation. The gate now requires real TF1.15 APIs
+(`tf.compat.v1`, `tf.random.stateless_multinomial`, a version string).
+
+Open scoping item for stage 9: stages 3-6 built a **scheduler-level** v2 system model
+(numpy) plus the geometry gate. Running the v2 1x500 requires a v2 *training-integration*
+layer that does not exist yet: a v2 env exposing the 20-token plan API with the v2
+observation (estimated link state, helper contact/occupancy, reliability context), the v2
+reward/telemetry from the shared scheduler, and the trainer/sampler bridge. That is a new
+build item (comparable in size to the v1 automotive integration) and it is the next major
+work item; the geometry gate's PASS permits it but nothing on the GPU may start before it
+land with its own tests.

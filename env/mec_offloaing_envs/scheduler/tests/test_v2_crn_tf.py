@@ -19,8 +19,12 @@ if str(ROOT) not in sys.path:
 try:
     import tensorflow as tf
 
-    HAS_TF = True
-except Exception:  # pragma: no cover
+    # some suite modules install a lightweight `tensorflow` stub in sys.modules, so a bare
+    # import is not enough: require real TF1.15 APIs before running the TF-gated tests
+    HAS_TF = bool(getattr(tf, "__version__", "")) and hasattr(tf, "compat") and \
+        hasattr(getattr(tf, "compat", None), "v1") and \
+        hasattr(getattr(tf, "random", None), "stateless_multinomial")
+except Exception:
     HAS_TF = False
 
 
