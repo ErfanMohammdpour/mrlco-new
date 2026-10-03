@@ -15,7 +15,7 @@ Correctness evidence logged on every iteration:
 | check | value | meaning |
 |---|---|---|
 | `correctness/lambda_broadcast_targets` | 11 | 1 original env + 10 executor clones receive lambda (Gate C) |
-| `correctness/core_scratch_sync_count` | 6 per validation | core -> scratch sync happens twice per validation, verified (Gate B) |
+| `correctness/core_scratch_sync_count` | 2 per validation (6 total after the validations at itr 0, 50, 100) | core -> scratch sync happens once per k-step and is verified (Gate B) |
 | `correctness/core_unchanged_after_adaptation` | True | adaptation never mutates the trained core |
 | `constraint/batch_size_after_reset_*` | 0 | the dual batch is emptied every outer iteration (Gate D2) |
 | `constraint/penalty` non-zero | 74/101 iterations | the Lagrangian penalty reaches the rollout rewards (D1 + C); iteration 0 is unpenalised by construction because lambda starts at 0 |
@@ -51,6 +51,13 @@ Label: `old_training_latency_only_corrected_evaluator` - the pilot reward was la
 * Interpretation: the 500-iteration latency-only cores had effectively converged to a near-all-MEC policy that is at or slightly better than the best pure reference on the same instances. This is a *measurement* result, not yet a paper claim: one MC realization per graph, 40 validation graphs, no meta-test.
 
 ## Gate I - does mixed placement still pay off under the MC runtime?
+
+**Corrected interpretation (see `headroom_reanalysis.json`).** The first version of this
+section compared `best_mixed = min(greedy, HEFT)` against the best pure plan, which
+penalises the heuristics on graphs where they are bad while excluding all-MEC from the
+mixed candidate set. The honest benchmark question is the headroom of the FULL panel
+`min(all_MEC, greedy, HEFT)`, plus the question of WHERE a mixed win comes from.
+
 
 Every method is evaluated on the SAME graph and the SAME frozen MC realization; `best_pure` = min over all-UE / all-MEC / all-HELPER, `best_mixed` = min over the MC-aware coordinate-descent greedy and HEFT v2 (`heft_reference_v2`).
 

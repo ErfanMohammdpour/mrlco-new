@@ -1,6 +1,8 @@
 # Correctness repair status (pre-long-run gates A-F)
 
-`status = BLOCKED_FOR_LONG_RUN` until Gate F passes on the GPU.
+`status = BLOCKED_FOR_LONG_RUN`: Gates A-I are green; the remaining blockers are
+protocol/claim decisions (Gate J/K), not defects - a fresh campaign must not start before
+the evaluation protocol is frozen and the adaptation/claim questions are answered.
 
 | gate | item | state |
 |---|---|---|

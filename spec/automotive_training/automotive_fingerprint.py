@@ -55,8 +55,17 @@ def sha256_file(path: Path) -> str:
 
 
 def _git_sha() -> str:
-    """Resolve HEAD without requiring the git binary (containers often lack it)."""
+    """Resolve HEAD without requiring the git binary (containers often lack it).
+
+    A launcher running on the host can inject `MARGO_GIT_SHA`, which takes precedence
+    because it is the revision of the tree the container actually mounted.
+    """
+    import os
     import subprocess
+
+    injected = os.environ.get("MARGO_GIT_SHA")
+    if injected:
+        return str(injected).strip()
 
     try:
         out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT,
@@ -85,8 +94,13 @@ def _git_sha() -> str:
 
 
 def _code_dirty():
-    """True/False when git is available, otherwise the explicit marker string."""
+    """True/False when git (or the launcher) can tell, otherwise an explicit marker."""
+    import os
     import subprocess
+
+    injected = os.environ.get("MARGO_CODE_DIRTY")
+    if injected is not None and str(injected).strip() != "":
+        return str(injected).strip().lower() in ("1", "true", "yes", "dirty")
 
     try:
         out = subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
