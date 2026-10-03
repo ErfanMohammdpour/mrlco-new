@@ -126,3 +126,21 @@ NOT wired into the frozen packer yet: `encoder_obs.set_obs_version` still reject
 at import time and therefore must land together with the trainer bridge, in one reviewed
 step, so no half-wired state can exist. Until then the policy input remains the v1 schema
 and `v2_context()` is telemetry only.
+
+## Observation version wired (automotive_v2_obs_v1) with v1 invariance proven
+
+`encoder_obs` now carries a fifth version: FEATURE_DIM 52, PACKED_DIM 91, layout
+`[features(40) | v2_context(12) | fw(19) | bw(19) | mask(1)]`. The context block is written
+only for that version; the MC block is written for both automotive versions.
+
+Evidence:
+* `V1_OBS_GOLDEN.json` (captured before the edit through the real `AutomotiveEnv._observation`
+  path, base_seed 303, validation_query()[:3]): all three sha16 hashes UNCHANGED after the
+  edit -> the frozen v1 observations are byte-identical.
+* equality invariant: `encode(v2, mc_context={... v2_context=ctx}) == pack_v2_row(encode(v1), ctx)`
+  and `v1_form_of_v2_row(v2) == v1` (both exact), asserted by test.
+* the v2 stats artifact loads for the new version (52 names, mean/std 52).
+* REGRESSION FOUND AND FIXED: adding the v2 context names to the module-level
+  `NON_STANDARDIZED_FEATURES` made the frozen v1 stats tool report the v1 file as STALE.
+  The exclusion is now version-scoped (`NON_STANDARDIZED_FEATURES_V2` used only by the v2
+  version), the tool reports "up to date" again, and the v1 module state is untouched.

@@ -67,8 +67,21 @@ def _v1_feature_names() -> tuple:
         encoder_obs.set_obs_version(previous)
 
 
+#: packed layout is [FEATURE_DIM | fw | bw | mask], so the context columns are INSERTED
+#: at the end of the feature block (not appended after the mask) - that is the only layout
+#: the graph2seq `unpack` can consume when FEATURE_DIM = 52.
+MAX_NEIGH = (V1_PACKED_DIM - V1_FEATURE_DIM - 1) // 2
+assert V1_FEATURE_DIM + 2 * MAX_NEIGH + 1 == V1_PACKED_DIM
+assert V2_FEATURE_DIM + 2 * MAX_NEIGH + 1 == V2_PACKED_DIM
+
+
 def pack_v2_row(v1_row: np.ndarray, context: np.ndarray) -> np.ndarray:
-    """Append the 12 v2 context columns to a packed v1 row [N, V1_PACKED_DIM]."""
+    """Insert the 12 v2 context columns at the end of the feature block.
+
+    `v1_row` is [N, 79] = [features(40) | fw(19) | bw(19) | mask(1)]; the result is
+    [N, 91] = [features(40) | ctx(12) | fw(19) | bw(19) | mask(1)]. The v1 feature columns,
+    the neighbor tables and the mask are preserved bit-for-bit.
+    """
     row = np.asarray(v1_row, dtype=np.float32)
     ctx = np.asarray(context, dtype=np.float32).reshape(-1)
     if row.ndim != 2 or row.shape[-1] != V1_PACKED_DIM:
@@ -79,16 +92,26 @@ def pack_v2_row(v1_row: np.ndarray, context: np.ndarray) -> np.ndarray:
                                  % (V2_CONTEXT_DIM, ctx.shape[0]))
     if not np.all(np.isfinite(ctx)):
         raise V2ObservationError("v2 context must be finite")
-    return np.concatenate([row, np.tile(ctx, (row.shape[0], 1))], axis=-1)
+    features = row[:, :V1_FEATURE_DIM]
+    tail = row[:, V1_FEATURE_DIM:]
+    block = np.tile(ctx, (row.shape[0], 1))
+    return np.concatenate([features, block, tail], axis=-1)
 
 
 def split_v2_row(v2_row: np.ndarray) -> tuple:
-    """Inverse of `pack_v2_row` (guards that the v1 prefix is untouched)."""
+    """Inverse of `pack_v2_row`: ([N, 40] features, [N, 12] context, [N, 39] tail)."""
     arr = np.asarray(v2_row, dtype=np.float32)
     if arr.ndim != 2 or arr.shape[-1] != V2_PACKED_DIM:
         raise V2ObservationError("v2 row must be [N, %d], got %s"
                                  % (V2_PACKED_DIM, (arr.shape,)))
-    return arr[:, :V1_PACKED_DIM], arr[:, V1_PACKED_DIM:]
+    return (arr[:, :V1_FEATURE_DIM], arr[:, V1_FEATURE_DIM:V2_FEATURE_DIM],
+            arr[:, V2_FEATURE_DIM:])
+
+
+def v1_form_of_v2_row(v2_row: np.ndarray) -> np.ndarray:
+    """Recover the equivalent v1 packed row (drops the context block)."""
+    features, _ctx, tail = split_v2_row(v2_row)
+    return np.concatenate([features, tail], axis=-1)
 
 
 def write_v2_stats_file(path: Path | None = None) -> Path:

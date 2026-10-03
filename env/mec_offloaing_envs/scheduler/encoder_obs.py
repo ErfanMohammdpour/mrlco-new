@@ -119,10 +119,43 @@ MC_FEATURE_NAMES: tuple[str, ...] = (
 )
 FEATURE_NAMES_AUTOMOTIVE_MC_V1: tuple[str, ...] = FEATURE_NAMES_V3 + MC_FEATURE_NAMES
 
+# --- automotive_v2_obs_v1: append-only v2 system-model context ------------------
+# The v2 context is a bounded per-graph vector (estimated link multipliers, link
+# confidences, helper contact/occupancy, reliability epsilon, criticality shares, MEC
+# worker count). All entries are identity-normalised [0,1] or small positive scalars, so
+# their frozen stats rows are identity and no corpus refit is needed. The first
+# 40/79 columns are BYTE-IDENTICAL to automotive_mc_obs_v1 (guarded by
+# V1_OBS_GOLDEN.json and by test_v2_observation.py).
+V2_CONTEXT_FEATURE_NAMES: tuple[str, ...] = (
+    "automotive_v2_obs_v1_est_ul",
+    "automotive_v2_obs_v1_est_dl",
+    "automotive_v2_obs_v1_est_v2v",
+    "automotive_v2_obs_v1_conf_ul",
+    "automotive_v2_obs_v1_conf_dl",
+    "automotive_v2_obs_v1_conf_v2v",
+    "automotive_v2_obs_v1_helper_contact_remaining_s",
+    "automotive_v2_obs_v1_helper_busy_fraction",
+    "automotive_v2_obs_v1_epsilon_class",
+    "automotive_v2_obs_v1_criticality_high_share",
+    "automotive_v2_obs_v1_criticality_medium_share",
+    "automotive_v2_obs_v1_mec_workers",
+)
+FEATURE_NAMES_AUTOMOTIVE_V2: tuple[str, ...] = (
+    FEATURE_NAMES_AUTOMOTIVE_MC_V1 + V2_CONTEXT_FEATURE_NAMES
+)
+AUTOMOTIVE_OBS_VERSIONS: tuple[str, ...] = (
+    "automotive_mc_obs_v1", "automotive_v2_obs_v1",
+)
+
 NON_STANDARDIZED_FEATURES: tuple[str, ...] = (
     "is_root",
     "is_sink",
 ) + DEADLINE_FEATURE_NAMES + MC_FEATURE_NAMES
+#: the v2 context block is excluded from standardisation ONLY for the v2 version, so the
+#: v1 module-level state (and its frozen stats/standardisation fingerprint) is untouched.
+NON_STANDARDIZED_FEATURES_V2: tuple[str, ...] = (
+    NON_STANDARDIZED_FEATURES + V2_CONTEXT_FEATURE_NAMES
+)
 
 # Mutable active schema (default v1). Policies import these names at load time —
 # set MARGO_OBS_VERSION before importing graph2seq / policies for v2 jobs.
@@ -136,7 +169,8 @@ OBS_VERSION = "v1"
 
 # Version sets. Append-only: the new schema shares the v3 deadline/feasibility
 # block, so the guards below key off these tuples instead of literal equality.
-DEADLINE_OBS_VERSIONS: tuple[str, ...] = ("v3", "automotive_mc_obs_v1")
+DEADLINE_OBS_VERSIONS: tuple[str, ...] = ("v3", "automotive_mc_obs_v1",
+                                         "automotive_v2_obs_v1")
 RESOURCE_OBS_VERSIONS: tuple[str, ...] = ("v2",) + DEADLINE_OBS_VERSIONS
 
 _SPEC_DIR = Path(__file__).resolve().parents[3] / "spec"
@@ -145,6 +179,9 @@ _DEFAULT_STATS_PATH_V2 = _SPEC_DIR / "encoder_feature_stats_v2.json"
 _DEFAULT_STATS_PATH_V3 = _SPEC_DIR / "encoder_feature_stats_v3.json"
 _DEFAULT_STATS_PATH_AUTOMOTIVE_MC_V1 = (
     _SPEC_DIR / "encoder_feature_stats_automotive_mc_v1.json"
+)
+_DEFAULT_STATS_PATH_AUTOMOTIVE_V2 = (
+    _SPEC_DIR / "encoder_feature_stats_automotive_v2.json"
 )
 _STATS_CACHE = None  # type: ignore[var-annotated]
 _STATS_CACHE_VERSION: str | None = None
@@ -159,9 +196,10 @@ def set_obs_version(version: str) -> None:
     global FEATURE_NAMES, STANDARDIZE_FEATURES, FEATURE_DIM, PACKED_DIM, OBS_VERSION
     global _STATS_CACHE, _STATS_CACHE_VERSION
     version = str(version).lower().strip()
-    if version not in ("v1", "v2", "v3", "automotive_mc_obs_v1"):
+    if version not in ("v1", "v2", "v3") + AUTOMOTIVE_OBS_VERSIONS:
         raise EncoderGraphError(
-            "obs version must be v1, v2, v3 or automotive_mc_obs_v1, got %r" % version
+            "obs version must be v1, v2, v3, %s, got %r"
+            % (" or ".join(AUTOMOTIVE_OBS_VERSIONS), version)
         )
     if version == "v1":
         FEATURE_NAMES = FEATURE_NAMES_V1
@@ -169,10 +207,14 @@ def set_obs_version(version: str) -> None:
         FEATURE_NAMES = FEATURE_NAMES_V2
     elif version == "v3":
         FEATURE_NAMES = FEATURE_NAMES_V3
+    elif version == "automotive_v2_obs_v1":
+        FEATURE_NAMES = FEATURE_NAMES_AUTOMOTIVE_V2
     else:
         FEATURE_NAMES = FEATURE_NAMES_AUTOMOTIVE_MC_V1
+    excluded = (NON_STANDARDIZED_FEATURES_V2 if version == "automotive_v2_obs_v1"
+                else NON_STANDARDIZED_FEATURES)
     STANDARDIZE_FEATURES = frozenset(
-        name for name in FEATURE_NAMES if name not in NON_STANDARDIZED_FEATURES
+        name for name in FEATURE_NAMES if name not in excluded
     )
     FEATURE_DIM = len(FEATURE_NAMES)
     PACKED_DIM = FEATURE_DIM + 2 * MAX_NEIGH + 1
@@ -349,7 +391,9 @@ def load_feature_stats(path: str | Path | None = None) -> FeatureStats:
 def default_feature_stats() -> FeatureStats:
     global _STATS_CACHE, _STATS_CACHE_VERSION
     if _STATS_CACHE is None or _STATS_CACHE_VERSION != OBS_VERSION:
-        if OBS_VERSION == "automotive_mc_obs_v1":
+        if OBS_VERSION == "automotive_v2_obs_v1":
+            path = _DEFAULT_STATS_PATH_AUTOMOTIVE_V2
+        elif OBS_VERSION == "automotive_mc_obs_v1":
             path = _DEFAULT_STATS_PATH_AUTOMOTIVE_MC_V1
         elif OBS_VERSION == "v3":
             path = _DEFAULT_STATS_PATH_V3
@@ -562,6 +606,34 @@ def _mc_task_entry(per_task: Mapping, tid: int) -> Any:
     return entry if isinstance(entry, Mapping) else None
 
 
+def _v2_context_block(n: int, mc_context: Any) -> np.ndarray:
+    """[N, len(V2_CONTEXT_FEATURE_NAMES)] v2 context, broadcast over the DAG's nodes.
+
+    `mc_context["v2_context"]` is the 12-vector produced by `v2.env.V2AutomotiveEnv`; it is
+    per-graph (not per-task), so every node row carries the same values. Missing or invalid
+    context -> zeros, never NaN (the documented "not annotated" encoding).
+    """
+    out = np.zeros((n, len(V2_CONTEXT_FEATURE_NAMES)), dtype=np.float64)
+    if not isinstance(mc_context, Mapping):
+        return out
+    raw = mc_context.get("v2_context")
+    if raw is None:
+        return out
+    try:
+        values = np.asarray(raw, dtype=np.float64).reshape(-1)
+    except (TypeError, ValueError):
+        return out
+    if values.shape[0] != len(V2_CONTEXT_FEATURE_NAMES):
+        raise EncoderGraphError(
+            "v2_context must have %d entries, got %d"
+            % (len(V2_CONTEXT_FEATURE_NAMES), values.shape[0])
+        )
+    if not np.all(np.isfinite(values)):
+        raise EncoderGraphError("v2_context must be finite (got %r)" % (values,))
+    out[:, :] = values
+    return out
+
+
 def _mc_block(
     dag: CanonicalDAG,
     order: Sequence[int],
@@ -714,10 +786,14 @@ def raw_node_features(
         rows[:, deadline_start:deadline_end] = _deadline_block(
             dag, order, bounds, resources, cycles_per_bit
         )
-        if OBS_VERSION == "automotive_mc_obs_v1":
+        if OBS_VERSION in AUTOMOTIVE_OBS_VERSIONS:
             mc_start = name_index[MC_FEATURE_NAMES[0]]
             mc_end = mc_start + len(MC_FEATURE_NAMES)
             rows[:, mc_start:mc_end] = _mc_block(dag, order, mc_context)
+        if OBS_VERSION == "automotive_v2_obs_v1":
+            v2_start = name_index[V2_CONTEXT_FEATURE_NAMES[0]]
+            v2_end = v2_start + len(V2_CONTEXT_FEATURE_NAMES)
+            rows[:, v2_start:v2_end] = _v2_context_block(len(order), mc_context)
     return rows
 
 

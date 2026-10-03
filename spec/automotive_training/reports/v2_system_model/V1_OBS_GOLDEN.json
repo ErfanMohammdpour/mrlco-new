@@ -1,0 +1,28 @@
+{
+  "graphs": {
+    "mcv1_lpp_s0_whigh_dloose_rhigh_end": {
+      "sha16": "9d73e9605b7b560c",
+      "shape": [
+        20,
+        79
+      ]
+    },
+    "mcv1_lpp_s0_whigh_dnominal_rlow_end": {
+      "sha16": "dfb6b9dda71bd3d1",
+      "shape": [
+        20,
+        79
+      ]
+    },
+    "mcv1_lpp_s0_whigh_dtight_rhigh_end": {
+      "sha16": "7777907b07c8b9bf",
+      "shape": [
+        20,
+        79
+      ]
+    }
+  },
+  "obs_version": "automotive_mc_obs_v1",
+  "schema": "v1_obs_golden_v1",
+  "source": "AutomotiveEnv._observation path, validation_query()[:3], base_seed=303"
+}
