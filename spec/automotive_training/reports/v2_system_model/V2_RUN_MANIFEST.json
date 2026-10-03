@@ -6,10 +6,17 @@
     "V2_ENERGY_SPEC.md": "verified code/config artifact",
     "V2_FINAL_ACCEPTANCE.md": "verified code/config artifact",
     "V2_FLOW_CONTRACT.md": "verified code/config artifact",
+    "V2_PPO_META_AUDIT.md": "PPO/MRLCO likelihood-ratio and reset contract audit",
     "V2_REGRESSION_DIAGNOSIS.md": "verified code/config artifact",
     "V2_RUN_MANIFEST.json": "verified code/config artifact",
     "V2_STAGE_LOG.md": "verified code/config artifact",
     "V2_THROUGHPUT.json": "verified code/config artifact"
+  },
+  "blocker": {
+    "condition": "TensorFlow 1.15 with tf.contrib is not installable for this interpreter",
+    "evidence": "python3 -c 'import tensorflow' -> ModuleNotFoundError; the frozen PPO/MRLCO/policy chain imports tf.compat.v1 + tf.contrib",
+    "remaining": "run the TF smoke chain (support -> inner PPO -> query -> outer -> checkpoint save/restore -> resume) and the diagnostic 1x500 training run",
+    "unblocked_work_completed": "all CPU-accessible repairs, tests, gates, parity, CRN R/S loop, benchmark and artifacts"
   },
   "commands": {
     "benchmark": "python3 -m spec.automotive_training.v2.benchmark_v2 --graphs 10 --iters 3 --slots 10",
@@ -57,11 +64,13 @@
     "geometry_gate_json_sha256": "82c675642af5b8cabe0df9cc785765cb86d440650b13a58d4d2135610c02e6a5",
     "geometry_gate_sha256": "35b8d4bde8e914241565b66d4c4e1bb660fc679efe55b77f4a56a81d17c08da8",
     "link_model_sha256": "6a76ae550828ab2f95fe0c7858eaf0404b252387221937ac2494dd6394f94036",
+    "obs_contract_fields_sha256": "5133b6c213e2bd89f09aed03b8a5db03d41e09ee5b13d435d5223994894c4d52",
     "obs_schema_sha256": "f5b5828cfa02bb5cefaa4e3bbb489dfea84af1bf4b32f975bd47474b53c126c8",
     "obs_version": "automotive_v2_obs_v1",
     "observation_sha256": "2ce645004f27c095c033c5a806b2f5f87435b5ce8ccdfe7317262806b5ae182f",
     "parity_json_sha256": "5c6af1cd54b163b0704c418b00d757cc7175bd0e85097347183022cfba460d3f",
     "parity_study_sha256": "ec94fa163ffe6be286e5636faaf8d4860b96cd17313453bfd38c753e0761eee9",
+    "ppo_contract_test_sha256": "19eec8d9ade1fd4979bec626a7ddbc7f6f8e153f09276c473aa64590e485f21f",
     "reliability_sha256": "0f822848a700ade83cce4dfb2f63ca274da34d7dad799867cedf6ca8c00b2a25",
     "shared_scheduler_sha256": "b147f76d75270043309374ecabe90b074d923e6417263d0c6058ef89058d9671",
     "throughput_json_sha256": "8effc4f2c0cc302e8e2d751f66bfc7ed1a9c5a1386d8b9946b0d25eb496bb57f",
@@ -74,8 +83,9 @@
   },
   "limitations": [
     "TF encoder consumption of the 109-wide schema and any gradient check through the context columns are NOT RUN",
-    "PPO/MRLCO correctness for v2, checkpoint save/restore and the end-to-end smoke are NOT RUN",
+    "PPO/MRLCO EXECUTION for v2, checkpoint save/restore and the end-to-end smoke are NOT RUN (numpy contract and source guards only)",
     "the CRN R/S loop executes with a numpy reference policy, not the trained TF policy",
+    "the frozen chain requires TensorFlow 1.15 with tf.contrib, unavailable for this interpreter (Python 3.14 / Apple Silicon)",
     "estimate age is 0 at plan time under every shipped regime (the estimator refreshes each decision epoch)",
     "kappa_helper/kappa_mec and the TX powers cite a 2023 source that could not be re-verified; flagged unverified in V2_ENERGY_SPEC",
     "no accessible 2024-2026 primary source gives a helper/V2V relay energy equation: transparent assumption",
@@ -87,7 +97,7 @@
   "repository": {
     "audit_baseline": "d0af6f1bb7b1309f20fed66d33450ff67fda3f25",
     "branch": "phase5-realistic-system-v2",
-    "code_commit": "1226612bda03c0793b64a3323ebfe9ae6b588d35",
+    "code_commit": "dc33dad844fb20252400c99f2df67e095cb55962",
     "docs_commit": "this manifest is a documentation-only commit after the code commit",
     "frozen_v1_additive_note": "automotive_primary.py carries an additive default-off env_factory hook (commit 65de171); the v1 path with env_factory=None is unchanged; encoder_obs.py now DERIVES its v2 feature names from spec/.../context_fields.py instead of duplicating them",
     "frozen_v1_diff_engine_and_env": "EMPTY",
@@ -119,9 +129,16 @@
     },
     "non_tf": {
       "failed": 0,
-      "passed": 1354,
+      "passed": 1362,
       "skip_reason": "all 19 skips require TensorFlow",
       "skipped": 19
+    },
+    "ppo_meta_contract": {
+      "artifact": "V2_PPO_META_AUDIT.md",
+      "executed": "numpy likelihood-ratio contract (8 tests) in test_v2_ppo_contract.py",
+      "not_run": "any execution of the TF 1.15 graph, support/query independence, update magnitudes, checkpoint contents, resume",
+      "reviewed_static": "ratio built from stored actions; per-task inner-optimizer reset; per-iteration core sync; first-order mean_pseudogradient with no tf.gradients",
+      "status": "PARTIAL"
     },
     "tf": {
       "reason": "TensorFlow is not installed",
