@@ -29,6 +29,8 @@ from spec.automotive_training.v2.adapters import (
 )
 from spec.automotive_training.v2.helper_model import HelperState, make_helpers
 from spec.automotive_training.v2.link_model import LINK_DL, LINK_UL, LINK_V2V, make_process
+# NOTE: `v2.observation` imports V2_CONTEXT_FIELDS from this module, so the observation
+# helpers are imported lazily inside the methods that need them (no module-level cycle).
 from spec.automotive_training.v2.reliability import load_classes, standby_required
 from spec.automotive_training.v2.shared_scheduler import (
     MEC, UE, V2ComputeSpec, V2ScheduleError, schedule_shared,
@@ -124,6 +126,12 @@ class V2AutomotiveEnv:
 
     @property
     def input_dim(self) -> int:
+        """91 when the v2 obs schema is active, otherwise the frozen 79."""
+        from env.mec_offloaing_envs.scheduler import encoder_obs
+        from spec.automotive_training.v2.observation import V2_OBS_VERSION, V2_PACKED_DIM
+
+        if str(getattr(encoder_obs, "OBS_VERSION", "")) == V2_OBS_VERSION:
+            return int(V2_PACKED_DIM)
         return self.base.input_dim
 
     @property
@@ -158,6 +166,7 @@ class V2AutomotiveEnv:
             self.helper_states.append(make_helpers(
                 specs, seed=self.base_seed * 7919 + self.episodes * 31 + i,
                 contact_mean_s=self.helper_contact_mean_s, contact_cv=self.helper_contact_cv))
+        self.last_v2_context = self._contexts()
         self.last_link_summary = {}
         if self.link_process is not None:
             graph0 = self.base.graph_objects[self.base._graph_index(slots[0])]
@@ -165,7 +174,25 @@ class V2AutomotiveEnv:
             self.last_link_summary = self.link_process.summary(
                 {"mec_ul": cfg.mec_ul_bytes_per_s, "mec_dl": cfg.mec_dl_bytes_per_s,
                  "v2v": cfg.v2v_bytes_per_s})
-        return obs
+        return self._packed_observation(self.last_v2_context)
+
+    def _packed_observation(self, contexts) -> np.ndarray:
+        """Frozen v1 rows with the 12 v2 context columns inserted (91-wide)."""
+        from spec.automotive_training.v2.observation import V2_PACKED_DIM, pack_v2_row
+
+        rows = self.base._slice_current(self.base.encoder_batchs)
+        rows = np.asarray(rows, dtype=np.float32)
+        if rows.shape[-1] == V2_PACKED_DIM:
+            return rows
+        out = np.empty((rows.shape[0], rows.shape[1], V2_PACKED_DIM), dtype=np.float32)
+        for slot in range(rows.shape[0]):
+            out[slot] = pack_v2_row(rows[slot], np.asarray(contexts[slot], dtype=np.float32))
+        return out
+
+    def _contexts(self) -> list:
+        indices = getattr(self.base, "graph_indices", None)
+        slots = [] if indices is None else [int(s) for s in indices]
+        return [self._context_vector(slot) for slot in slots]
 
     # -- execution ---------------------------------------------------------
     def _schedule_slot(self, slot: int, actions: Sequence[int]):
@@ -262,7 +289,7 @@ class V2AutomotiveEnv:
             energy = 0.0
             energy_batch.append(np.full(len(rewards), float(energy), dtype=np.float32))
             telemetry_batch.append(telemetry.as_dict())
-        obs = np.array(self.base._slice_current(self.base.encoder_batchs))
+        obs = self._packed_observation(self.last_v2_context)
         return obs, reward_batch, True, (finish_batch, energy_batch, telemetry_batch)
 
     # -- v2 context (not yet in the TF observation) ------------------------
