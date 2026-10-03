@@ -242,27 +242,72 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     concurrency: list = []
 
     def reserve_transfer(cal: Calendar, ready: float, payload: float, hop: str):
+        """Book a transfer with the rate at the ACTUAL start and an accumulated-service model.
+
+        * constant rate      -> duration = payload / rate  (exactly T = B/R);
+        * variable rate      -> the transfer ends when the SERVICED BYTES reach the payload;
+        * outage mid-transfer-> the transfer pauses (no service) and the pause is logged as
+          outage wait instead of silently shrinking the duration.
+
+        The booking uses a two-step fixed point because the earliest free calendar slot can be
+        later than `ready`, and a later start may see a different rate.
+        """
         link_name = HOP_TO_LINK[hop]
-        base = _rate_for(hop, 0, link)
-        t = float(ready)
+        base = float(_rate_for(hop, 0, link))
+        payload = float(payload)
         outage_wait = 0.0
         outage_events = 0
-        if link_process is not None:
-            dt = link_process.regime.dt_s
+        start = float(ready)
+        end = start
+        for _attempt in range(3):
+            _end0, _idx0, start0 = cal._earliest_fit(float(ready), 0.0)
+            t = float(start0)
+            served = 0.0
+            if payload <= 0.0 or link_process is None:
+                duration = payload / base if base > 0.0 else 0.0
+                end = t + duration
+                break
+            dt = float(link_process.regime.dt_s)
+            steps = 0
+            while served + 1e-12 < payload:
+                steps += 1
+                if steps > 100000:
+                    raise V2ScheduleError(
+                        "transfer on %s did not complete within the step budget" % link_name)
+                rate = base * link_process.realized(link_name, t)
+                if rate <= 0.0:
+                    t += dt
+                    outage_wait += dt
+                    outage_events += 1
+                    continue
+                remaining = payload - served
+                step = min(dt, remaining / rate)
+                served += rate * step
+                t += step
+            end = t
+            if abs(start0 - start) < 1e-12:
+                start = start0
+                break
+            start = start0
+        booked_start, booked_end = cal.reserve(start, max(0.0, end - start))
+        if booked_start != start:
+            # the calendar shifted the booking: fall back to a constant-rate booking at the
+            # booked start so the recorded interval and the calendar agree exactly
+            rate = base if link_process is None else base * link_process.realized(link_name, booked_start)
+            outage_wait_more = 0.0
+            outage_events_more = 0
             for _ in range(4096):
-                if link_process.realized(link_name, t) > 0.0:
+                if rate > 0.0:
                     break
-                t += dt
-                outage_wait += dt
-                outage_events += 1
-            else:
-                raise V2ScheduleError("link %s stayed out for the whole horizon" % link_name)
-            rate = link_process.realized_rate(base, link_name, t)
-        else:
-            rate = base
-        duration = float(payload) / rate
-        start, end = cal.reserve(t, duration)
-        return start, end, duration, outage_wait, outage_events
+                booked_start += float(link_process.regime.dt_s)
+                outage_wait_more += float(link_process.regime.dt_s)
+                outage_events_more += 1
+                rate = base * link_process.realized(link_name, booked_start)
+            booked_start, booked_end = cal.reserve(
+                booked_start, (payload / rate) if rate > 0.0 else 0.0)
+            outage_wait += outage_wait_more
+            outage_events += outage_events_more
+        return booked_start, booked_end, max(0.0, booked_end - booked_start), outage_wait, outage_events
 
     timings: dict = {}
     finish: dict = {}
