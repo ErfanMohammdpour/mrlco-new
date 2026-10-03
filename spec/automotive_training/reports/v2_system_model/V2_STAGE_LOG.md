@@ -7,7 +7,7 @@
 | 3 dynamic links (estimated vs realized) | `901f342` | `test_v2_link_model.py` + `test_v2_shared_scheduler.py` = 17/17 x3 fresh procs; full non-TF 1191 passed / 0 failed | OK | `v2/{link_model.py,link_regimes.yaml}`, scheduler link-process hook, `tests/test_v2_link_model.py` | 0 |
 | 4 helper availability/contact/busy | `9d0afcc` | `test_v2_helper_model.py` (10) + scheduler/link suites = 28/28 x3 fresh procs; full non-TF 1202 passed / 0 failed | OK - plus a real calendar fix | `v2/helper_model.py`, `v2/shared_scheduler.py` (earliest-fit calendars, helper admissibility/failure), `tests/test_v2_helper_model.py` | 0 |
 | 5 criticality reliability + fallback hooks | staged | `test_v2_reliability.py` (9) + all v2 suites = 37/37 x3 fresh procs; full non-TF 1211 passed / 0 failed | OK | `v2/{reliability.py,reliability_classes.yaml}`, scheduler gate + standby hook, `tests/test_v2_reliability.py` | 0 |
-| 6 geometry gate + stronger search | staged, run in flight | `test_v2_search_and_gate.py` + all v2 suites = 41/41 x3 fresh procs; full non-TF 1215 passed / 0 failed | gate harness ready; full 20x12 run in flight | `v2/{geometry_gate.py,stronger_search.py,heft_bridge.py}`, `tests/test_v2_search_and_gate.py` | 0 |
+| 6 geometry gate + stronger search | `7719661` + fix | `test_v2_search_and_gate.py` + all v2 suites = 41/41 x3 fresh procs; full non-TF 1215 passed / 0 failed | gate harness ready; full 20x12 run in flight | `v2/{geometry_gate.py,stronger_search.py,heft_bridge.py}`, `tests/test_v2_search_and_gate.py` | 0 |
 | 7 CRN evaluator (Gumbel) | pending | - | - | - | 0 |
 | 8 repeated/adversarial/v1-parity battery | pending | - | - | - | 0 |
 | 9 v2 1x500 + checkpoint eval | BLOCKED until gate 6 passes | - | - | - | 0 |
@@ -19,3 +19,15 @@
 3. No bits/bytes unit error: conversion is exactly 8.0 on every link (160 graphs). The 7-11 Mbps figures are the documented historical/degraded points; per-graph realized medians are 18.5 / 22.5 / 10.6 Mbps (ul/dl/v2v), profile-stratified in `V1_RATE_PROVENANCE.csv`.
 4. `mec_share_N` rows relabelled **SURROGATE CONTENTION SENSITIVITY** (processor sharing), not a multi-user simulation.
 5. Earlier "16x unit error" and the single-graph rate quote are retracted in the errata.
+
+## ERRATUM (stage 6, first run)
+
+The first full gate run wrote `GEOMETRY_GATE.json` with `verdict.gate = PASS`, but its
+**MEC-load axis was a no-op**: `_with_background` built the N-1 background DAGs and was
+never called, so regimes A-D were identical and the load axis carried no signal. The
+verdict from that run is **INVALID**. Fix: the background DAGs are now scheduled in the
+same `schedule_shared` batch as the foreground and the reported time is the foreground
+DAG's completion (`completion_by_dag["fg"]`). A corrected 20-graph x 12-regime run is in
+flight; only its verdict may be reported, and only together with both
+`all_MEC_winner_fraction` and `all_MEC_winner_fraction_no_search` (the latter excludes the
+search-based candidate, which by construction starts from all-MEC).

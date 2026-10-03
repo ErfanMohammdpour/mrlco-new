@@ -61,28 +61,27 @@ REGIMES = {
 
 def _candidate_makespan(graph, plans, link, compute, mc, *, link_process=None,
                         helper_states=None, reliability_gate=None, evidence=None,
-                        standby_for=None) -> float:
+                        standby_for=None, background=None) -> float:
+    """Foreground DAG completion when scheduled TOGETHER with the background load.
+
+    The background DAGs consume MEC CPU and the shared MEC radio, so "MEC load" becomes a
+    real queueing state instead of a parameter. The returned time is the completion of the
+    foreground DAG (`completion_by_dag["fg"]`), not the makespan of the whole batch.
+    """
     dag = dag_spec_from_graph(graph, dag_id="fg", owner=0, mc=mc,
                               helper_id=0 if helper_states else None)
-    res = schedule_shared([dag], {"fg": plans}, link=link, compute=compute,
+    dags = [dag]
+    plan_batch = {"fg": plans}
+    if background:
+        bg_dags, bg_plans = background
+        dags = list(bg_dags) + [dag]
+        plan_batch = dict(bg_plans)
+        plan_batch["fg"] = plans
+    res = schedule_shared(dags, plan_batch, link=link, compute=compute,
                           link_process=link_process, helper_states=helper_states,
                           reliability_gate=reliability_gate, reliability_evidence=evidence,
                           standby_for=standby_for)
-    return float(res.makespan_s)
-
-
-def _with_background(graph, spec, link, compute, mc, base_seed: int):
-    """N-1 background DAGs on MEC keep the shared resources busy for the foreground."""
-    load = int(spec.get("load", 1))
-    if load <= 1:
-        return link, compute, None, None
-    helpers = None
-    compute_bg = V2ComputeSpec(compute.mec_cpu_bytes_per_s, compute.mec_workers,
-                               compute.ue_cpu_bytes_per_s, compute.helper_cpu_bytes_per_s)
-    dags = [dag_spec_from_graph(graph, dag_id="bg%d" % i, owner=0, mc=mc)
-            for i in range(load - 1)]
-    plans = {d.dag_id: pure_plan(graph, 1) for d in dags}
-    return link, compute_bg, (dags, plans), helpers
+    return float(res.completion_by_dag["fg"])
 
 
 def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) -> dict:
@@ -112,12 +111,21 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
         evidence = {"link_confidence": float(spec.get("confidence", 1.0)),
                     "outage_fraction": float(spec.get("outage", 0.0))} if gate else None
 
+        # concurrent background load on the shared MEC (N-1 identical DAGs)
+        load = int(spec.get("load", 1))
+        background = None
+        if load > 1:
+            bg_dags = [dag_spec_from_graph(graph, dag_id="bg%d" % i, owner=0, mc=mc)
+                       for i in range(load - 1)]
+            background = (bg_dags, {d.dag_id: pure_plan(graph, 1) for d in bg_dags})
+
         def cand(actions):
             return _candidate_makespan(graph, plan_map_from_actions(graph, actions), link,
                                        compute, mc, link_process=link_process,
                                        helper_states=helper_states,
                                        reliability_gate=gate, evidence=evidence,
-                                       standby_for=standby_rel if gate else None)
+                                       standby_for=standby_rel if gate else None,
+                                       background=background)
 
         standby_rel = standby_required
         panel = {
@@ -139,7 +147,8 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
                                             link_process=link_process,
                                             helper_states=helper_states,
                                             reliability_gate=gate, evidence=evidence,
-                                            standby_for=standby_rel if gate else None)
+                                            standby_for=standby_rel if gate else None,
+                                            background=background)
                 if best is None or value < best[0]:
                     best = (value, action)
             chosen[tok] = best[1]
@@ -147,13 +156,14 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
                                                  link_process=link_process,
                                                  helper_states=helper_states,
                                                  reliability_gate=gate, evidence=evidence,
-                                                 standby_for=standby_rel if gate else None)
+                                                 standby_for=standby_rel if gate else None,
+                                                 background=background)
         # bounded stronger search (candidate-search lower bound)
         sr = stronger_search(tokens, lambda plan: _candidate_makespan(
             graph, plan, link, compute, mc, link_process=link_process,
             helper_states=helper_states, reliability_gate=gate, evidence=evidence,
-            standby_for=standby_rel if gate else None), starts=2, seed=seed + gi,
-            budget=search_budget, ils_rounds=1)
+            standby_for=standby_rel if gate else None, background=background), starts=2,
+            seed=seed + gi, budget=search_budget, ils_rounds=1)
         panel["stronger_search"] = sr.objective
         pure = {k: panel[k] for k in ("all_UE", "all_MEC", "all_HELPER")}
         best_pure, best_pure_name = min((v, k) for k, v in pure.items())

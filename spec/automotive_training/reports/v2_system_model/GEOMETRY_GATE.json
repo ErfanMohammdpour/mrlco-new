@@ -1,0 +1,4866 @@
+{
+  "graphs_per_regime": 20,
+  "regimes": {
+    "A_mec_idle_stable_v2i": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.1,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 9.263510908283443,
+      "headroom_vs_best_pure_mean_pct": 5.9725052069109115,
+      "headroom_vs_best_pure_median_pct": 6.200850622641398,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "A_mec_idle_stable_v2i",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.1196333463763075,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015127358592847672,
+            "heft_v2": 0.01899700634824947,
+            "stronger_search": 0.015210436602285417
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.604051333892235,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.871167034935087,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04276934908883577,
+            "heft_v2": 0.043836309357508735,
+            "stronger_search": 0.04220660164834307
+          },
+          "search_evaluations": 386,
+          "stronger_search_gain_vs_all_MEC_pct": 6.871167034935087,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.282067898906488,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015561240278315418,
+            "heft_v2": 0.01995812465435247,
+            "stronger_search": 0.01523802152228686
+          },
+          "search_evaluations": 268,
+          "stronger_search_gain_vs_all_MEC_pct": 6.282067898906488,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.639846932558236,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01829475695105084,
+            "heft_v2": 0.03194856378063623,
+            "stronger_search": 0.018014082224927657
+          },
+          "search_evaluations": 306,
+          "stronger_search_gain_vs_all_MEC_pct": 5.639846932558236,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.363457009988543,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02508231108883946,
+            "heft_v2": 0.026097638888375897,
+            "stronger_search": 0.02508231108883946
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 6.363457009988543,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 4.752411543479496,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.025746222473598417,
+            "heft_v2": 0.026777616794185857,
+            "stronger_search": 0.02648164129435318
+          },
+          "search_evaluations": 276,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0317456572797123,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.1514908073047545,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.02498400249625248
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 2.1514908073047545,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.04612964115831411,
+            "heft_v2": 0.04929047216566915,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 269,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.554828537970922,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.023235035563250926,
+            "heft_v2": 0.023723985888120688,
+            "stronger_search": 0.02336393516779843
+          },
+          "search_evaluations": 270,
+          "stronger_search_gain_vs_all_MEC_pct": 6.036428399716776,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.810965613682195,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014494829689400674,
+            "heft_v2": 0.016360648321453182,
+            "stronger_search": 0.014338990734110827
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.810965613682195,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.641877395285227,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.022224634402882294,
+            "heft_v2": 0.025111125792416034,
+            "stronger_search": 0.021838815317561735
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 7.641877395285227,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.219065256567115,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.026806940095713546,
+            "stronger_search": 0.01790040510313489
+          },
+          "search_evaluations": 267,
+          "stronger_search_gain_vs_all_MEC_pct": 7.219065256567115,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 274,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.846443583909439,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 0.013315467946837104,
+            "stronger_search": 0.012579163840558086
+          },
+          "search_evaluations": 342,
+          "stronger_search_gain_vs_all_MEC_pct": 6.846443583909439,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.305313410137973,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.011191025862643521,
+            "heft_v2": 0.014299459825346361,
+            "stronger_search": 0.011191025862643521
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.305313410137973,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.5151457805719226,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.03762694732690966,
+            "heft_v2": 0.07490737508038323,
+            "stronger_search": 0.03762694732690966
+          },
+          "search_evaluations": 275,
+          "stronger_search_gain_vs_all_MEC_pct": 3.5151457805719226,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 9.263510908283443,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.054507715683313016,
+            "stronger_search": 0.05184008947166126
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 9.263510908283443,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 5.784772805064012,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 8,
+        "heft_v2": 0,
+        "stronger_search": 12
+      }
+    },
+    "B_mec_light": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.1,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 9.263510908283443,
+      "headroom_vs_best_pure_mean_pct": 5.9725052069109115,
+      "headroom_vs_best_pure_median_pct": 6.200850622641398,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "B_mec_light",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.1196333463763075,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015127358592847672,
+            "heft_v2": 0.01899700634824947,
+            "stronger_search": 0.015210436602285417
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.604051333892235,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.871167034935087,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04276934908883577,
+            "heft_v2": 0.043836309357508735,
+            "stronger_search": 0.04220660164834307
+          },
+          "search_evaluations": 386,
+          "stronger_search_gain_vs_all_MEC_pct": 6.871167034935087,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.282067898906488,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015561240278315418,
+            "heft_v2": 0.01995812465435247,
+            "stronger_search": 0.01523802152228686
+          },
+          "search_evaluations": 268,
+          "stronger_search_gain_vs_all_MEC_pct": 6.282067898906488,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.639846932558236,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01829475695105084,
+            "heft_v2": 0.03194856378063623,
+            "stronger_search": 0.018014082224927657
+          },
+          "search_evaluations": 306,
+          "stronger_search_gain_vs_all_MEC_pct": 5.639846932558236,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.363457009988543,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02508231108883946,
+            "heft_v2": 0.026097638888375897,
+            "stronger_search": 0.02508231108883946
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 6.363457009988543,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 4.752411543479496,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.025746222473598417,
+            "heft_v2": 0.026777616794185857,
+            "stronger_search": 0.02648164129435318
+          },
+          "search_evaluations": 276,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0317456572797123,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.1514908073047545,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.02498400249625248
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 2.1514908073047545,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.04612964115831411,
+            "heft_v2": 0.04929047216566915,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 269,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.554828537970922,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.023235035563250926,
+            "heft_v2": 0.023723985888120688,
+            "stronger_search": 0.02336393516779843
+          },
+          "search_evaluations": 270,
+          "stronger_search_gain_vs_all_MEC_pct": 6.036428399716776,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.810965613682195,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014494829689400674,
+            "heft_v2": 0.016360648321453182,
+            "stronger_search": 0.014338990734110827
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.810965613682195,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.641877395285227,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.022224634402882294,
+            "heft_v2": 0.025111125792416034,
+            "stronger_search": 0.021838815317561735
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 7.641877395285227,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.219065256567115,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.026806940095713546,
+            "stronger_search": 0.01790040510313489
+          },
+          "search_evaluations": 267,
+          "stronger_search_gain_vs_all_MEC_pct": 7.219065256567115,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 274,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.846443583909439,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 0.013315467946837104,
+            "stronger_search": 0.012579163840558086
+          },
+          "search_evaluations": 342,
+          "stronger_search_gain_vs_all_MEC_pct": 6.846443583909439,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.305313410137973,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.011191025862643521,
+            "heft_v2": 0.014299459825346361,
+            "stronger_search": 0.011191025862643521
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.305313410137973,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.5151457805719226,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.03762694732690966,
+            "heft_v2": 0.07490737508038323,
+            "stronger_search": 0.03762694732690966
+          },
+          "search_evaluations": 275,
+          "stronger_search_gain_vs_all_MEC_pct": 3.5151457805719226,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 9.263510908283443,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.054507715683313016,
+            "stronger_search": 0.05184008947166126
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 9.263510908283443,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 5.784772805064012,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 8,
+        "heft_v2": 0,
+        "stronger_search": 12
+      }
+    },
+    "C_mec_moderate": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.1,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 9.263510908283443,
+      "headroom_vs_best_pure_mean_pct": 5.9725052069109115,
+      "headroom_vs_best_pure_median_pct": 6.200850622641398,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "C_mec_moderate",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.1196333463763075,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015127358592847672,
+            "heft_v2": 0.01899700634824947,
+            "stronger_search": 0.015210436602285417
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.604051333892235,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.871167034935087,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04276934908883577,
+            "heft_v2": 0.043836309357508735,
+            "stronger_search": 0.04220660164834307
+          },
+          "search_evaluations": 386,
+          "stronger_search_gain_vs_all_MEC_pct": 6.871167034935087,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.282067898906488,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015561240278315418,
+            "heft_v2": 0.01995812465435247,
+            "stronger_search": 0.01523802152228686
+          },
+          "search_evaluations": 268,
+          "stronger_search_gain_vs_all_MEC_pct": 6.282067898906488,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.639846932558236,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01829475695105084,
+            "heft_v2": 0.03194856378063623,
+            "stronger_search": 0.018014082224927657
+          },
+          "search_evaluations": 306,
+          "stronger_search_gain_vs_all_MEC_pct": 5.639846932558236,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.363457009988543,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02508231108883946,
+            "heft_v2": 0.026097638888375897,
+            "stronger_search": 0.02508231108883946
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 6.363457009988543,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 4.752411543479496,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.025746222473598417,
+            "heft_v2": 0.026777616794185857,
+            "stronger_search": 0.02648164129435318
+          },
+          "search_evaluations": 276,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0317456572797123,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.1514908073047545,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.02498400249625248
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 2.1514908073047545,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.04612964115831411,
+            "heft_v2": 0.04929047216566915,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 269,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.554828537970922,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.023235035563250926,
+            "heft_v2": 0.023723985888120688,
+            "stronger_search": 0.02336393516779843
+          },
+          "search_evaluations": 270,
+          "stronger_search_gain_vs_all_MEC_pct": 6.036428399716776,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.810965613682195,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014494829689400674,
+            "heft_v2": 0.016360648321453182,
+            "stronger_search": 0.014338990734110827
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.810965613682195,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.641877395285227,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.022224634402882294,
+            "heft_v2": 0.025111125792416034,
+            "stronger_search": 0.021838815317561735
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 7.641877395285227,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.219065256567115,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.026806940095713546,
+            "stronger_search": 0.01790040510313489
+          },
+          "search_evaluations": 267,
+          "stronger_search_gain_vs_all_MEC_pct": 7.219065256567115,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 274,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.846443583909439,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 0.013315467946837104,
+            "stronger_search": 0.012579163840558086
+          },
+          "search_evaluations": 342,
+          "stronger_search_gain_vs_all_MEC_pct": 6.846443583909439,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.305313410137973,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.011191025862643521,
+            "heft_v2": 0.014299459825346361,
+            "stronger_search": 0.011191025862643521
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.305313410137973,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.5151457805719226,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.03762694732690966,
+            "heft_v2": 0.07490737508038323,
+            "stronger_search": 0.03762694732690966
+          },
+          "search_evaluations": 275,
+          "stronger_search_gain_vs_all_MEC_pct": 3.5151457805719226,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 9.263510908283443,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.054507715683313016,
+            "stronger_search": 0.05184008947166126
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 9.263510908283443,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 5.784772805064012,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 8,
+        "heft_v2": 0,
+        "stronger_search": 12
+      }
+    },
+    "D_mec_heavy": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.1,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 9.263510908283443,
+      "headroom_vs_best_pure_mean_pct": 5.9725052069109115,
+      "headroom_vs_best_pure_median_pct": 6.200850622641398,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "D_mec_heavy",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.1196333463763075,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015127358592847672,
+            "heft_v2": 0.01899700634824947,
+            "stronger_search": 0.015210436602285417
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.604051333892235,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.871167034935087,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04276934908883577,
+            "heft_v2": 0.043836309357508735,
+            "stronger_search": 0.04220660164834307
+          },
+          "search_evaluations": 386,
+          "stronger_search_gain_vs_all_MEC_pct": 6.871167034935087,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.282067898906488,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015561240278315418,
+            "heft_v2": 0.01995812465435247,
+            "stronger_search": 0.01523802152228686
+          },
+          "search_evaluations": 268,
+          "stronger_search_gain_vs_all_MEC_pct": 6.282067898906488,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.639846932558236,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01829475695105084,
+            "heft_v2": 0.03194856378063623,
+            "stronger_search": 0.018014082224927657
+          },
+          "search_evaluations": 306,
+          "stronger_search_gain_vs_all_MEC_pct": 5.639846932558236,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.363457009988543,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02508231108883946,
+            "heft_v2": 0.026097638888375897,
+            "stronger_search": 0.02508231108883946
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 6.363457009988543,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 4.752411543479496,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.025746222473598417,
+            "heft_v2": 0.026777616794185857,
+            "stronger_search": 0.02648164129435318
+          },
+          "search_evaluations": 276,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0317456572797123,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.1514908073047545,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.02498400249625248
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 2.1514908073047545,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.04612964115831411,
+            "heft_v2": 0.04929047216566915,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 269,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.554828537970922,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.023235035563250926,
+            "heft_v2": 0.023723985888120688,
+            "stronger_search": 0.02336393516779843
+          },
+          "search_evaluations": 270,
+          "stronger_search_gain_vs_all_MEC_pct": 6.036428399716776,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.810965613682195,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014494829689400674,
+            "heft_v2": 0.016360648321453182,
+            "stronger_search": 0.014338990734110827
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.810965613682195,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.641877395285227,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.022224634402882294,
+            "heft_v2": 0.025111125792416034,
+            "stronger_search": 0.021838815317561735
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 7.641877395285227,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.219065256567115,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.026806940095713546,
+            "stronger_search": 0.01790040510313489
+          },
+          "search_evaluations": 267,
+          "stronger_search_gain_vs_all_MEC_pct": 7.219065256567115,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 274,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.846443583909439,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 0.013315467946837104,
+            "stronger_search": 0.012579163840558086
+          },
+          "search_evaluations": 342,
+          "stronger_search_gain_vs_all_MEC_pct": 6.846443583909439,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.305313410137973,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.011191025862643521,
+            "heft_v2": 0.014299459825346361,
+            "stronger_search": 0.011191025862643521
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.305313410137973,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.5151457805719226,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.03762694732690966,
+            "heft_v2": 0.07490737508038323,
+            "stronger_search": 0.03762694732690966
+          },
+          "search_evaluations": 275,
+          "stronger_search_gain_vs_all_MEC_pct": 3.5151457805719226,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 9.263510908283443,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.054507715683313016,
+            "stronger_search": 0.05184008947166126
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 9.263510908283443,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 5.784772805064012,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 8,
+        "heft_v2": 0,
+        "stronger_search": 12
+      }
+    },
+    "E_helper_idle_stable_v2v": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.15,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 10.479108107425612,
+      "headroom_vs_best_pure_mean_pct": 7.521462964036923,
+      "headroom_vs_best_pure_median_pct": 7.539647963962796,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "E_helper_idle_stable_v2v",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 9.365908295521912,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.11786652026714056,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.014755098007765708,
+            "heft_v2": 0.015521335858075849,
+            "stronger_search": 0.014604271956129596
+          },
+          "search_evaluations": 425,
+          "stronger_search_gain_vs_all_MEC_pct": 9.365908295521912,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 8.482101715098878,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.34304569914826155,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04861442375966966,
+            "heft_v2": 0.0429932756195003,
+            "stronger_search": 0.04147651542088353
+          },
+          "search_evaluations": 342,
+          "stronger_search_gain_vs_all_MEC_pct": 8.482101715098878,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 10.479108107425612,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19906615849245157,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015157679967243865,
+            "heft_v2": 0.015092631641109062,
+            "stronger_search": 0.014555605813857337
+          },
+          "search_evaluations": 385,
+          "stronger_search_gain_vs_all_MEC_pct": 10.479108107425612,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 9.809482405634123,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.14359856903299542,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.017835122485933084,
+            "heft_v2": 0.017313156443264744,
+            "stronger_search": 0.01721806659949433
+          },
+          "search_evaluations": 428,
+          "stronger_search_gain_vs_all_MEC_pct": 9.809482405634123,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2639406417398494,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 390,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.561692440033361,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21301302921760124,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02502920999639797,
+            "heft_v2": 0.025900778270907195,
+            "stronger_search": 0.025900778270907195
+          },
+          "search_evaluations": 388,
+          "stronger_search_gain_vs_all_MEC_pct": 3.307979498041892,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.337029130152944,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24242040786327707,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.0253178870418757,
+            "heft_v2": 0.026823170737168858,
+            "stronger_search": 0.0253178870418757
+          },
+          "search_evaluations": 498,
+          "stronger_search_gain_vs_all_MEC_pct": 6.337029130152944,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24449033746651352,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 381,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.0869165537475856,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2063209027724182,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.025000490466538145
+          },
+          "search_evaluations": 425,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0869165537475856,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.30671496582904023,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.06944092239394584,
+            "heft_v2": 0.048432239830789967,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 343,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 9.919640520795976,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19525035895744597,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.022645907809441444,
+            "heft_v2": 0.023574109012703796,
+            "stronger_search": 0.022398378892163735
+          },
+          "search_evaluations": 344,
+          "stronger_search_gain_vs_all_MEC_pct": 9.919640520795976,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 9.012298112215637,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1305848061110023,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014180230976152307,
+            "heft_v2": 0.015246459278256554,
+            "stronger_search": 0.014000271843985676
+          },
+          "search_evaluations": 466,
+          "stronger_search_gain_vs_all_MEC_pct": 9.012298112215637,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 10.26041444651343,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.11102556726412928,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.021645129336932457,
+            "heft_v2": 0.022239032689623312,
+            "stronger_search": 0.02121964132992325
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 10.26041444651343,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 8.80966847733105,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.08355507984916291,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.018856455514218478,
+            "stronger_search": 0.01759352694881622
+          },
+          "search_evaluations": 382,
+          "stronger_search_gain_vs_all_MEC_pct": 8.80966847733105,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2187342138538901,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 384,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 7.597538887582924,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21898775938321738,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04068200411323496
+          },
+          "search_evaluations": 342,
+          "stronger_search_gain_vs_all_MEC_pct": 7.597538887582924,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.481757040342668,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.08388400613948932,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 0.01282451647340378,
+            "stronger_search": 0.012493373105710689
+          },
+          "search_evaluations": 390,
+          "stronger_search_gain_vs_all_MEC_pct": 7.481757040342668,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.212118522819364,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.10718434051724775,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.010965679477334053,
+            "heft_v2": 0.01178806349254298,
+            "stronger_search": 0.010965679477334053
+          },
+          "search_evaluations": 389,
+          "stronger_search_gain_vs_all_MEC_pct": 7.212118522819364,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 5.429275583774106,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2050691154332344,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.0444770725590508,
+            "heft_v2": 0.05971457850480917,
+            "stronger_search": 0.036880479273818545
+          },
+          "search_evaluations": 467,
+          "stronger_search_gain_vs_all_MEC_pct": 5.429275583774106,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 10.246111468295718,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.23462922594572827,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.055146113866124266,
+            "stronger_search": 0.05127870450453461
+          },
+          "search_evaluations": 430,
+          "stronger_search_gain_vs_all_MEC_pct": 10.246111468295718,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 7.358777316937349,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 4,
+        "heft_v2": 0,
+        "stronger_search": 16
+      }
+    },
+    "F_helper_busy": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.1,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 11.827672580094424,
+      "headroom_vs_best_pure_mean_pct": 6.085027798318264,
+      "headroom_vs_best_pure_median_pct": 6.322762454447515,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "F_helper_busy",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.1810502931326825,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.1178665202671403,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015127358592847672,
+            "heft_v2": 2.0153827540693405,
+            "stronger_search": 0.014956327786914093
+          },
+          "search_evaluations": 422,
+          "stronger_search_gain_vs_all_MEC_pct": 7.1810502931326825,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.871167034935087,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.343045699148261,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04276934908883577,
+            "heft_v2": 2.017949612689552,
+            "stronger_search": 0.04220660164834307
+          },
+          "search_evaluations": 343,
+          "stronger_search_gain_vs_all_MEC_pct": 6.871167034935087,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.282067898906488,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.1990661584924514,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015561240278315418,
+            "heft_v2": 2.015092631641109,
+            "stronger_search": 0.01523802152228686
+          },
+          "search_evaluations": 417,
+          "stronger_search_gain_vs_all_MEC_pct": 6.282067898906488,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.453190917613932,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.143598569032996,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01829475695105084,
+            "heft_v2": 2.009700199281282,
+            "stronger_search": 0.018049716300241003
+          },
+          "search_evaluations": 372,
+          "stronger_search_gain_vs_all_MEC_pct": 5.453190917613932,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.263940641739849,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 424,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.363457009988543,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.2130130292176,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02508231108883946,
+            "heft_v2": 2.025900778270907,
+            "stronger_search": 0.02508231108883946
+          },
+          "search_evaluations": 411,
+          "stronger_search_gain_vs_all_MEC_pct": 6.363457009988543,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 4.845370010364828,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.242420407863277,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.025746222473598417,
+            "heft_v2": 2.026823170737169,
+            "stronger_search": 0.025721095019895723
+          },
+          "search_evaluations": 408,
+          "stronger_search_gain_vs_all_MEC_pct": 4.845370010364828,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.2444903374665133,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 521,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.0869165537475856,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.2063209027724193,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.025000490466538145
+          },
+          "search_evaluations": 340,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0869165537475856,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.3067149658290407,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.04612964115831411,
+            "heft_v2": 2.044092610620293,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 301,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.554828537970922,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.195250358957446,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.023235035563250926,
+            "heft_v2": 2.008062945346937,
+            "stronger_search": 0.02336393516779843
+          },
+          "search_evaluations": 380,
+          "stronger_search_gain_vs_all_MEC_pct": 6.036428399716776,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.436118958034039,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.1305848061110013,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014494829689400674,
+            "heft_v2": 2.015119610291665,
+            "stronger_search": 0.014396668364933456
+          },
+          "search_evaluations": 344,
+          "stronger_search_gain_vs_all_MEC_pct": 6.436118958034039,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 6.823957705321107,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.1110255672641296,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.022224634402882294,
+            "heft_v2": 2.022239032689624,
+            "stronger_search": 0.022032218957111376
+          },
+          "search_evaluations": 364,
+          "stronger_search_gain_vs_all_MEC_pct": 6.823957705321107,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.194976613375217,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.083555079849162,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 2.0166867843711023,
+            "stronger_search": 0.017905052571633804
+          },
+          "search_evaluations": 363,
+          "stronger_search_gain_vs_all_MEC_pct": 7.194976613375217,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.21873421385389,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 304,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.218987759383218,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 456,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.846443583909439,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.0838840061394888,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 2.0128245164734038,
+            "stronger_search": 0.012579163840558086
+          },
+          "search_evaluations": 413,
+          "stronger_search_gain_vs_all_MEC_pct": 6.846443583909439,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.305313410137973,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.107184340517249,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.011191025862643521,
+            "heft_v2": 2.003485940029388,
+            "stronger_search": 0.011191025862643521
+          },
+          "search_evaluations": 424,
+          "stronger_search_gain_vs_all_MEC_pct": 5.305313410137973,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.5151457805719226,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.2050691154332336,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.03762694732690966,
+            "heft_v2": 2.027887408757684,
+            "stronger_search": 0.03762694732690966
+          },
+          "search_evaluations": 453,
+          "stronger_search_gain_vs_all_MEC_pct": 3.5151457805719226,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 11.827672580094424,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 2.234629225945729,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 2.0025317535882037,
+            "stronger_search": 0.050375117972134495
+          },
+          "search_evaluations": 402,
+          "stronger_search_gain_vs_all_MEC_pct": 11.827672580094424,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 6.059107791405557,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 6,
+        "heft_v2": 0,
+        "stronger_search": 14
+      }
+    },
+    "G_helper_short_contact": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.15,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 10.479108107425612,
+      "headroom_vs_best_pure_mean_pct": 7.483548807576031,
+      "headroom_vs_best_pure_median_pct": 7.3469377815810155,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "G_helper_short_contact",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 9.365908295521912,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.16092232241071774,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.014755098007765708,
+            "heft_v2": 0.015521335858075849,
+            "stronger_search": 0.014604271956129596
+          },
+          "search_evaluations": 425,
+          "stronger_search_gain_vs_all_MEC_pct": 9.365908295521912,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 8.482101715098878,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5102102196543623,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04861442375966966,
+            "heft_v2": 0.0429932756195003,
+            "stronger_search": 0.04147651542088353
+          },
+          "search_evaluations": 489,
+          "stronger_search_gain_vs_all_MEC_pct": 8.482101715098878,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 10.479108107425612,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21544854508872327,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015157679967243865,
+            "heft_v2": 0.015092631641109062,
+            "stronger_search": 0.014555605813857337
+          },
+          "search_evaluations": 385,
+          "stronger_search_gain_vs_all_MEC_pct": 10.479108107425612,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 9.809482405634123,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.25690341819233853,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.017835122485933084,
+            "heft_v2": 0.017313156443264744,
+            "stronger_search": 0.01721806659949433
+          },
+          "search_evaluations": 428,
+          "stronger_search_gain_vs_all_MEC_pct": 9.809482405634123,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.45196806125105976,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 380,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.561692440033361,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.31050647892551914,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02502920999639797,
+            "heft_v2": 0.025900778270907195,
+            "stronger_search": 0.02502920999639797
+          },
+          "search_evaluations": 463,
+          "stronger_search_gain_vs_all_MEC_pct": 6.561692440033361,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.337029130152944,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3437443742920301,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.0253178870418757,
+            "heft_v2": 0.026823170737168858,
+            "stronger_search": 0.0253178870418757
+          },
+          "search_evaluations": 303,
+          "stronger_search_gain_vs_all_MEC_pct": 6.337029130152944,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3472841282891532,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 527,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.1514908073047545,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.45505181501455877,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.02498400249625248
+          },
+          "search_evaluations": 538,
+          "stronger_search_gain_vs_all_MEC_pct": 2.1514908073047545,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.39541482189693405,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.06804776596570186,
+            "heft_v2": 0.048432239830789967,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 345,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 9.919640520795976,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22626478637123737,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.022645907809441444,
+            "heft_v2": 0.023574109012703796,
+            "stronger_search": 0.022398378892163735
+          },
+          "search_evaluations": 344,
+          "stronger_search_gain_vs_all_MEC_pct": 9.919640520795976,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 9.012298112215637,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.16019733815493228,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014180230976152307,
+            "heft_v2": 0.015246459278256554,
+            "stronger_search": 0.014000271843985676
+          },
+          "search_evaluations": 466,
+          "stronger_search_gain_vs_all_MEC_pct": 9.012298112215637,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 10.26041444651343,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1843812995416131,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.021645129336932457,
+            "heft_v2": 0.022239032689623312,
+            "stronger_search": 0.02121964132992325
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 10.26041444651343,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 8.80966847733105,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.13519207263016658,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.018856455514218478,
+            "stronger_search": 0.01759352694881622
+          },
+          "search_evaluations": 382,
+          "stronger_search_gain_vs_all_MEC_pct": 8.80966847733105,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3125365608909977,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 267,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.25794033680402734,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.481757040342668,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.11703121026121811,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 0.01282451647340378,
+            "stronger_search": 0.012493373105710689
+          },
+          "search_evaluations": 390,
+          "stronger_search_gain_vs_all_MEC_pct": 7.481757040342668,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.212118522819364,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.15934504960822293,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.010965679477334053,
+            "heft_v2": 0.01178806349254298,
+            "stronger_search": 0.010965679477334053
+          },
+          "search_evaluations": 389,
+          "stronger_search_gain_vs_all_MEC_pct": 7.212118522819364,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 5.429275583774106,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5418402857094202,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.0444770725590508,
+            "heft_v2": 0.05971457850480917,
+            "stronger_search": 0.036880479273818545
+          },
+          "search_evaluations": 431,
+          "stronger_search_gain_vs_all_MEC_pct": 5.429275583774106,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 10.246111468295718,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3187521393836809,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.0535753044898664,
+            "stronger_search": 0.05127870450453461
+          },
+          "search_evaluations": 469,
+          "stronger_search_gain_vs_all_MEC_pct": 10.246111468295718,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 7.483548807576031,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 5,
+        "heft_v2": 0,
+        "stronger_search": 15
+      }
+    },
+    "H_poor_v2v": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.1,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 9.263510908283443,
+      "headroom_vs_best_pure_mean_pct": 5.9725052069109115,
+      "headroom_vs_best_pure_median_pct": 6.200850622641398,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "H_poor_v2v",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.1196333463763075,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015127358592847672,
+            "heft_v2": 0.01899700634824947,
+            "stronger_search": 0.015210436602285417
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.604051333892235,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.871167034935087,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04276934908883577,
+            "heft_v2": 0.043836309357508735,
+            "stronger_search": 0.04220660164834307
+          },
+          "search_evaluations": 386,
+          "stronger_search_gain_vs_all_MEC_pct": 6.871167034935087,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.282067898906488,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015561240278315418,
+            "heft_v2": 0.01995812465435247,
+            "stronger_search": 0.01523802152228686
+          },
+          "search_evaluations": 268,
+          "stronger_search_gain_vs_all_MEC_pct": 6.282067898906488,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.639846932558236,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01829475695105084,
+            "heft_v2": 0.03194856378063623,
+            "stronger_search": 0.018014082224927657
+          },
+          "search_evaluations": 306,
+          "stronger_search_gain_vs_all_MEC_pct": 5.639846932558236,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.92837066734897,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.02436675366781683
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 3.92837066734897,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 6.363457009988543,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.02508231108883946,
+            "heft_v2": 0.026097638888375897,
+            "stronger_search": 0.02508231108883946
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 6.363457009988543,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 4.752411543479496,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.025746222473598417,
+            "heft_v2": 0.026777616794185857,
+            "stronger_search": 0.02648164129435318
+          },
+          "search_evaluations": 276,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0317456572797123,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.1514908073047545,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.02498400249625248
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 2.1514908073047545,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.04612964115831411,
+            "heft_v2": 0.04929047216566915,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 269,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.554828537970922,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.023235035563250926,
+            "heft_v2": 0.023723985888120688,
+            "stronger_search": 0.02336393516779843
+          },
+          "search_evaluations": 270,
+          "stronger_search_gain_vs_all_MEC_pct": 6.036428399716776,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.810965613682195,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014494829689400674,
+            "heft_v2": 0.016360648321453182,
+            "stronger_search": 0.014338990734110827
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.810965613682195,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.641877395285227,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.022224634402882294,
+            "heft_v2": 0.025111125792416034,
+            "stronger_search": 0.021838815317561735
+          },
+          "search_evaluations": 347,
+          "stronger_search_gain_vs_all_MEC_pct": 7.641877395285227,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.219065256567115,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.026806940095713546,
+            "stronger_search": 0.01790040510313489
+          },
+          "search_evaluations": 267,
+          "stronger_search_gain_vs_all_MEC_pct": 7.219065256567115,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.616478111171453,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.02297307819645699,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02297307819645699
+          },
+          "search_evaluations": 274,
+          "stronger_search_gain_vs_all_MEC_pct": 5.616478111171453,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04197513253758261,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.846443583909439,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012677359788325388,
+            "heft_v2": 0.013315467946837104,
+            "stronger_search": 0.012579163840558086
+          },
+          "search_evaluations": 342,
+          "stronger_search_gain_vs_all_MEC_pct": 6.846443583909439,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.305313410137973,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.011191025862643521,
+            "heft_v2": 0.014299459825346361,
+            "stronger_search": 0.011191025862643521
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.305313410137973,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.5151457805719226,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.03762694732690966,
+            "heft_v2": 0.07490737508038323,
+            "stronger_search": 0.03762694732690966
+          },
+          "search_evaluations": 275,
+          "stronger_search_gain_vs_all_MEC_pct": 3.5151457805719226,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 9.263510908283443,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.054507715683313016,
+            "stronger_search": 0.05184008947166126
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 9.263510908283443,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 5.784772805064012,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 8,
+        "heft_v2": 0,
+        "stronger_search": 12
+      }
+    },
+    "I_network_high_variance": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.5,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 9.108253139477474,
+      "headroom_vs_best_pure_mean_pct": 5.276597277816857,
+      "headroom_vs_best_pure_median_pct": 5.636295366579612,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "I_network_high_variance",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.4413501400321564,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.016287791709838597,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015238638015728763,
+            "heft_v2": 0.019277674506463695,
+            "stronger_search": 0.01544623948300619
+          },
+          "search_evaluations": 388,
+          "stronger_search_gain_vs_all_MEC_pct": 5.166766875610708,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.636720033356152,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.045262329632115204,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04271101883017807,
+            "heft_v2": 0.35234346051326887,
+            "stronger_search": 0.04277269827698558
+          },
+          "search_evaluations": 350,
+          "stronger_search_gain_vs_all_MEC_pct": 5.500448994483805,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.281512691014552,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.016408347800360094,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015710136786206093,
+            "heft_v2": 0.022693521258804767,
+            "stronger_search": 0.015377655350894668
+          },
+          "search_evaluations": 270,
+          "stronger_search_gain_vs_all_MEC_pct": 6.281512691014552,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.635870699803071,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.019104241543265586,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01830822591783226,
+            "heft_v2": 0.03201147703229849,
+            "stronger_search": 0.018027551191709075
+          },
+          "search_evaluations": 306,
+          "stronger_search_gain_vs_all_MEC_pct": 5.635870699803071,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.930737519827668,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.02534783853584176,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024572992835074983,
+            "heft_v2": 0.028616151974376464,
+            "stronger_search": 0.024351481536048093
+          },
+          "search_evaluations": 310,
+          "stronger_search_gain_vs_all_MEC_pct": 3.930737519827668,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 3.205103966556664,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.027290408670773602,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.052800548148483846,
+            "heft_v2": 0.028160905352818098,
+            "stronger_search": 0.026415722699977114
+          },
+          "search_evaluations": 310,
+          "stronger_search_gain_vs_all_MEC_pct": 3.205103966556664,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.0457756333619344,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.02730153201813087,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.02747266289247042,
+            "heft_v2": 0.02747266289247042,
+            "stronger_search": 0.026469988608388135
+          },
+          "search_evaluations": 392,
+          "stronger_search_gain_vs_all_MEC_pct": 3.0457756333619344,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 3.591226230636327,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.028748169441977504,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.04131503812010754,
+            "heft_v2": 0.029741977791092705,
+            "stronger_search": 0.02771575764014943
+          },
+          "search_evaluations": 310,
+          "stronger_search_gain_vs_all_MEC_pct": 3.591226230636327,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.100405673713451,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.026154360976763647,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.036605635297566046,
+            "heft_v2": 0.041088987340069626,
+            "stronger_search": 0.025605013294884207
+          },
+          "search_evaluations": 389,
+          "stronger_search_gain_vs_all_MEC_pct": 2.100405673713451,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 2.7599442490329817,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.04417228823238055,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.07088330546256189,
+            "heft_v2": 0.05541119108011979,
+            "stronger_search": 0.04295315770364469
+          },
+          "search_evaluations": 426,
+          "stronger_search_gain_vs_all_MEC_pct": 2.7599442490329817,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.312300872656617,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.025108193213573358,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.023272206582108924,
+            "heft_v2": 0.025551568992922942,
+            "stronger_search": 0.023607242160158793
+          },
+          "search_evaluations": 270,
+          "stronger_search_gain_vs_all_MEC_pct": 5.97793334091104,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.798043183589941,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.015416242779067597,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014524078892949363,
+            "heft_v2": 0.01638827736180315,
+            "stronger_search": 0.014368239937659516
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.798043183589941,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 6.593678344269971,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.024632185190061093,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.028134584966866348,
+            "heft_v2": 0.03465141478117535,
+            "stronger_search": 0.02300801812946356
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.593678344269971,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.163825473925718,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.01944196185175839,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018224470338434478,
+            "heft_v2": 0.027209833228255115,
+            "stronger_search": 0.018049173635991202
+          },
+          "search_evaluations": 305,
+          "stronger_search_gain_vs_all_MEC_pct": 7.163825473925718,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.569337063744798,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.02454616108076628,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.036806815859010834,
+            "heft_v2": 0.025718055944574193,
+            "stronger_search": 0.023179102633968662
+          },
+          "search_evaluations": 276,
+          "stronger_search_gain_vs_all_MEC_pct": 5.569337063744798,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.912096509314096,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.04461191789634564,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.0488401670135433,
+            "heft_v2": 0.0488401670135433,
+            "stronger_search": 0.04197441825565772
+          },
+          "search_evaluations": 352,
+          "stronger_search_gain_vs_all_MEC_pct": 5.912096509314096,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.8337312332812425,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.013528806129090867,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.01270247982692442,
+            "heft_v2": 0.013852079419807786,
+            "stronger_search": 0.012604283879157118
+          },
+          "search_evaluations": 345,
+          "stronger_search_gain_vs_all_MEC_pct": 6.8337312332812425,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 3.9803835786861717,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.011970934640063989,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.012198952687577633,
+            "heft_v2": 0.015858495946833803,
+            "stronger_search": 0.011494445523435627
+          },
+          "search_evaluations": 386,
+          "stronger_search_gain_vs_all_MEC_pct": 3.9803835786861717,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.6316493200561646,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.056658151256503496,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.11086855673162684,
+            "heft_v2": 0.10393586577984137,
+            "stronger_search": 0.05460052589164029
+          },
+          "search_evaluations": 313,
+          "stronger_search_gain_vs_all_MEC_pct": 3.6316493200561646,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 9.108253139477474,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.05780011534421837,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05428591637687604,
+            "heft_v2": 0.05989414381739819,
+            "stronger_search": 0.052535534523757
+          },
+          "search_evaluations": 269,
+          "stronger_search_gain_vs_all_MEC_pct": 9.108253139477474,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 5.139336186064889,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 3,
+        "heft_v2": 0,
+        "stronger_search": 17
+      }
+    },
+    "J_high_unreliable_remote": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.0,
+      "all_UE_winner_fraction": 1.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 0.0,
+      "headroom_vs_best_pure_mean_pct": 0.0,
+      "headroom_vs_best_pure_median_pct": 0.0,
+      "local_winner_fraction": 1.0,
+      "mixed_winner_fraction": 0.0,
+      "regime": "J_high_unreliable_remote",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.19279692279956281,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.19279692279956281,
+            "heft_v2": 0.19279692279956281,
+            "stronger_search": 0.19279692279956281
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.5397320798773105,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.5397320798773105,
+            "heft_v2": 0.5397320798773105,
+            "stronger_search": 0.5397320798773105
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.22098388219912765,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.22098388219912765,
+            "heft_v2": 0.22098388219912765,
+            "stronger_search": 0.22098388219912765
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.3178384394032798,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.3178384394032798,
+            "heft_v2": 0.3178384394032798,
+            "stronger_search": 0.3178384394032798
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.4658279171787053,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.4658279171787053,
+            "heft_v2": 0.4658279171787053,
+            "stronger_search": 0.4658279171787053
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.3406763894161666,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.3406763894161666,
+            "heft_v2": 0.3406763894161666,
+            "stronger_search": 0.3406763894161666
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.37049217040735805,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.37049217040735805,
+            "heft_v2": 0.37049217040735805,
+            "stronger_search": 0.37049217040735805
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.3258302921851834,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.3258302921851834,
+            "heft_v2": 0.3258302921851834,
+            "stronger_search": 0.3258302921851834
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.4501544119465155,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.4501544119465155,
+            "heft_v2": 0.4501544119465155,
+            "stronger_search": 0.4501544119465155
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.4129235008710251,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.4129235008710251,
+            "heft_v2": 0.4129235008710251,
+            "stronger_search": 0.4129235008710251
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.2372015073332411,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.2372015073332411,
+            "heft_v2": 0.2372015073332411,
+            "stronger_search": 0.2372015073332411
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.17875366159477243,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.17875366159477243,
+            "heft_v2": 0.17875366159477243,
+            "stronger_search": 0.17875366159477243
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.24479397033298894,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.24479397033298894,
+            "heft_v2": 0.24479397033298894,
+            "stronger_search": 0.24479397033298894
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.21259552611566307,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.21259552611566307,
+            "heft_v2": 0.21259552611566307,
+            "stronger_search": 0.21259552611566307
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.3407233955223047,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.3407233955223047,
+            "heft_v2": 0.3407233955223047,
+            "stronger_search": 0.3407233955223047
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.269714610708692,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.269714610708692,
+            "heft_v2": 0.269714610708692,
+            "stronger_search": 0.269714610708692
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.1662938285836037,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.1662938285836037,
+            "heft_v2": 0.1662938285836037,
+            "stronger_search": 0.1662938285836037
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.19696927597491137,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.19696927597491137,
+            "heft_v2": 0.19696927597491137,
+            "stronger_search": 0.19696927597491137
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.6510436419410013,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.6510436419410013,
+            "heft_v2": 0.6510436419410013,
+            "stronger_search": 0.6510436419410013
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_HELPER",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": true,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.36162724888094305,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.36162724888094305,
+            "heft_v2": 0.36162724888094305,
+            "stronger_search": 0.36162724888094305
+          },
+          "search_evaluations": 123,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_UE"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 0.0,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 20,
+        "greedy_cd": 0,
+        "heft_v2": 0,
+        "stronger_search": 0
+      }
+    },
+    "K_high_reliable_idle_mec": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 0.0,
+      "all_MEC_winner_fraction_no_search": 0.1,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 9.263510908283443,
+      "headroom_vs_best_pure_mean_pct": 5.598039121664072,
+      "headroom_vs_best_pure_median_pct": 5.629170528858848,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 1.0,
+      "regime": "K_high_reliable_idle_mec",
+      "rows": [
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.329842155729489,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.01611344217333622,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.015533580120976826,
+            "heft_v2": 0.02117630480090777,
+            "stronger_search": 0.015093486717909289
+          },
+          "search_evaluations": 340,
+          "stronger_search_gain_vs_all_MEC_pct": 6.329842155729489,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.233116519090217,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.045320659890772906,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.04373971828049609,
+            "heft_v2": 0.04593432893309914,
+            "stronger_search": 0.042948976951468175
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 5.233116519090217,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 5.369980721144291,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.016259451292469418,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.015561240278315418,
+            "heft_v2": 0.021406348563642985,
+            "stronger_search": 0.015386321892699964
+          },
+          "search_evaluations": 349,
+          "stronger_search_gain_vs_all_MEC_pct": 5.369980721144291,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 3.34038890619057,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.01909077257648417,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.01901889766969287,
+            "heft_v2": 0.03498884776770869,
+            "stronger_search": 0.01845306652723322
+          },
+          "search_evaluations": 308,
+          "stronger_search_gain_vs_all_MEC_pct": 3.34038890619057,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.891492666478319,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.0253631106676105,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.024588940504600653,
+            "heft_v2": 0.026423351844298917,
+            "stronger_search": 0.024376107075989657
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 3.891492666478319,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 5.345923615614224,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.026786882864220093,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.0255782293962976,
+            "heft_v2": 0.026097638888375897,
+            "stronger_search": 0.02535487656729483
+          },
+          "search_evaluations": 417,
+          "stronger_search_gain_vs_all_MEC_pct": 5.345923615614224,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 4.752411543479496,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.02703083919584094,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.025746222473598417,
+            "heft_v2": 0.026777616794185857,
+            "stronger_search": 0.02648164129435318
+          },
+          "search_evaluations": 276,
+          "stronger_search_gain_vs_all_MEC_pct": 2.0317456572797123,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 5.904988458359323,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.027674965201047307,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.026745335643202008,
+            "heft_v2": 0.02877155579414528,
+            "stronger_search": 0.026040761700070504
+          },
+          "search_evaluations": 350,
+          "stronger_search_gain_vs_all_MEC_pct": 5.904988458359323,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 2.1514908073047545,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.02553335017813192,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.03279589118180767,
+            "heft_v2": 0.030714691443527245,
+            "stronger_search": 0.02498400249625248
+          },
+          "search_evaluations": 269,
+          "stronger_search_gain_vs_all_MEC_pct": 2.1514908073047545,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 5.888360336573404,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.042683041424407986,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.04612964115831411,
+            "heft_v2": 0.04929047216566915,
+            "stronger_search": 0.04016971014272995
+          },
+          "search_evaluations": 307,
+          "stronger_search_gain_vs_all_MEC_pct": 5.888360336573404,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.550324415472789,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.024864886221212995,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.02366911843076546,
+            "heft_v2": 0.023800722686458248,
+            "stronger_search": 0.02298750664597322
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 7.550324415472789,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.810965613682195,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.015386993575518908,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.014776950743798837,
+            "heft_v2": 0.023076972571377436,
+            "stronger_search": 0.014338990734110827
+          },
+          "search_evaluations": 309,
+          "stronger_search_gain_vs_all_MEC_pct": 6.810965613682195,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 7.641877395285227,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.023645798227222615,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.022386668228102556,
+            "heft_v2": 0.028454556393103313,
+            "stronger_search": 0.021838815317561735
+          },
+          "search_evaluations": 345,
+          "stronger_search_gain_vs_all_MEC_pct": 7.641877395285227,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 7.060230765520633,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.01929319331890208,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.018075701805578166,
+            "heft_v2": 0.02768128687831039,
+            "stronger_search": 0.017931049348549583
+          },
+          "search_evaluations": 271,
+          "stronger_search_gain_vs_all_MEC_pct": 7.060230765520633,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 4.356867436636848,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.024340136643254608,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.023279669155811734,
+            "heft_v2": 0.025410254675620664,
+            "stronger_search": 0.02340187040158648
+          },
+          "search_evaluations": 235,
+          "stronger_search_gain_vs_all_MEC_pct": 3.854810905213832,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 6.774681504807943,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.04402697030303243,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.04104428328878561,
+            "heft_v2": 0.04402380284298607,
+            "stronger_search": 0.04104428328878561
+          },
+          "search_evaluations": 303,
+          "stronger_search_gain_vs_all_MEC_pct": 6.774681504807943,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 6.846443583909439,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.013503686090491835,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.012869211971701903,
+            "heft_v2": 0.014288150621404467,
+            "stronger_search": 0.012579163840558086
+          },
+          "search_evaluations": 302,
+          "stronger_search_gain_vs_all_MEC_pct": 6.846443583909439,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 3.9327392991469106,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.011818008238533658,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.011362855760638517,
+            "heft_v2": 0.014299459825346361,
+            "stronger_search": 0.011353236784160425
+          },
+          "search_evaluations": 348,
+          "stronger_search_gain_vs_all_MEC_pct": 3.9327392991469106,
+          "winner": "stronger_search"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 3.5151457805719226,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.03899777600465415,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.03762694732690966,
+            "heft_v2": 0.07490737508038323,
+            "stronger_search": 0.03762694732690966
+          },
+          "search_evaluations": 314,
+          "stronger_search_gain_vs_all_MEC_pct": 3.5151457805719226,
+          "winner": "greedy_cd"
+        },
+        {
+          "all_MEC_winner": false,
+          "all_MEC_winner_no_search": false,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 9.263510908283443,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.05713257146114749,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.05242937560781277,
+            "heft_v2": 0.07709497281653142,
+            "stronger_search": 0.05184008947166126
+          },
+          "search_evaluations": 307,
+          "stronger_search_gain_vs_all_MEC_pct": 9.263510908283443,
+          "winner": "stronger_search"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 5.436903000782932,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 0,
+        "all_UE": 0,
+        "greedy_cd": 4,
+        "heft_v2": 0,
+        "stronger_search": 16
+      }
+    },
+    "L_low_good_remote": {
+      "all_HELPER_winner_fraction": 0.0,
+      "all_MEC_winner_fraction": 1.0,
+      "all_MEC_winner_fraction_no_search": 1.0,
+      "all_UE_winner_fraction": 0.0,
+      "graphs": 20,
+      "headroom_vs_best_pure_max_pct": 0.0,
+      "headroom_vs_best_pure_mean_pct": 0.0,
+      "headroom_vs_best_pure_median_pct": 0.0,
+      "local_winner_fraction": 0.0,
+      "mixed_winner_fraction": 0.0,
+      "regime": "L_low_good_remote",
+      "rows": [
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19279692279956281,
+            "all_MEC": 0.17948911792494085,
+            "all_UE": 0.19279692279956281,
+            "greedy_cd": 0.17948911792494085,
+            "heft_v2": 0.17948911792494085,
+            "stronger_search": 0.17948911792494085
+          },
+          "search_evaluations": 202,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.5397320798773105,
+            "all_MEC": 0.5067341774520663,
+            "all_UE": 0.5397320798773105,
+            "greedy_cd": 0.5067341774520663,
+            "heft_v2": 0.51763153123201,
+            "stronger_search": 0.5067341774520663
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.22098388219912765,
+            "all_MEC": 0.20371478413539706,
+            "all_UE": 0.22098388219912765,
+            "greedy_cd": 0.20371478413539706,
+            "heft_v2": 0.20988151645895248,
+            "stronger_search": 0.20371478413539706
+          },
+          "search_evaluations": 161,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3178384394032798,
+            "all_MEC": 0.2954690691454022,
+            "all_UE": 0.3178384394032798,
+            "greedy_cd": 0.2954690691454022,
+            "heft_v2": 0.31030532030050695,
+            "stronger_search": 0.2954690691454022
+          },
+          "search_evaluations": 201,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4658279171787053,
+            "all_MEC": 0.44142076171425887,
+            "all_UE": 0.4658279171787053,
+            "greedy_cd": 0.44142076171425887,
+            "heft_v2": 0.44142076171425887,
+            "stronger_search": 0.44142076171425887
+          },
+          "search_evaluations": 163,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3406763894161666,
+            "all_MEC": 0.32499609831174,
+            "all_UE": 0.3406763894161666,
+            "greedy_cd": 0.32499609831174,
+            "heft_v2": 0.32499609831174,
+            "stronger_search": 0.32499609831174
+          },
+          "search_evaluations": 160,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.37049217040735805,
+            "all_MEC": 0.35477302622083284,
+            "all_UE": 0.37049217040735805,
+            "greedy_cd": 0.35477302622083284,
+            "heft_v2": 0.35477302622083284,
+            "stronger_search": 0.35477302622083284
+          },
+          "search_evaluations": 202,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3258302921851834,
+            "all_MEC": 0.31125761773423327,
+            "all_UE": 0.3258302921851834,
+            "greedy_cd": 0.31125761773423327,
+            "heft_v2": 0.31125761773423327,
+            "stronger_search": 0.31125761773423327
+          },
+          "search_evaluations": 161,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4501544119465155,
+            "all_MEC": 0.42377685570414625,
+            "all_UE": 0.4501544119465155,
+            "greedy_cd": 0.42377685570414625,
+            "heft_v2": 0.42377685570414625,
+            "stronger_search": 0.42377685570414625
+          },
+          "search_evaluations": 202,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.4129235008710251,
+            "all_MEC": 0.3950473212262446,
+            "all_UE": 0.4129235008710251,
+            "greedy_cd": 0.3950473212262446,
+            "heft_v2": 0.3950473212262446,
+            "stronger_search": 0.3950473212262446
+          },
+          "search_evaluations": 161,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dnominal_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.2372015073332411,
+            "all_MEC": 0.22028355513093129,
+            "all_UE": 0.2372015073332411,
+            "greedy_cd": 0.22028355513093129,
+            "heft_v2": 0.22596765978689162,
+            "stronger_search": 0.22028355513093129
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.17875366159477243,
+            "all_MEC": 0.16680119796146758,
+            "all_UE": 0.17875366159477243,
+            "greedy_cd": 0.16680119796146758,
+            "heft_v2": 0.16680119796146758,
+            "stronger_search": 0.16680119796146758
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_whigh_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.24479397033298894,
+            "all_MEC": 0.2270967104911478,
+            "all_UE": 0.24479397033298894,
+            "greedy_cd": 0.2270967104911478,
+            "heft_v2": 0.23315279018919288,
+            "stronger_search": 0.2270967104911478
+          },
+          "search_evaluations": 161,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.21259552611566307,
+            "all_MEC": 0.2026159315333881,
+            "all_UE": 0.21259552611566307,
+            "greedy_cd": 0.2026159315333881,
+            "heft_v2": 0.2026159315333881,
+            "stronger_search": 0.2026159315333881
+          },
+          "search_evaluations": 163,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.3407233955223047,
+            "all_MEC": 0.32576842439629367,
+            "all_UE": 0.3407233955223047,
+            "greedy_cd": 0.32576842439629367,
+            "heft_v2": 0.32576842439629367,
+            "stronger_search": 0.32576842439629367
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dnominal_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.269714610708692,
+            "all_MEC": 0.2583821828746554,
+            "all_UE": 0.269714610708692,
+            "greedy_cd": 0.2583821828746554,
+            "heft_v2": 0.26254110210016135,
+            "stronger_search": 0.2583821828746554
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.1662938285836037,
+            "all_MEC": 0.159355189520366,
+            "all_UE": 0.1662938285836037,
+            "greedy_cd": 0.159355189520366,
+            "heft_v2": 0.1617388733632102,
+            "stronger_search": 0.159355189520366
+          },
+          "search_evaluations": 163,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s1_wnominal_dtight_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.19696927597491137,
+            "all_MEC": 0.18783310606514667,
+            "all_UE": 0.19696927597491137,
+            "greedy_cd": 0.18783310606514667,
+            "heft_v2": 0.19165747844553732,
+            "stronger_search": 0.18783310606514667
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rhigh_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.6510436419410013,
+            "all_MEC": 0.607349295688131,
+            "all_UE": 0.6510436419410013,
+            "greedy_cd": 0.607349295688131,
+            "heft_v2": 0.607349295688131,
+            "stronger_search": 0.607349295688131
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        },
+        {
+          "all_MEC_winner": true,
+          "all_MEC_winner_no_search": true,
+          "best_pure": "all_MEC",
+          "graph_id": "mcv1_lpp_s2_whigh_dloose_rlow_end",
+          "headroom_vs_best_pure_pct": 0.0,
+          "local_wins": false,
+          "panel": {
+            "all_HELPER": 0.36162724888094305,
+            "all_MEC": 0.33590334326499466,
+            "all_UE": 0.36162724888094305,
+            "greedy_cd": 0.33590334326499466,
+            "heft_v2": 0.33590334326499466,
+            "stronger_search": 0.33590334326499466
+          },
+          "search_evaluations": 162,
+          "stronger_search_gain_vs_all_MEC_pct": 0.0,
+          "winner": "all_MEC"
+        }
+      ],
+      "stronger_search_gain_vs_all_MEC_mean_pct": 0.0,
+      "winner_counts": {
+        "all_HELPER": 0,
+        "all_MEC": 20,
+        "all_UE": 0,
+        "greedy_cd": 0,
+        "heft_v2": 0,
+        "stronger_search": 0
+      }
+    }
+  },
+  "schema": "v2_geometry_gate_v1",
+  "search_label": "candidate-search lower bound",
+  "verdict": {
+    "all_MEC_wins_everywhere_over_80pct": false,
+    "gate": "PASS",
+    "helper_wins_somewhere": false,
+    "local_wins_somewhere": true,
+    "max_all_MEC_winner_fraction": 1.0,
+    "max_headroom_mean_pct": 7.521462964036923,
+    "min_all_MEC_winner_fraction": 0.0,
+    "min_headroom_mean_pct": 0.0,
+    "spread_all_MEC_winner_fraction": 1.0
+  }
+}
