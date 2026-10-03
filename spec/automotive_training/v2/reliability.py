@@ -15,11 +15,14 @@ contact margin. It is NOT a measured failure curve.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
 import yaml
+
+from spec.automotive_training.v2.helper_model import required_helper_time_s
 
 CLASSES_YAML = Path(__file__).resolve().parent / "reliability_classes.yaml"
 ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
@@ -71,6 +74,41 @@ def load_classes(path: Path | None = None) -> dict:
         if cls.evidence_class == "dataset_standard_derived" and not cls.evidence_sha256:
             raise ReliabilityError("standard-derived class %r must carry an evidence sha" % name)
     return out
+
+
+def contact_slack(*, predicted_contact_end_s, now_s: float, payload_in_bytes: float,
+                  compute_bytes: float, v2v_bytes_per_s: float,
+                  helper_bytes_per_s: float, output_bytes: float = 0.0) -> float:
+    """MONOTONE contact slack in [0, 1] for the helper contact factor.
+
+        slack = clamp(window / need, 0, 1),  window = predicted_end - now
+
+    `need` is the ROUND-TRIP requirement: input transfer, helper compute, and the leg that
+    carries the result back to the requester. Including the return leg matters: the helper
+    admissibility test only covers the inbound + compute part, so without it this factor
+    would be identically 1.0 for every placement that admissibility already allows, i.e. it
+    would carry no information at all.
+
+    A longer predicted contact window can therefore never LOWER the factor. The audited
+    defect used `min(1, need/window)`, which made a longer contact window *reduce* the
+    predicted success probability - a strictly non-physical non-monotonicity.
+    Returns 1.0 when the predicted window is infinite (no contact limit) and 0.0 when the
+    window is exhausted.
+    """
+    if predicted_contact_end_s is None:
+        return 1.0
+    if not math.isfinite(float(predicted_contact_end_s)):
+        return 1.0
+    window = max(0.0, float(predicted_contact_end_s) - float(now_s))
+    need = required_helper_time_s(payload_in_bytes=payload_in_bytes,
+                                  compute_bytes=compute_bytes,
+                                  v2v_bytes_per_s=v2v_bytes_per_s,
+                                  helper_bytes_per_s=helper_bytes_per_s)
+    if float(output_bytes) > 0.0:
+        need += float(output_bytes) / float(v2v_bytes_per_s)
+    if need <= 0.0:
+        return 1.0
+    return float(max(0.0, min(1.0, window / need)))
 
 
 def remote_success_probability(*, link_confidence: float, outage_fraction: float,
