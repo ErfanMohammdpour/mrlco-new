@@ -244,6 +244,10 @@ class TaskTiming:
     cpu_restart_bytes: float = 0.0
     #: where the work was first attempted (differs from `location` after a fallback)
     attempted_location: str = ""
+    #: CPU seconds actually spent at `attempted_location` before a contact failure (0.0 when
+    #: the attempt succeeded). Energy is charged on the REAL executed work, so a failed
+    #: remote attempt is billed at the helper tier and the local restart at the UE tier.
+    cpu_attempt_seconds: float = 0.0
     #: bytes of checkpoint state transferred to the requester before disconnection.
     #: ALWAYS 0 in v2: checkpoint transfer is NOT implemented (labelled unsupported, so it
     #: can never be mistaken for a free recovery mechanism).
@@ -274,6 +278,14 @@ class V2ScheduleResult:
     #: the CHANNEL OCCUPANCY (service + mid-transfer outage pauses under the declared
     #: retain-the-channel model); active service is in `radio_ledger`.
     radio_events: list = field(default_factory=list)
+    #: the batch makespan of the whole world (foreground + background). Reported separately
+    #: from the episode latency: the reward and telemetry of the FOREGROUND episode use
+    #: `episode_latency_s`, while `world_makespan_s` describes the shared world.
+    world_makespan_s: float | None = None
+    #: the FOREGROUND DAG's completion time (the episode latency), when a world defines one
+    episode_latency_s: float | None = None
+    #: foreground DAG identity, when a world defines one
+    foreground_dag_id: str | None = None
     #: one record per radio transfer, the event ledger the energy model consumes:
     #: {"dag_id","task_id","hop","direction","src","dst","bytes","start_s","end_s",
     #:  "service_s","outage_s","queue_wait_s","retained_channel"}
@@ -594,6 +606,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         restart_penalty = 0.0
         wasted_bytes = 0.0
         restart_bytes = 0.0
+        attempt_seconds = 0.0
         executed_bytes = float(spec.compute_bytes)
         attempted_location = location
         state = (helper_states or {}).get(dag.helper_id)
@@ -641,6 +654,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                     # the FINAL execution re-runs the whole task locally, so the executed
                     # work of this task is the restart; `wasted_bytes` stays separate
                     executed_bytes = restart_bytes
+                    attempt_seconds = float(served_s)
                     location = UE
         queue_wait_cpu = max(0.0, start - ready)
         fallback_reserved = 0.0
@@ -681,6 +695,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             cpu_wasted_bytes=float(wasted_bytes),
             cpu_restart_bytes=float(restart_bytes),
             attempted_location=attempted_location,
+            cpu_attempt_seconds=float(attempt_seconds),
             checkpoint_transfer_bytes=0.0)
         timings[(dag_id, task_id)] = timing
         finish[(dag_id, task_id)] = finish_s

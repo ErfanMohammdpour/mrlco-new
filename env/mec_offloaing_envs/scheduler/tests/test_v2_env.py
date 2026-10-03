@@ -54,14 +54,13 @@ class TestSurface(unittest.TestCase):
         finish, energy, telemetry = info
         self.assertEqual(len(finish), 3)
         self.assertEqual(len(telemetry), 3)
+        self.assertEqual(len(energy), 3)
         for record in telemetry:
             # frozen energy schema at the top level...
             for key in ("schema_version", "requester_joules", "mobile_joules",
                         "system_joules", "primary_scope", "primary_joules",
                         "scheduler_config_sha256", "makespan_s"):
                 self.assertIn(key, record)
-            self.assertEqual(record["energy_constraint"], "not_configured")
-            self.assertEqual(record["requester_joules"], 0.0)
             # ...and the v2 dynamics nested under "v2"
             self.assertIn("v2", record)
             for key in ("queue_wait_total_s", "outage_wait_total_s",
@@ -69,6 +68,47 @@ class TestSurface(unittest.TestCase):
                         "fallback_reserved_s", "location_mix", "deadline_miss_rate",
                         "scheduler_invariants"):
                 self.assertIn(key, record["v2"])
+
+    def test_energy_is_real_not_a_zero_shim(self):
+        """An all-MEC rollout must report NONZERO measured joules at every boundary.
+
+        This is the regression for the former zero-joule placeholder, which emitted
+        `energy_constraint="not_configured"` together with three exact zeros.
+        """
+        env = _env()
+        _o, _r, _d, info = env.step(np.ones((3, 20), dtype=int))
+        _finish, energy, telemetry = info
+        for record in telemetry:
+            self.assertIn(record["energy_constraint"], ("configured", "telemetry_only"))
+            self.assertNotEqual(record["energy_constraint"], "not_configured")
+            self.assertGreater(record["system_joules"], 0.0)
+            # NOTE (measured): in this dataset no root task carries external input bytes, so
+            # an all-MEC plan uploads nothing and the REQUESTER boundary is legitimately
+            # exactly 0 — it is not a placeholder. The all-UE plan below is the one that must
+            # show a nonzero requester boundary.
+            self.assertGreaterEqual(record["requester_joules"], 0.0)
+            self.assertLessEqual(record["requester_joules"], record["mobile_joules"] + 1e-9)
+            self.assertLessEqual(record["mobile_joules"], record["system_joules"] + 1e-9)
+            self.assertEqual(record["primary_scope"], "system")
+            self.assertEqual(len(str(record["energy_model_sha256"])), 64)
+            self.assertTrue(record["energy_unmodeled"],
+                            "unmodelled components must be declared, not zeroed")
+        self.assertGreater(float(energy[0][0]), 0.0)
+        # the all-UE plan is the one that charges the requester
+        _o, _r, _d, info = env.step(np.zeros((3, 20), dtype=int))
+        for record in info[2]:
+            self.assertGreater(record["requester_joules"], 0.0)
+            self.assertGreater(record["system_joules"], 0.0)
+
+    def test_energy_and_latency_are_not_the_same_quantity(self):
+        env = _env()
+        _o, _r, _d, info = env.step(np.zeros((3, 20), dtype=int))   # all-UE
+        ue_system = [r["system_joules"] for r in info[2]]
+        _o, _r, _d, info = env.step(np.ones((3, 20), dtype=int))    # all-MEC
+        mec_system = [r["system_joules"] for r in info[2]]
+        self.assertTrue(all(m > u for m, u in zip(mec_system, ue_system)),
+                        "the system boundary must charge MEC compute, so all-MEC costs "
+                        "more system energy than all-UE here")
 
     def test_action_shape_guard(self):
         env = _env()
