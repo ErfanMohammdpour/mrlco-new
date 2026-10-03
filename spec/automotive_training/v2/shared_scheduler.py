@@ -125,6 +125,8 @@ class TaskTiming:
     transfer_in_bytes: float
     transfer_hops: tuple = ()
     helper_id: int | None = None
+    outage_wait_s: float = 0.0
+    outage_events: int = 0
 
     @property
     def total_remote_response_s(self) -> float:
@@ -174,9 +176,19 @@ def _rate_for(hop: str, dag_index: int, link: V2LinkSpec) -> float:
     raise V2ScheduleError("unknown hop %r" % hop)
 
 
+HOP_TO_LINK = {HOP_UL: "mec_ul", HOP_DL: "mec_dl", HOP_V2V: "v2v",
+               HOP_UL_DIRECT: "mec_ul", HOP_DL_DIRECT: "mec_dl"}
+
+
 def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]],
-                    *, link: V2LinkSpec, compute: V2ComputeSpec) -> V2ScheduleResult:
-    """List-schedule multiple DAGs on shared calendars. Deterministic."""
+                    *, link: V2LinkSpec, compute: V2ComputeSpec,
+                    link_process=None) -> V2ScheduleResult:
+    """List-schedule multiple DAGs on shared calendars. Deterministic.
+
+    `link_process` (v2 stage 3) supplies **realized** link multipliers per (link, time).
+    The plan is executed open-loop: when a link is out, execution waits for recovery and
+    the wait is logged (no re-planning).
+    """
     if len(dags) != len(plans):
         raise V2ScheduleError("one plan per DAG required")
     shared_cpu = Calendar("MEC_CPU", servers=int(compute.mec_workers))
@@ -190,6 +202,29 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             helper_cpu.setdefault(dag.helper_id, Calendar("HELPER_CPU_%d" % dag.helper_id))
     radio_events: list = []
     concurrency: list = []
+
+    def reserve_transfer(cal: Calendar, ready: float, payload: float, hop: str):
+        link_name = HOP_TO_LINK[hop]
+        base = _rate_for(hop, 0, link)
+        t = float(ready)
+        outage_wait = 0.0
+        outage_events = 0
+        if link_process is not None:
+            dt = link_process.regime.dt_s
+            for _ in range(4096):
+                if link_process.realized(link_name, t) > 0.0:
+                    break
+                t += dt
+                outage_wait += dt
+                outage_events += 1
+            else:
+                raise V2ScheduleError("link %s stayed out for the whole horizon" % link_name)
+            rate = link_process.realized_rate(base, link_name, t)
+        else:
+            rate = base
+        duration = float(payload) / rate
+        start, end = cal.reserve(t, duration)
+        return start, end, duration, outage_wait, outage_events
 
     timings: dict = {}
     finish: dict = {}
@@ -225,17 +260,24 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         # data-ready time from predecessors (outputs stay where they executed)
         ready = float(dag.arrival_s)
         in_bytes = 0.0
+        task_outage_wait = 0.0
+        task_outage_events = 0
         if spec.is_root and spec.external_input_bytes and location != UE:
             # v1 engine semantics: the external input is uploaded before execution
+            root_outage_wait = 0.0
+            root_outage_events = 0
             for hop in _route_hops(UE, location, link):
-                rate = _rate_for(hop, 0, link)
-                duration = float(spec.external_input_bytes) / rate
                 cal = (ul if hop in (HOP_UL, HOP_UL_DIRECT)
                        else dl if hop in (HOP_DL, HOP_DL_DIRECT) else v2v)
-                _s, _e = cal.reserve(ready, duration)
+                _s, _e, _d, _ow, _oe = reserve_transfer(cal, ready,
+                                                        float(spec.external_input_bytes), hop)
                 radio_events.append((_s, _e, cal.name, float(spec.external_input_bytes)))
                 ready = _e
+                root_outage_wait += _ow
+                root_outage_events += _oe
             in_bytes += float(spec.external_input_bytes)
+            task_outage_wait += root_outage_wait
+            task_outage_events += root_outage_events
         for p in spec.predecessors:
             pt: TaskTiming = timings[(dag_id, p)]
             transfer = (pt.location != location)
@@ -244,13 +286,13 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             if transfer:
                 hops = _route_hops(pt.location, location, link)
                 for hop in hops:
-                    rate = _rate_for(hop, 0, link)
-                    duration = payload / rate
                     cal = (ul if hop in (HOP_UL, HOP_UL_DIRECT)
                            else dl if hop in (HOP_DL, HOP_DL_DIRECT) else v2v)
-                    start, end = cal.reserve(t_ready, duration)
+                    start, end, _dur, _ow, _oe = reserve_transfer(cal, t_ready, payload, hop)
                     radio_events.append((start, end, cal.name, payload))
                     t_ready = end
+                    task_outage_wait += _ow
+                    task_outage_events += _oe
                 in_bytes += payload
             ready = max(ready, t_ready)
         # phase order: input transfer already reserved above, then CPU, then DL for the sink
@@ -277,16 +319,17 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             hops = _route_hops(location, UE, link)
             t = cpu_end
             for i, hop in enumerate(hops):
-                rate = _rate_for(hop, 0, link)
-                duration = float(spec.output_bytes) / rate
                 cal = (ul if hop in (HOP_UL, HOP_UL_DIRECT)
                        else dl if hop in (HOP_DL, HOP_DL_DIRECT) else v2v)
                 if i == 0:
                     queue_wait_dl = cal.peek_wait(t)
-                dstart, dend = cal.reserve(t, duration)
+                dstart, dend, duration, _ow, _oe = reserve_transfer(
+                    cal, t, float(spec.output_bytes), hop)
                 radio_events.append((dstart, dend, cal.name, float(spec.output_bytes)))
                 tx_dl += duration
                 t = dend
+                task_outage_wait += _ow
+                task_outage_events += _oe
             finish_s = t
         timing = TaskTiming(
             dag_id=dag_id, task_id=task_id, location=location, ready_s=ready,
@@ -298,7 +341,9 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             queue_wait_cpu_s=queue_wait_cpu, cpu_s=cpu_duration,
             queue_wait_dl_s=queue_wait_dl, tx_dl_s=tx_dl,
             start_s=start, finish_s=finish_s, transfer_in_bytes=in_bytes,
-            helper_id=dag.helper_id if location == HELPER else None)
+            helper_id=dag.helper_id if location == HELPER else None,
+            outage_wait_s=float(task_outage_wait),
+            outage_events=int(task_outage_events))
         timings[(dag_id, task_id)] = timing
         finish[(dag_id, task_id)] = finish_s
         concurrency.append((start, "start", dag_id))
@@ -338,7 +383,9 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                       "HELPER_CPU": [util(helper_cpu[h]) for h in sorted(helper_cpu)]},
         queue_stats={"cpu_wait_mean_s": (sum(waits) / len(waits)) if waits else 0.0,
                      "cpu_wait_max_s": max(waits) if waits else 0.0,
-                     "remote_wait_max_s": max(remote_wait) if remote_wait else 0.0},
+                     "remote_wait_max_s": max(remote_wait) if remote_wait else 0.0,
+                     "outage_wait_total_s": sum(tm.outage_wait_s for tm in timings.values()),
+                     "outage_events_total": sum(tm.outage_events for tm in timings.values())},
         invariants={}, arrivals={d.dag_id: d.arrival_s for d in dags},
         active_concurrency=active_series)
     result.invariants = validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu,

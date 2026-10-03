@@ -1,0 +1,50 @@
+# v2 link-regime assumptions.
+#
+# EVIDENCE CLASS: explicit_assumption_synthetic.
+# These numbers are NOT literature constants and MUST NOT be reported as such. They are
+# deliberately simple, seedable sensitivity knobs that create the three regimes the v2
+# study needs (stable / moderate / degraded). Any trace-grounded or standards-grounded
+# replacement must keep the same interface and update this provenance block.
+#
+# Shape rationale (stated as assumption, not evidence): lognormal multiplicative
+# variation around the per-graph realized rate, with an AR(1)-style persistence so the
+# channel changes on a timescale comparable to a task transfer, plus independent outages.
+link_regimes:
+  stable:
+    evidence_class: explicit_assumption_synthetic
+    description: "reference regime: realized == estimated, no outages"
+    mean_multiplier: 1.0
+    sigma: 0.0
+    persistence: 0.0
+    outage_prob_per_step: 0.0
+    outage_steps: 0
+    estimation_sigma: 0.0
+    estimation_bias: 1.0
+    dt_s: 0.05
+  moderate:
+    evidence_class: explicit_assumption_synthetic
+    description: "mild fading: ~20% per-link coefficient of variation, rare short outages"
+    mean_multiplier: 0.95
+    sigma: 0.20
+    persistence: 0.7
+    outage_prob_per_step: 0.001
+    outage_steps: 2
+    estimation_sigma: 0.08
+    estimation_bias: 1.0
+    dt_s: 0.05
+  degraded:
+    evidence_class: explicit_assumption_synthetic
+    description: "degraded/high-variance regime: ~50% variation, 0.7x mean, frequent longer outages"
+    mean_multiplier: 0.70
+    sigma: 0.50
+    persistence: 0.85
+    outage_prob_per_step: 0.01
+    outage_steps: 6
+    estimation_sigma: 0.25
+    estimation_bias: 0.9
+    dt_s: 0.05
+notes:
+  - "estimation_bias multiplies the estimate to model optimistic/pessimistic planning; it is
+     applied to the ESTIMATE only, never to the realized rate used by the scheduler."
+  - "an outage sets the realized multiplier to 0 for outage_steps consecutive steps; the
+     estimate cannot see the outage in advance (confidence drops only after it starts)."

@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|
 | 1 v1 geometry/rate audit + errata | `fdfc7a2` | `build_v1_geometry_audit.py` (160 graphs) | OK | `reports/v1_geometry_audit/*`, `geometry_sensitivity.py`, `reports/gateI/geometry_sensitivity.json` | 0 |
 | 2 shared multi-DAG MEC scheduler | `596b885` | `test_v2_shared_scheduler.py` x3 fresh procs = 9/9 each; full non-TF suite 1183 passed / 0 failed | OK | `v2/{__init__,shared_scheduler,adapters}.py`, `tests/test_v2_shared_scheduler.py` | 0 |
-| 3 dynamic links (estimated vs realized) | pending | - | - | - | 0 |
+| 3 dynamic links (estimated vs realized) | `PENDING-COMMIT` | `test_v2_link_model.py` + `test_v2_shared_scheduler.py` = 17/17 x3 fresh procs; full non-TF 1191 passed / 0 failed | OK | `v2/{link_model.py,link_regimes.yaml}`, scheduler link-process hook, `tests/test_v2_link_model.py` | 0 |
 | 4 helper availability/contact | pending | - | - | - | 0 |
 | 5 criticality reliability + fallback hooks | pending | - | - | - | 0 |
 | 6 geometry gate + stronger search | pending | - | - | - | 0 |
