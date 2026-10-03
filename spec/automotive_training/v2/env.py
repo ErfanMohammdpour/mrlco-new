@@ -53,6 +53,14 @@ class V2EnvError(RuntimeError):
     """Raised on invalid v2 environment use."""
 
 
+def stable_seed(*parts) -> int:
+    """Seed keyed by STABLE identities, never by how many RNG calls have been consumed."""
+    import hashlib
+
+    payload = "|".join(str(p) for p in parts).encode("utf-8")
+    return int(hashlib.sha256(payload).hexdigest()[:12], 16) % (2 ** 31 - 1)
+
+
 def _crit_of(by_id: Mapping, timing) -> str:
     """Criticality of a timing record, from the graph record (never from a global guess)."""
     rec = by_id.get(int(getattr(timing, "task_id", -1)))
@@ -176,6 +184,7 @@ class V2AutomotiveEnv:
         self.last_constraint_costs: list = []
         self.link_process = None if self.link_regime == "stable" else None  # per reset
         self._worlds: dict = {}
+        self._world_key = None
         self._reference_ranges: dict = {}
         self._reference_results: dict = {}
         self._reference_ledgers: dict = {}
@@ -201,6 +210,25 @@ class V2AutomotiveEnv:
             if constraints_enabled else None)
 
     # -- v1-compatible surface --------------------------------------------
+    @property
+    def realization_epoch(self):
+        """Pinned MC-realization epoch of the frozen base env (None = counter-keyed)."""
+        return getattr(self.base, "realization_epoch", None)
+
+    @realization_epoch.setter
+    def realization_epoch(self, value):
+        """FORWARD the assignment to the base env.
+
+        `__getattr__` only covers reads, so `env.realization_epoch = 3` used to create a
+        wrapper attribute that the frozen env never saw; the MC realization stayed keyed by
+        the mutable `reset_count`. The audited requirement is explicit that this assignment
+        must reach the base environment.
+        """
+        self.base.realization_epoch = value
+
+    def set_realization_epoch(self, epoch) -> None:
+        self.base.realization_epoch = None if epoch is None else int(epoch)
+
     def __getattr__(self, item):
         """Delegate anything not defined here to the frozen v1 env.
 
@@ -259,15 +287,24 @@ class V2AutomotiveEnv:
             self.constraint_manager.load_state(state)
 
     def reset(self):
+        if self._world_key is not None:
+            # The MC realization is drawn INSIDE `self.base.reset()`, so the epoch must be
+            # pinned BEFORE that call. Setting it afterwards pinned the epoch for the NEXT
+            # reset and made a replayed iteration draw a different executed sub-DAG.
+            self.base.realization_epoch = stable_seed(self.base_seed, "mc_epoch",
+                                                      self._world_key)
         obs = self.base.reset()
         self.episodes += 1
         indices = getattr(self.base, "graph_indices", None)
         slots = [] if indices is None else [int(s) for s in indices]
         # one seeded link process per episode (identity-keyed, not call-order keyed)
         self.link_process = None
+        if self._world_key is not None:
+            link_seed = stable_seed(self.base_seed, "link", self._world_key)
+        else:
+            link_seed = self.base_seed * 1000003 + self.episodes
         if self.link_regime != "stable":
-            self.link_process = make_process(self.link_regime,
-                                             seed=self.base_seed * 1000003 + self.episodes)
+            self.link_process = make_process(self.link_regime, seed=link_seed)
         # ONE canonical world per FLAT SLOT POSITION (not per dataset graph index: two slots
         # may legitimately hold the same dataset graph under different conditions, and keying
         # by the graph index would collapse them into one world)
@@ -292,6 +329,21 @@ class V2AutomotiveEnv:
                 {"mec_ul": cfg.mec_ul_bytes_per_s, "mec_dl": cfg.mec_dl_bytes_per_s,
                  "v2v": cfg.v2v_bytes_per_s})
         return self._packed_observation(self.last_v2_context)
+
+    def set_world_realization(self, key) -> None:
+        """Fix the environmental realization by a STABLE identity key.
+
+        The realized link process and the helper draws are derived from this key, NOT from the
+        mutable episode counter. Without it, replay, CRN pairing and checkpoint resume cannot
+        reproduce a world: the counter advances with every `reset()` (including the resets that
+        support/query/validation perform), so the resumed run draws a different environment and
+        the weights diverge by O(learning rate). Passing `None` restores counter-keyed
+        behaviour (the historical default).
+        """
+        self._world_key = None if key is None else str(key)
+
+    def world_realization_key(self):
+        return self._world_key
 
     # -- canonical world construction --------------------------------------
     def _build_slot_world(self, flat: int) -> "V2World":
@@ -320,10 +372,20 @@ class V2AutomotiveEnv:
             raise V2EnvError("flat slot %d -> graph %d has no object: %s"
                              % (flat, dataset_graph_id, exc)) from exc
         mc = self.base._slot_mc[flat] if self.base._slot_mc else None
+        if self._world_key is not None:
+            helper_seed = stable_seed(self.base_seed, "helper", self._world_key, flat)
+        else:
+            helper_seed = self.base_seed * 7919 + self.episodes * 31 + flat
+        if self._world_key is not None:
+            # the world identity itself is keyed by the realization, so background workloads
+            # (which are derived from world_id) are reproduced too
+            world_id = "w_%s_slot%d" % (self._world_key, flat)
+        else:
+            world_id = "ep%d_slot%d" % (self.episodes, flat)
         return build_world(
-            graph, slot_id=flat, world_id="ep%d_slot%d" % (self.episodes, flat), mc=mc,
+            graph, slot_id=flat, world_id=world_id, mc=mc,
             dataset_graph_id=dataset_graph_id, config=self.world_config,
-            helper_seed=self.base_seed * 7919 + self.episodes * 31 + flat)
+            helper_seed=helper_seed)
 
     def world_for_slot(self, slot: int) -> "V2World":
         world = self._worlds.get(int(slot))
@@ -346,10 +408,13 @@ class V2AutomotiveEnv:
         graph = self.base.graph_objects[world.dataset_graph_id]
         mc = self.base._slot_mc[slot] if self.base._slot_mc else None
         refs_cfg = self.world_config
+        if self._world_key is not None:
+            ref_helper_seed = stable_seed(self.base_seed, "helper", self._world_key, slot)
+        else:
+            ref_helper_seed = self.base_seed * 7919 + self.episodes * 31 + slot
         worlds = pure_location_worlds(
             graph, slot_id=slot, mc=mc, dataset_graph_id=world.dataset_graph_id,
-            config=refs_cfg,
-            helper_seed=self.base_seed * 7919 + self.episodes * 31 + slot)
+            config=refs_cfg, helper_seed=ref_helper_seed)
         plans = {name: w.schedule(validate=False) for name, w in worlds.items()}
         refs = reference_ranges_from_plans(
             plans, scheduler_config_sha256=self._scheduler_fingerprint())

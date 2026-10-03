@@ -112,9 +112,16 @@ def v2_constraint_costs(result: V2ScheduleResult, ledger: V2EnergyLedger,
     return costs_from_metrics(metrics, refs, spec)
 
 
-def constraints_fingerprint(spec: ConstraintSpec, refs: ReferenceRanges | None = None) -> str:
+def constraints_fingerprint(spec: ConstraintSpec, scope: str | None = None) -> str:
+    """Fingerprint of the constraint SPECIFICATION and its declared reference scope.
+
+    Deliberately depends only on CONFIGURATION, never on a live `ReferenceRanges` object: the
+    object is rebuilt per episode, so including it made a checkpoint fail to restore its own
+    dual state (the live scope read back as None before the first evaluation).
+    """
+    scope = str(scope or getattr(spec, "reference_scope", None) or SCOPE_SYSTEM)
     payload = {"spec": spec.as_dict() if spec is not None else None,
-               "reference_scope": getattr(refs, "energy_scope", None) if refs else None}
+               "reference_scope": scope}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -222,8 +229,10 @@ class V2ConstraintManager:
         return {
             "constraints": self.controller.state(),
             "scheduler_config_sha256": self.scheduler_config_sha256,
-            "constraints_sha256": constraints_fingerprint(self.spec, self.references),
-            "reference_scope": getattr(self.references, "energy_scope", None),
+            "constraints_sha256": constraints_fingerprint(
+                self.spec, getattr(self.references, "energy_scope", None)),
+            "reference_scope": str(getattr(self.references, "energy_scope", None)
+                                   or SCOPE_SYSTEM),
         }
 
     def load_state(self, state: Mapping[str, Any]) -> None:
@@ -234,7 +243,8 @@ class V2ConstraintManager:
             self.set_lambdas(lambdas)
         self.controller.updates = int(cstate.get("updates", 0))
         expected = doc.get("constraints_sha256")
-        if expected and expected != constraints_fingerprint(self.spec, self.references):
+        if expected and expected != constraints_fingerprint(
+                self.spec, doc.get("reference_scope")):
             raise V2ConstraintError(
                 "constraint specification/normalisation changed since the checkpoint "
                 "(expected %s): refusing to restore a mismatched dual state" % expected)
