@@ -364,10 +364,19 @@ class V2AutomotiveEnv:
         return refs
 
     def _scheduler_fingerprint(self) -> str:
+        """64-hex scheduler fingerprint required by a SCOPED `ReferenceRanges`.
+
+        Must be a real sha256: a non-hex string is rejected by the energy scope contract, and
+        a silently-swallowed rejection used to make every context call rebuild the reference
+        worlds (measured: ~7 s per step).
+        """
         if self.scheduler_config_sha256:
             return str(self.scheduler_config_sha256)
-        return "%s:%s" % (self.world_config.sha256()[:48],
-                          str(self.base._axes_fingerprint())[:16])
+        import hashlib
+
+        payload = "%s|%s" % (self.world_config.sha256(),
+                             str(self.base._axes_fingerprint()))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def _packed_observation(self, contexts) -> np.ndarray:
         """Frozen v1 rows with the 12 v2 context columns inserted (91-wide)."""
@@ -749,10 +758,10 @@ class V2AutomotiveEnv:
         waits = {"all_mec": 0.0, "all_ue": 0.0, "all_helper": 0.0}
         energies = {"all_mec": 0.0, "all_ue": 0.0, "all_helper": 0.0}
         if slot is not None and int(slot) not in self._reference_ranges:
-            try:
-                self.reference_ranges_for_slot(int(slot))
-            except Exception:                     # pragma: no cover - layout guard
-                pass
+            # FAIL FAST: the context's queue/energy/budget channels need the reference plans.
+            # Swallowing a failure here silently left the cache empty and rebuilt three worlds
+            # per context call on every step.
+            self.reference_ranges_for_slot(int(slot))
         refs = (self._reference_ranges.get(int(slot)) if slot is not None else None)
         results = (self._reference_results.get(int(slot)) if slot is not None else None) or {}
         ledgers = (self._reference_ledgers.get(int(slot)) if slot is not None else None) or {}

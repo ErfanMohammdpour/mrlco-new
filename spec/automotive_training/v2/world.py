@@ -33,6 +33,7 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from spec.automotive_training.automotive_dag import decoder_order
 from spec.automotive_training.v2.adapters import (
     compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions, pure_plan,
 )
@@ -110,7 +111,20 @@ class V2World:
     arrivals: dict
     background_ids: tuple
     config: V2WorldConfig
+    #: decoder order of the FOREGROUND graph, cached at build time. `plan_map_from_actions`
+    #: re-canonicalises the DAG on every call, which dominated the CPU step cost once the
+    #: reward evaluates one schedule per token.
+    foreground_order: tuple = ()
     provenance: dict = field(default_factory=dict)
+
+    def plan_from_actions(self, actions: Sequence[int]) -> dict:
+        """{task_id: action} from a decoder-order action list, using the CACHED order."""
+        actions = list(actions)
+        if len(actions) != len(self.foreground_order):
+            raise V2WorldError(
+                "plan length %d != cached decoder order %d for world %s"
+                % (len(actions), len(self.foreground_order), self.world_id))
+        return {int(tid): int(a) for tid, a in zip(self.foreground_order, actions)}
 
     @property
     def foreground(self) -> V2DAGSpec:
@@ -157,11 +171,40 @@ class V2World:
 
         Candidate search, prefix replay and baseline scoring all evaluate the SAME world: the
         background DAGs, helper states, arrivals, identities and the exogenous link stream do
-        not depend on the candidate plan, so no candidate can draw a different world.
+        not depend on the candidate plan, so no candidate can draw a different world. The
+        decoder order is the CACHED one, so no DAG is re-canonicalised per candidate.
         """
         plans = dict(self.plans)
-        plans[self.foreground_id] = plan_map_from_actions(graph, actions)
+        actions = list(actions)
+        if len(actions) == len(self.foreground_order):
+            plans[self.foreground_id] = self.plan_from_actions(actions)
+        else:
+            plans[self.foreground_id] = plan_map_from_actions(graph, actions)
         return replace(self, plans=plans)
+
+    def structure_fingerprint_sha256(self) -> str:
+        """Identity of the WORLD STRUCTURE: everything except the foreground plan.
+
+        A candidate change must leave this unchanged, which is what "no candidate regenerates
+        the world" means operationally. `fingerprint_sha256()` includes the plans and is the
+        full identity of a scored configuration.
+        """
+        payload = {
+            "config": self.config.as_dict(), "world_id": self.world_id,
+            "slot_id": self.slot_id, "dataset_graph_id": self.dataset_graph_id,
+            "foreground_id": self.foreground_id,
+            "dags": sorted(d.dag_id for d in self.dags),
+            "owners": sorted(int(d.owner) for d in self.dags),
+            "arrivals": {k: float(v) for k, v in sorted(self.arrivals.items())},
+            "helpers": {k: [v.cpu_bytes_per_s, v.busy_until_s, v.contact_start_s,
+                            v.contact_end_s, v.predicted_contact_end_s]
+                        for k, v in sorted(self.helpers.items())},
+            "link": vars(self.link),
+            "compute": [self.compute.mec_cpu_bytes_per_s, self.compute.mec_workers,
+                        list(self.compute.ue_cpu_bytes_per_s),
+                        list(self.compute.helper_cpu_bytes_per_s)],
+        }
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
     def fingerprint_sha256(self) -> str:
         payload = {
@@ -177,6 +220,7 @@ class V2World:
                                  t.criticality, t.deadline_s, t.owner,
                                  t.external_input_bytes] for t in d.tasks]}
                      for d in self.dags],
+            "focus_order_len": len(self.foreground_order),
             "plans": {k: dict(sorted(v.items())) if isinstance(v, Mapping) else list(v)
                       for k, v in sorted(self.plans.items())},
             "helpers": {k: {"cpu": v.cpu_bytes_per_s, "busy": v.busy_until_s,
@@ -237,6 +281,7 @@ def build_world(graph, *, slot_id: int = 0, world_id: str | None = None,
     compute = compute or compute_spec([graph], mec_workers=config.mec_workers,
                                       helper_ids=list(range(n_helpers)))
     fg_id = "%s_fg" % world_id
+    foreground_order = tuple(int(t) for t in decoder_order(graph.as_record()))
     fg = dag_spec_from_graph(
         graph, dag_id=fg_id, owner=owner, mc=mc,
         helper_id=(int(config.helper_id) if config.enable_helpers
@@ -302,7 +347,7 @@ def build_world(graph, *, slot_id: int = 0, world_id: str | None = None,
                    dags=tuple(dags), plans=plans, link=link, compute=compute,
                    helpers=helpers, arrivals={d.dag_id: d.arrival_s for d in dags},
                    background_ids=tuple(background_ids), config=config,
-                   provenance=provenance)
+                   foreground_order=foreground_order, provenance=provenance)
 
 
 def _stable_seed(world_id: str, index: int) -> int:

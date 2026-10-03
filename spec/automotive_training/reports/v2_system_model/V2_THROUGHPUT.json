@@ -11,7 +11,7 @@
     "tokens_per_trajectory": 20
   },
   "cpu_iteration_estimate_note": "CPU rollout phases only (reset + 10 slots x one validated step incl. 21 telescoping prefixes, energy ledger and constraints). PPO inner steps, the MRLCO outer update and validation need TensorFlow and are NOT RUN here; they must be measured in the TF environment.",
-  "cpu_iteration_estimate_s": 0.9452532125869766,
+  "cpu_iteration_estimate_s": 2.357883131946437,
   "energy_example": {
     "background_components": {
       "helper_compute_joules": 0.0,
@@ -181,23 +181,23 @@
     ]
   },
   "phases": {
-    "energy_ledger_s_per_slot": 0.003671417012810707,
-    "env_reset_s": 0.3373715420020744,
-    "env_step_s": 0.06078816705849022,
-    "final_validated_schedule_s_per_slot": 0.0001027919352054596,
-    "reference_ranges_s_per_slot": 0.10447750007733703,
+    "energy_ledger_s_per_slot": 0.0037192500894889235,
+    "env_reset_s": 1.776406041928567,
+    "env_step_s": 0.05814770900178701,
+    "final_validated_schedule_s_per_slot": 9.26250359043479e-05,
+    "reference_ranges_s_per_slot": 0.10645516694057733,
     "schedule_throughput_vs_prior_claim": {
-      "now_ms_per_unvalidated_schedule": 0.10966602712869644,
-      "now_ms_per_validated_schedule": 0.11945806909352541,
+      "now_ms_per_unvalidated_schedule": 0.10145793203264475,
+      "now_ms_per_validated_schedule": 0.1338329166173935,
       "prior_measured": "~0.4-3.5 ms per schedule, 91.7 s per support rollout (CPU)"
     },
-    "schedule_unvalidated_s": 0.00010966602712869644,
-    "schedule_validated_s": 0.00011945806909352541,
-    "telescoping_prefixes_s_per_slot": 0.0019819580484181643,
-    "world_build_s": 0.34033495793119073
+    "schedule_unvalidated_s": 0.00010145793203264475,
+    "schedule_validated_s": 0.0001338329166173935,
+    "telescoping_prefixes_s_per_slot": 0.0017472499748691916,
+    "world_build_s": 0.35463604191318154
   },
   "schedules_per_second": {
-    "unvalidated": 9118.594209913972,
-    "validated": 8371.138154067146
+    "unvalidated": 9856.301818553167,
+    "validated": 7472.003340245787
   }
 }

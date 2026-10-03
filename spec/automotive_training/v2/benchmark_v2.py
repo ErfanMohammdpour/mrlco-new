@@ -257,14 +257,25 @@ def write_obs_schema(root: Path) -> dict:
             "migration": "no silent migration: a v1 checkpoint (79-wide) must be re-trained "
                          "or explicitly migrated; loading it into the v2 width raises",
         },
+        "implemented": [
+            "per-node epsilon (min/mean/max over EVERY task's criticality class)",
+            "age of the observed evidence per link (time since the last observed outage)",
+            "decision-time queue wait of the three pure-location reference plans",
+            "decision-time system-scope energy of those same plans",
+            "active energy-budget ratio and the broadcast dual variables",
+            "round-trip helper contact slack and the declared competitor load",
+            "helper committed BUSY SECONDS, with the busy FRACTION exposed separately",
+        ],
         "open_items": [
-            "per-node epsilon: the context carries a single class epsilon; the per-node "
-            "minimum/mean/max channels are NOT implemented",
-            "estimate age: no age-of-estimate channel is implemented",
-            "queue/load: no decision-time queue channel is implemented",
-            "energy/budget/lambda conditioning: NOT implemented in the context",
-            "the TF encoder consumption of this schema is NOT RUN in this environment "
-            "(TensorFlow is not installed)",
+            "the TF encoder CONSUMPTION of this schema is NOT RUN in this environment "
+            "(TensorFlow is not installed); the encoder's own name/dimension derivation IS "
+            "tested",
+            "no gradient check through the context columns: the TF encoder needed for it is "
+            "absent (the numpy perturbation test verifies the value reaches the declared "
+            "column instead)",
+            "estimate age is 0 at plan time under every shipped regime because the estimator "
+            "refreshes each decision epoch; the channel exists so a stale-estimate regime can "
+            "populate it",
         ],
     }
     (root / "OBS_SCHEMA_V2.json").write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")

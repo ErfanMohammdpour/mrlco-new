@@ -36,8 +36,21 @@ class LinkModelError(RuntimeError):
     """Raised on invalid regime configuration or a zero-rate transfer attempt."""
 
 
+_REGIME_CACHE: dict = {}
+
+
 def load_regimes(path: Path | None = None) -> dict:
-    doc = yaml.safe_load(Path(path or REGIME_YAML).read_text())
+    """Parse the regime table ONCE per path (it was re-read 630 times per env step)."""
+    key = str(Path(path or REGIME_YAML).resolve())
+    cached = _REGIME_CACHE.get(key)
+    if cached is None:
+        cached = _parse_regimes(Path(key))
+        _REGIME_CACHE[key] = cached
+    return cached
+
+
+def _parse_regimes(resolved: Path) -> dict:
+    doc = yaml.safe_load(Path(resolved).read_text())
     regimes = doc.get("link_regimes") or {}
     for name, spec in regimes.items():
         if spec.get("evidence_class") != "explicit_assumption_synthetic":
