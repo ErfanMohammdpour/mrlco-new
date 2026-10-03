@@ -106,6 +106,22 @@ class V2AutomotiveEnv:
         self.link_process = None if self.link_regime == "stable" else None  # per reset
 
     # -- v1-compatible surface --------------------------------------------
+    def __getattr__(self, item):
+        """Delegate anything not defined here to the frozen v1 env.
+
+        The frozen stack builder and the held-out evaluator touch a number of v1 env
+        attributes (`configs`, `graph_objects`, `orders`, `graph_indices`, `_slot_mc`,
+        `greedy_solution`, ...). Delegation keeps that surface working without copying it,
+        and keeps the v2 env a true composition.
+        """
+        if item.startswith("__") and item.endswith("__"):
+            raise AttributeError(item)
+        try:
+            base = object.__getattribute__(self, "base")
+        except AttributeError:
+            raise AttributeError(item)
+        return getattr(base, item)
+
     @property
     def input_dim(self) -> int:
         return self.base.input_dim

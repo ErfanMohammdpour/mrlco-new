@@ -754,6 +754,23 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
     spec/automotive_training/automotive_primary.py). Every other value keeps the
     historical legacy path byte-for-byte unchanged.
     """
+    if str(dataset) == "automotive_mc_v2":
+        from spec.automotive_training.v2.stack import build_automotive_v2_stack
+
+        names = list(constraints) if isinstance(constraints, (list, tuple)) else None
+        return build_automotive_v2_stack(
+            seed=int(seed), n_itr=int(n_itr), ckpt_dir=str(ckpt_dir),
+            dataset_dir=dataset_dir, reward_mode=str(reward_mode),
+            use_energy=bool(use_energy),
+            constraints=names if names else None,
+            constraint_dual_lr=float(constraint_dual_lr),
+            meta_batch_size=int(meta_batch_size),
+            support_trajectories=int(support_trajectories),
+            run_kind=str(run_kind),
+            link_regime=str(os.environ.get("MARGO_V2_LINK_REGIME", "stable")),
+            mec_workers=int(os.environ.get("MARGO_V2_MEC_WORKERS", "1")),
+            reliability=bool(int(os.environ.get("MARGO_V2_RELIABILITY", "0"))),
+        )
     if str(dataset) == "automotive_mc_v1":
         from spec.automotive_training.automotive_primary import (
             build_automotive_primary_stack,

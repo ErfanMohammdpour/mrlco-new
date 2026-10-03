@@ -144,3 +144,28 @@ Evidence:
   `NON_STANDARDIZED_FEATURES` made the frozen v1 stats tool report the v1 file as STALE.
   The exclusion is now version-scoped (`NON_STANDARDIZED_FEATURES_V2` used only by the v2
   version), the tool reports "up to date" again, and the v1 module state is untouched.
+
+## v2 train/val stack wired (trainer bridge)
+
+`v2/stack.py::build_automotive_v2_stack` mirrors `build_automotive_primary_stack` exactly
+(same frozen budgets: meta_batch 10, support 20, 3 inner applies, same policy/sampler/
+MRLCO/processor chain, same validation split guard) and changes only:
+* env family `AutomotiveEnv` -> `V2AutomotiveEnv` (v2 shared scheduler dynamics),
+* obs version -> `automotive_v2_obs_v1` (set before the policy import),
+* run/method ids, v2 system config and the CRN protocol recorded on the trainer
+  (`auto_protocol_id = automotive_crn_gumbel_v1`, `auto_crn = {r_select, s_select}`).
+`meta_trainer.build_frozen_primary_stack` routes `dataset="automotive_mc_v2"` to it, with
+`MARGO_V2_LINK_REGIME` / `MARGO_V2_MEC_WORKERS` / `MARGO_V2_RELIABILITY` selecting the
+system configuration. `V2AutomotiveEnv.__getattr__` delegates the v1 env surface
+(configs, graph_objects, orders, dags, graph_indices, encoder_batchs, ...) so the frozen
+builder/evaluator keep working; unknown attributes still raise.
+
+Tests: `test_v2_stack.py` 5 tests x3 fresh processes (routing, pre-TF guards, regime list,
+obs version, delegation, AttributeError behaviour); full non-TF suite 1249 passed / 0 failed.
+
+OPEN, must be verified before the run counts: `V2HeldOutEvaluator` currently SUBCLASSES the
+frozen v1 held-out evaluator and only annotates the v2 configuration. Whether the parent's
+inner support/query rollout builds its own v1 env (and therefore evaluates v1 dynamics under
+a v2 label) has NOT been inspected yet. Either the parent must accept an env factory or the
+evaluator must be reimplemented on `V2AutomotiveEnv`; until that is resolved, a v2 validation
+number must not be reported as a v2 number.
