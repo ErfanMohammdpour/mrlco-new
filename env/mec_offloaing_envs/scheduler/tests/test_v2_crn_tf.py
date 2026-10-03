@@ -16,6 +16,19 @@ ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# The obs version must be active BEFORE `policies/graph2seq_encoder` is imported: that module
+# binds FEATURE_DIM/PACKED_DIM at import time. The container image has no pytest, so this file
+# is run with `python -m unittest discover -s env/mec_offloaing_envs/scheduler/tests`.
+import os
+
+os.environ["MARGO_OBS_VERSION"] = "automotive_v2_obs_v1"
+try:
+    from env.mec_offloaing_envs.scheduler import encoder_obs
+
+    encoder_obs.set_obs_version("automotive_v2_obs_v1")
+except Exception:  # pragma: no cover
+    pass
+
 try:
     import tensorflow as tf
 
@@ -33,12 +46,12 @@ class TestSeq2SeqPolicyCRN(unittest.TestCase):
     def _policy(self, name="crn_policy"):
         from policies.meta_seq2seq_policy import Seq2SeqPolicy
 
-        return Seq2SeqPolicy(obs_dim=79, encoder_units=32, decoder_units=32, vocab_size=3,
+        return Seq2SeqPolicy(obs_dim=91, encoder_units=32, decoder_units=32, vocab_size=3,
                              name=name, enable_crn=True)
 
     def test_same_seed_pair_bit_identical_actions(self):
         policy = self._policy()
-        obs = np.random.RandomState(0).randn(4, 20, 79).astype(np.float32)
+        obs = np.random.RandomState(0).randn(4, 20, 91).astype(np.float32)
         with tf.compat.v1.Session() as sess:
             sess.run(tf.compat.v1.global_variables_initializer())
             a1, l1, v1 = policy.crn_actions(obs, [11, 22])
@@ -50,11 +63,17 @@ class TestSeq2SeqPolicyCRN(unittest.TestCase):
         self.assertFalse(np.array_equal(a1, a3),
                          "a different CRN seed must give a different draw")
 
+    def test_obs_version_in_use_is_the_v2_schema(self):
+        from env.mec_offloaing_envs.scheduler import encoder_obs
+
+        self.assertEqual(encoder_obs.OBS_VERSION, "automotive_v2_obs_v1")
+        self.assertEqual((encoder_obs.FEATURE_DIM, encoder_obs.PACKED_DIM), (52, 91))
+
     def test_gumbel_path_matches_stateless_categorical(self):
         """A stateless categorical draw IS the Gumbel-max rule with a deterministic stream:
         the empirical action frequencies must match the softmax of the logits."""
         policy = self._policy("crn_policy_stats")
-        obs = np.zeros((200, 20, 79), dtype=np.float32)
+        obs = np.zeros((200, 20, 91), dtype=np.float32)
         with tf.compat.v1.Session() as sess:
             sess.run(tf.compat.v1.global_variables_initializer())
             counts = np.zeros(3)
@@ -72,7 +91,7 @@ class TestSeq2SeqPolicyCRN(unittest.TestCase):
     def test_crn_is_off_by_default(self):
         from policies.meta_seq2seq_policy import Seq2SeqPolicy
 
-        policy = Seq2SeqPolicy(obs_dim=79, encoder_units=32, decoder_units=32, vocab_size=3,
+        policy = Seq2SeqPolicy(obs_dim=91, encoder_units=32, decoder_units=32, vocab_size=3,
                                name="crn_off")
         self.assertIsNone(policy.crn_seed)
         self.assertFalse(policy.enable_crn)
