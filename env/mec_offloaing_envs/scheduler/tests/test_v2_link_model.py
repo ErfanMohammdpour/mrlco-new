@@ -105,7 +105,9 @@ class TestSchedulerWithLinks(unittest.TestCase):
         plain = schedule_shared([self._dag()], plan, link=self.LINK, compute=self.COMPUTE)
         stable = schedule_shared([self._dag()], plan, link=self.LINK, compute=self.COMPUTE,
                                  link_process=make_process("stable", 0))
-        self.assertEqual(plain.makespan_s, stable.makespan_s)
+        # the integration path accumulates service in dt steps, so a constant-rate transfer
+        # can differ from the analytic one by machine epsilon (measured ~1e-16 s)
+        self.assertAlmostEqual(plain.makespan_s, stable.makespan_s, places=9)
         self.assertEqual(stable.queue_stats["outage_events_total"], 0)
 
     def test_degraded_regime_is_slower_and_logs_outages(self):
