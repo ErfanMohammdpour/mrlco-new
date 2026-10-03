@@ -38,6 +38,8 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--replicates", type=int, default=SELECT_REPLICATES)
     ap.add_argument("--label", default="adaptation_sweep")
+    ap.add_argument("--decoding", default=PRIMARY_DECODING,
+                    choices=["deterministic", "stochastic"])
     args = ap.parse_args()
 
     import tensorflow as tf
@@ -52,7 +54,7 @@ def main() -> int:
     seeds = realization_seeds(args.replicates)
 
     trainer, algo = build_automotive_primary_stack(
-        seed=0, n_itr=1, ckpt_dir="/tmp/adapt_sweep", decoding=PRIMARY_DECODING)
+        seed=0, n_itr=1, ckpt_dir="/tmp/adapt_sweep", decoding=args.decoding)
     evaluator = trainer.held_out_evaluator
     results = {}
     with tf.compat.v1.Session() as sess:
@@ -61,7 +63,7 @@ def main() -> int:
         algo.sync_task_policies_from_core()
         for k in ADAPTATION_K_STEPS:
             out = evaluator.evaluate(int(k), replicates=args.replicates,
-                                     decoding=PRIMARY_DECODING, sess=sess)
+                                     decoding=args.decoding, sess=sess)
             key = "k%d" % k
             results[key] = {
                 "k_steps": int(k),
@@ -94,7 +96,7 @@ def main() -> int:
         "checkpoint": str(ckpt),
         "protocol_id": PROTOCOL_ID,
         "protocol_sha": protocol_sha(),
-        "decoding": PRIMARY_DECODING,
+        "decoding": args.decoding,
         "replicates": int(args.replicates),
         "realization_seeds": list(seeds),
         "results": results,
