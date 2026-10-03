@@ -248,3 +248,34 @@ Kish delivery mechanism (no GitHub credentials on the host): a thin git bundle
 `git bundle create x.bundle phase5-realistic-system-v2 --not 92212d1d` + scp + `git fetch`.
 Checkout left on branch `phase5-realistic-system-v2 @ 4d97490c` with the pre-existing
 untracked `runs/` directory intact; `/opt/margo/mrlco-new` never touched.
+
+## Stage 9 BLOCKED (CPU smoke evidence, 186fec1 + this commit)
+
+CPU-only smoke in the TF1.15 container (zero visible GPUs asserted before training; the repo
+GPU gate was NOT bypassed - no GPU launch was attempted):
+
+```
+attempt 1  ValueError: encoder packed dim 79 != 91
+           -> V2AutomotiveEnv returned frozen v1 rows while the builder activated
+              automotive_v2_obs_v1; fixed: the v2 env packs its observations with
+              pack_v2_row and reports input_dim 91 when the v2 schema is active
+attempt 2  AutomotiveEnvError: single_dist mode exposes exactly one distribution
+           -> the v2 env always built the single-dist layout; fixed: single_dist is now a
+              parameter, training uses one distribution per graph with slots_per_task
+              trajectories, validation uses one distribution holding every graph
+attempt 3  IndexError in the observation packing: the training layout's
+           graph_indices/rows bookkeeping does not expose one context per returned row
+           (after sample_tasks(10) + base.reset(), graph_indices is scalar-shaped while
+           encoder_batchs yields (1, 20, 79)); the frozen sampler sets per-dist tasks
+           internally, so mapping returned rows -> per-slot v2 context is NOT yet correct.
+```
+
+Status: BLOCKED on the training-layout observation mapping, with a reproducible failure. The
+validation/single-dist layout is verified (reset/step return (n, 20, 91) with per-slot
+contexts), which is why the TF CRN test and the v2 env tests pass. No fallback (zero or
+repeated context) was shipped, because silently attaching the wrong per-graph context to a
+training observation would make every v2 training number uninterpretable.
+
+Next concrete step (needs budget): resolve the sampler->env slot mapping (read
+Seq2SeqMetaSampler.set_task/step and map each returned row to its graph via the sampler's task
+structure), then rerun the CPU smoke, then request human GPU approval for the 1x500 run.

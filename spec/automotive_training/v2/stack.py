@@ -147,6 +147,7 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
         """Validation env factory: v2 dynamics, v2 obs version, no constraint controller."""
         return V2AutomotiveEnv(list(graphs), AutomotiveResourceCluster(), role="validation",
                                slots_per_task=int(slots), base_seed=int(seed),
+                               single_dist=bool(single_dist),
                                link_regime=str(link_regime), mec_workers=int(mec_workers),
                                reliability=bool(reliability),
                                helper_contact_mean_s=float(helper_contact_mean_s),

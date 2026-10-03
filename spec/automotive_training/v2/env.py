@@ -80,17 +80,21 @@ class V2AutomotiveEnv:
                  helper_contact_mean_s: float = 2.0, helper_contact_cv: float = 0.5,
                  helper_busy_s: float = 0.0, reliability: bool = False,
                  runtime_deadline_scale: float = 1.0, mc_enabled: bool = True,
-                 constraint_controller: Any | None = None):
-        # single-distribution layout: one dist holding every graph, so each slot is one
-        # graph (the layout the frozen validation evaluator uses and the only one where
-        # `_graph_index(slot)` maps slots to graphs)
+                 constraint_controller: Any | None = None, single_dist: bool = False):
+        # Two layouts are supported, exactly as in the frozen env:
+        # * single_dist=False (training): one distribution per graph, `slots_per_task`
+        #   trajectories per distribution, `sample_tasks(meta_batch_size)` selects graphs;
+        # * single_dist=True (validation/eval): one distribution holding every graph, so one
+        #   slot per graph.
         graphs = list(graphs)
+        self.single_dist = bool(single_dist)
+        slots = max(1, len(graphs)) if self.single_dist else max(1, int(slots_per_task))
         self.base = AutomotiveEnv(graphs, cluster or AutomotiveResourceCluster(),
-                                  role=role, slots_per_task=max(1, len(graphs)),
+                                  role=role, slots_per_task=slots,
                                   base_seed=int(base_seed), mc_enabled=bool(mc_enabled),
-                                  single_dist=True)
+                                  single_dist=self.single_dist)
         self.role = role
-        self.slots_per_task = max(1, len(graphs))
+        self.slots_per_task = max(1, len(graphs)) if bool(single_dist) else max(1, int(slots_per_task))
         self.base_seed = int(base_seed)
         self.link_regime = str(link_regime)
         self.mec_workers = int(mec_workers)
@@ -190,9 +194,12 @@ class V2AutomotiveEnv:
         return out
 
     def _contexts(self) -> list:
+        """One v2 context per flat slot (training: meta_batch x slots_per_task)."""
         indices = getattr(self.base, "graph_indices", None)
-        slots = [] if indices is None else [int(s) for s in indices]
-        return [self._context_vector(slot) for slot in slots]
+        if indices is None:
+            return []
+        flat = np.asarray(indices).reshape(-1)
+        return [self._context_vector(int(slot)) for slot in flat]
 
     # -- execution ---------------------------------------------------------
     def _schedule_slot(self, slot: int, actions: Sequence[int]):
