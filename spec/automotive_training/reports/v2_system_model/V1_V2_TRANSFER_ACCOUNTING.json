@@ -1,0 +1,122 @@
+{
+  "byte_mismatch_rows": 8,
+  "detail": [
+    {
+      "graph": "mcv1_lpp_s0_whigh_dloose",
+      "plan": "all_MEC",
+      "v1_bytes": 3385.0,
+      "v1_hop_sum": 2,
+      "v1_records": 2,
+      "v2_bytes": 3200.0,
+      "v2_events": 1
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dloose",
+      "plan": "half_MEC_half_UE",
+      "v1_bytes": 70380.0,
+      "v1_hop_sum": 10,
+      "v1_records": 10,
+      "v2_bytes": 70380.0,
+      "v2_events": 10
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dloose",
+      "plan": "half_MEC_half_HELPER",
+      "v1_bytes": 144145.0,
+      "v1_hop_sum": 22,
+      "v1_records": 22,
+      "v2_bytes": 143960.0,
+      "v2_events": 21
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dnomin",
+      "plan": "all_MEC",
+      "v1_bytes": 3162.0,
+      "v1_hop_sum": 2,
+      "v1_records": 2,
+      "v2_bytes": 3000.0,
+      "v2_events": 1
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dnomin",
+      "plan": "half_MEC_half_UE",
+      "v1_bytes": 64523.0,
+      "v1_hop_sum": 10,
+      "v1_records": 10,
+      "v2_bytes": 64523.0,
+      "v2_events": 10
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dnomin",
+      "plan": "half_MEC_half_HELPER",
+      "v1_bytes": 132208.0,
+      "v1_hop_sum": 22,
+      "v1_records": 22,
+      "v2_bytes": 132046.0,
+      "v2_events": 21
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dtight",
+      "plan": "all_MEC",
+      "v1_bytes": 2846.0,
+      "v1_hop_sum": 2,
+      "v1_records": 2,
+      "v2_bytes": 2600.0,
+      "v2_events": 1
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dtight",
+      "plan": "half_MEC_half_UE",
+      "v1_bytes": 62722.0,
+      "v1_hop_sum": 10,
+      "v1_records": 10,
+      "v2_bytes": 62722.0,
+      "v2_events": 10
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dtight",
+      "plan": "half_MEC_half_HELPER",
+      "v1_bytes": 128290.0,
+      "v1_hop_sum": 22,
+      "v1_records": 22,
+      "v2_bytes": 128044.0,
+      "v2_events": 21
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dtight",
+      "plan": "all_MEC",
+      "v1_bytes": 2954.0,
+      "v1_hop_sum": 2,
+      "v1_records": 2,
+      "v2_bytes": 2800.0,
+      "v2_events": 1
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dtight",
+      "plan": "half_MEC_half_UE",
+      "v1_bytes": 65101.0,
+      "v1_hop_sum": 10,
+      "v1_records": 10,
+      "v2_bytes": 65101.0,
+      "v2_events": 10
+    },
+    {
+      "graph": "mcv1_lpp_s0_whigh_dtight",
+      "plan": "half_MEC_half_HELPER",
+      "v1_bytes": 133156.0,
+      "v1_hop_sum": 22,
+      "v1_records": 22,
+      "v2_bytes": 133002.0,
+      "v2_events": 21
+    }
+  ],
+  "finding": "v1 emits one transfer record per graph EDGE carrying a hop count; v2 emits one radio event per HOP. Moved bytes agree exactly; raw counts differ by the relay hops, so counts were a LABELLING difference, not a physics difference.",
+  "graphs": 4,
+  "plans": [
+    "all_MEC",
+    "half_MEC_half_UE",
+    "half_MEC_half_HELPER"
+  ],
+  "rows": 12,
+  "schema": "v1_v2_transfer_accounting_v1"
+}

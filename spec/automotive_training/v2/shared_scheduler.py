@@ -171,6 +171,8 @@ class V2ScheduleResult:
     invariants: dict
     arrivals: dict
     active_concurrency: list
+    #: (start_s, end_s, calendar_name, bytes) for every booked radio transfer
+    radio_events: list = field(default_factory=list)
 
 
 def _route_hops(location_a: str, location_b: str, link: V2LinkSpec) -> tuple:
@@ -508,7 +510,9 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     remote_wait = [tm.queue_wait_ul_s for tm in timings.values()]
     result = V2ScheduleResult(
         makespan_s=makespan, completion_by_dag=completion, timings=timings,
-        mechanics={"radio_events": len(radio_events), "tasks": len(timings)},
+        mechanics={"radio_events": len(radio_events), "tasks": len(timings),
+                   "radio_bytes": float(sum(e[3] for e in radio_events))},
+        radio_events=list(radio_events),
         utilizations={"MEC_CPU": util(shared_cpu), "MEC_UL": util(ul), "MEC_DL": util(dl),
                       "V2V": util(v2v),
                       "UE_CPU": [util(ue_cpu[i]) for i in sorted(ue_cpu)],

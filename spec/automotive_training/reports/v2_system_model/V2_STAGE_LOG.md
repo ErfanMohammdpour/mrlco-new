@@ -189,3 +189,25 @@ Branch `phase5-realistic-system-v2` pushed to the `erfan` remote (tracking set).
 suite 1260 passed / 0 failed / 18 skipped. Still open in stage 8: the transfer-count
 quantification versus v1 and the ">=3 fresh processes for every v2 suite" record (currently
 recorded per suite as it was added).
+
+## Stage 8: v1<->v2 transfer accounting quantified (was an open item)
+
+`V1_V2_TRANSFER_ACCOUNTING.json` (4 validation graphs x 3 plans, same MC realization):
+
+| plan | v1 records | v2 events | v1 bytes | v2 bytes |
+|---|---|---|---|---|
+| all_MEC | 2 | 1 | 3385 | 3200 |
+| half MEC/UE | 10 | 10 | 70380 | 70380 |
+| half MEC/HELPER | 22 | 21 | 144145 | 143960 |
+
+Finding: the raw-count difference is NOT a physics difference. v1 emits one transfer record per
+graph EDGE (with a hop count inside), v2 emits one booking per HOP; on single-hop plans the
+counts match exactly (10/10) and the byte totals match exactly. The only byte discrepancies
+(8 of 12 rows) are exactly 185 B each: v1 books a second, very small sink return that v2 does
+not book. Impact bound: 185 B / ~20 Mbps ~ 74 us against a ~25 ms makespan (< 0.3 %), so it
+cannot carry the geometry-gate headroom; but the cause is NOT yet identified (candidate:
+differing MC survivor sets for the tiny-output sink), so it stays OPEN and is not used as an
+explanation for any v2 result.
+
+Also in this stage: `V2ScheduleResult` now exposes the booked `radio_events` and
+`mechanics["radio_bytes"]` (needed for the accounting above); 49 v2 tests re-run green.
