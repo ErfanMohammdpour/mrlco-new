@@ -55,11 +55,20 @@ class TestSurface(unittest.TestCase):
         self.assertEqual(len(finish), 3)
         self.assertEqual(len(telemetry), 3)
         for record in telemetry:
-            for key in ("makespan_s", "queue_wait_total_s", "outage_wait_total_s",
+            # frozen energy schema at the top level...
+            for key in ("schema_version", "requester_joules", "mobile_joules",
+                        "system_joules", "primary_scope", "primary_joules",
+                        "scheduler_config_sha256", "makespan_s"):
+                self.assertIn(key, record)
+            self.assertEqual(record["energy_constraint"], "not_configured")
+            self.assertEqual(record["requester_joules"], 0.0)
+            # ...and the v2 dynamics nested under "v2"
+            self.assertIn("v2", record)
+            for key in ("queue_wait_total_s", "outage_wait_total_s",
                         "helper_contact_failures", "reliability_rejections",
                         "fallback_reserved_s", "location_mix", "deadline_miss_rate",
                         "scheduler_invariants"):
-                self.assertIn(key, record)
+                self.assertIn(key, record["v2"])
 
     def test_action_shape_guard(self):
         env = _env()
@@ -84,23 +93,23 @@ class TestExecution(unittest.TestCase):
         env = _env()
         _o, _r, _d, info = env.step(np.zeros((3, 20), dtype=int))
         for record in info[2]:
-            self.assertEqual(record["location_mix"]["MEC"], 0)
-            self.assertEqual(record["location_mix"]["HELPER"], 0)
+            self.assertEqual(record["v2"]["location_mix"]["MEC"], 0)
+            self.assertEqual(record["v2"]["location_mix"]["HELPER"], 0)
 
     def test_all_mec_plan_uses_shared_mec_and_reports_queueing(self):
         env = _env()
         _o, _r, _d, info = env.step(np.ones((3, 20), dtype=int))
         for record in info[2]:
-            self.assertGreater(record["location_mix"]["MEC"], 0)
-            self.assertTrue(record["scheduler_invariants"]["precedence_and_data_arrival"])
-            self.assertTrue(record["scheduler_invariants"]["no_double_booking"])
+            self.assertGreater(record["v2"]["location_mix"]["MEC"], 0)
+            self.assertTrue(record["v2"]["scheduler_invariants"]["precedence_and_data_arrival"])
+            self.assertTrue(record["v2"]["scheduler_invariants"]["no_double_booking"])
 
     def test_reliability_gate_rejects_remote_under_unreliable_links(self):
         env = _env(link_regime="degraded", reliability=True)
         _o, _r, _d, info = env.step(np.ones((3, 20), dtype=int))
-        self.assertGreaterEqual(sum(r["reliability_rejections"] for r in info[2]), 0)
+        self.assertGreaterEqual(sum(r["v2"]["reliability_rejections"] for r in info[2]), 0)
         for record in info[2]:
-            self.assertIn("location_mix", record)
+            self.assertIn("location_mix", record["v2"])
 
     def test_telescoping_sums_to_total_latency_change(self):
         env = _env()

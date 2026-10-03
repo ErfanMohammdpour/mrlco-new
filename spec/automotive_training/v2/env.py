@@ -333,12 +333,43 @@ class V2AutomotiveEnv:
             self.last_v2_context.append(self._context_vector(slot))
             reward_batch.append(np.asarray(rewards, dtype=np.float32))
             finish_batch.append(float(result.makespan_s))
-            from env.mec_offloaing_envs.scheduler.energy_scope import energy_scalar
-            energy = 0.0
-            energy_batch.append(np.full(len(rewards), float(energy), dtype=np.float32))
-            telemetry_batch.append(telemetry.as_dict())
+            energy_batch.append(np.zeros(len(rewards), dtype=np.float32))
+            telemetry_batch.append(self._frozen_telemetry(slot, telemetry))
         obs = self._packed_observation(self.last_v2_context)
         return obs, reward_batch, True, (finish_batch, energy_batch, telemetry_batch)
+
+    def _frozen_telemetry(self, slot: int, telemetry) -> dict:
+        """Per-slot telemetry in the FROZEN energy schema, with the v2 record nested.
+
+        Energy is explicitly not configured for the v2 system model (`energy_constraint:
+        not_configured`), so the three accounting boundaries are emitted as exact ZEROS with
+        the frozen schema's `primary_scope="mobile"` (the validator accepts only
+        requester|mobile|system) plus an explicit `energy_constraint="not_configured"` marker,
+        so a zero can never be mistaken for a measured v1 energy number. The REAL scheduler
+        config fingerprint is kept. The v2 dynamics live under the `v2` key.
+        """
+        from env.mec_offloaing_envs.scheduler.energy_telemetry import (
+            TELEMETRY_SCHEMA_VERSION,
+        )
+
+        index = self.base._graph_index(int(slot))
+        graph = self.base.graph_objects[index]
+        cfg = self.configs[index]
+        v2 = telemetry.as_dict()
+        return {
+            "schema_version": TELEMETRY_SCHEMA_VERSION,
+            "requester_joules": 0.0,
+            "mobile_joules": 0.0,
+            "system_joules": 0.0,
+            "primary_scope": "mobile",   # frozen schema allows requester|mobile|system only
+            "primary_joules": 0.0,
+            "scheduler_config_sha256": self.base._axes_fingerprint(),
+            "graph_scheduler_config_sha256": str(cfg.source_config_sha256),
+            "makespan_s": float(telemetry.makespan_s),
+            "latency_only_objective": -float(telemetry.makespan_s) / max(float(graph.D_G_s), 1e-12),
+            "energy_constraint": "not_configured",
+            "v2": v2,
+        }
 
     # -- v2 context (not yet in the TF observation) ------------------------
     def _context_vector(self, slot: int) -> np.ndarray:
