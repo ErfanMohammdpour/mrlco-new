@@ -43,6 +43,8 @@ def action_mix(paths) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="/tmp/diagnose_decoding.json")
+    ap.add_argument("--decoding", default="deterministic",
+                    choices=["deterministic", "stochastic"])
     args = ap.parse_args()
 
     import tensorflow as tf
@@ -51,7 +53,8 @@ def main() -> int:
         build_automotive_primary_stack,
     )
 
-    trainer, algo = build_automotive_primary_stack(seed=0, n_itr=1, ckpt_dir="/tmp/diag")
+    trainer, algo = build_automotive_primary_stack(seed=0, n_itr=1, ckpt_dir="/tmp/diag",
+                                                   decoding=args.decoding)
     evaluator = trainer.held_out_evaluator
     out = {}
     with tf.compat.v1.Session() as sess:
@@ -64,15 +67,16 @@ def main() -> int:
                     continue
                 trainer.policy.core_policy.load_variables(str(path), sess=sess)
             algo.sync_task_policies_from_core()
-            det = evaluator.evaluate(0, replicates=2, decoding="deterministic", sess=sess)
-            sto = evaluator.evaluate(0, replicates=2, decoding="stochastic", sess=sess)
+            ev = evaluator.evaluate(0, replicates=2, decoding=args.decoding, sess=sess)
+            deterministic = args.decoding == "deterministic"
             env = evaluator._paired_env(evaluator.query_graphs, 1000, 0)
             paths = evaluator._rollout_on(env, evaluator.policy, adapt_steps=0, seed=1000,
-                                          deterministic=True)
+                                          deterministic=deterministic)
             out[label] = {
-                "deterministic_k0_latency_s": det["k0_latency_s"],
-                "stochastic_k0_latency_s": sto["k0_latency_s"],
-                "deterministic_action_mix": action_mix(paths),
+                "decoding": args.decoding,
+                "k0_latency_s": ev["k0_latency_s"],
+                "k0_latency_per_replicate": [r["k0_latency_s"] for r in ev["per_replicate"]],
+                "action_mix": action_mix(paths),
             }
             print(json.dumps({label: out[label]}, sort_keys=True), flush=True)
     Path(args.out).write_text(json.dumps(out, indent=2, sort_keys=True) + "\n")
