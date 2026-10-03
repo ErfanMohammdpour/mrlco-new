@@ -171,6 +171,11 @@ class V2ConstraintManager:
     def set_lambdas(self, values: Mapping[str, float] | Sequence[float]) -> None:
         """Broadcast an externally-held lambda vector (checkpoint restore / trainer)."""
         if isinstance(values, Mapping):
+            unknown = sorted(set(map(str, values)) - set(self.names))
+            if unknown:
+                raise V2ConstraintError(
+                    "lambda broadcast carries unknown constraints %s (active: %s)"
+                    % (unknown, list(self.names)))
             vector = [float(values.get(name, 0.0)) for name in self.names]
         else:
             vector = [float(v) for v in values]
@@ -260,6 +265,35 @@ class V2ConstraintManager:
         return out
 
 
+#: constraint name -> ConstraintSpec knob for fractional budgets
+FRACTION_KNOBS = {
+    "ue_energy": "ue_energy_frac_of_all_ue",
+    "helper_energy": "helper_energy_frac_of_all_ue",
+    "total_energy": "total_energy_frac_of_all_ue",
+}
+
+
+def spec_from_fractions(fractions: Mapping[str, float] | None,
+                        *, mode: str = CONSTRAINT_MODE_LAGRANGIAN) -> ConstraintSpec:
+    """Constraint spec from FRACTIONAL budgets alone.
+
+    Fractional budgets need no reference at construction time: the reference is resolved from
+    the episode's own pure-location plans when the cost is evaluated. Absolute budgets are
+    also accepted by `ConstraintSpec` for callers that have a physical joule figure.
+    """
+    kwargs: dict[str, Any] = {"mode": mode, "attribution": ATTRIBUTION_TERMINAL}
+    for name, value in dict(fractions or {}).items():
+        knob = FRACTION_KNOBS.get(str(name))
+        if knob is None:
+            raise V2ConstraintError("unknown fractional constraint %r (known: %s)"
+                                    % (name, sorted(FRACTION_KNOBS)))
+        value = float(value)
+        if not math.isfinite(value) or value < 0.0:
+            raise V2ConstraintError("budget fraction %s must be finite and >= 0" % name)
+        kwargs[knob] = value
+    return ConstraintSpec(**kwargs)
+
+
 def calibrate_budgets(refs: ReferenceRanges, fractions: Mapping[str, float],
                       *, reference_scope: str = SCOPE_SYSTEM) -> ConstraintSpec:
     """TRAIN-ONLY budget calibration: fractional budgets anchored on the plan references.
@@ -268,27 +302,69 @@ def calibrate_budgets(refs: ReferenceRanges, fractions: Mapping[str, float],
     with the graph and never need a validation/meta-test statistic.
     """
     require_reference_scope(refs, expected_scope=reference_scope)
-    kwargs: dict[str, Any] = {"mode": CONSTRAINT_MODE_LAGRANGIAN,
-                              "attribution": ATTRIBUTION_TERMINAL}
-    mapping = {
-        "ue_energy": "ue_energy_frac_of_all_ue",
-        "helper_energy": "helper_energy_frac_of_all_ue",
-        "total_energy": "total_energy_frac_of_all_ue",
-    }
-    for name, value in fractions.items():
-        knob = mapping.get(str(name))
-        if knob is None:
-            raise V2ConstraintError("cannot calibrate unknown constraint %r" % (name,))
-        value = float(value)
-        if not math.isfinite(value) or value < 0.0:
-            raise V2ConstraintError("budget fraction %s must be finite and >= 0" % name)
-        kwargs[knob] = value
-    return ConstraintSpec(**kwargs)
+    spec = spec_from_fractions(fractions)
+    if not spec.enabled:
+        raise V2ConstraintError(
+            "budget calibration produced no ACTIVE constraint: a constraint channel that can "
+            "never bind must not be presented as a constraint")
+    return spec
+
+
+def select_checkpoint(records: Sequence[Mapping[str, Any]], *,
+                      objective_key: str = "objective",
+                      feasibility_key: str = "feasible",
+                      violation_key: str = "total_violation") -> dict:
+    """Feasibility-aware checkpoint selection.
+
+    Order (frozen):
+      1. hard feasibility first — a record is feasible only when its recorded
+         `feasible` flag is True AND its total violation is <= 0 (within tolerance);
+      2. among the feasible records, the best objective (lower is better);
+      3. when NO record is feasible, return the best infeasible one and LABEL it
+         `"feasible": False` — never present an infeasible checkpoint as a feasible winner.
+
+    A record missing the objective or the violation is an ERROR: reading a missing metric as
+    zero is exactly how an infeasible checkpoint used to look feasible.
+    """
+    if not records:
+        raise V2ConstraintError("no checkpoint records to select from")
+    scored = []
+    for i, rec in enumerate(records):
+        if objective_key not in rec:
+            raise V2ConstraintError(
+                "checkpoint record %d has no %r; refusing to select on a missing objective"
+                % (i, objective_key))
+        if violation_key not in rec:
+            raise V2ConstraintError(
+                "checkpoint record %d has no %r; refusing to treat an unmeasured constraint "
+                "as satisfied" % (i, violation_key))
+        objective = float(rec[objective_key])
+        violation = float(rec[violation_key])
+        if not math.isfinite(objective) or not math.isfinite(violation):
+            raise V2ConstraintError("non-finite checkpoint metric in record %d" % i)
+        feasible = bool(rec.get(feasibility_key, False)) and violation <= 1e-9
+        scored.append((feasible, objective, violation, i, dict(rec)))
+    feasible_rows = [row for row in scored if row[0]]
+    if feasible_rows:
+        _f, objective, _v, i, rec = min(feasible_rows, key=lambda r: (r[1], r[3]))
+        out = dict(rec)
+        out.update({"selected_index": i, "feasible": True, "objective": objective,
+                    "total_violation": scored[i][2]})
+        return out
+    _f, objective, violation, i, rec = min(scored, key=lambda r: (r[1], r[3]))
+    out = dict(rec)
+    out.update({"selected_index": i, "feasible": False, "objective": objective,
+                "total_violation": violation,
+                "selection_note": "NO feasible checkpoint: best infeasible retained and "
+                                  "labelled infeasible"})
+    return out
 
 
 __all__ = [
     "ALL_CONSTRAINTS", "SCOPE_MOBILE", "SCOPE_REQUESTER", "SCOPE_SYSTEM",
     "V2ConstraintError", "V2ConstraintManager", "calibrate_budgets",
-    "constraints_fingerprint", "require_measurable", "spec_from_config",
+    "constraints_fingerprint", "require_measurable", "select_checkpoint",
+    "spec_from_fractions",
+    "spec_from_config",
     "v2_constraint_costs", "v2_metrics",
 ]

@@ -28,7 +28,7 @@ from spec.automotive_training.v2.adapters import (
     compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions,
 )
 from spec.automotive_training.v2.constraints_v2 import (
-    V2ConstraintError, V2ConstraintManager, calibrate_budgets, spec_from_config,
+    V2ConstraintError, V2ConstraintManager, spec_from_fractions,
 )
 from spec.automotive_training.v2.energy import reference_ranges_from_plans, schedule_energy
 from spec.automotive_training.v2.helper_model import HelperState, make_helpers
@@ -123,6 +123,7 @@ class V2AutomotiveEnv:
                  shared_radio: bool = True, direct_helper_v2i: bool = False,
                  energy_enabled: bool = True,
                  constraints_enabled: bool = False,
+                 constraint_spec: Any | None = None,
                  budget_fractions: Mapping | None = None,
                  dual_lr: float = 0.05, max_lambda: float = 1e3,
                  scheduler_config_sha256: str | None = None):
@@ -180,14 +181,20 @@ class V2AutomotiveEnv:
         self._worlds: dict = {}
         self._reference_ranges: dict = {}
         # ---- constraints: one manager per worker; lambdas held fixed inside a rollout ----
-        self.constraint_spec = spec_from_config(
-            {"constraints": {"mode": "lagrangian"}} if constraints_enabled else None,
-            mode="lagrangian" if constraints_enabled else "off")
+        from env.mec_offloaing_envs.scheduler.constraints import ConstraintSpec
+
+        self.budget_fractions = dict(budget_fractions
+                                     or {"total_energy": 0.5, "ue_energy": 0.5})
+        if constraint_spec is not None:
+            self.constraint_spec = constraint_spec
+        elif constraints_enabled:
+            self.constraint_spec = spec_from_fractions(self.budget_fractions)
+        else:
+            self.constraint_spec = ConstraintSpec(mode="off")
         if constraints_enabled and not self.constraint_spec.enabled:
             raise V2EnvError(
                 "constraints_enabled=True but the constraint spec has no budget configured; "
                 "refusing to run a constraint channel that can never bind")
-        self.budget_fractions = dict(budget_fractions or {"total_energy": 0.5})
         self.constraint_manager = (
             V2ConstraintManager(spec=self.constraint_spec, dual_lr=float(dual_lr),
                                 max_lambda=float(max_lambda),
