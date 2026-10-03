@@ -324,7 +324,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                 if predicted is not None and math.isfinite(float(predicted)):
                     window = max(1e-9, float(predicted) - float(dag.arrival_s))
                     evidence.setdefault("contact_margin", min(1.0, need / window))
-            ok, p_success = reliability_gate(location, str(spec.criticality), evidence)
+            ok, p_success = reliability_gate(location, str(spec.criticality).upper(), evidence)
             if not ok:
                 location = UE
                 reliability_rejected = True
@@ -332,6 +332,8 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         # data-ready time from predecessors (outputs stay where they executed)
         ready = float(dag.arrival_s)
         in_bytes = 0.0
+        tx_dl = 0.0
+        queue_wait_dl = 0.0
         task_outage_wait = 0.0
         task_outage_events = 0
         if spec.is_root and spec.external_input_bytes and location != UE:
@@ -392,10 +394,22 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                     # minimal documented fallback: the remainder restarts locally
                     contact_failure = True
                     done = max(0.0, (float(state.contact_end_s) - start)) * rate
-                    remaining = max(0.0, float(spec.compute_bytes) - done)
-                    restart_penalty = remaining / max(1e-9, float(compute.ue_cpu_bytes_per_s[dag.owner]))
-                    _us, ue_end = ue_cpu[dag.owner].reserve(float(state.contact_end_s),
-                                                            restart_penalty)
+                    remaining_bytes = max(0.0, float(spec.compute_bytes) - done)
+                    restart_penalty = remaining_bytes / max(1e-9, float(compute.ue_cpu_bytes_per_s[dag.owner]))
+                    # the data (and any partial output) must come back to the vehicle
+                    # before the local restart: book the return transfer explicitly
+                    local_ready = float(state.contact_end_s)
+                    if in_bytes > 0:
+                        for hop in _route_hops(HELPER, UE, link):
+                            cal = (ul if hop in (HOP_UL, HOP_UL_DIRECT)
+                                   else dl if hop in (HOP_DL, HOP_DL_DIRECT) else v2v)
+                            rs, re_, _rd, _row, _roe = reserve_transfer(cal, local_ready,
+                                                                        float(in_bytes), hop)
+                            radio_events.append((rs, re_, cal.name, float(in_bytes)))
+                            local_ready = re_
+                            tx_dl += _rd
+                    _us, ue_end = ue_cpu[dag.owner].reserve(local_ready, restart_penalty)
+                    cpu_duration = restart_penalty
                     cpu_end = ue_end
                     location = UE
             else:
@@ -404,7 +418,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         fallback_reserved = 0.0
         fallback_used = 0.0
         if (location in (MEC, HELPER) and standby_for is not None
-                and standby_for(str(spec.criticality))):
+                and standby_for(str(spec.criticality).upper())):
             # warm standby hook: book the local worst-case duration so the vehicle can
             # take over if the remote execution fails (reserved, not necessarily used)
             worst = float(spec.compute_bytes) / max(1e-9, float(compute.ue_cpu_bytes_per_s[dag.owner]))
@@ -415,8 +429,6 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                 standby = min(worst, window)
                 _fs, _fe = ue_cpu[dag.owner].reserve(ready, standby)
                 fallback_reserved = standby
-        tx_dl = 0.0
-        queue_wait_dl = 0.0
         finish_s = cpu_end
         if spec.is_sink and location != UE:
             hops = _route_hops(location, UE, link)
@@ -535,15 +547,19 @@ def validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu, helper_cpu,
                 raise V2ScheduleError("negative queue wait in %s/%s" % (dag.dag_id, t.task_id))
             if not math.isfinite(tm.finish_s):
                 raise V2ScheduleError("non-finite completion")
+            # Causality + booking consistency. The scheduler records `ready_s` as the
+            # time at which every input transfer actually completed, so the invariant is
+            # checked against that (process-aware) value rather than re-deriving transfer
+            # durations from base rates, which is invalid for time-varying links.
+            if tm.start_s + 1e-9 < tm.ready_s - 1e-12:
+                raise V2ScheduleError(
+                    "task %s/%s starts before its data is ready (start=%.9f ready=%.9f)"
+                    % (dag.dag_id, t.task_id, tm.start_s, tm.ready_s))
             for p in t.predecessors:
                 ptm = result.timings[(dag.dag_id, p)]
-                payload = float(by_id[p].output_bytes) if ptm.location != tm.location else 0.0
-                # route-aware transfer duration (sum over the actual hops)
-                needed = sum(payload / _rate_for(hop, 0, link)
-                             for hop in _route_hops(ptm.location, tm.location, link))
-                if tm.start_s + 1e-9 < ptm.finish_s + needed:
+                if tm.ready_s + 1e-9 < ptm.finish_s:
                     raise V2ScheduleError(
-                        "data arrival violation %s/%s -> %s"
+                        "data arrived before the producer finished %s/%s -> %s"
                         % (dag.dag_id, p, t.task_id))
     checks["precedence_and_data_arrival"] = True
     # calendar consistency: no double-booking beyond servers

@@ -7,7 +7,7 @@
 | 3 dynamic links (estimated vs realized) | `901f342` | `test_v2_link_model.py` + `test_v2_shared_scheduler.py` = 17/17 x3 fresh procs; full non-TF 1191 passed / 0 failed | OK | `v2/{link_model.py,link_regimes.yaml}`, scheduler link-process hook, `tests/test_v2_link_model.py` | 0 |
 | 4 helper availability/contact/busy | `9d0afcc` | `test_v2_helper_model.py` (10) + scheduler/link suites = 28/28 x3 fresh procs; full non-TF 1202 passed / 0 failed | OK - plus a real calendar fix | `v2/helper_model.py`, `v2/shared_scheduler.py` (earliest-fit calendars, helper admissibility/failure), `tests/test_v2_helper_model.py` | 0 |
 | 5 criticality reliability + fallback hooks | staged | `test_v2_reliability.py` (9) + all v2 suites = 37/37 x3 fresh procs; full non-TF 1211 passed / 0 failed | OK | `v2/{reliability.py,reliability_classes.yaml}`, scheduler gate + standby hook, `tests/test_v2_reliability.py` | 0 |
-| 6 geometry gate + stronger search | pending | - | - | - | 0 |
+| 6 geometry gate + stronger search | staged, run in flight | `test_v2_search_and_gate.py` + all v2 suites = 41/41 x3 fresh procs; full non-TF 1215 passed / 0 failed | gate harness ready; full 20x12 run in flight | `v2/{geometry_gate.py,stronger_search.py,heft_bridge.py}`, `tests/test_v2_search_and_gate.py` | 0 |
 | 7 CRN evaluator (Gumbel) | pending | - | - | - | 0 |
 | 8 repeated/adversarial/v1-parity battery | pending | - | - | - | 0 |
 | 9 v2 1x500 + checkpoint eval | BLOCKED until gate 6 passes | - | - | - | 0 |

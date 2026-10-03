@@ -101,7 +101,7 @@ def dag_spec_from_graph(graph, *, dag_id: str, owner: int, arrival_s: float = 0.
             output_bytes=float(task.task_output_bytes), predecessors=tuple(preds),
             is_root=not preds,
             is_sink=int(tid) in set(int(s) for s in (dag.sinks() if callable(dag.sinks) else dag.sinks)),
-            criticality=str(task.criticality_class), deadline_s=float(task.deadline_s)
+            criticality=str(task.criticality_class).upper(), deadline_s=float(task.deadline_s)
             if task.deadline_s is not None else None,
             owner=int(owner),
             external_input_bytes=float(task.external_input_bytes)))
