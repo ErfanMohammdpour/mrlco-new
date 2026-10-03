@@ -184,14 +184,48 @@ class V2AutomotiveEnv:
         """Frozen v1 rows with the 12 v2 context columns inserted (91-wide)."""
         from spec.automotive_training.v2.observation import V2_PACKED_DIM, pack_v2_row
 
-        rows = self.base._slice_current(self.base.encoder_batchs)
-        rows = np.asarray(rows, dtype=np.float32)
+        rows = np.asarray(self.base._slice_current(self.base.encoder_batchs), dtype=np.float32)
         if rows.shape[-1] == V2_PACKED_DIM:
             return rows
-        out = np.empty((rows.shape[0], rows.shape[1], V2_PACKED_DIM), dtype=np.float32)
-        for slot in range(rows.shape[0]):
-            out[slot] = pack_v2_row(rows[slot], np.asarray(contexts[slot], dtype=np.float32))
+        n_rows = int(rows.shape[0])
+        # The frozen meta-sampler runs the env through MetaIterativeEnvExecutor, which sets ONE
+        # meta task (one graph) per call, so every returned row belongs to the SAME graph. The
+        # per-slot vector is therefore the graph's context repeated over its slots; when the
+        # executor exposes the flat slot list we still use the exact per-slot mapping.
+        raw = np.asarray(getattr(self.base, "graph_indices", []), dtype=object).reshape(-1)
+        valid = []
+        for value in raw:
+            try:
+                valid.append(int(value))
+            except (TypeError, ValueError):
+                continue
+        if len(valid) == n_rows and n_rows > 1:
+            ctxs = [self._context_vector(int(s)) for s in valid]
+        elif len(contexts) == n_rows:
+            ctxs = [np.asarray(c, dtype=np.float32) for c in contexts]
+        else:
+            gid = valid[0] if valid else int(getattr(self.base, "task_id", 0) or 0)
+            gid = min(max(int(gid), 0), len(self.base.graph_objects) - 1)
+            ctxs = [self._context_for_graph(self.base.graph_objects[gid])] * n_rows
+        out = np.empty((n_rows, rows.shape[1], V2_PACKED_DIM), dtype=np.float32)
+        for row in range(n_rows):
+            out[row] = pack_v2_row(rows[row], np.asarray(ctxs[row], dtype=np.float32))
         return out
+
+    def _slot_of_graph(self, graph):
+        """Flat slot index whose graph is `graph` (None when the layout does not expose it)."""
+        indices = np.asarray(getattr(self.base, "graph_indices", []), dtype=object).reshape(-1)
+        try:
+            target = int(self.base.graph_objects.index(graph))
+        except ValueError:
+            return None
+        for slot, value in enumerate(indices):
+            try:
+                if int(value) == target:
+                    return slot
+            except (TypeError, ValueError):
+                continue
+        return None
 
     def _contexts(self) -> list:
         """One v2 context per flat slot (training: meta_batch x slots_per_task)."""
@@ -248,9 +282,15 @@ class V2AutomotiveEnv:
 
     def step(self, action):
         action = np.asarray(action)
-        if action.ndim != 2 or action.shape[0] != len(self.base.graph_indices):
+        slots = getattr(self.base, "graph_indices", None)
+        if slots is None:
+            raise V2EnvError(
+                "step() called before set_task(): the meta-sampler executor must select a "
+                "meta task first (sample_tasks -> set_task -> reset -> step)")
+        n_slots = len(slots)
+        if action.ndim != 2 or action.shape[0] != n_slots:
             raise V2EnvError("action shape %r does not match %d slots"
-                             % (action.shape, len(self.base.graph_indices)))
+                             % (action.shape, n_slots))
         reward_batch, finish_batch, energy_batch, telemetry_batch = [], [], [], []
         self.last_telemetry, self.last_v2_context = [], []
         for slot, actions in enumerate(action):
@@ -301,16 +341,18 @@ class V2AutomotiveEnv:
 
     # -- v2 context (not yet in the TF observation) ------------------------
     def _context_vector(self, slot: int) -> np.ndarray:
-        index = self.base._graph_index(int(slot))
-        graph = self.base.graph_objects[index]
+        return self._context_for_graph(self.base.graph_objects[self.base._graph_index(int(slot))])
+
+    def _context_for_graph(self, graph) -> np.ndarray:
         est = {LINK_UL: 1.0, LINK_DL: 1.0, LINK_V2V: 1.0}
         conf = {LINK_UL: 1.0, LINK_DL: 1.0, LINK_V2V: 1.0}
         if self.link_process is not None:
             for link in (LINK_UL, LINK_DL, LINK_V2V):
                 est[link] = self.link_process.estimate_at(link, 0.0)
                 conf[link] = self.link_process.confidence(link, 0.0)
-        helper = self.helper_states[slot].get(0)
-        predicted = getattr(helper, "predicted_contact_end_s", None)
+        slot = self._slot_of_graph(graph)
+        helper = self.helper_states[slot].get(0) if slot is not None else None
+        predicted = getattr(helper, "predicted_contact_end_s", None) if helper else None
         remaining = 0.0 if predicted is None or not math.isfinite(float(predicted)) else float(predicted)
         counts = {"HIGH": 0, "MEDIUM": 0, "other": 0}
         for t in graph.tasks:
