@@ -41,20 +41,23 @@ from spec.automotive_training.v2.shared_scheduler import (  # noqa: E402
 from spec.automotive_training.v2.stronger_search import stronger_search  # noqa: E402
 
 REGIMES = {
-    "A_mec_idle_stable_v2i": dict(load=1, link="stable"),
-    "B_mec_light": dict(load=2, link="stable"),
-    "C_mec_moderate": dict(load=4, link="stable"),
-    "D_mec_heavy": dict(load=8, link="stable"),
+    # regimes A-D, H, I, K, L: a helper EXISTS (idle, effectively unlimited contact)
+    # unless the regime explicitly makes it busy/short/unusable
+    "A_mec_idle_stable_v2i": dict(load=1, link="stable", helper="stable"),
+    "B_mec_light": dict(load=2, link="stable", helper="stable"),
+    "C_mec_moderate": dict(load=4, link="stable", helper="stable"),
+    "D_mec_heavy": dict(load=8, link="stable", helper="stable"),
     "E_helper_idle_stable_v2v": dict(load=1, link="stable", helper="idle"),
     "F_helper_busy": dict(load=1, link="stable", helper="busy"),
     "G_helper_short_contact": dict(load=1, link="stable", helper="short"),
-    "H_poor_v2v": dict(load=1, link="stable", v2v_scale=0.2),
-    "I_network_high_variance": dict(load=1, link="degraded"),
+    "H_poor_v2v": dict(load=1, link="stable", helper="stable", v2v_scale=0.2),
+    "I_network_high_variance": dict(load=1, link="degraded", helper="stable"),
     "J_high_unreliable_remote": dict(load=1, link="degraded", reliability=True,
                                      confidence=0.80, outage=0.10, criticality="HIGH"),
-    "K_high_reliable_idle_mec": dict(load=1, link="stable", reliability=True,
-                                     confidence=1.0, outage=0.0, criticality="HIGH"),
-    "L_low_good_remote": dict(load=1, link="stable", reliability=True,
+    "K_high_reliable_idle_mec": dict(load=1, link="stable", helper="stable",
+                                     reliability=True, confidence=1.0, outage=0.0,
+                                     criticality="HIGH"),
+    "L_low_good_remote": dict(load=1, link="stable", helper="stable", reliability=True,
                               confidence=0.999, outage=0.0, criticality="LOW"),
 }
 
@@ -97,7 +100,11 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
         link_process = None if spec.get("link", "stable") == "stable" else \
             make_process(spec["link"], seed + gi)
         helper_states = None
-        if spec.get("helper") == "idle":
+        if spec.get("helper") in ("stable", "idle"):
+            helper_states = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
+                                            contact_end_s=float("inf"),
+                                            predicted_contact_end_s=float("inf"))}
+        elif spec.get("helper") == "idle":
             helper_states = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
                                             contact_end_s=100.0, predicted_contact_end_s=100.0)}
         elif spec.get("helper") == "busy":

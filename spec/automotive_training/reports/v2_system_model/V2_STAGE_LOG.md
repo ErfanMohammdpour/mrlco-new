@@ -31,3 +31,23 @@ DAG's completion (`completion_by_dag["fg"]`). A corrected 20-graph x 12-regime r
 flight; only its verdict may be reported, and only together with both
 `all_MEC_winner_fraction` and `all_MEC_winner_fraction_no_search` (the latter excludes the
 search-based candidate, which by construction starts from all-MEC).
+
+## Parity finding (stage 6 follow-up, `V1_V2_PARITY.json`)
+
+The gate's headroom must be read against a measured v1<->v2 model difference. Single-DAG,
+same plan, same MC realization, helper present with unlimited contact (as in v1):
+
+| plan | mean v2-v1 | median | max abs | v2 faster |
+|---|---|---|---|---|
+| all_UE | -0.00 % | +0.00 % | 0.00 % | 0.00 |
+| all_MEC | **-1.33 %** | -1.47 % | 1.98 % | 1.00 |
+| all_HELPER | -0.66 % | -0.50 % | 1.55 % | 1.00 |
+| alternate MEC/HELPER | **+2.06 %** | +2.24 % | 7.90 % | 0.38 |
+| alternate MEC/UE | +0.26 % | +0.00 % | 1.01 % | 0.00 |
+| front MEC/back UE | +0.12 % | +0.13 % | 0.60 % | 0.38 |
+
+So v2 is within about +/-2 % of v1 on realistic plans, with a small systematic bias
+(MEC-heavy ~1.3 % faster in v2, mixed MEC/HELPER ~2 % slower). Transfer-count accounting
+still differs on 24/48 rows and must be quantified before any "richer geometry" claim;
+the gate headroom is therefore reported as a MODEL+PLAN-SEARCH difference, not as pure
+geometric headroom.
