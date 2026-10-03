@@ -423,13 +423,19 @@ class AutomotiveHeldOutEvaluator(object):
     """Validation on the frozen validation split (20 support / 40 query), k=0 and k=3."""
 
     def __init__(self, *, support_graphs, query_graphs, policy, source_policy,
-                 ppo_batch_size: int = 20, enable_query_rollout: bool = True):
+                 ppo_batch_size: int = 20, enable_query_rollout: bool = True,
+                 env_factory=None):
         self.support_graphs = list(support_graphs)
         self.query_graphs = list(query_graphs)
         self.policy = policy
         self.source_policy = source_policy
         self.ppo_batch_size = int(ppo_batch_size)
         self.enable_query_rollout = bool(enable_query_rollout)
+        #: optional env factory `(graphs, slots, seed, single_dist) -> env`. The frozen v1
+        #: path leaves it None and gets `AutomotiveEnv` exactly as before; the v2 stack
+        #: injects a factory returning `V2AutomotiveEnv` so validation measures the v2
+        #: dynamics instead of silently evaluating the v1 engine under a v2 label.
+        self._env_factory = env_factory
         # The adaptation PPO builds TF variables (inner Adam). It MUST be constructed
         # once per scratch policy: a second construction in the same graph raises
         # "Variable ppo_update_validation_policy/... already exists". The frozen
@@ -443,8 +449,20 @@ class AutomotiveHeldOutEvaluator(object):
         self._panel_cache = {}
 
     def _env(self, graphs, slots: int, seed: int) -> AutomotiveEnv:
-        return AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
-                             slots_per_task=slots, base_seed=seed, mc_enabled=True)
+        return self._make_env(graphs, slots, seed, single_dist=False)
+
+    def _make_env(self, graphs, slots: int, seed: int, *, single_dist: bool):
+        """Build a validation env, honouring the injected factory when present."""
+        if self._env_factory is not None:
+            env = self._env_factory(graphs, int(slots), int(seed), bool(single_dist))
+        else:
+            env = AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
+                                slots_per_task=int(slots), base_seed=int(seed),
+                                mc_enabled=True, single_dist=bool(single_dist))
+        if bool(single_dist):
+            env.set_task({"dist_index": 0,
+                          "graph_indices": np.arange(len(graphs), dtype=np.int32)})
+        return env
 
     def _rollout(self, graphs, slots: int, policy, seed: int, *, adapt_steps: int):
         """One rollout batch through the PLAIN policy path (rank-3 observations).
@@ -459,11 +477,7 @@ class AutomotiveHeldOutEvaluator(object):
         from baselines.vf_baseline import ValueFunctionBaseline
         from meta_algos.ppo_offloading import PPO
 
-        env = AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
-                            single_dist=True, slots_per_task=len(graphs),
-                            base_seed=seed, mc_enabled=True)
-        env.set_task({"dist_index": 0,
-                      "graph_indices": np.arange(len(graphs), dtype=np.int32)})
+        env = self._make_env(graphs, len(graphs), seed, single_dist=True)
         sampler = Seq2SeqSampler(env, policy, rollouts_per_meta_task=1,
                                  max_path_length=TOKENS_PER_TRAJECTORY, parallel=False)
         sampler.total_samples = len(graphs) * TOKENS_PER_TRAJECTORY
@@ -537,11 +551,7 @@ class AutomotiveHeldOutEvaluator(object):
 
     def _paired_env(self, graphs, base_seed: int, epoch: int) -> AutomotiveEnv:
         """Single-distribution env with a PINNED realization epoch (pairing)."""
-        env = AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
-                            single_dist=True, slots_per_task=len(graphs),
-                            base_seed=int(base_seed), mc_enabled=True)
-        env.set_task({"dist_index": 0,
-                      "graph_indices": np.arange(len(graphs), dtype=np.int32)})
+        env = self._make_env(graphs, len(graphs), int(base_seed), single_dist=True)
         env.realization_epoch = int(epoch)
         return env
 

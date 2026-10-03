@@ -163,9 +163,14 @@ builder/evaluator keep working; unknown attributes still raise.
 Tests: `test_v2_stack.py` 5 tests x3 fresh processes (routing, pre-TF guards, regime list,
 obs version, delegation, AttributeError behaviour); full non-TF suite 1249 passed / 0 failed.
 
-OPEN, must be verified before the run counts: `V2HeldOutEvaluator` currently SUBCLASSES the
-frozen v1 held-out evaluator and only annotates the v2 configuration. Whether the parent's
-inner support/query rollout builds its own v1 env (and therefore evaluates v1 dynamics under
-a v2 label) has NOT been inspected yet. Either the parent must accept an env factory or the
-evaluator must be reimplemented on `V2AutomotiveEnv`; until that is resolved, a v2 validation
-number must not be reported as a v2 number.
+RESOLVED: the concern above was real. `AutomotiveHeldOutEvaluator` built `AutomotiveEnv`
+directly at three sites (`_env`, the single-dist rollout env, `_paired_env`), so v2
+validation would have measured v1 dynamics. The evaluator now takes an optional
+`env_factory=None` and routes all three sites through `_make_env(...)`; the default path is
+byte-identical (still `AutomotiveEnv`, single_dist handled internally, input_dim 79), and
+`build_automotive_v2_stack` injects `v2_env_factory` returning `V2AutomotiveEnv` with the
+configured link regime / MEC workers / reliability. Proven without TF: with a factory the
+evaluator returns `V2AutomotiveEnv` for both the plain and the single-dist paired layout
+(factory call log `[(4, 4, 7, True)]`), and without a factory it returns the frozen
+`AutomotiveEnv`. Tests: 8 stack tests (incl. 3 for this hook) x3 fresh processes; full
+non-TF suite 1252 passed / 0 failed.

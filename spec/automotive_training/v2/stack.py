@@ -143,12 +143,23 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                  ppo_batch_size_trajectories=int(support_trajectories),
                  rng=np.random.RandomState(seed), support_select="random")
 
+    def v2_env_factory(graphs, slots, seed, single_dist):
+        """Validation env factory: v2 dynamics, v2 obs version, no constraint controller."""
+        return V2AutomotiveEnv(list(graphs), AutomotiveResourceCluster(), role="validation",
+                               slots_per_task=int(slots), base_seed=int(seed),
+                               link_regime=str(link_regime), mec_workers=int(mec_workers),
+                               reliability=bool(reliability),
+                               helper_contact_mean_s=float(helper_contact_mean_s),
+                               helper_contact_cv=float(helper_contact_cv),
+                               helper_busy_s=float(helper_busy_s))
+
     flags = decoding_flags(decoding)
     held_out = V2HeldOutEvaluator(
         support_graphs=val_support, query_graphs=val_query,
         policy=_validation_policy(env, decoding, flags),
         source_policy=meta_policy.core_policy,
         ppo_batch_size=int(support_trajectories),
+        env_factory=v2_env_factory,
         link_regime=str(link_regime), mec_workers=int(mec_workers),
         reliability=bool(reliability), r_select=int(r_select), s_select=int(s_select))
 
@@ -197,6 +208,8 @@ class V2HeldOutEvaluator(AutomotiveHeldOutEvaluator):
                  reliability: bool = False, r_select: int = DEFAULT_R_SELECT,
                  s_select: int = DEFAULT_S_SELECT, **kwargs):
         super().__init__(*args, **kwargs)
+        #: proof-of-routing flag: the injected factory must be the one this stack built
+        self.uses_injected_env_factory = bool(kwargs.get("env_factory") is not None)
         self.v2_system = {"link_regime": link_regime, "mec_workers": int(mec_workers),
                           "reliability": bool(reliability)}
         self.crn_protocol = {"protocol_id": PROTOCOL_ID, "r_select": int(r_select),

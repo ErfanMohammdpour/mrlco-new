@@ -68,5 +68,55 @@ class TestDelegation(unittest.TestCase):
             _ = env.__deepcopy__
 
 
+class TestEvaluatorEnvFactory(unittest.TestCase):
+    """The held-out evaluator must build v2 envs when a factory is injected - otherwise
+    validation would measure v1 dynamics under a v2 label."""
+
+    def _evaluator(self, factory):
+        from spec.automotive_training.automotive_loader import load_dataset
+        from spec.automotive_training.automotive_primary import AutomotiveHeldOutEvaluator
+
+        val = load_dataset().validation_query()[:4]
+        return AutomotiveHeldOutEvaluator(support_graphs=val[:2], query_graphs=val,
+                                         policy=None, source_policy=None,
+                                         env_factory=factory), val
+
+    def test_factory_is_honoured_for_both_layouts(self):
+        from spec.automotive_training.automotive_primary import AutomotiveResourceCluster
+
+        calls = []
+
+        def factory(graphs, slots, seed, single_dist):
+            calls.append((len(graphs), int(slots), int(seed), bool(single_dist)))
+            env = V2AutomotiveEnv(list(graphs), AutomotiveResourceCluster(),
+                                  role="validation", slots_per_task=int(slots),
+                                  base_seed=int(seed), link_regime="degraded")
+            if single_dist:
+                env.set_task({"dist_index": 0,
+                              "graph_indices": np.arange(len(graphs), dtype=np.int32)})
+            return env
+
+        evaluator, val = self._evaluator(factory)
+        paired = evaluator._make_env(val, 4, 7, single_dist=True)
+        self.assertEqual(calls, [(4, 4, 7, True)])
+        self.assertIsInstance(paired, V2AutomotiveEnv)
+        self.assertTrue(paired.single_dist)
+        self.assertIsNotNone(paired.graph_indices)
+
+    def test_default_path_still_builds_the_frozen_v1_env(self):
+        from spec.automotive_training.automotive_env import AutomotiveEnv
+
+        evaluator, val = self._evaluator(None)
+        env = evaluator._env(val[:2], 2, 303)
+        self.assertIsInstance(env, AutomotiveEnv)
+        self.assertNotIsInstance(env, V2AutomotiveEnv)
+        self.assertEqual(env.input_dim, 79)
+
+    def test_v2_stack_wires_the_factory(self):
+        src = (ROOT / "spec/automotive_training/v2/stack.py").read_text()
+        self.assertIn("env_factory=v2_env_factory", src)
+        self.assertIn("def v2_env_factory(", src)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
