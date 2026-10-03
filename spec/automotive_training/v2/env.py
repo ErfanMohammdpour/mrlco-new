@@ -182,12 +182,13 @@ class V2AutomotiveEnv:
         self.last_v2_context: list = []
         self.last_link_summary: dict = {}
         self.last_energy_ledger: list = []
-        self.last_constraint_costs: list = []
-        self.last_constraint_batch = ConstraintCostBatch()
+        self.last_constraint_costs = ConstraintCostBatch()
+        self.last_constraint_batch = self.last_constraint_costs
         self._last_results: dict = {}
         self.link_process = None if self.link_regime == "stable" else None  # per reset
         self._worlds: dict = {}
         self._world_key = None
+        self._v1_schedule_trap = False
         self._reference_ranges: dict = {}
         self._reference_results: dict = {}
         self._reference_ledgers: dict = {}
@@ -324,8 +325,8 @@ class V2AutomotiveEnv:
         self.last_v2_context = self._contexts()
         self.last_link_summary = {}
         self.last_energy_ledger = []
-        self.last_constraint_costs = []
-        self.last_constraint_batch = ConstraintCostBatch()
+        self.last_constraint_costs = ConstraintCostBatch()
+        self.last_constraint_batch = self.last_constraint_costs
         self._last_results = {}
         if self.link_process is not None and slots:
             graph0 = self.base.graph_objects[self.base._graph_index(slots[0])]
@@ -334,6 +335,23 @@ class V2AutomotiveEnv:
                 {"mec_ul": cfg.mec_ul_bytes_per_s, "mec_dl": cfg.mec_dl_bytes_per_s,
                  "v2v": cfg.v2v_bytes_per_s})
         return self._packed_observation(self.last_v2_context)
+
+    def set_v1_schedule_trap(self, armed: bool) -> None:
+        """Arm a trap that makes the V1 `_schedule` path impossible to reach silently.
+
+        `V2AutomotiveEnv` deliberately does not implement `_schedule`; `__getattr__` would
+        otherwise hand the call to the frozen v1 base environment and return v1 numbers under a
+        v2 label. Arming this makes such a delegation raise.
+        """
+        self._v1_schedule_trap = bool(armed)
+
+    def _schedule(self, *args, **kwargs):
+        if getattr(self, "_v1_schedule_trap", False):
+            raise V2EnvError(
+                "the V1 scheduler `_schedule` was reached on a V2 environment: a v2 evaluation "
+                "must score every plan on the canonical v2 world (this is the audited silent "
+                "v1-scoring fallback)")
+        return self.base._schedule(*args, **kwargs)
 
     def set_world_realization(self, key) -> None:
         """Fix the environmental realization by a STABLE identity key.
@@ -690,9 +708,14 @@ class V2AutomotiveEnv:
             energy_batch.append(np.full(len(rewards), float(reference_energy),
                                         dtype=np.float32))
             telemetry_batch.append(self._frozen_telemetry(slot, telemetry))
-        # one aggregate cost object for the frozen trainer (`last_constraint_costs.active`)
-        self.last_constraint_batch = ConstraintCostBatch(
+        # The FROZEN trainer reads `env.last_constraint_costs.active`/`.as_dict()`. The v2 env
+        # has one cost per SLOT, so the attribute itself is a `ConstraintCostBatch` (a list
+        # subclass): it stays indexable per slot AND exposes the aggregated `.active`/
+        # `.as_dict()` the production loop calls. (A plain list here crashed the trainer with
+        # "'list' object has no attribute 'active'" at the end of the first real iteration.)
+        self.last_constraint_costs = ConstraintCostBatch(
             [c for c in self.last_constraint_costs if c is not None])
+        self.last_constraint_batch = self.last_constraint_costs
         obs = self._packed_observation(self.last_v2_context)
         return obs, reward_batch, True, (finish_batch, energy_batch, telemetry_batch)
 
