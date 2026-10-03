@@ -326,3 +326,20 @@ schema. Then rerun the smoke and request human GPU approval for the 1x500 run.
 Also noted: `V2AutomotiveEnv.step()` contains a stale
 `from env.mec_offloaing_envs.scheduler.energy_scope import energy_scalar` line and hard-codes
 `energy = 0.0`; both must be removed when the frozen record is emitted.
+
+## Telemetry blocker FIXED (`f0086ba`) and a performance finding for the 1x500 plan
+
+The v2 env now emits the frozen energy-telemetry record (validated + aggregated locally:
+3/3 records pass `validate_energy_telemetry`, `aggregate_energy_telemetry` succeeds) with the
+v2 dynamics nested under `v2`, zero joule boundaries, `primary_scope='mobile'` (the frozen
+validator accepts only requester|mobile|system) and an explicit
+`energy_constraint='not_configured'` marker plus the real scheduler fingerprint.
+
+PERFORMANCE FINDING (blocks a naive CPU/GPU 1x500): `V2AutomotiveEnv._telescoping` calls
+`_schedule_slot` 21 times per slot, and one training iteration touches
+meta_batch(10) x slots(20) x 2 rollouts = 400 slots per rollout pair => ~8400 full v2
+schedules per outer iteration. The container CPU smoke of ONE iteration was still running
+after 40+ minutes, i.e. ~14 days for 500 iterations even before validation. Before the 1x500
+run the telescoping must become incremental (one pass: reuse each prefix's calendar state or
+compute prefix makespans inside a single scheduler call) or the v2 scheduler must be batched.
+Recorded as a required pre-run engineering item, not a scientific result.
