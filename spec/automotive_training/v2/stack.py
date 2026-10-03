@@ -29,11 +29,27 @@ from spec.automotive_training.automotive_primary import (
     AutomotiveResourceCluster, _validation_policy, config_fingerprint,
     decoding_flags, default_constraint_specs,
 )
+from spec.automotive_training.v2.constraints_v2 import constraints_fingerprint
 from spec.automotive_training.v2.crn import DEFAULT_R_SELECT, DEFAULT_S_SELECT, PROTOCOL_ID
 from spec.automotive_training.v2.env import V2AutomotiveEnv
 from spec.automotive_training.v2.observation import V2_OBS_VERSION
 
 V2_ALLOWED_LINK_REGIMES = ("stable", "moderate", "degraded")
+
+
+def _iter_v2_telemetry(paths):
+    """Yield every v2 telemetry record carried by the rollout paths."""
+    if not paths:
+        return
+    for task_paths in paths.values():
+        for path in task_paths:
+            telemetry = path.get("energy_telemetry")
+            if isinstance(telemetry, Mapping):
+                yield telemetry
+            elif isinstance(telemetry, (list, tuple)):
+                for record in telemetry:
+                    if isinstance(record, Mapping):
+                        yield record
 
 
 def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
@@ -108,6 +124,8 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     adapter = AutomotiveDualAdapter(controller, enabled)
     cluster = AutomotiveResourceCluster(energy_config={}, constraint_controller=adapter)
 
+    fractions = dict(budget_fractions or {"total_energy": 0.5, "ue_energy": 1.0})
+
     def make_env(role: str) -> V2AutomotiveEnv:
         env = V2AutomotiveEnv(train_graphs, cluster, role=role,
                               slots_per_task=int(support_trajectories), base_seed=seed,
@@ -116,9 +134,20 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                               helper_contact_mean_s=float(helper_contact_mean_s),
                               helper_contact_cv=float(helper_contact_cv),
                               helper_busy_s=float(helper_busy_s),
-                              background_dags=int(background_dags))
-        env.constraint_controller = adapter
-        env.constraint_spec = None
+                              background_dags=int(background_dags),
+                              background_policy=str(background_policy),
+                              # THE constraint channel the v2 environment actually penalises on
+                              constraints_enabled=bool(constraints_enabled),
+                              budget_fractions=fractions,
+                              scheduler_config_sha256=config_fingerprint(train_graphs[0]))
+        if constraints_enabled and env.constraint_manager is not None:
+            # The v2 manager is both the penalty authority (`env.step` applies ITS lambda) and
+            # the object the frozen training loop dual-steps, so the SAME multipliers drive the
+            # reward and the ascent. The legacy v1 adapter stays attached only for the
+            # deadline-channel telemetry the v2 stack still emits.
+            env.constraint_controller = env.constraint_manager
+        else:
+            env.constraint_controller = None
         return env
 
     env = make_env("meta_train")
@@ -146,7 +175,7 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                  rng=np.random.RandomState(seed), support_select="random")
 
     def v2_env_factory(graphs, slots, seed, single_dist):
-        """Validation env factory: v2 dynamics, v2 obs version, no constraint controller."""
+        """Validation env factory: v2 dynamics and the SAME canonical world builder."""
         return V2AutomotiveEnv(list(graphs), AutomotiveResourceCluster(), role="validation",
                                slots_per_task=int(slots), base_seed=int(seed),
                                single_dist=bool(single_dist),
@@ -155,7 +184,8 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                                helper_contact_mean_s=float(helper_contact_mean_s),
                                helper_contact_cv=float(helper_contact_cv),
                                helper_busy_s=float(helper_busy_s),
-                               background_dags=int(background_dags))
+                               background_dags=int(background_dags),
+                               background_policy=str(background_policy))
 
     flags = decoding_flags(decoding)
     held_out = V2HeldOutEvaluator(
@@ -170,7 +200,50 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     from meta_trainer import Trainer
     from spec.automotive_training.automotive_trainer import AutomotiveTrainerMixin
 
-    AutomotiveTrainerImpl = type("AutomotiveV2Trainer", (AutomotiveTrainerMixin, Trainer), {})
+    class AutomotiveV2Trainer(AutomotiveTrainerMixin, Trainer):
+        """v2 trainer: the v2 SIGNED costs feed the v2 manager that applies the penalty.
+
+        The inherited observer reads `violation/<NAME>` from the telemetry, which the v2 stack
+        now emits, but the channel it must drive is the v2 manager (the object whose lambda
+        `env.step` actually subtracts from the reward). Overriding here keeps one authority for
+        the penalty and the dual ascent.
+        """
+
+        def constraint_observer(self, samples_data=None, task_specs=None, paths=None) -> dict:
+            manager = getattr(self, "auto_v2_constraint_manager", None)
+            if manager is None:
+                return super().constraint_observer(samples_data, task_specs, paths)
+            rows, penalties = [], []
+            for record in _iter_v2_telemetry(paths):
+                block = record.get("constraints")
+                if not isinstance(block, Mapping) or not block.get("enabled"):
+                    continue
+                names = list(block.get("names") or [])
+                rows.append({name: float(block.get("%s_signed" % name, 0.0))
+                             for name in names})
+                penalties.append(float(record.get("constraint_penalty", 0.0) or 0.0))
+            accepted = manager.observe_signed(rows)
+            self.auto_v2_signed_rows = int(getattr(self, "auto_v2_signed_rows", 0)) + accepted
+            self.auto_penalty_episodes = int(getattr(self, "auto_penalty_episodes", 0)) + len(penalties)
+            self.auto_penalty_episodes_nonzero = int(
+                getattr(self, "auto_penalty_episodes_nonzero", 0)
+                + sum(1 for value in penalties if abs(value) > 1e-12))
+            return {name: [row.get(name, 0.0) for row in rows]
+                    for name in (rows[0] if rows else {})}
+
+        def broadcast_constraint_lambdas(self) -> int:
+            manager = getattr(self, "auto_v2_constraint_manager", None)
+            if manager is None:
+                return super().broadcast_constraint_lambdas()
+            vector = manager.lambdas_by_name()
+            updated = int(super().broadcast_constraint_lambdas() or 0)
+            env = getattr(self, "auto_env", None)
+            if env is not None and hasattr(env, "set_constraint_lambdas"):
+                env.set_constraint_lambdas(vector)
+            self.auto_lambda_broadcast_values = dict(vector)
+            return updated
+
+    AutomotiveTrainerImpl = AutomotiveV2Trainer
     trainer = AutomotiveTrainerImpl(
         algo=algo, env=env, sampler=budgeted, sample_processor=processor,
         policy=meta_policy, n_itr=int(n_itr), greedy_finish_time=greedy_finish,
@@ -179,6 +252,18 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
         validation_interval=50, held_out_evaluator=held_out, ckpt_dir=ckpt_dir,
         audit_writer=None)
     trainer.auto_spec_map = {k: spec_map[k] for k in enabled}
+    trainer.auto_v2_constraint_manager = env.constraint_manager
+    trainer.auto_v2_constraints = {
+        "enabled": bool(constraints_enabled and env.constraint_manager is not None),
+        "budget_fractions": dict(fractions),
+        "names": list(env.constraint_manager.names) if env.constraint_manager else [],
+        "lambdas": (env.constraint_manager.lambdas_by_name()
+                    if env.constraint_manager else {}),
+        "spec_sha256": (constraints_fingerprint(env.constraint_manager.spec)
+                        if env.constraint_manager else None),
+        "objectives": {"primary": "constrained_latency",
+                       "weighted_ablation": "w_T*T/T_ref + w_E*E/E_ref"},
+    }
     trainer.auto_controller = controller
     trainer.auto_dataset_fingerprint = dataset.fingerprint()
     trainer.auto_sampler = budgeted
@@ -194,6 +279,9 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     trainer.auto_obs_version = V2_OBS_VERSION
     trainer.auto_v2_system = {"link_regime": str(link_regime), "mec_workers": int(mec_workers),
                               "background_dags": int(background_dags),
+                              "background_policy": str(background_policy),
+                              "constraints_enabled": bool(constraints_enabled),
+                              "budget_fractions": dict(fractions),
                               "reliability": bool(reliability),
                               "helper_contact_mean_s": float(helper_contact_mean_s),
                               "helper_contact_cv": float(helper_contact_cv),

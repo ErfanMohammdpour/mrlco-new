@@ -27,8 +27,9 @@ from spec.automotive_training.automotive_primary import AutomotiveResourceCluste
 from spec.automotive_training.v2.adapters import (
     compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions,
 )
+from spec.automotive_training.v2.constraint_channels import channel_telemetry
 from spec.automotive_training.v2.constraints_v2 import (
-    V2ConstraintError, V2ConstraintManager, spec_from_fractions,
+    ConstraintCostBatch, V2ConstraintError, V2ConstraintManager, spec_from_fractions,
 )
 from spec.automotive_training.v2.energy import reference_ranges_from_plans, schedule_energy
 from spec.automotive_training.v2.helper_model import HelperState, make_helpers
@@ -182,6 +183,8 @@ class V2AutomotiveEnv:
         self.last_link_summary: dict = {}
         self.last_energy_ledger: list = []
         self.last_constraint_costs: list = []
+        self.last_constraint_batch = ConstraintCostBatch()
+        self._last_results: dict = {}
         self.link_process = None if self.link_regime == "stable" else None  # per reset
         self._worlds: dict = {}
         self._world_key = None
@@ -322,6 +325,8 @@ class V2AutomotiveEnv:
         self.last_link_summary = {}
         self.last_energy_ledger = []
         self.last_constraint_costs = []
+        self.last_constraint_batch = ConstraintCostBatch()
+        self._last_results = {}
         if self.link_process is not None and slots:
             graph0 = self.base.graph_objects[self.base._graph_index(slots[0])]
             cfg = link_spec(graph0)
@@ -455,20 +460,23 @@ class V2AutomotiveEnv:
         # meta task (one graph) per call, so every returned row belongs to the SAME graph. The
         # per-slot vector is therefore the graph's context repeated over its slots; when the
         # executor exposes the flat slot list we still use the exact per-slot mapping.
+        # `graph_indices[flat]` is the DATASET GRAPH of flat slot `flat`, NOT a slot position.
+        # Using it as a slot id collapsed two slots that share a graph (e.g. [0, 0]) onto the
+        # SAME context, hiding differences in contact, world or helper state between
+        # trajectories. The context is resolved by FLAT SLOT POSITION here.
         raw = np.asarray(getattr(self.base, "graph_indices", []), dtype=object).reshape(-1)
-        valid = []
-        for value in raw:
-            try:
-                valid.append(int(value))
-            except (TypeError, ValueError):
-                continue
-        if len(valid) == n_rows and n_rows > 1:
-            ctxs = [self._context_vector(int(s)) for s in valid]
+        if raw.size == n_rows and n_rows > 1:
+            ctxs = [self._context_vector(flat) for flat in range(n_rows)]
         elif len(contexts) == n_rows:
             ctxs = [np.asarray(c, dtype=np.float32) for c in contexts]
         else:
-            gid = valid[0] if valid else int(getattr(self.base, "task_id", 0) or 0)
-            gid = min(max(int(gid), 0), len(self.base.graph_objects) - 1)
+            # single-row layout (one meta task per call): the graph is the task's graph
+            gid = int(self.base.graph_objects.index(self.base.graph_objects[0])) if False else 0
+            try:
+                value = int(raw[0]) if raw.size else int(getattr(self.base, "task_id", 0) or 0)
+                gid = min(max(value, 0), len(self.base.graph_objects) - 1)
+            except (TypeError, ValueError):
+                gid = 0
             ctxs = [self._context_for_graph(self.base.graph_objects[gid])] * n_rows
         out = np.empty((n_rows, rows.shape[1], V2_PACKED_DIM), dtype=np.float32)
         for row in range(n_rows):
@@ -588,6 +596,7 @@ class V2AutomotiveEnv:
         for slot, actions in enumerate(action):
             rewards = self._telescoping(slot, actions)
             result = self._schedule_slot(slot, actions, validate=True)
+            self._last_results[int(slot)] = result
             world = self.world_for_slot(slot)
             index = self.base._graph_index(int(slot))
             graph = self.base.graph_objects[index]
@@ -681,6 +690,9 @@ class V2AutomotiveEnv:
             energy_batch.append(np.full(len(rewards), float(reference_energy),
                                         dtype=np.float32))
             telemetry_batch.append(self._frozen_telemetry(slot, telemetry))
+        # one aggregate cost object for the frozen trainer (`last_constraint_costs.active`)
+        self.last_constraint_batch = ConstraintCostBatch(
+            [c for c in self.last_constraint_costs if c is not None])
         obs = self._packed_observation(self.last_v2_context)
         return obs, reward_batch, True, (finish_batch, energy_batch, telemetry_batch)
 
@@ -709,6 +721,29 @@ class V2AutomotiveEnv:
                           and slot < len(self.last_constraint_costs)
                           and self.last_constraint_costs[slot] is not None)
                       else {"enabled": False})
+        # ---- the FROZEN trainer observer reads `violation/<NAME>` at the TOP level ----
+        # Without these keys `constraint_violations_from_telemetry` returns {} and the dual
+        # never moves, so a budget cannot influence training at all.
+        world = self._worlds.get(int(slot))
+        result = self._last_results.get(int(slot))
+        channel_keys: dict = {}
+        if world is not None and result is not None:
+            try:
+                foreground = world.foreground
+                criticality = {int(t.task_id): t.criticality for t in foreground.tasks}
+                channel_keys = channel_telemetry(
+                    graph, result, foreground_dag=foreground,
+                    d_g_s=float(getattr(graph, "D_G_s", 0.0)),
+                    lambdas=(self.constraint_manager.lambdas_by_name()
+                             if self.constraint_manager is not None else {}),
+                    penalty=float(telemetry.constraint_penalty),
+                    l_scale=max(float(getattr(graph, "D_G_s", 1.0) or 1.0), 1e-12),
+                    task_criticality=criticality)
+            except Exception as exc:
+                # a missing channel is an ERROR, never a silent zero violation
+                raise V2EnvError(
+                    "cannot produce the trainer constraint channels for slot %s: %s"
+                    % (slot, exc)) from exc
         return {
             "schema_version": TELEMETRY_SCHEMA_VERSION,
             "requester_joules": float(telemetry.requester_joules),
@@ -730,6 +765,7 @@ class V2AutomotiveEnv:
             "latency_only_objective": -float(telemetry.makespan_s) / max(float(graph.D_G_s), 1e-12),
             "energy_constraint": ("configured" if constraint.get("enabled")
                                   else "telemetry_only"),
+            **channel_keys,
             "v2": v2,
         }
 

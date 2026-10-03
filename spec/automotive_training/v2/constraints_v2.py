@@ -140,6 +140,36 @@ def spec_from_config(energy_config: Mapping[str, Any] | None,
                                attribution=ATTRIBUTION_TERMINAL)
 
 
+class ConstraintCostBatch(list):
+    """Per-slot `ConstraintCosts` that ALSO behaves like the frozen single-cost object.
+
+    The frozen trainer reads `env.last_constraint_costs.active` and `.as_dict()` (the v1
+    environment exposed ONE cost object per episode). The v2 environment has one cost per SLOT,
+    so the batch is a list subclass exposing the same two members from the slot-wise aggregate:
+    `active` is true when any slot has an active cost, and `as_dict()` reports the batch MEAN
+    of raw/budget/signed plus the SUM of violations (the plan-level totals).
+    """
+
+    @property
+    def active(self) -> bool:
+        return any(bool(getattr(cost, "active", False)) for cost in self)
+
+    def as_dict(self) -> dict:
+        rows = [c for c in self if getattr(c, "active", False)]
+        if not rows:
+            return {"total_violation": 0.0}
+        names = tuple(rows[0].names)
+        out: dict = {"episodes": float(len(rows)), "total_violation": float(
+            sum(float(c.total_violation) for c in rows))}
+        for index, name in enumerate(names):
+            out["%s_raw" % name] = float(sum(c.raw[index] for c in rows) / len(rows))
+            out["%s_budget" % name] = float(rows[0].budgets[index])
+            out["%s_signed" % name] = float(sum(c.signed[index] for c in rows) / len(rows))
+            out["%s_violation" % name] = float(
+                sum(c.violations[index] for c in rows) / len(rows))
+        return out
+
+
 @dataclass
 class V2ConstraintManager:
     """Per-worker dual state: hold lambda fixed inside a rollout, update once per iteration."""
@@ -218,6 +248,42 @@ class V2ConstraintManager:
 
     def observe(self, costs: ConstraintCosts) -> None:
         self.controller.observe(costs)
+
+    def observe_signed(self, rows) -> int:
+        """Append SIGNED cost rows supplied as {constraint_name: signed_value}.
+
+        The rollout telemetry carries the per-episode signed cost per channel; the trainer's
+        observer forwards them here so the dual step uses the SAME signed values that produced
+        the penalty. Returns the number of rows accepted.
+        """
+        accepted = 0
+        for row in rows or ():
+            if not row:
+                continue
+            vector = []
+            for name in self.names:
+                value = row.get(name)
+                if value is None:
+                    vector = []
+                    break
+                value = float(value)
+                if not math.isfinite(value):
+                    raise V2ConstraintError("non-finite signed cost for %s: %r" % (name, value))
+                vector.append(value)
+            if vector:
+                self.controller._buffer.append(tuple(vector))
+                accepted += 1
+        return accepted
+
+    def reset_batch(self) -> None:
+        self.controller.reset_buffer()
+
+    def batch_size(self, name=None) -> int:
+        return len(self.controller._buffer)
+
+    def status(self) -> dict:
+        """Per-constraint status strings, so the frozen trainer can log them unchanged."""
+        return self.spec.constraint_status()
 
     def dual_step(self) -> dict:
         diag = self.controller.dual_step()
@@ -371,7 +437,7 @@ def select_checkpoint(records: Sequence[Mapping[str, Any]], *,
 
 
 __all__ = [
-    "ALL_CONSTRAINTS", "SCOPE_MOBILE", "SCOPE_REQUESTER", "SCOPE_SYSTEM",
+    "ALL_CONSTRAINTS", "ConstraintCostBatch", "SCOPE_MOBILE", "SCOPE_REQUESTER", "SCOPE_SYSTEM",
     "V2ConstraintError", "V2ConstraintManager", "calibrate_budgets",
     "constraints_fingerprint", "require_measurable", "select_checkpoint",
     "spec_from_fractions",

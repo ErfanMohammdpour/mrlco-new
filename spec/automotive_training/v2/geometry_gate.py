@@ -234,6 +234,27 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
         TIE = {"all_UE": 0, "all_MEC": 1, "all_HELPER": 2, "greedy_cd": 3,
                "heft_v2": 4, "stronger_search": 5}
         winner, winner_name = min((v, TIE[k], k) for k, v in panel.items())[::2]
+        # The evidence must describe the plan that ACTUALLY won. `stronger_search` returns its
+        # own plan (`sr.plan`), not the greedy `chosen` map: attributing the winner's helper use
+        # and no-helper ablation to `chosen` mis-report the search winner's plan.
+        if winner_name == "stronger_search":
+            winning_plan = {int(k): int(v) for k, v in dict(sr.plan).items()}
+        elif winner_name == "greedy_cd":
+            winning_plan = {int(k): int(v) for k, v in chosen.items()}
+        elif winner_name == "heft_v2":
+            winning_plan = plan_map_from_actions(graph, list(heft_actions))
+        else:
+            winning_plan = plan_map_from_actions(
+                graph, [{"all_UE": 0, "all_MEC": 1, "all_HELPER": 2}[winner_name]] * 20)
+        if winner_name == "stronger_search":
+            # verify the reported plan really reproduces the reported objective
+            reproduced = _candidate_plan(world, winning_plan, link_process=link_process,
+                                         reliability_gate=gate, evidence=evidence,
+                                         standby_for=standby_rel if gate else None)
+            if abs(reproduced - winner) > 1e-9 * max(1.0, abs(winner)):
+                raise RuntimeError(
+                    "gate winner evidence does not reproduce the winning objective for %s: "
+                    "%.9f vs %.9f" % (graph.graph_id, reproduced, winner))
         # panel WITHOUT the search-based candidate: does all-MEC win on its own merits?
         cheap = {k: v for k, v in panel.items()
                  if k in ("all_UE", "all_MEC", "all_HELPER", "heft_v2", "greedy_cd")}
@@ -249,23 +270,9 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
                 100.0 * (panel["all_MEC"] - panel["stronger_search"]) / max(panel["all_MEC"], 1e-12),
             "search_evaluations": sr.evaluations,
             "winner_chosen_plan": {str(k): int(v) for k, v in
-                                   (chosen if winner_name == "greedy_cd" else
-                                    plan_map_from_actions(
-                                        graph, [0] * 20) if winner_name == "all_UE" else
-                                    plan_map_from_actions(
-                                        graph, [1] * 20) if winner_name == "all_MEC" else
-                                    plan_map_from_actions(
-                                        graph, [2] * 20) if winner_name == "all_HELPER" else
-                                    list(plan_map_from_actions(graph, heft_actions).items())
-                                    if winner_name == "heft_v2" else
-                                    chosen).items()},
+                                   winning_plan.items()},
             "winner_evidence": _winner_evidence(
-                world, chosen if winner_name == "greedy_cd" else
-                plan_map_from_actions(graph, [0] * 20) if winner_name == "all_UE" else
-                plan_map_from_actions(graph, [1] * 20) if winner_name == "all_MEC" else
-                plan_map_from_actions(graph, [2] * 20) if winner_name == "all_HELPER" else
-                plan_map_from_actions(graph, heft_actions) if winner_name == "heft_v2" else
-                chosen, link_process=link_process, reliability_gate=gate,
+                world, winning_plan, link_process=link_process, reliability_gate=gate,
                 evidence=evidence, standby_for=standby_rel if gate else None),
         })
     n = float(len(rows))
