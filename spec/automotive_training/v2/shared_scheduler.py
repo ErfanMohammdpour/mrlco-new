@@ -214,7 +214,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                     link_process=None, helper_states: Mapping | None = None,
                     contact_margin: float = 0.9, reliability_gate=None,
                     reliability_evidence: Mapping | None = None,
-                    standby_for=None) -> V2ScheduleResult:
+                    standby_for=None, validate: bool = True) -> V2ScheduleResult:
     """List-schedule multiple DAGs on shared calendars. Deterministic.
 
     `link_process` (v2 stage 3) supplies **realized** link multipliers per (link, time).
@@ -533,8 +533,13 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                      "fallback_used_s": sum(tm.fallback_used_s for tm in timings.values())},
         invariants={}, arrivals={d.dag_id: d.arrival_s for d in dags},
         active_concurrency=active_series)
-    result.invariants = validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu,
-                                          helper_cpu, ul, dl, v2v)
+    if validate:
+        result.invariants = validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu,
+                                              helper_cpu, ul, dl, v2v)
+    else:
+        # prefix/telescoping evaluation: the same schedule computation without the
+        # O(tasks x edges) route re-verification (the final episode schedule is validated)
+        result.invariants = {"validated": False}
     return result
 
 

@@ -343,3 +343,27 @@ after 40+ minutes, i.e. ~14 days for 500 iterations even before validation. Befo
 run the telescoping must become incremental (one pass: reuse each prefix's calendar state or
 compute prefix makespans inside a single scheduler call) or the v2 scheduler must be batched.
 Recorded as a required pre-run engineering item, not a scientific result.
+
+## Stage 9: BLOCKED on telescoping throughput (measured, with two legitimate paths)
+
+Engineering work done this round (semantics unchanged, rewards verified BIT-IDENTICAL against
+the pre-optimization path on a 20-token plan):
+* per-slot specs (graph, link, compute, dag) are cached per episode;
+* `schedule_shared(..., validate=False)` lets prefix evaluations skip the O(tasks x edges)
+  invariant re-check; the episode's FINAL schedule is still validated in `step()`.
+
+Why this is not enough: the cost is dominated by the NUMBER of schedules, not their weight.
+`_telescoping` issues 21 schedules per slot and the training layout has meta_batch(10) x
+slots(20) = 200 slots per rollout, with two rollouts per iteration -> ~8400 full v2 schedules
+per outer iteration; the container CPU smoke of ONE iteration ran for >60 minutes. 500
+iterations would need weeks, and the v2 scheduler is CPU/numpy even in a GPU job, so the GPU
+does not remove the cost.
+
+BLOCK for the v2 1x500 under the current design. Two legitimate paths (both need approval, no
+silent approximation):
+  (a) incremental scheduler: compute all prefix makespans in ONE pass by making the scheduler
+      emit per-token marginal completion times (the reward definition is unchanged);
+  (b) approved change to the reward evaluation: evaluate prefixes at a documented stride and
+      state the approximation explicitly in the protocol (NOT done here - it would weaken a
+      frozen requirement without approval).
+No approximation was applied. `meta_test_access_count = 0`.

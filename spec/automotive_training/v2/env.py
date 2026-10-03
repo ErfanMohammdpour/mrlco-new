@@ -171,6 +171,7 @@ class V2AutomotiveEnv:
             self.helper_states.append(make_helpers(
                 specs, seed=self.base_seed * 7919 + self.episodes * 31 + i,
                 contact_mean_s=self.helper_contact_mean_s, contact_cv=self.helper_contact_cv))
+        self._slot_spec_cache = {}
         self.last_v2_context = self._contexts()
         self.last_link_summary = {}
         if self.link_process is not None:
@@ -237,13 +238,30 @@ class V2AutomotiveEnv:
         return [self._context_vector(int(slot)) for slot in flat]
 
     # -- execution ---------------------------------------------------------
-    def _schedule_slot(self, slot: int, actions: Sequence[int]):
+    def _slot_specs(self, slot: int):
+        """Per-slot (graph, link, compute, dag) built once per episode.
+
+        Rebuilding them for every one of the 21 telescoping schedules dominated the CPU cost
+        (a single training iteration issued ~8400 schedules), so they are cached for the
+        current episode and invalidated by `reset()`.
+        """
+        cache = getattr(self, "_slot_spec_cache", None)
+        if cache is None:
+            cache = self._slot_spec_cache = {}
+        key = int(slot)
+        if key in cache:
+            return cache[key]
         index = self.base._graph_index(int(slot))
         graph = self.base.graph_objects[index]
         mc = self.base._slot_mc[slot] if self.base._slot_mc else None
         link = link_spec(graph)
         compute = compute_spec([graph], mec_workers=self.mec_workers)
         dag = dag_spec_from_graph(graph, dag_id="s%d" % slot, owner=0, mc=mc, helper_id=0)
+        cache[key] = (graph, link, compute, dag)
+        return cache[key]
+
+    def _schedule_slot(self, slot: int, actions: Sequence[int], *, validate: bool = True):
+        graph, link, compute, dag = self._slot_specs(slot)
         plan = plan_map_from_actions(graph, actions)
         gate = None
         evidence = None
@@ -264,19 +282,23 @@ class V2AutomotiveEnv:
                                link_process=self.link_process,
                                helper_states=self.helper_states[slot],
                                reliability_gate=gate, reliability_evidence=evidence,
-                               standby_for=standby_required if gate else None)
+                               standby_for=standby_required if gate else None,
+                               validate=bool(validate))
 
     def _telescoping(self, slot: int, actions: Sequence[int]) -> list:
         """Prefix marginal makespans under the v2 scheduler (v1 reward semantics)."""
         index = self.base._graph_index(int(slot))
         graph = self.base.graph_objects[index]
         n = len(self.base.orders[index])
-        previous = self._schedule_slot(slot, [0] * n).makespan_s
+        previous = self._schedule_slot(slot, [0] * n, validate=False).makespan_s
         rewards = []
         l_scale = max(float(graph.D_G_s), 1e-12)
         for k in range(n):
             prefix = [int(a) for a in actions[:k + 1]] + [0] * (n - k - 1)
-            current = self._schedule_slot(slot, prefix).makespan_s
+            # prefixes are evaluated WITHOUT the invariant validator (pure engineering
+            # speed-up: identical schedule arithmetic, skipped O(tasks x edges) re-check).
+            # The episode's final schedule IS validated in step().
+            current = self._schedule_slot(slot, prefix, validate=False).makespan_s
             rewards.append(-(current - previous) / l_scale)
             previous = current
         return rewards
@@ -296,7 +318,7 @@ class V2AutomotiveEnv:
         self.last_telemetry, self.last_v2_context = [], []
         for slot, actions in enumerate(action):
             rewards = self._telescoping(slot, actions)
-            result = self._schedule_slot(slot, actions)
+            result = self._schedule_slot(slot, actions, validate=True)
             index = self.base._graph_index(int(slot))
             graph = self.base.graph_objects[index]
             l_scale = max(float(graph.D_G_s), 1e-12)
