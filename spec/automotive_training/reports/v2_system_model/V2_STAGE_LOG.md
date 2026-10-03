@@ -294,3 +294,35 @@ Fix: the import-time version switch is now gated on `HAS_TF`, so it happens only
 container (TF present) and never in the local suite (TF absent). Full non-TF suite back to
 **1261 passed / 0 failed / 19 skipped**. Lesson recorded: no test module may mutate global
 schema state at import time.
+
+## Stage 9: CPU smoke advanced to the training update; blocked on the energy-telemetry schema
+
+With the observation mapping fixed, the container CPU smoke (`245d086`, zero visible GPUs)
+runs the whole v2 chain - env construction, meta-task sampling, support rollout, PPO inner
+update, MRLCO outer step - and fails only at the frozen energy-telemetry aggregation:
+
+```
+meta_trainer.py:581                 telemetry = aggregate_energy_telemetry(telemetry_rows)
+energy_telemetry.py:285             rows = [validate_energy_telemetry(r) for r in records]
+EnergyTelemetryError: telemetry record is missing fields:
+  ['requester_joules', 'mobile_joules', 'system_joules', 'primary_scope', 'primary_joules',
+   'scheduler_config_sha256', 'schema_version']
+```
+
+Cause: `V2AutomotiveEnv.step()` returns its own `V2EpisodeTelemetry.as_dict()` as the
+per-slot telemetry record, while the trainer validates the FROZEN energy-telemetry schema
+(`env/mec_offloaing_envs/scheduler/energy_telemetry.py:validate_energy_telemetry`). The frozen
+record is built by `AutomotiveEnv._telemetry(index, graph, order, result, mc, realization,
+rewards, slot, ...)` (automotive_env.py:375), which expects a v1 `ScheduleResult`
+(`scheduler_config_sha256` at line 407).
+
+Next step (exact recipe): build the per-slot record in the frozen schema - energy is explicitly
+`not_configured` in v2, so emit `schema_version`, `primary_scope="not_configured"` and zero
+`requester_joules`/`mobile_joules`/`system_joules`/`primary_joules` with the real
+`scheduler_config_sha256` from `self.base._axes_fingerprint()`/`configs[slot]
+.source_config_sha256`, and nest the v2 telemetry under a `"v2"` key instead of replacing the
+schema. Then rerun the smoke and request human GPU approval for the 1x500 run.
+
+Also noted: `V2AutomotiveEnv.step()` contains a stale
+`from env.mec_offloaing_envs.scheduler.energy_scope import energy_scalar` line and hard-codes
+`energy = 0.0`; both must be removed when the frozen record is emitted.
