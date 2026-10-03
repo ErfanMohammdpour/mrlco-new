@@ -94,7 +94,7 @@
   "repository": {
     "audit_baseline": "d0af6f1bb7b1309f20fed66d33450ff67fda3f25",
     "branch": "phase5-realistic-system-v2",
-    "code_commit": "371d69edea5bd2d064c4a58ec8fd4e7c45c78d6f",
+    "code_commit": "7a4800e9f625e3a3ca8ed1b972f1f88249fee1e2",
     "code_commit_subject": "test(v2): PPO/MRLCO likelihood-ratio and reset contract audit",
     "commit_chain": {
       "1226612": "executed R/S CRN evaluation loop + step-cost fix + regenerated artifacts",
@@ -155,9 +155,11 @@
       "remaining_all_present_in_baseline": true
     },
     "v2_modules_in_tf115": {
-      "modules": 14,
+      "command": "docker run --rm -e CUDA_VISIBLE_DEVICES= -v /root/v2-verify:/work -w /work/env/mec_offloaing_envs/scheduler/tests margo-phase4-tf115-gpu:latest bash -lc 'python -m unittest <16 v2 modules>'",
+      "modules": 16,
+      "note": "only test_v2_crn_tf executes the TF policy; the other v2 modules are numpy/CPU tests that run inside the TF image",
       "result": "OK",
-      "tests": 138
+      "tests": 156
     }
   },
   "test_status": {
