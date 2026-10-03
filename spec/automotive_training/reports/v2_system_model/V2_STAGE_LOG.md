@@ -8,7 +8,7 @@
 | 4 helper availability/contact/busy | `9d0afcc` | `test_v2_helper_model.py` (10) + scheduler/link suites = 28/28 x3 fresh procs; full non-TF 1202 passed / 0 failed | OK - plus a real calendar fix | `v2/helper_model.py`, `v2/shared_scheduler.py` (earliest-fit calendars, helper admissibility/failure), `tests/test_v2_helper_model.py` | 0 |
 | 5 criticality reliability + fallback hooks | staged | `test_v2_reliability.py` (9) + all v2 suites = 37/37 x3 fresh procs; full non-TF 1211 passed / 0 failed | OK | `v2/{reliability.py,reliability_classes.yaml}`, scheduler gate + standby hook, `tests/test_v2_reliability.py` | 0 |
 | 6 geometry gate + stronger search | `7719661`, `8baf4db`, `2f7d072` | `test_v2_search_and_gate.py` + all v2 suites = 41/41 x3 fresh procs; full non-TF 1215 passed / 0 failed | gate harness ready; full 20x12 run in flight | `v2/{geometry_gate.py,stronger_search.py,heft_bridge.py}`, `tests/test_v2_search_and_gate.py` | 0 |
-| 7 CRN evaluator (Gumbel) | `3993ead` + fix | `test_v2_crn.py` 11 x3 fresh procs; full non-TF 1226 passed / 0 failed / 18 skipped | protocol + stateless policy path done; TF-gated container check pending | `v2/crn.py`, `policies/meta_seq2seq_policy.py` (opt-in CRN helper), `tests/test_v2_crn.py`, `tests/test_v2_crn_tf.py` | 0 |
+| 7 CRN evaluator (Gumbel) | `3993ead`, `664e40b`, `4d97490` | `test_v2_crn.py` 11 x3 fresh procs; TF-gated 4/4 OK in the TF1.15 container on Kish; full non-TF 1261 passed | DONE | `v2/crn.py`, `policies/meta_seq2seq_policy.py` (opt-in CRN helper), `tests/test_v2_crn.py`, `tests/test_v2_crn_tf.py` | 0 |
 | 8 repeated/adversarial/v1-parity battery | pending | - | - | - | 0 |
 | 9 v2 1x500 + checkpoint eval | BLOCKED until gate 6 passes | - | - | - | 0 |
 
@@ -225,3 +225,26 @@ RETRACTION: the earlier note in this log claimed the count difference was a per-
 per-hop LABELLING difference. That was wrong (counts also match after the fix) and is
 retracted inside the JSON (`previous_hypothesis_retracted`). The open item is now closed, and
 the geometry-gate parity statement no longer needs the transfer-accounting caveat.
+
+## Stage 7 part 2 DONE: CRN verified inside the TF1.15 container (Kish)
+
+Container: `margo-phase4-tf115-nv2212:latest`, mount `/opt/margo/mrlco-new-6b:/work`,
+`python -m unittest discover -s env/mec_offloaing_envs/scheduler/tests -p "test_v2_crn_tf.py" -v`
+-> **Ran 4 tests in 7.3 s, OK**:
+* `test_obs_version_in_use_is_the_v2_schema` - the active schema inside TF is 52/91;
+* `test_same_seed_pair_bit_identical_actions` - same CRN seed pair => bit-identical actions,
+  logits and values; a different pair => a different draw;
+* `test_gumbel_path_matches_stateless_categorical` - all three actions reachable;
+* `test_crn_is_off_by_default` - the frozen v1 graph is unaffected.
+
+Operational findings (recorded for the next container runs):
+* the image has **no pytest** - use `python -m unittest discover ...`;
+* the image needs `--gpus all` for GPU work (a plain run warns "NVIDIA Driver was not
+  detected" and falls back to CPU) - the CRN test above was CPU and passed;
+* the obs version must be set BEFORE `policies/graph2seq_encoder` is imported (it binds
+  PACKED_DIM at import); the first attempt failed with `encoder packed dim 79 != 50`.
+
+Kish delivery mechanism (no GitHub credentials on the host): a thin git bundle
+`git bundle create x.bundle phase5-realistic-system-v2 --not 92212d1d` + scp + `git fetch`.
+Checkout left on branch `phase5-realistic-system-v2 @ 4d97490c` with the pre-existing
+untracked `runs/` directory intact; `/opt/margo/mrlco-new` never touched.
