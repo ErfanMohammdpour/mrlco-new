@@ -1,0 +1,53 @@
+# v2 criticality-aware reliability classes.
+#
+# epsilon_class = the maximum tolerated probability that a REMOTE execution fails to
+# deliver (deadline/reliability envelope). Semantics deliberately separated from deadline
+# urgency: `deadline_s` says WHEN a task must finish, `epsilon_class` says HOW MUCH remote
+# risk is acceptable. Both are used independently.
+#
+# PROVENANCE
+#   HIGH / MEDIUM are anchored on dataset-ledgered, standard-derived 3GPP TS 22.186
+#   V16.2.0 reliability requirements already present in
+#   spec/automotive_mc_v1/SOURCE_REGISTRY.yaml (official_verified, evidence file
+#   spec/automotive_mc_v1/evidence/TS122186_v160200_tables_excerpt.txt,
+#   sha256 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81):
+#     R.5.3-006 emergency trajectory alignment reliability = 99.999 %
+#     R.5.3-001 cooperative collision avoidance reliability = 99.99 %
+#     R.5.2-006 platooning reliability                       = 99.99 %
+#     remote driving reliability (Table 5.4-1)               = 99.999 %
+#   These are COMMUNICATION-scope requirements, so they are used here only as the
+#   reliability envelope of remote execution, never as an application E2E deadline.
+#   LOW has no ledgered anchor in v1 and is therefore an EXPLICIT ASSUMPTION.
+reliability_classes:
+  HIGH:
+    epsilon: 1.0e-5
+    evidence_class: dataset_standard_derived
+    requirement_id: R.5.3-006
+    reliability_percent: 99.999
+    source: "3GPP TS 22.186 V16.2.0 Table 5.3-1 (emergency trajectory alignment / remote driving)"
+    evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
+    warm_standby: true
+    fallback_semantics: warm_standby_restart
+  MEDIUM:
+    epsilon: 1.0e-4
+    evidence_class: dataset_standard_derived
+    requirement_id: R.5.3-001
+    reliability_percent: 99.99
+    source: "3GPP TS 22.186 V16.2.0 Table 5.3-1 (cooperative collision avoidance) + R.5.2-006 (platooning)"
+    evidence_sha256: 8bd6e7f7248939e7700930b590357d253d096c4d49b6e755788fc52c00f3ca81
+    warm_standby: false
+    fallback_semantics: none
+  LOW:
+    epsilon: 1.0e-2
+    evidence_class: explicit_assumption_synthetic
+    requirement_id: null
+    reliability_percent: 99.0
+    source: "explicit assumption: no ledgered low-criticality reliability requirement in v1"
+    evidence_sha256: null
+    warm_standby: false
+    fallback_semantics: none
+notes:
+  - "epsilon ordering HIGH < MEDIUM < LOW is enforced at load time."
+  - "the success-probability model combines estimated/realized link confidence, outage
+     fraction and helper contact margin; it is an explicit model, not a measured curve."
+  - "HIGH is NOT forced local: it is remote-admissible whenever p_success >= 1 - epsilon."

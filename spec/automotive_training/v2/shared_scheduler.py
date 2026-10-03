@@ -148,6 +148,10 @@ class TaskTiming:
     outage_wait_s: float = 0.0
     outage_events: int = 0
     helper_rejected_inadmissible: bool = False
+    reliability_rejected: bool = False
+    reliability_p_success: float | None = None
+    fallback_reserved_s: float = 0.0
+    fallback_used_s: float = 0.0
     contact_failure: bool = False
     restart_penalty_s: float = 0.0
 
@@ -206,7 +210,9 @@ HOP_TO_LINK = {HOP_UL: "mec_ul", HOP_DL: "mec_dl", HOP_V2V: "v2v",
 def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]],
                     *, link: V2LinkSpec, compute: V2ComputeSpec,
                     link_process=None, helper_states: Mapping | None = None,
-                    contact_margin: float = 0.9) -> V2ScheduleResult:
+                    contact_margin: float = 0.9, reliability_gate=None,
+                    reliability_evidence: Mapping | None = None,
+                    standby_for=None) -> V2ScheduleResult:
     """List-schedule multiple DAGs on shared calendars. Deterministic.
 
     `link_process` (v2 stage 3) supplies **realized** link multipliers per (link, time).
@@ -302,6 +308,27 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                                   margin=float(contact_margin)):
                     location = UE
                     helper_rejected = True
+        # criticality-aware remote admissibility (stage 5): a remote token is only kept if
+        # the reliability envelope of its class admits the estimated success probability
+        reliability_rejected = False
+        p_success = None
+        if location in (MEC, HELPER) and reliability_gate is not None:
+            evidence = dict(reliability_evidence or {})
+            evidence.setdefault("link_confidence", 1.0)
+            evidence.setdefault("outage_fraction", 0.0)
+            if location == HELPER:
+                state_ev = (helper_states or {}).get(dag.helper_id)
+                predicted = getattr(state_ev, "predicted_contact_end_s", None)
+                need = (float(spec.compute_bytes) /
+                        max(1e-9, float(compute.helper_cpu_bytes_per_s[dag.helper_id])))
+                if predicted is not None and math.isfinite(float(predicted)):
+                    window = max(1e-9, float(predicted) - float(dag.arrival_s))
+                    evidence.setdefault("contact_margin", min(1.0, need / window))
+            ok, p_success = reliability_gate(location, str(spec.criticality), evidence)
+            if not ok:
+                location = UE
+                reliability_rejected = True
+
         # data-ready time from predecessors (outputs stay where they executed)
         ready = float(dag.arrival_s)
         in_bytes = 0.0
@@ -374,6 +401,20 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             else:
                 start, cpu_end = helper_cpu[dag.helper_id].reserve(ready, cpu_duration)
         queue_wait_cpu = max(0.0, start - ready)
+        fallback_reserved = 0.0
+        fallback_used = 0.0
+        if (location in (MEC, HELPER) and standby_for is not None
+                and standby_for(str(spec.criticality))):
+            # warm standby hook: book the local worst-case duration so the vehicle can
+            # take over if the remote execution fails (reserved, not necessarily used)
+            worst = float(spec.compute_bytes) / max(1e-9, float(compute.ue_cpu_bytes_per_s[dag.owner]))
+            # the standby keeps the vehicle committed for at most the remote execution
+            # window (it must be able to take over while the remote attempt runs)
+            window = max(0.0, float(cpu_end) - float(ready))
+            if window > 0.0:
+                standby = min(worst, window)
+                _fs, _fe = ue_cpu[dag.owner].reserve(ready, standby)
+                fallback_reserved = standby
         tx_dl = 0.0
         queue_wait_dl = 0.0
         finish_s = cpu_end
@@ -405,6 +446,10 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             start_s=start, finish_s=finish_s, transfer_in_bytes=in_bytes,
             helper_id=dag.helper_id if location == HELPER else None,
             helper_rejected_inadmissible=bool(helper_rejected),
+            reliability_rejected=bool(reliability_rejected),
+            reliability_p_success=(None if p_success is None else float(p_success)),
+            fallback_reserved_s=float(fallback_reserved),
+            fallback_used_s=float(locals().get("restart_penalty", 0.0)),
             contact_failure=bool(locals().get("contact_failure", False)),
             restart_penalty_s=float(locals().get("restart_penalty", 0.0)),
             outage_wait_s=float(task_outage_wait),
@@ -421,8 +466,18 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     for dag in dags:
         completion[dag.dag_id] = max(finish[(dag.dag_id, t.task_id)] for t in dag.tasks) + dag.arrival_s * 0
     makespan = max(completion.values()) if completion else 0.0
-    # utilization + queue statistics
-    horizon = max(1e-12, makespan)
+    # utilization + queue statistics: the horizon covers the makespan AND any reservation
+    # that extends past it (a warm standby booked on the vehicle calendar)
+    ends = [makespan]
+    for cal in (shared_cpu, ul, dl, v2v):
+        for intervals in cal._intervals:
+            if intervals:
+                ends.append(max(e for _s, e in intervals))
+    for cal in list(ue_cpu.values()) + list(helper_cpu.values()):
+        for intervals in cal._intervals:
+            if intervals:
+                ends.append(max(e for _s, e in intervals))
+    horizon = max(1e-12, max(ends))
     def util(cal: Calendar) -> float:
         return sum(cal.busy_intervals) / (horizon * max(1, cal.servers))
     concurrency.sort()
@@ -455,7 +510,11 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                          1 for tm in timings.values() if tm.helper_rejected_inadmissible),
                      "helper_contact_failures": sum(
                          1 for tm in timings.values() if tm.contact_failure),
-                     "helper_restart_penalty_s": sum(tm.restart_penalty_s for tm in timings.values())},
+                     "helper_restart_penalty_s": sum(tm.restart_penalty_s for tm in timings.values()),
+                     "reliability_rejections": sum(
+                         1 for tm in timings.values() if tm.reliability_rejected),
+                     "fallback_reserved_s": sum(tm.fallback_reserved_s for tm in timings.values()),
+                     "fallback_used_s": sum(tm.fallback_used_s for tm in timings.values())},
         invariants={}, arrivals={d.dag_id: d.arrival_s for d in dags},
         active_concurrency=active_series)
     result.invariants = validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu,
