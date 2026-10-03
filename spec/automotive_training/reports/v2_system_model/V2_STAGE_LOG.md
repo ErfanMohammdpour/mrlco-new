@@ -110,3 +110,19 @@ Explicit limitation: the TF observation is still the v1 schema, so until the enc
 the policy cannot see the v2 context; a v2 run therefore measures v2 dynamics, not
 v2-informed decision making.
 Tests: `test_v2_env.py` 11 tests, 3 fresh processes, green.
+
+## v2 observation extension contract (additive, not yet wired)
+
+`v2/observation.py` freezes the extension contract for the encoder bump:
+`automotive_v2_obs_v1`, FEATURE_DIM 40 -> 52, PACKED_DIM 79 -> 91, where the first 40/79
+columns are the frozen v1 schema untouched (verified bit-for-bit by `split_v2_row`) and the
+12 appended columns are the v2 context (estimated link multipliers, link confidences, helper
+contact remaining, helper busy, reliability epsilon, criticality shares, MEC workers).
+`write_v2_stats_file()` derives `encoder_feature_stats_automotive_v2.json` (52 entries) from
+the frozen 40-entry artifact, with mean 0 / std 1 for the 12 identity-normalised columns.
+
+NOT wired into the frozen packer yet: `encoder_obs.set_obs_version` still rejects
+`automotive_v2_obs_v1` (asserted by test) because adding it changes FEATURE_DIM/PACKED_DIM
+at import time and therefore must land together with the trainer bridge, in one reviewed
+step, so no half-wired state can exist. Until then the policy input remains the v1 schema
+and `v2_context()` is telemetry only.
