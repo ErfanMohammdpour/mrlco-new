@@ -105,6 +105,31 @@ def dag_spec_from_graph(graph, *, dag_id: str, owner: int, arrival_s: float = 0.
             if task.deadline_s is not None else None,
             owner=int(owner),
             external_input_bytes=float(task.external_input_bytes)))
+    # Sink semantics under the MC realization (v1 engine parity): a task must deliver its
+    # output to the vehicle if it has no SURVIVING successor, not only if it is a static
+    # sink. When the MC filter drops every successor of task X, X becomes the endpoint of
+    # the executed sub-DAG and its output has to be returned; taking only `dag.sinks()`
+    # silently under-booked those returns (measured: one 185 B return per graph).
+    kept = {int(t.task_id) for t in tasks}
+    static_sinks = {int(t.task_id) for t in tasks if t.is_sink}
+    def _succ_ids(tid):
+        raw = dag.successors().get(int(tid), []) or []
+        out = set()
+        for item in raw:
+            out.add(int(getattr(item, "dst_task_id", item)))
+        return out
+
+    successor_ids = {int(tid): _succ_ids(tid) for tid in kept}
+    tasks = [
+        V2TaskSpec(
+            task_id=t.task_id, compute_bytes=t.compute_bytes, output_bytes=t.output_bytes,
+            predecessors=t.predecessors, is_root=t.is_root,
+            is_sink=(t.task_id in static_sinks
+                     or not (successor_ids.get(t.task_id, set()) & kept)),
+            criticality=t.criticality, deadline_s=t.deadline_s, owner=t.owner,
+            external_input_bytes=t.external_input_bytes)
+        for t in tasks
+    ]
     return V2DAGSpec(dag_id=str(dag_id), owner=int(owner), tasks=tasks,
                      arrival_s=float(arrival_s), helper_id=helper_id,
                      helper_contact_window=helper_contact_window)

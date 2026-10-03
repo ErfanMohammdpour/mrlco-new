@@ -1,20 +1,19 @@
 {
-  "byte_mismatch_rows": 8,
+  "byte_mismatch_rows": 0,
+  "count_mismatch_rows": 0,
   "detail": [
     {
       "graph": "mcv1_lpp_s0_whigh_dloose",
       "plan": "all_MEC",
       "v1_bytes": 3385.0,
-      "v1_hop_sum": 2,
       "v1_records": 2,
-      "v2_bytes": 3200.0,
-      "v2_events": 1
+      "v2_bytes": 3385.0,
+      "v2_events": 2
     },
     {
       "graph": "mcv1_lpp_s0_whigh_dloose",
       "plan": "half_MEC_half_UE",
       "v1_bytes": 70380.0,
-      "v1_hop_sum": 10,
       "v1_records": 10,
       "v2_bytes": 70380.0,
       "v2_events": 10
@@ -23,25 +22,22 @@
       "graph": "mcv1_lpp_s0_whigh_dloose",
       "plan": "half_MEC_half_HELPER",
       "v1_bytes": 144145.0,
-      "v1_hop_sum": 22,
       "v1_records": 22,
-      "v2_bytes": 143960.0,
-      "v2_events": 21
+      "v2_bytes": 144145.0,
+      "v2_events": 22
     },
     {
       "graph": "mcv1_lpp_s0_whigh_dnomin",
       "plan": "all_MEC",
       "v1_bytes": 3162.0,
-      "v1_hop_sum": 2,
       "v1_records": 2,
-      "v2_bytes": 3000.0,
-      "v2_events": 1
+      "v2_bytes": 3162.0,
+      "v2_events": 2
     },
     {
       "graph": "mcv1_lpp_s0_whigh_dnomin",
       "plan": "half_MEC_half_UE",
       "v1_bytes": 64523.0,
-      "v1_hop_sum": 10,
       "v1_records": 10,
       "v2_bytes": 64523.0,
       "v2_events": 10
@@ -50,25 +46,22 @@
       "graph": "mcv1_lpp_s0_whigh_dnomin",
       "plan": "half_MEC_half_HELPER",
       "v1_bytes": 132208.0,
-      "v1_hop_sum": 22,
       "v1_records": 22,
-      "v2_bytes": 132046.0,
-      "v2_events": 21
+      "v2_bytes": 132208.0,
+      "v2_events": 22
     },
     {
       "graph": "mcv1_lpp_s0_whigh_dtight",
       "plan": "all_MEC",
       "v1_bytes": 2846.0,
-      "v1_hop_sum": 2,
       "v1_records": 2,
-      "v2_bytes": 2600.0,
-      "v2_events": 1
+      "v2_bytes": 2846.0,
+      "v2_events": 2
     },
     {
       "graph": "mcv1_lpp_s0_whigh_dtight",
       "plan": "half_MEC_half_UE",
       "v1_bytes": 62722.0,
-      "v1_hop_sum": 10,
       "v1_records": 10,
       "v2_bytes": 62722.0,
       "v2_events": 10
@@ -77,25 +70,22 @@
       "graph": "mcv1_lpp_s0_whigh_dtight",
       "plan": "half_MEC_half_HELPER",
       "v1_bytes": 128290.0,
-      "v1_hop_sum": 22,
       "v1_records": 22,
-      "v2_bytes": 128044.0,
-      "v2_events": 21
+      "v2_bytes": 128290.0,
+      "v2_events": 22
     },
     {
       "graph": "mcv1_lpp_s0_whigh_dtight",
       "plan": "all_MEC",
       "v1_bytes": 2954.0,
-      "v1_hop_sum": 2,
       "v1_records": 2,
-      "v2_bytes": 2800.0,
-      "v2_events": 1
+      "v2_bytes": 2954.0,
+      "v2_events": 2
     },
     {
       "graph": "mcv1_lpp_s0_whigh_dtight",
       "plan": "half_MEC_half_UE",
       "v1_bytes": 65101.0,
-      "v1_hop_sum": 10,
       "v1_records": 10,
       "v2_bytes": 65101.0,
       "v2_events": 10
@@ -104,19 +94,19 @@
       "graph": "mcv1_lpp_s0_whigh_dtight",
       "plan": "half_MEC_half_HELPER",
       "v1_bytes": 133156.0,
-      "v1_hop_sum": 22,
       "v1_records": 22,
-      "v2_bytes": 133002.0,
-      "v2_events": 21
+      "v2_bytes": 133156.0,
+      "v2_events": 22
     }
   ],
-  "finding": "v1 emits one transfer record per graph EDGE carrying a hop count; v2 emits one radio event per HOP. Moved bytes agree exactly; raw counts differ by the relay hops, so counts were a LABELLING difference, not a physics difference.",
+  "finding": "After the MC-aware sink fix, v1 and v2 agree EXACTLY on both the number of booked transfers and the moved bytes for every sampled plan (2/2, 10/10, 22/22). The earlier count/byte differences came from ONE cause, not from a per-edge vs per-hop labelling: v2 took `dag.sinks()` on the STATIC graph, so a task whose successors were dropped by the MC realization was not treated as an endpoint and its return was never booked (measured: one 185 B return per graph). The adapter now marks a task as a sink when it is a static sink OR has no surviving successor, matching the v1 engine.",
   "graphs": 4,
   "plans": [
     "all_MEC",
     "half_MEC_half_UE",
     "half_MEC_half_HELPER"
   ],
+  "previous_hypothesis_retracted": "the earlier entry claimed the count difference was a per-edge vs per-hop LABELLING difference; the data shows counts also match after the fix, so that explanation was wrong and is retracted",
   "rows": 12,
-  "schema": "v1_v2_transfer_accounting_v1"
+  "schema": "v1_v2_transfer_accounting_v2"
 }

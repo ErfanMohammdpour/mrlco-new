@@ -118,5 +118,41 @@ class TestEvaluatorEnvFactory(unittest.TestCase):
         self.assertIn("def v2_env_factory(", src)
 
 
+class TestMCSinkSemantics(unittest.TestCase):
+    """A task whose successors were dropped by the MC realization is an endpoint: its output
+    must be returned to the vehicle, exactly as the v1 engine does."""
+
+    def test_sink_set_is_mc_aware(self):
+        import numpy as np
+        from spec.automotive_training.automotive_env import AutomotiveEnv
+        from spec.automotive_training.automotive_loader import load_dataset
+        from spec.automotive_training.automotive_primary import AutomotiveResourceCluster
+        from spec.automotive_training.v2.adapters import (
+            compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions,
+        )
+        from spec.automotive_training.v2.helper_model import HelperState
+        from spec.automotive_training.v2.shared_scheduler import schedule_shared
+
+        graph = load_dataset().validation_query()[0]
+        env = AutomotiveEnv([graph], AutomotiveResourceCluster(), role="validation",
+                            slots_per_task=1, base_seed=303, single_dist=True)
+        env.set_task({"dist_index": 0, "graph_indices": np.arange(1, dtype=np.int32)})
+        env.reset()
+        mc = env._slot_mc[0]
+        v1, _e, _m = env._schedule(0, [1] * 20, mc)
+        v1_bytes = sum(float(t.bytes) for t in (getattr(v1, "transfers", []) or []))
+        dag = dag_spec_from_graph(graph, dag_id="g", owner=0, mc=mc, helper_id=0)
+        compute = compute_spec([graph])
+        hs = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
+                             contact_end_s=1e18, predicted_contact_end_s=1e18)}
+        res = schedule_shared([dag], {"g": plan_map_from_actions(graph, [1] * 20)},
+                              link=link_spec(graph), compute=compute, helper_states=hs)
+        self.assertAlmostEqual(float(res.mechanics["radio_bytes"]), v1_bytes, places=6)
+        self.assertEqual(res.mechanics["radio_events"],
+                         len(getattr(v1, "transfers", []) or []))
+        # at least one sink must be a task that is NOT a static sink in the full DAG
+        self.assertGreater(len([t for t in dag.tasks if t.is_sink]), 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

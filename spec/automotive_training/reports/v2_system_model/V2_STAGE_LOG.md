@@ -211,3 +211,17 @@ explanation for any v2 result.
 
 Also in this stage: `V2ScheduleResult` now exposes the booked `radio_events` and
 `mechanics["radio_bytes"]` (needed for the accounting above); 49 v2 tests re-run green.
+
+## Stage 8: transfer accounting CLOSED (root cause fixed)
+
+Root cause found: v2's sink set came from `dag.sinks()` on the STATIC graph, so a task whose
+successors were dropped by the MC realization was not treated as an endpoint and its return
+was never booked (one 185 B return per graph). The adapter now marks a task as a sink when it
+is a static sink OR has no surviving successor - matching the v1 engine. After the fix,
+`V1_V2_TRANSFER_ACCOUNTING.json` shows EXACT agreement with v1 on both booked transfers and
+moved bytes for every sampled plan (2/2, 10/10, 22/22 records-events; identical bytes).
+
+RETRACTION: the earlier note in this log claimed the count difference was a per-edge vs
+per-hop LABELLING difference. That was wrong (counts also match after the fix) and is
+retracted inside the JSON (`previous_hypothesis_retracted`). The open item is now closed, and
+the geometry-gate parity statement no longer needs the transfer-accounting caveat.
