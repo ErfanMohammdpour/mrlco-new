@@ -97,8 +97,18 @@
   "repository": {
     "audit_baseline": "d0af6f1bb7b1309f20fed66d33450ff67fda3f25",
     "branch": "phase5-realistic-system-v2",
-    "code_commit": "dc33dad844fb20252400c99f2df67e095cb55962",
-    "docs_commit": "this manifest is a documentation-only commit after the code commit",
+    "code_commit": "9e9e216faf45d3be18309576a5ccdc1da05a0d45",
+    "code_commit_subject": "test(v2): PPO/MRLCO likelihood-ratio and reset contract audit",
+    "commit_chain": {
+      "1226612": "executed R/S CRN evaluation loop + step-cost fix + regenerated artifacts",
+      "65e1a5f": "helper test + single-reservation booking + contact/fallback semantics",
+      "9e9e216faf45d3be18309576a5ccdc1da05a0d45": "PPO/MRLCO likelihood-ratio and reset contract audit",
+      "a39f070": "complete decision-time observation contract + slot identity fix",
+      "a8fd86a": "canonical-builder gate/parity + future-blindness + CPU benchmark + artifacts",
+      "d55d5bc": "constraint integration tests (reward penalty, signed duals, fail-fast)",
+      "ff3997e": "real event-based energy + budget/dual constraints + canonical world builder"
+    },
+    "docs_commit": "this manifest-only commit (no code change)",
     "frozen_v1_additive_note": "automotive_primary.py carries an additive default-off env_factory hook (commit 65de171); the v1 path with env_factory=None is unchanged; encoder_obs.py now DERIVES its v2 feature names from spec/.../context_fields.py instead of duplicating them",
     "frozen_v1_diff_engine_and_env": "EMPTY",
     "remote_authorized": "erfan https://github.com/ErfanMohammdpour/mrlco-new.git",
