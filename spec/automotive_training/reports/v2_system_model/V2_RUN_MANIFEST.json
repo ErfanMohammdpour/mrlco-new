@@ -1,0 +1,101 @@
+{
+  "artifacts": {
+    "ENERGY_LITERATURE_REVIEW.md": "primary-source review (5 read in full, 2 inaccessible)",
+    "GEOMETRY_GATE.json/md": "regenerated on the canonical builder with executed-action evidence",
+    "OBS_SCHEMA_V2.json": "observation contract, derived dims, open items",
+    "V1_V2_PARITY.json": "regenerated on the canonical builder (degenerate configuration)",
+    "V2_BUG_AUDIT.md": "finding-by-finding status",
+    "V2_ENERGY_SPEC.md/json": "model, SI units, boundaries, provenance, unmodeled components",
+    "V2_FINAL_ACCEPTANCE.md": "acceptance table with PASS/FAIL/NOT RUN and evidence",
+    "V2_FLOW_CONTRACT.md": "world/meta-task/observation/action/result/reset semantics + pipeline",
+    "V2_REGRESSION_DIAGNOSIS.md": "the failing helper test: trace, root cause, resolution",
+    "V2_THROUGHPUT.json": "CPU phase timings over complete iterations"
+  },
+  "commands": {
+    "benchmark": "python3 -m spec.automotive_training.v2.benchmark_v2 --graphs 10 --iters 3 --slots 10",
+    "diagnostic_training_NOT_STARTED": "1 seed x 500 outer iterations, frozen config; blocked by the unmet correctness gates (TF PPO/MRLCO, CRN R/S, checkpoint resume) and by the absence of TF/GPU capacity",
+    "geometry_gate": "python3 -m spec.automotive_training.v2.geometry_gate --graphs 20 --search-budget 600",
+    "non_tf_suite": "cd <repo> && python3 -m pytest env/mec_offloaing_envs/scheduler/tests -q -p no:nameko --ignore=env/mec_offloaing_envs/scheduler/tests/test_phase2_encoder_tf.py --ignore=env/mec_offloaing_envs/scheduler/tests/test_phase3_learning_tf.py",
+    "parity_study": "python3 -m spec.automotive_training.v2.parity_study --graphs 12",
+    "tf_smoke_and_ppo_NOT_RUN": "python3 -m spec.automotive_training.v2.stack  # requires TensorFlow 1.15 (tf.contrib); not installed in this environment",
+    "v2_scheduler_tests": "python3 -m pytest env/mec_offloaing_envs/scheduler/tests/test_v2_*.py -q -p no:nameko"
+  },
+  "environment": {
+    "gpu": "none",
+    "meta_test_access_count": 0,
+    "numpy": "2.5.0",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.0",
+    "tensorflow": "NOT INSTALLED"
+  },
+  "generated_utc": "2026-10-03T19:07:23Z",
+  "hashes": {
+    "constraints_source_sha256": "143a6604b429a4170b18fc9776fe8aa6bd06ab77fca2553a00974798d8c94f18",
+    "crn_protocol_id": "automotive_crn_gumbel_v1",
+    "energy_model_spec_sha256": "f3b458b921ac3055a79474ab90224287c601dffd71f4ed17d2bc25d22e3def57",
+    "energy_source_sha256": "05cb0275346f2b960798a6dab8710ddfc3bad254c8cfeb1ce915e3c3fafbd48f",
+    "energy_spec_md_sha256": "7ab5c5c1c1788b4f24dbf07bc99f648284df672a4856da3d8e36a315ec299d68",
+    "env_source_sha256": "c916da8b29f5748ce87ff0d960f0e7e4c14886f2273432ed7e7e15bf335554e7",
+    "frozen_config_sha256": "25f4df762ee45dd5f16078bf3beb59323abff0a8f30f23d2ea7b7028d95078c6",
+    "geometry_gate_json_sha256": "82c675642af5b8cabe0df9cc785765cb86d440650b13a58d4d2135610c02e6a5",
+    "obs_schema_sha256": "581d6ff2a4f8d40513334db480f5896ea96f54b0e522a9efc2d911964e35ae32",
+    "obs_version": "automotive_v2_obs_v1",
+    "parity_json_sha256": "5c6af1cd54b163b0704c418b00d757cc7175bd0e85097347183022cfba460d3f",
+    "scheduler_source_sha256": "b147f76d75270043309374ecabe90b074d923e6417263d0c6058ef89058d9671",
+    "throughput_json_sha256": "a07e9e9fbea81cf8aae265bdc64317644e3d3529eef0742009da987fe1d3a1c1",
+    "v2_context_dim": 12,
+    "v2_packed_dim": 91,
+    "world_config_default_sha256": "4ff11500feb091e43acebd51ff24d07291c7cb422925c7135596c6b379044fe3",
+    "world_source_sha256": "9f783d3423bc68f204f6d1446fa391ab0073cf36ab5d7fd15d2e24bb3b93674e"
+  },
+  "limitations": [
+    "observation channels for per-node epsilon, estimate age, queue/load and energy/budget/lambda are NOT implemented",
+    "PPO/MRLCO correctness for v2, CRN R/S execution, checkpoint save/restore and the end-to-end smoke are NOT RUN (no TensorFlow)",
+    "kappa_helper/kappa_mec and the TX powers cite a 2023 source that could not be re-verified; flagged unverified in V2_ENERGY_SPEC",
+    "no accessible 2024-2026 primary source gives a helper/V2V relay energy equation: transparent assumption",
+    "reliability is a surrogate, not a calibrated chance constraint; no empirical 1e-5 assurance claimed",
+    "warm standby is not priced in joules; checkpointing is explicitly unsupported",
+    "the gate's stronger_search result is a candidate-search lower bound, never an oracle"
+  ],
+  "repository": {
+    "audit_baseline": "d0af6f1bb7b1309f20fed66d33450ff67fda3f25",
+    "branch": "phase5-realistic-system-v2",
+    "code_commit": "a8fd86a91c4a1ab22a7e9ee1707d5508752170b0",
+    "docs_commit": "(this manifest is committed in a documentation-only commit after the code commit)",
+    "frozen_v1_additive_note": "automotive_primary.py carries an additive, default-off env_factory hook (commit 65de171); the v1 path with env_factory=None is unchanged",
+    "frozen_v1_diff_engine_and_env": "EMPTY",
+    "remote_authorized": "erfan https://github.com/ErfanMohammdpour/mrlco-new.git",
+    "reported_entry_point": "c6ad98a (previous round's last commit)",
+    "v1_freeze": "92212d1d"
+  },
+  "schema": "v2_run_manifest_v1",
+  "seeds": {
+    "background_seed_rule": "sha256(world_id|bg|index)[:12] as int mod 2**31-1",
+    "gate_seed": 0,
+    "helper_seed_rule": "base_seed*7919 + episode*31 + slot",
+    "link_process_seed_rule": "base_seed*1000003 + episode",
+    "parity_env_seed": 303,
+    "validation_env_base_seed": 303,
+    "world_build_seed_rule": "identity-keyed, never RNG-call-order keyed"
+  },
+  "test_status": {
+    "gpu": {
+      "reason": "no GPU execution capacity allocated",
+      "status": "NOT RUN"
+    },
+    "non_tf": {
+      "failed": 0,
+      "passed": 1329,
+      "skip_reason": "all 19 skips require TensorFlow",
+      "skipped": 19
+    },
+    "tf": {
+      "reason": "TensorFlow is not installed",
+      "status": "NOT RUN"
+    },
+    "training": {
+      "reason": "correctness/scientific gates unmet + no TF/GPU capacity",
+      "status": "NOT STARTED"
+    }
+  }
+}

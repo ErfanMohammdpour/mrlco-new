@@ -1,3 +1,23 @@
+# V2_BUG_AUDIT
+
+> **STATUS HEADER (this round).** The table below was written at the audit baseline `d0af6f1`
+> and is kept for the record. Findings 3.1, 3.2, 4.1-4.8, 5.4, 7.1, 8.1 and 11 are now
+> REPAIRED with regression tests; see `V2_FINAL_ACCEPTANCE.md` for the criterion-by-criterion
+> verdict and `V2_REGRESSION_DIAGNOSIS.md` for the helper-test root cause.
+>
+> Repaired this round: single-reservation booking with an explicit fixed point (4.1/4.2/4.8);
+> per-hop active-service accounting (4.2); monotone round-trip contact slack (4.3); no
+> post-disconnection transfer plus full-restart fallback (4.4); per-task failure/restart state
+> instead of `locals().get` (4.5); result-return-within-contact (4.6); one canonical world
+> builder used by env/gate/parity (3.1/3.2); real event-based energy replacing the zero shim
+> (7.1); reward penalty + signed dual ascent + fail-fast metrics + feasibility-aware selection
+> (8.1/8.2/8.3); gate and parity regenerated on the final code (11).
+>
+> Still open: 6.3 (per-node epsilon / estimate age / queue-load / energy-budget-lambda
+> observation channels), 6.6 (perturb-a-feature gradient test), 9.x (PPO/MRLCO verification for
+> v2), 10.1 (CRN R/S executed in an evaluator), 12 (TF smoke and checkpoint/resume). All
+> require TensorFlow or additional observation work and are reported NOT RUN / FAIL, never PASS.
+
 # V2_BUG_AUDIT — audit baseline `d0af6f1` (HEAD), v1 freeze `92212d1d`
 
 Statuses: FIXED (fix + regression test committed) | PARTIAL | NOT FIXED | NOT ATTEMPTED.
