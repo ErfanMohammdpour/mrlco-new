@@ -1,0 +1,120 @@
+{
+  "checkpoint": "runs/automotive_mc_v1/gatef_proof/seed_0/ckpt/meta_model_final.ckpt",
+  "decoding": "stochastic",
+  "label": "gatef_proof_final_stochastic",
+  "note": "deterministic query decoding; support adaptation is PPO with the frozen inner settings; every k sees the same realizations in a replicate",
+  "paired_summary_vs_k0": {
+    "k1": {
+      "better_replicates": 3,
+      "mean_delta_vs_k0_s": -3.1895399767706276e-05,
+      "replicates": 5
+    },
+    "k2": {
+      "better_replicates": 5,
+      "mean_delta_vs_k0_s": -0.0017488819222784605,
+      "replicates": 5
+    },
+    "k3": {
+      "better_replicates": 3,
+      "mean_delta_vs_k0_s": -0.0016301729278092093,
+      "replicates": 5
+    },
+    "k5": {
+      "better_replicates": 2,
+      "mean_delta_vs_k0_s": 0.0009433484742663028,
+      "replicates": 5
+    }
+  },
+  "protocol_id": "automotive_eval_protocol_v1",
+  "protocol_sha": "88a822c4edce6494edfbe2fc4c37b847f1c4947c7c32547520714164c72f5e08",
+  "realization_seeds": [
+    1000,
+    1017,
+    1034,
+    1051,
+    1068
+  ],
+  "replicates": 5,
+  "results": {
+    "k0": {
+      "hard_rate": 0.0,
+      "k_steps": 0,
+      "latency_s": 0.027687450797354234,
+      "latency_std_s": 0.0028667695519528974,
+      "mc_violations": 0.0,
+      "paired_k3_minus_k0_mean_s": null,
+      "per_replicate_latency": [
+        0.02740479151328119,
+        0.02672020051117936,
+        0.025030777647047704,
+        0.03320358950415194,
+        0.026077894811110974
+      ],
+      "regret_s": 0.0023734237692271407
+    },
+    "k1": {
+      "hard_rate": 0.005,
+      "k_steps": 1,
+      "latency_s": 0.027655555397586528,
+      "latency_std_s": 0.0026798697067492478,
+      "mc_violations": 0.0,
+      "paired_k3_minus_k0_mean_s": 0.0012365621063198586,
+      "per_replicate_latency": [
+        0.02682261523635592,
+        0.03281599963997266,
+        0.024968438060909228,
+        0.02673918453839531,
+        0.026931539512299523
+      ],
+      "regret_s": 0.002341528369459435
+    },
+    "k2": {
+      "hard_rate": 0.0,
+      "k_steps": 2,
+      "latency_s": 0.025938568875075774,
+      "latency_std_s": 0.0006593959101839654,
+      "mc_violations": 0.0,
+      "paired_k3_minus_k0_mean_s": -0.001734749651181399,
+      "per_replicate_latency": [
+        0.02645229349574521,
+        0.026526405831819956,
+        0.024976186991285544,
+        0.026429641660528035,
+        0.02530831639600012
+      ],
+      "regret_s": 0.0006245418469486807
+    },
+    "k3": {
+      "hard_rate": 0.0,
+      "k_steps": 3,
+      "latency_s": 0.026057277869545026,
+      "latency_std_s": 0.00072929043016071,
+      "mc_violations": 0.0,
+      "paired_k3_minus_k0_mean_s": -0.0014535199216010348,
+      "per_replicate_latency": [
+        0.02645229349574521,
+        0.027003781002623024,
+        0.025194607682169516,
+        0.026429641660528035,
+        0.025206065506659336
+      ],
+      "regret_s": 0.0007432508414179329
+    },
+    "k5": {
+      "hard_rate": 0.0,
+      "k_steps": 5,
+      "latency_s": 0.028630799271620537,
+      "latency_std_s": 0.0043828195408474,
+      "mc_violations": 0.0,
+      "paired_k3_minus_k0_mean_s": 0.0017279051491527447,
+      "per_replicate_latency": [
+        0.026755886878964685,
+        0.02699570426113652,
+        0.02504185863379027,
+        0.027092116606297935,
+        0.03726842997791327
+      ],
+      "regret_s": 0.0033167722434934432
+    }
+  }
+}
