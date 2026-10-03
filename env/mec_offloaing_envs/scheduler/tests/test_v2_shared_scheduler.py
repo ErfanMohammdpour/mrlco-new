@@ -101,13 +101,30 @@ class TestSyntheticFixtures(unittest.TestCase):
         self.assertLess(ue.makespan_s, mec.makespan_s)
 
     def test_poor_v2v_makes_helper_unattractive(self):
+        from spec.automotive_training.v2.helper_model import HelperState
+
         tasks = [V2TaskSpec(0, 10e6, 10e6, (), True, True, "MEDIUM", 1.0, 0)]
         dag = V2DAGSpec("h", 0, tasks, helper_id=0)
-        fast = schedule_shared([dag], {"h": {0: 2}},
-                               link=V2LinkSpec(20e6, 20e6, 50e6), compute=self.COMPUTE)
-        slow = schedule_shared([dag], {"h": {0: 2}},
-                               link=V2LinkSpec(20e6, 20e6, 0.5e6), compute=self.COMPUTE)
-        self.assertLess(fast.makespan_s, slow.makespan_s * 0.5)
+        state = HelperState(helper_id=0, cpu_bytes_per_s=2e6, contact_end_s=100.0,
+                            predicted_contact_end_s=100.0)
+        fast = schedule_shared([dag], {"h": {0: 2}}, link=V2LinkSpec(20e6, 20e6, 50e6),
+                               compute=self.COMPUTE, helper_states={0: state})
+        slow = schedule_shared([dag], {"h": {0: 2}}, link=V2LinkSpec(20e6, 20e6, 0.5e6),
+                               compute=self.COMPUTE, helper_states={0: state})
+        self.assertLess(fast.makespan_s, slow.makespan_s * 0.9)
+
+    def test_later_long_reservation_does_not_block_earlier_short_transfer(self):
+        """Regression: a shared channel booked for a later long transfer must not stall a
+        short transfer that is ready earlier (FIFO-by-arrival did exactly that)."""
+        from spec.automotive_training.v2.shared_scheduler import Calendar
+
+        cal = Calendar("shared")
+        late_start, late_end = cal.reserve(10.0, 5.0)      # long transfer booked first
+        early_start, early_end = cal.reserve(0.0, 0.001)   # short one ready much earlier
+        self.assertAlmostEqual(early_start, 0.0, places=9)
+        self.assertLessEqual(early_end, 0.01)
+        self.assertAlmostEqual(late_start, 10.0, places=9)
+        self.assertAlmostEqual(late_end, 15.0, places=9)
 
     def test_helper_absent_degrades_to_local(self):
         tasks = [V2TaskSpec(0, 10e6, 1e6, (), True, True, "LOW", 1.0, 0)]

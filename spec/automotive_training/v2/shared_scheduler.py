@@ -57,31 +57,51 @@ class V2ComputeSpec:
 
 @dataclass
 class Calendar:
-    """FIFO non-preemptive server; `reserve` returns (start, end)."""
+    """Non-preemptive server pool with EARLIEST-FIT reservation.
+
+    Reservations are inserted in time order (not arrival order), so booking a transfer
+    that only starts later cannot block a short transfer that is ready earlier. This
+    matters for shared radio channels where the sink return of one DAG is booked before
+    the ingress of the next DAG: a FIFO-by-arrival calendar would serialise them.
+    """
 
     name: str
     servers: int = 1
-    _free: list = field(default_factory=lambda: [0.0])
+    _intervals: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        self._free = [0.0] * max(1, int(self.servers))
+        self._intervals = [[] for _ in range(max(1, int(self.servers)))]
+
+    def _earliest_fit(self, ready: float, duration: float):
+        best = None
+        for idx, intervals in enumerate(self._intervals):
+            t = float(ready)
+            for start, end in intervals:            # sorted by start
+                if t + duration <= start + 1e-12:
+                    break
+                t = max(t, end)
+            end = t + duration
+            if best is None or (end, idx) < (best[0], best[1]):
+                best = (end, idx, t)
+        return best[0], best[1], best[2]
 
     def reserve(self, ready: float, duration: float):
         if duration < 0.0 or not math.isfinite(duration):
             raise V2ScheduleError("invalid duration for %s: %r" % (self.name, duration))
-        idx = min(range(len(self._free)), key=lambda i: (self._free[i], i))
-        start = max(float(ready), self._free[idx])
-        end = start + float(duration)
-        self._free[idx] = end
+        end, idx, start = self._earliest_fit(float(ready), float(duration))
+        intervals = self._intervals[idx]
+        intervals.append((start, end))
+        intervals.sort()
         return start, end
 
     def peek_wait(self, ready: float) -> float:
-        idx = min(range(len(self._free)), key=lambda i: (self._free[i], i))
-        return max(0.0, self._free[idx] - float(ready))
+        _end, _idx, start = self._earliest_fit(float(ready), 0.0)
+        return max(0.0, start - float(ready))
 
     @property
     def busy_intervals(self):
-        return list(self._free)
+        """Total busy time per server (used for utilisation)."""
+        return [sum(e - s for s, e in intervals) for intervals in self._intervals]
 
 
 @dataclass
@@ -127,6 +147,9 @@ class TaskTiming:
     helper_id: int | None = None
     outage_wait_s: float = 0.0
     outage_events: int = 0
+    helper_rejected_inadmissible: bool = False
+    contact_failure: bool = False
+    restart_penalty_s: float = 0.0
 
     @property
     def total_remote_response_s(self) -> float:
@@ -182,7 +205,8 @@ HOP_TO_LINK = {HOP_UL: "mec_ul", HOP_DL: "mec_dl", HOP_V2V: "v2v",
 
 def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]],
                     *, link: V2LinkSpec, compute: V2ComputeSpec,
-                    link_process=None) -> V2ScheduleResult:
+                    link_process=None, helper_states: Mapping | None = None,
+                    contact_margin: float = 0.9) -> V2ScheduleResult:
     """List-schedule multiple DAGs on shared calendars. Deterministic.
 
     `link_process` (v2 stage 3) supplies **realized** link multipliers per (link, time).
@@ -197,9 +221,15 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     v2v = Calendar("V2V_CHANNEL") if link.shared_radio else Calendar("V2V_CHANNEL", servers=max(1, len(dags)))
     ue_cpu = {i: Calendar("UE_CPU_%d" % i) for i in range(len(dags))}
     helper_cpu: dict = {}
+    helper_busy_until: dict = {}
     for dag in dags:
         if dag.helper_id is not None:
-            helper_cpu.setdefault(dag.helper_id, Calendar("HELPER_CPU_%d" % dag.helper_id))
+            cal = helper_cpu.setdefault(dag.helper_id, Calendar("HELPER_CPU_%d" % dag.helper_id))
+            if dag.helper_id not in helper_busy_until:
+                state = (helper_states or {}).get(dag.helper_id)
+                offset = float(getattr(state, "busy_until_s", 0.0)) if state is not None else 0.0
+                helper_busy_until[dag.helper_id] = offset
+                cal.reserve(0.0, offset)   # reserve the helper's own workload first
     radio_events: list = []
     concurrency: list = []
 
@@ -255,8 +285,23 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         else:
             action = int(plan[task_id]) if task_id < len(plan) else 0
         location = {0: UE, 1: MEC, 2: HELPER}[action]
-        if location == HELPER and dag.helper_id is None:
-            location = UE   # no helper available -> the plan degrades to local execution
+        helper_rejected = False
+        if location == HELPER:
+            state = (helper_states or {}).get(dag.helper_id)
+            if dag.helper_id is None or state is None:
+                location = UE   # no helper available -> the plan degrades to local execution
+            else:
+                # admissibility against the PREDICTED (planner-visible) contact window
+                from .helper_model import admissible
+                predecessors_payload = sum(float(by_dag[dag_id][p].output_bytes)
+                                           for p in spec.predecessors)
+                if not admissible(state, now_s=float(dag.arrival_s),
+                                  payload_in_bytes=predecessors_payload or float(spec.external_input_bytes),
+                                  compute_bytes=float(spec.compute_bytes),
+                                  v2v_bytes_per_s=link.v2v_bytes_per_s,
+                                  margin=float(contact_margin)):
+                    location = UE
+                    helper_rejected = True
         # data-ready time from predecessors (outputs stay where they executed)
         ready = float(dag.arrival_s)
         in_bytes = 0.0
@@ -310,7 +355,24 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         else:
             rate = float(compute.helper_cpu_bytes_per_s[dag.helper_id])
             cpu_duration = float(spec.compute_bytes) / rate
-            start, cpu_end = helper_cpu[dag.helper_id].reserve(ready, cpu_duration)
+            state = (helper_states or {}).get(dag.helper_id)
+            contact_failure = False
+            restart_penalty = 0.0
+            if state is not None and math.isfinite(float(state.contact_end_s)):
+                ready_contact = max(ready, float(state.contact_start_s))
+                start, cpu_end = helper_cpu[dag.helper_id].reserve(ready_contact, cpu_duration)
+                if cpu_end > float(state.contact_end_s) + 1e-12:
+                    # minimal documented fallback: the remainder restarts locally
+                    contact_failure = True
+                    done = max(0.0, (float(state.contact_end_s) - start)) * rate
+                    remaining = max(0.0, float(spec.compute_bytes) - done)
+                    restart_penalty = remaining / max(1e-9, float(compute.ue_cpu_bytes_per_s[dag.owner]))
+                    _us, ue_end = ue_cpu[dag.owner].reserve(float(state.contact_end_s),
+                                                            restart_penalty)
+                    cpu_end = ue_end
+                    location = UE
+            else:
+                start, cpu_end = helper_cpu[dag.helper_id].reserve(ready, cpu_duration)
         queue_wait_cpu = max(0.0, start - ready)
         tx_dl = 0.0
         queue_wait_dl = 0.0
@@ -342,6 +404,9 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             queue_wait_dl_s=queue_wait_dl, tx_dl_s=tx_dl,
             start_s=start, finish_s=finish_s, transfer_in_bytes=in_bytes,
             helper_id=dag.helper_id if location == HELPER else None,
+            helper_rejected_inadmissible=bool(helper_rejected),
+            contact_failure=bool(locals().get("contact_failure", False)),
+            restart_penalty_s=float(locals().get("restart_penalty", 0.0)),
             outage_wait_s=float(task_outage_wait),
             outage_events=int(task_outage_events))
         timings[(dag_id, task_id)] = timing
@@ -385,7 +450,12 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                      "cpu_wait_max_s": max(waits) if waits else 0.0,
                      "remote_wait_max_s": max(remote_wait) if remote_wait else 0.0,
                      "outage_wait_total_s": sum(tm.outage_wait_s for tm in timings.values()),
-                     "outage_events_total": sum(tm.outage_events for tm in timings.values())},
+                     "outage_events_total": sum(tm.outage_events for tm in timings.values()),
+                     "helper_rejections_inadmissible": sum(
+                         1 for tm in timings.values() if tm.helper_rejected_inadmissible),
+                     "helper_contact_failures": sum(
+                         1 for tm in timings.values() if tm.contact_failure),
+                     "helper_restart_penalty_s": sum(tm.restart_penalty_s for tm in timings.values())},
         invariants={}, arrivals={d.dag_id: d.arrival_s for d in dags},
         active_concurrency=active_series)
     result.invariants = validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu,
@@ -419,9 +489,17 @@ def validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu, helper_cpu,
     checks["precedence_and_data_arrival"] = True
     # calendar consistency: no double-booking beyond servers
     for cal in (shared_cpu, ul, dl, v2v):
-        if len(cal._free) < 1:
+        if len(cal._intervals) < 1:
             raise V2ScheduleError("calendar %s has no servers" % cal.name)
+        for intervals in cal._intervals:
+            ordered = sorted(intervals)
+            for (s1, e1), (s2, e2) in zip(ordered, ordered[1:]):
+                if s2 + 1e-9 < e1:
+                    raise V2ScheduleError(
+                        "double booking on %s: [%.6f,%.6f] and [%.6f,%.6f]"
+                        % (cal.name, s1, e1, s2, e2))
     checks["calendars_well_formed"] = True
+    checks["no_double_booking"] = True
     # completion consistency
     for dag in dags:
         end = max(result.timings[(dag.dag_id, t.task_id)].finish_s for t in dag.tasks)
