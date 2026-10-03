@@ -1,0 +1,291 @@
+{
+  "bits_to_bytes_ratio": {
+    "expected": 8.0,
+    "median_dl": 8.0,
+    "median_ul": 8.0,
+    "median_v2v": 8.0,
+    "verdict": "scheduler converts bits/s to bytes/s by exactly 8; there is NO unit error in the rate pipeline"
+  },
+  "conclusion": "The ~7-11 Mbps figures are the HISTORICAL BASELINE POINTS recorded in spec/automotive_mc_v1/resource_profiles.yaml (7/7/5 Mbps, 1.0/1.5/10.0 GHz) and explicitly labelled 'NOT verified real-world constants'. The scheduler uses the PER-GRAPH realized draw inside the nominal/degraded/strong profile ranges, whose medians are higher (see median_realized_rates_mbps). The difference is which rate object is summarized, not a bits/bytes handling error.",
+  "dataset": "MARGO-AUTOMOTIVE-MC-v1",
+  "eta_provenance": {
+    "v2i_dl": {
+      "assumption": false,
+      "source": "same anchors as v2i_ul; the verified papers use one V2I link in each direction with equal bandwidth.",
+      "spectral_efficiency": 1.5
+    },
+    "v2i_ul": {
+      "assumption": false,
+      "source": "bandwidth 10 MHz from Liu et al., DCN 9(6):1399-1410, 2023, Table 1; spectral efficiency 1.5 bit/s/Hz from Michailidis et al., Sensors 21(13):4392, 2021, Table 2 (r_t = 1.5 bps/Hz).",
+      "spectral_efficiency": 1.5
+    },
+    "v2v": {
+      "assumption": true,
+      "source": "ASSUMPTION: no V2V/PC5-specific bandwidth or spectral efficiency was verified in the reviewed literature. Bandwidth is taken equal to the V2I anchor and eta equal to the Mi21 value; treat as an assumed link and sweep it (see spec/radio_model_report.json).",
+      "spectral_efficiency": 1.5
+    }
+  },
+  "graphs": 160,
+  "historical_baseline_points_in_resource_profiles_yaml_mbps": {
+    "r_mec_dl_bps": 7000000.0,
+    "r_mec_ul_bps": 7000000.0,
+    "r_v2v_bps": 5000000.0
+  },
+  "median_by_profile_ghz": {
+    "degraded": {
+      "f_helper_hz": 0.7299847296826695,
+      "f_mec_hz": 5.050266008402801,
+      "f_ue_hz": 0.5508703527217677
+    },
+    "nominal": {
+      "f_helper_hz": 1.5489653886386672,
+      "f_mec_hz": 10.911161404834658,
+      "f_ue_hz": 0.9775180495350683
+    },
+    "strong": {
+      "f_helper_hz": 2.9443665776655505,
+      "f_mec_hz": 21.144926224427515,
+      "f_ue_hz": 1.769014405557267
+    }
+  },
+  "median_by_profile_mbps": {
+    "degraded": {
+      "r_mec_dl_bps": 8.124292545840213,
+      "r_mec_ul_bps": 8.163499042901902,
+      "r_v2v_bps": 3.639951201190452
+    },
+    "nominal": {
+      "r_mec_dl_bps": 34.63781072369155,
+      "r_mec_ul_bps": 37.268557345240154,
+      "r_v2v_bps": 17.563185967329453
+    },
+    "strong": {
+      "r_mec_dl_bps": 180.50961279800856,
+      "r_mec_ul_bps": 213.13621321816893,
+      "r_v2v_bps": 100.51335619299519
+    }
+  },
+  "median_realized_rates_bps": {
+    "r_mec_dl_bps": 22464300.889843956,
+    "r_mec_ul_bps": 18487455.65422973,
+    "r_v2v_bps": 10591185.926022632
+  },
+  "median_realized_rates_mbps": {
+    "r_mec_dl_bps": 22.464300889843955,
+    "r_mec_ul_bps": 18.48745565422973,
+    "r_v2v_bps": 10.591185926022632
+  },
+  "schema": "v1_rate_provenance_v1",
+  "transfer_duration_samples": [
+    {
+      "bytes": 13094.0,
+      "duration_ms": 0.6183570718939133,
+      "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 21175467.371781647
+    },
+    {
+      "bytes": 185.0,
+      "duration_ms": 0.008736524996210207,
+      "graph_id": "mcv1_lpp_s0_whigh_dloose_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 21175467.37178119
+    },
+    {
+      "bytes": 11019.0,
+      "duration_ms": 1.7322527223876807,
+      "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 6361081.069517253
+    },
+    {
+      "bytes": 162.0,
+      "duration_ms": 0.0254673691829424,
+      "graph_id": "mcv1_lpp_s0_whigh_dnominal_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 6361081.06951639
+    },
+    {
+      "bytes": 10966.0,
+      "duration_ms": 0.2985089843323403,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 36735912.738194756
+    },
+    {
+      "bytes": 246.0,
+      "duration_ms": 0.006696444478000024,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 36735912.73819849
+    },
+    {
+      "bytes": 1350.0,
+      "duration_ms": 0.03664084604227194,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 36844127.41022757
+    },
+    {
+      "bytes": 1350.0,
+      "duration_ms": 0.23236236307372632,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+      "hop": "V2V",
+      "implied_bytes_per_s": 5809890.991561565
+    },
+    {
+      "bytes": 1350.0,
+      "duration_ms": 0.23236236307372718,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+      "hop": "V2V",
+      "implied_bytes_per_s": 5809890.991561542
+    },
+    {
+      "bytes": 1350.0,
+      "duration_ms": 0.03644892180687011,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+      "hop": "MEC_UL",
+      "implied_bytes_per_s": 37038132.62716441
+    },
+    {
+      "bytes": 11805.0,
+      "duration_ms": 0.32040384261408716,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 36844127.41022779
+    },
+    {
+      "bytes": 154.0,
+      "duration_ms": 0.0041797705855640965,
+      "graph_id": "mcv1_lpp_s0_whigh_dtight_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 36844127.410216786
+    },
+    {
+      "bytes": 10927.0,
+      "duration_ms": 1.9072645416013476,
+      "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 5729147.562731724
+    },
+    {
+      "bytes": 228.0,
+      "duration_ms": 0.039796496337979326,
+      "graph_id": "mcv1_lpp_s0_wnominal_dloose_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 5729147.562731818
+    },
+    {
+      "bytes": 3856.0,
+      "duration_ms": 2.6435289462944884,
+      "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+      "hop": "MEC_UL",
+      "implied_bytes_per_s": 1458656.2425976335
+    },
+    {
+      "bytes": 12107.0,
+      "duration_ms": 1.7142524271056094,
+      "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 7062553.803958609
+    },
+    {
+      "bytes": 191.0,
+      "duration_ms": 0.027044041759079207,
+      "graph_id": "mcv1_lpp_s0_wnominal_dloose_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 7062553.803958597
+    },
+    {
+      "bytes": 4023.0,
+      "duration_ms": 0.7823292337109048,
+      "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+      "hop": "MEC_UL",
+      "implied_bytes_per_s": 5142336.278189784
+    },
+    {
+      "bytes": 12199.0,
+      "duration_ms": 2.0490588746711684,
+      "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 5953464.856863953
+    },
+    {
+      "bytes": 161.0,
+      "duration_ms": 0.027043075565377772,
+      "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 5953464.856864218
+    },
+    {
+      "bytes": 3635.0,
+      "duration_ms": 2.746764861091989,
+      "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+      "hop": "MEC_UL",
+      "implied_bytes_per_s": 1323375.0189140285
+    },
+    {
+      "bytes": 12678.0,
+      "duration_ms": 2.7745214173847215,
+      "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 4569436.703772266
+    },
+    {
+      "bytes": 157.0,
+      "duration_ms": 0.03435872081790359,
+      "graph_id": "mcv1_lpp_s0_wnominal_dnominal_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 4569436.703772472
+    },
+    {
+      "bytes": 11137.0,
+      "duration_ms": 4.287943221493583,
+      "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+      "hop": "MEC_UL",
+      "implied_bytes_per_s": 2597282.525611602
+    },
+    {
+      "bytes": 1350.0,
+      "duration_ms": 0.7259358199211314,
+      "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 1859668.5312300327
+    },
+    {
+      "bytes": 1350.0,
+      "duration_ms": 1.6282407166503636,
+      "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+      "hop": "V2V",
+      "implied_bytes_per_s": 829115.7358951422
+    },
+    {
+      "bytes": 11137.0,
+      "duration_ms": 5.98870164923084,
+      "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 1859668.5312300343
+    },
+    {
+      "bytes": 174.0,
+      "duration_ms": 0.2098621368127121,
+      "graph_id": "mcv1_lpp_s0_wnominal_dtight_rhigh_end",
+      "hop": "V2V",
+      "implied_bytes_per_s": 829115.7358951479
+    },
+    {
+      "bytes": 3760.0,
+      "duration_ms": 1.7521657146197982,
+      "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+      "hop": "MEC_UL",
+      "implied_bytes_per_s": 2145915.7479381915
+    },
+    {
+      "bytes": 1500.0,
+      "duration_ms": 0.5369285484094887,
+      "graph_id": "mcv1_lpp_s0_wnominal_dtight_rlow_end",
+      "hop": "MEC_DL",
+      "implied_bytes_per_s": 2793667.806346599
+    }
+  ]
+}
