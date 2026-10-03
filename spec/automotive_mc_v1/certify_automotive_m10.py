@@ -19,6 +19,7 @@ CLI:
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import argparse
 import json
 import shutil
@@ -350,7 +351,7 @@ def method_comparison(rows: list[dict]) -> dict:
         out[name] = {
             "wins": wins,
             "win_rate": wins / len(rows) if rows else 0.0,
-            "mean_makespan_s": statistics.fmean(vals) if vals else 0.0,
+            "mean_makespan_s": fmean(vals) if vals else 0.0,
             "median_makespan_s": statistics.median(vals) if vals else 0.0,
         }
     return out
@@ -597,7 +598,7 @@ def calibration_report(graphs: list[dict], assignment: dict) -> dict:
         "excluded_graph_count": len(other),
         "excluded_splits": sorted({assignment[g["graph_id"]]["split"] for g in other}),
         "parameters": {
-            "workload_scale_bytes": statistics.fmean(workload),
+            "workload_scale_bytes": fmean(workload),
             "workload_scale_bytes_definition": "mean W_i over meta-train tasks",
             "latency_scale_s": statistics.median(dg),
             "latency_scale_s_definition": "median D_G over meta-train graphs",

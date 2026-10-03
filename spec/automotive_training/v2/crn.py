@@ -31,6 +31,7 @@ import statistics
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import numpy as np
 
 PROTOCOL_ID = "automotive_crn_gumbel_v1"
@@ -102,9 +103,9 @@ def nested_aggregate(values: Sequence[Sequence[float]]) -> NestedAggregate:
     widths = {len(row) for row in values}
     if len(widths) != 1:
         raise CRNError("ragged nested samples: %s" % sorted(widths))
-    per_rep = [statistics.fmean(row) for row in values]
-    per_sample = [statistics.fmean([row[s] for row in values]) for s in range(len(values[0]))]
-    mean = statistics.fmean(per_rep)
+    per_rep = [fmean(row) for row in values]
+    per_sample = [fmean([row[s] for row in values]) for s in range(len(values[0]))]
+    mean = fmean(per_rep)
     stderr = (statistics.stdev(per_rep) / math.sqrt(len(per_rep))) if len(per_rep) > 1 else 0.0
     return NestedAggregate(replicates=len(values), samples_per_replicate=len(values[0]),
                            mean=mean, stderr=stderr, per_replicate_means=per_rep,
@@ -116,7 +117,7 @@ def paired_delta(a: Sequence[float], b: Sequence[float]) -> dict:
     if len(a) != len(b):
         raise CRNError("paired_delta needs equal lengths")
     diffs = [float(x) - float(y) for x, y in zip(a, b)]
-    mean = statistics.fmean(diffs) if diffs else 0.0
+    mean = fmean(diffs) if diffs else 0.0
     stderr = (statistics.stdev(diffs) / math.sqrt(len(diffs))) if len(diffs) > 1 else 0.0
     return {"mean": mean, "stderr": stderr, "n": len(diffs), "deltas": diffs}
 

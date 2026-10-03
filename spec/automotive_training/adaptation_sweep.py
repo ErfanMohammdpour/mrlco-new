@@ -12,6 +12,7 @@ CLI: python3 spec/automotive_training/adaptation_sweep.py --ckpt PATH --out PATH
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import argparse
 import json
 import statistics
@@ -87,7 +88,7 @@ def main() -> int:
             continue
         deltas = [a - b for a, b in zip(block["per_replicate_latency"], base)]
         summary[key] = {
-            "mean_delta_vs_k0_s": statistics.fmean(deltas),
+            "mean_delta_vs_k0_s": fmean(deltas),
             "better_replicates": sum(1 for d in deltas if d < 0),
             "replicates": len(deltas),
         }

@@ -33,18 +33,39 @@ except Exception:
     HAS_TF = False
 
 
-if HAS_TF:  # pragma: no cover - container only
-    # The obs version must be active BEFORE policies/graph2seq_encoder is imported (it binds
-    # PACKED_DIM at import time). This is done ONLY when TensorFlow is really present: an
-    # import-time mutation in a skipped module would otherwise leak the v2 schema into every
-    # other test collected by the same pytest run (14 v1 encoder failures in the full suite).
-    os.environ["MARGO_OBS_VERSION"] = "automotive_v2_obs_v1"
-    try:
-        from env.mec_offloaing_envs.scheduler import encoder_obs
+from spec.automotive_training.v2.observation import (  # noqa: E402
+    V2_FEATURE_DIM, V2_OBS_VERSION, V2_PACKED_DIM,
+)
 
-        encoder_obs.set_obs_version("automotive_v2_obs_v1")
-    except Exception:  # pragma: no cover
-        pass
+#: obs version to restore after this module's tests; set by `setUpModule`
+_PREVIOUS_OBS_VERSION = None
+
+
+def setUpModule():
+    """Activate the v2 schema for THIS module's tests only, and restore it afterwards.
+
+    Doing this at IMPORT time leaked the v2 schema into every other module collected by the
+    same run (both pytest and `unittest discover` import all modules before running any test),
+    which broke the v1 encoder tests with `packed dim 50/109 != 79`. The schema is global
+    module state in `encoder_obs`, so it must be scoped, not set once at import.
+    """
+    global _PREVIOUS_OBS_VERSION
+    if not HAS_TF:                                    # pragma: no cover - container only
+        return
+    from env.mec_offloaing_envs.scheduler import encoder_obs
+
+    _PREVIOUS_OBS_VERSION = encoder_obs.OBS_VERSION
+    os.environ["MARGO_OBS_VERSION"] = V2_OBS_VERSION
+    encoder_obs.set_obs_version(V2_OBS_VERSION)
+
+
+def tearDownModule():
+    if _PREVIOUS_OBS_VERSION is None:                 # pragma: no cover
+        return
+    from env.mec_offloaing_envs.scheduler import encoder_obs
+
+    encoder_obs.set_obs_version(_PREVIOUS_OBS_VERSION)
+    os.environ["MARGO_OBS_VERSION"] = _PREVIOUS_OBS_VERSION
 
 
 @unittest.skipUnless(HAS_TF, "requires TensorFlow (run in the TF1.15 image)")
@@ -72,7 +93,7 @@ class TestSeq2SeqPolicyCRN(unittest.TestCase):
     def test_obs_version_in_use_is_the_v2_schema(self):
         from env.mec_offloaing_envs.scheduler import encoder_obs
 
-        self.assertEqual(encoder_obs.OBS_VERSION, "automotive_v2_obs_v1")
+        self.assertEqual(encoder_obs.OBS_VERSION, V2_OBS_VERSION)
         self.assertEqual((encoder_obs.FEATURE_DIM, encoder_obs.PACKED_DIM),
                          (V2_FEATURE_DIM, V2_PACKED_DIM))
 

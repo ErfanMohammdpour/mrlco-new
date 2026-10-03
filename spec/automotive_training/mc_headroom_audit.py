@@ -14,6 +14,7 @@ CLI: python3 spec/automotive_training/mc_headroom_audit.py [--meta-train N] [--v
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import argparse
 import json
 import statistics
@@ -92,17 +93,17 @@ def audit(graphs, base_seed: int, label: str) -> dict:
     return {
         "split": label, "graphs": len(rows), "base_seed": base_seed,
         "share_mixed_strictly_better": sum(1 for r in rows if r["improvement_pct"] > 1e-9) / n,
-        "mean_improvement_pct": statistics.fmean([r["improvement_pct"] for r in rows]),
+        "mean_improvement_pct": fmean([r["improvement_pct"] for r in rows]),
         "median_improvement_pct": statistics.median([r["improvement_pct"] for r in rows]),
         "max_improvement_pct": max(r["improvement_pct"] for r in rows),
         "share_all_MEC_best_pure": sum(1 for r in rows if r["all_MEC_is_best_pure"]) / n,
         "share_best_plan_uses_helper": sum(1 for r in rows if r["uses_helper"]) / n,
-        "mean_helper_fraction_in_best_plan": statistics.fmean([r["best_plan_fraction_helper"] for r in rows]),
+        "mean_helper_fraction_in_best_plan": fmean([r["best_plan_fraction_helper"] for r in rows]),
         "best_plan_winners": {w: sum(1 for r in rows if r["best_mixed"] == w)
                               for w in ("greedy_cd", "heft_v2")},
-        "mean_all_MEC_s": statistics.fmean([r["all_MEC_s"] for r in rows]),
-        "mean_best_pure_s": statistics.fmean([r["best_pure_s"] for r in rows]),
-        "mean_best_mixed_s": statistics.fmean([r["best_mixed_s"] for r in rows]),
+        "mean_all_MEC_s": fmean([r["all_MEC_s"] for r in rows]),
+        "mean_best_pure_s": fmean([r["best_pure_s"] for r in rows]),
+        "mean_best_mixed_s": fmean([r["best_mixed_s"] for r in rows]),
         "rows": rows,
     }
 

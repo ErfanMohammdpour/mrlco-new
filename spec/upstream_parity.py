@@ -404,10 +404,25 @@ def run_legacy_control(
 # --------------------------------------------------------------------------- #
 # Scheduler 1: the upstream repository's own function.
 # --------------------------------------------------------------------------- #
+def _node_end_lineno(node: ast.AST) -> int:
+    """Last source line of an AST node, on Python 3.8+ AND 3.7.
+
+    `end_lineno` was added to `ast` in Python 3.8. Falling back to `node.lineno` would
+    extract only the SIGNATURE line and `exec`-ing that raises IndentationError (which is
+    exactly what happened on the Python 3.7 TensorFlow image), so the 3.7 fallback takes the
+    deepest descendant line instead. That is a correct end for a statement block, which is
+    all this harness needs.
+    """
+    end = getattr(node, "end_lineno", None)
+    if end is not None:
+        return int(end)
+    return max(int(getattr(child, "lineno", node.lineno)) for child in ast.walk(node))
+
+
 def _source_segment(source: str, node: ast.AST) -> str:
     lines = source.splitlines()
     start = min([node.lineno] + [d.lineno for d in getattr(node, "decorator_list", [])])
-    end = node.end_lineno
+    end = _node_end_lineno(node)
     return textwrap.dedent("\n".join(lines[start - 1 : end]))
 
 

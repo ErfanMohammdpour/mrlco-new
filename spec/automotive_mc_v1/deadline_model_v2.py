@@ -139,14 +139,17 @@ class DeadlineResultV2:
     tasks: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
-        return {k: getattr(self, k) for k in
-                ("family_id", "P_f", "D_f", "D_G", "CP_ref", "CP_compute",
-                 "CP_communication_lb", "CP_reference_scenario", "alpha_f",
-                 "sla_config_sha256", "workload_config_sha256",
-                 "input_fingerprint", "output_sha256", "status")} | {
-            "tasks": {str(k): {"role": v.role, "c_ref": v.c_ref, "E": v.E, "L": v.L,
-                               "d": v.d, "slack": v.slack}
-                      for k, v in sorted(self.tasks.items())}}
+        # NOTE: written as an explicit dict merge, not `{...} | {...}` (PEP 584 needs
+        # Python 3.9; the frozen TensorFlow environment is 3.7).
+        out = {k: getattr(self, k) for k in
+               ("family_id", "P_f", "D_f", "D_G", "CP_ref", "CP_compute",
+                "CP_communication_lb", "CP_reference_scenario", "alpha_f",
+                "sla_config_sha256", "workload_config_sha256",
+                "input_fingerprint", "output_sha256", "status")}
+        out["tasks"] = {str(k): {"role": v.role, "c_ref": v.c_ref, "E": v.E, "L": v.L,
+                                 "d": v.d, "slack": v.slack}
+                        for k, v in sorted(self.tasks.items())}
+        return out
 
 
 def generate_deadlines_v2(template, w2, sla2, family_id):

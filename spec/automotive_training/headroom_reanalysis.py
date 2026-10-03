@@ -16,6 +16,7 @@ CLI: python3 spec/automotive_training/headroom_reanalysis.py [--json PATH]
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import argparse
 import json
 import statistics
@@ -57,14 +58,14 @@ def analyse(block: dict) -> dict:
     mixed_wins = [g for g in per_graph if g["mixed_beats_all_MEC"]]
     return {
         "graphs": len(per_graph),
-        "all_MEC_mean_s": statistics.fmean([g["all_MEC_s"] for g in per_graph]),
-        "best_pure_mean_s": statistics.fmean([g["best_pure_s"] for g in per_graph]),
-        "best_mixed_mean_s": statistics.fmean([g["best_mixed_s"] for g in per_graph]),
-        "oracle_panel_mean_s": statistics.fmean([g["oracle_s"] for g in per_graph]),
+        "all_MEC_mean_s": fmean([g["all_MEC_s"] for g in per_graph]),
+        "best_pure_mean_s": fmean([g["best_pure_s"] for g in per_graph]),
+        "best_mixed_mean_s": fmean([g["best_mixed_s"] for g in per_graph]),
+        "oracle_panel_mean_s": fmean([g["oracle_s"] for g in per_graph]),
         "oracle_panel_headroom_ms_vs_all_MEC": 1000.0 * (
-            statistics.fmean([g["all_MEC_s"] for g in per_graph])
-            - statistics.fmean([g["oracle_s"] for g in per_graph])),
-        "oracle_panel_headroom_pct_vs_all_MEC": statistics.fmean(
+            fmean([g["all_MEC_s"] for g in per_graph])
+            - fmean([g["oracle_s"] for g in per_graph])),
+        "oracle_panel_headroom_pct_vs_all_MEC": fmean(
             [g["oracle_improvement_vs_all_MEC_pct"] for g in per_graph]),
         "share_all_MEC_is_oracle": sum(1 for g in per_graph if g["oracle"] == "all_MEC") / n,
         "share_all_MEC_is_best_pure": sum(1 for g in per_graph if g["best_pure"] == "all_MEC") / n,
@@ -72,7 +73,7 @@ def analyse(block: dict) -> dict:
         "share_of_mixed_wins_using_helper": (
             sum(1 for g in mixed_wins if g["uses_helper"]) / len(mixed_wins)) if mixed_wins else 0.0,
         "mean_helper_fraction_in_mixed_wins": (
-            statistics.fmean([g["mixed_helper_fraction"] for g in mixed_wins])
+            fmean([g["mixed_helper_fraction"] for g in mixed_wins])
             if mixed_wins else 0.0),
         "median_oracle_improvement_pct": statistics.median(
             [g["oracle_improvement_vs_all_MEC_pct"] for g in per_graph]),

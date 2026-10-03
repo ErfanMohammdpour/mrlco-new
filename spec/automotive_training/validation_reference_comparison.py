@@ -15,6 +15,7 @@ CLI: python3 spec/automotive_training/validation_reference_comparison.py [--json
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import argparse
 import json
 import statistics
@@ -83,7 +84,7 @@ def run() -> dict:
         vals = makespans[name]
         hv = hard_violations[name]
         rows[name] = {
-            "mean_s": statistics.fmean(vals),
+            "mean_s": fmean(vals),
             "median_s": statistics.median(vals),
             "min_s": min(vals),
             "max_s": max(vals),

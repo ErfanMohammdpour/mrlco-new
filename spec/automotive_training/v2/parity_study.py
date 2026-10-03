@@ -29,6 +29,7 @@ if str(ROOT) not in sys.path:
 from spec.automotive_training.automotive_env import AutomotiveEnv  # noqa: E402
 from spec.automotive_training.automotive_loader import load_dataset  # noqa: E402
 from spec.automotive_training.automotive_primary import AutomotiveResourceCluster  # noqa: E402
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 from spec.automotive_training.v2.adapters import (  # noqa: E402
     compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions, pure_plan,
 )
@@ -87,7 +88,7 @@ def main() -> int:
     for plan_name in PLANS:
         vals = [r["rel_diff_pct"] for r in rows if r["plan"] == plan_name]
         per_plan[plan_name] = {
-            "mean_rel_diff_pct": statistics.fmean(vals),
+            "mean_rel_diff_pct": fmean(vals),
             "median_rel_diff_pct": statistics.median(vals),
             "max_abs_rel_diff_pct": max(abs(v) for v in vals),
             "share_v2_faster": sum(1 for v in vals if v < -1e-9) / len(vals),
@@ -96,7 +97,7 @@ def main() -> int:
     out = {
         "schema": "v1_v2_parity_study_v1",
         "graphs": len(graphs), "plans": list(PLANS), "rows": len(rows),
-        "overall": {"mean_rel_diff_pct": statistics.fmean(diffs),
+        "overall": {"mean_rel_diff_pct": fmean(diffs),
                     "median_rel_diff_pct": statistics.median(diffs),
                     "max_abs_rel_diff_pct": max(abs(v) for v in diffs),
                     "share_v2_faster": sum(1 for v in diffs if v < -1e-9) / len(diffs)},

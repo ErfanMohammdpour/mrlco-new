@@ -28,6 +28,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from spec.automotive_training.automotive_loader import load_dataset  # noqa: E402
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 from spec.automotive_training.v2.adapters import (  # noqa: E402
     compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions, pure_plan,
 )
@@ -273,7 +274,7 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
         "all_MEC_winner_fraction": sum(1 for r in rows if r["all_MEC_winner"]) / n,
         "all_MEC_winner_fraction_no_search": sum(1 for r in rows if r["all_MEC_winner_no_search"]) / n,
         "local_winner_fraction": sum(1 for r in rows if r["local_wins"]) / n,
-        "stronger_search_gain_vs_all_MEC_mean_pct": statistics.fmean(
+        "stronger_search_gain_vs_all_MEC_mean_pct": fmean(
             [r["stronger_search_gain_vs_all_MEC_pct"] for r in rows]),
         "all_UE_winner_fraction": sum(1 for r in rows if r["winner"] == "all_UE") / n,
         "all_HELPER_winner_fraction": sum(1 for r in rows if r["winner"] == "all_HELPER") / n,
@@ -282,7 +283,7 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
         "winner_counts": {k: sum(1 for r in rows if r["winner"] == k) for k in
                           ("all_UE", "all_MEC", "all_HELPER", "greedy_cd", "heft_v2",
                            "stronger_search")},
-        "headroom_vs_best_pure_mean_pct": statistics.fmean([r["headroom_vs_best_pure_pct"] for r in rows]),
+        "headroom_vs_best_pure_mean_pct": fmean([r["headroom_vs_best_pure_pct"] for r in rows]),
         "headroom_vs_best_pure_median_pct": statistics.median([r["headroom_vs_best_pure_pct"] for r in rows]),
         "headroom_vs_best_pure_max_pct": max(r["headroom_vs_best_pure_pct"] for r in rows),
         "rows": rows,

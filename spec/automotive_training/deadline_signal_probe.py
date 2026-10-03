@@ -20,6 +20,7 @@ CLI: python3 -m spec.automotive_training.deadline_signal_probe [--graphs N] [--j
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import argparse
 import json
 import statistics
@@ -90,10 +91,10 @@ def summarise(rows: list[dict], label: str, mc_enabled: bool) -> dict:
                                 / (20.0 * n)),
         "mode_switch_rate": sum(1 for r in rows if r["switches"] > 0) / n,
         "hi_mode_rate": sum(1 for r in rows if r["mode"] == "HI") / n,
-        "mean_graph_violation_s": statistics.fmean(r["graph_violation"] for r in rows),
-        "mean_high_tardiness_s": statistics.fmean(r["high_tardiness"] for r in rows),
-        "mean_medium_tardiness_s": statistics.fmean(r["medium_tardiness"] for r in rows),
-        "mean_makespan_s": statistics.fmean(r["makespan"] for r in rows),
+        "mean_graph_violation_s": fmean(r["graph_violation"] for r in rows),
+        "mean_high_tardiness_s": fmean(r["high_tardiness"] for r in rows),
+        "mean_medium_tardiness_s": fmean(r["medium_tardiness"] for r in rows),
+        "mean_makespan_s": fmean(r["makespan"] for r in rows),
         "high_preservation_violations": sum(1 for r in rows if not r["high_preserved"]),
     }
 

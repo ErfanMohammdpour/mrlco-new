@@ -40,6 +40,7 @@ REPORTS = ROOT / "spec" / "automotive_training" / "reports" / "v2_system_model"
 
 from spec.automotive_training.automotive_loader import load_dataset  # noqa: E402
 from spec.automotive_training.v2.adapters import plan_map_from_actions, pure_plan  # noqa: E402
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 from spec.automotive_training.v2.constraints_v2 import (  # noqa: E402
     spec_from_fractions, v2_metrics,
 )
@@ -227,7 +228,7 @@ def evaluate_candidate(graph, name: str, protocol: EvalProtocol,
                 float(metrics["helper_task_fraction"]))
             replicate_metrics["v2v_airtime_s"].append(float(metrics["v2v_airtime_s"]))
         for key, values in replicate_metrics.items():
-            per_replicate[key].append(statistics.fmean(values) if values else 0.0)
+            per_replicate[key].append(fmean(values) if values else 0.0)
             cells_by_replicate[key].append(list(values))
     aggregate = {}
     for key, rows in cells_by_replicate.items():
@@ -292,7 +293,7 @@ def run_evaluation(graphs: Sequence, *, protocol: EvalProtocol | None = None,
                 totals[name][key].append(
                     per_graph["candidates"][name]["nested"][key]["mean"])
     out["panel_mean_over_graphs"] = {
-        name: {key: float(statistics.fmean(vals)) for key, vals in metrics.items()}
+        name: {key: float(fmean(vals)) for key, vals in metrics.items()}
         for name, metrics in totals.items()}
     return out
 

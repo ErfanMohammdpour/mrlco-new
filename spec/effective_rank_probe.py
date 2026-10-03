@@ -408,8 +408,9 @@ def main() -> int:
                  out["deadline_block_effect"]["graphs_total"],
                  out["deadline_block_effect"]["max_abs_diff"]))
         # regime probe on the deadline block only
-        block_loose = x_loose[:, :, DEADLINE_BLOCK_START:].reshape(-1, len_ := (x_loose.shape[2] - DEADLINE_BLOCK_START))
-        block_tight = x_tight[:, :, DEADLINE_BLOCK_START:].reshape(-1, len_)
+        block_width = x_loose.shape[2] - DEADLINE_BLOCK_START
+        block_loose = x_loose[:, :, DEADLINE_BLOCK_START:].reshape(-1, block_width)
+        block_tight = x_tight[:, :, DEADLINE_BLOCK_START:].reshape(-1, block_width)
         y_regime = np.concatenate([np.zeros(block_loose.shape[0]), np.ones(block_tight.shape[0])])
         x_regime = np.concatenate([block_loose, block_tight], axis=0)
         out["regime_probe"] = ridge_probe_accuracy(x_regime, y_regime.astype(int))

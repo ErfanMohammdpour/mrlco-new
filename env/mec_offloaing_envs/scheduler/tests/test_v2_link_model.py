@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
 from spec.automotive_training.v2.adapters import (  # noqa: E402
     compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions,
 )
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 from spec.automotive_training.v2.link_model import (  # noqa: E402
     LINK_DL, LINK_UL, LINK_V2V, LinkModelError, load_regimes, make_process,
 )
@@ -121,7 +122,7 @@ class TestSchedulerWithLinks(unittest.TestCase):
                                            link_process=make_process("degraded", seed)))
         # a single realization can be luckier than the stable link; the CLAIM is about the
         # regime mean, not about every seed
-        self.assertGreaterEqual(statistics.fmean([r.makespan_s for r in results]),
+        self.assertGreaterEqual(fmean([r.makespan_s for r in results]),
                                 stable.makespan_s * 0.999)
         self.assertTrue(any(r.queue_stats["outage_events_total"] > 0 for r in results),
                         "the degraded regime must eventually stall a transfer")

@@ -21,6 +21,7 @@ after seeing a result.
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import hashlib
 import json
 from typing import Any, Mapping, Sequence
@@ -118,7 +119,7 @@ def aggregate(per_replicate: Sequence[Mapping[str, Any]], keys: Sequence[str]) -
         if not values:
             out[key] = None
             continue
-        out[key] = statistics.fmean(values)
+        out[key] = fmean(values)
         out[key + "_std"] = statistics.pstdev(values) if len(values) > 1 else 0.0
         out[key + "_min"] = min(values)
         out[key + "_max"] = max(values)

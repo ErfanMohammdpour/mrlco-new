@@ -27,6 +27,7 @@ CLI: python3 spec/automotive_training/geometry_sensitivity.py [--graphs N] [--js
 
 from __future__ import annotations
 
+from spec.automotive_training.v2.compat import fmean  # noqa: E402
 import argparse
 import copy
 import json
@@ -195,15 +196,15 @@ def run_split(graphs, label: str, settings: dict) -> dict:
         out[name] = {
             "graphs": len(rows),
             "all_MEC_optimal_share": sum(1 for r in rows if r["all_MEC_optimal"]) / n,
-            "mean_headroom_pct": statistics.fmean([r["headroom_pct"] for r in rows]),
+            "mean_headroom_pct": fmean([r["headroom_pct"] for r in rows]),
             "median_headroom_pct": statistics.median([r["headroom_pct"] for r in rows]),
             "max_headroom_pct": max(r["headroom_pct"] for r in rows),
-            "mean_helper_token_share": statistics.fmean([r["helper_token_share"] for r in rows]),
-            "mean_comm_ms": 1000.0 * statistics.fmean([r["comm_s"] for r in rows]),
-            "mean_cut_edges": statistics.fmean([r["cut_edges"] for r in rows]),
-            "mean_mec_busy_ms": 1000.0 * statistics.fmean([r["mec_busy_s"] for r in rows]),
-            "mean_mec_wait_ms": 1000.0 * statistics.fmean([r["mec_wait_s"] for r in rows]),
-            "mean_all_MEC_ms": 1000.0 * statistics.fmean([r["all_MEC_s"] for r in rows]),
+            "mean_helper_token_share": fmean([r["helper_token_share"] for r in rows]),
+            "mean_comm_ms": 1000.0 * fmean([r["comm_s"] for r in rows]),
+            "mean_cut_edges": fmean([r["cut_edges"] for r in rows]),
+            "mean_mec_busy_ms": 1000.0 * fmean([r["mec_busy_s"] for r in rows]),
+            "mean_mec_wait_ms": 1000.0 * fmean([r["mec_wait_s"] for r in rows]),
+            "mean_all_MEC_ms": 1000.0 * fmean([r["all_MEC_s"] for r in rows]),
             "oracle_mix": {k: sum(1 for r in rows if r["oracle_name"] == k) for k in
                            ("all_UE", "all_MEC", "all_HELPER", "greedy_cd", "heft_v2")},
             "split": label,
