@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from spec.automotive_training.v2.observation import V2_PACKED_DIM  # noqa: E402
 from spec.automotive_training.v2.env import V2AutomotiveEnv  # noqa: E402
 from spec.automotive_training.v2.observation import V2_OBS_VERSION  # noqa: E402
 from spec.automotive_training.v2.stack import (  # noqa: E402
@@ -57,7 +58,7 @@ class TestDelegation(unittest.TestCase):
         for attr in ("configs", "graph_objects", "orders", "dags", "graph_indices",
                      "encoder_batchs"):
             self.assertTrue(hasattr(env, attr), attr)
-        self.assertEqual(env.input_dim, 91)   # the v2 env always emits the v2 schema
+        self.assertEqual(env.input_dim, V2_PACKED_DIM)  # the v2 env always emits the v2 schema
         self.assertEqual(len(env.configs), 2)
 
     def test_unknown_attribute_still_raises(self):

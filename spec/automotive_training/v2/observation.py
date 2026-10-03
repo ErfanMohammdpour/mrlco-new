@@ -26,7 +26,7 @@ from typing import Sequence
 
 import numpy as np
 
-from spec.automotive_training.v2.env import V2_CONTEXT_FIELDS
+from spec.automotive_training.v2.context_fields import V2_CONTEXT_FIELDS
 
 V2_OBS_VERSION = "automotive_v2_obs_v1"
 V1_OBS_VERSION = "automotive_mc_obs_v1"

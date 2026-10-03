@@ -126,20 +126,28 @@ FEATURE_NAMES_AUTOMOTIVE_MC_V1: tuple[str, ...] = FEATURE_NAMES_V3 + MC_FEATURE_
 # their frozen stats rows are identity and no corpus refit is needed. The first
 # 40/79 columns are BYTE-IDENTICAL to automotive_mc_obs_v1 (guarded by
 # V1_OBS_GOLDEN.json and by test_v2_observation.py).
-V2_CONTEXT_FEATURE_NAMES: tuple[str, ...] = (
-    "automotive_v2_obs_v1_est_ul",
-    "automotive_v2_obs_v1_est_dl",
-    "automotive_v2_obs_v1_est_v2v",
-    "automotive_v2_obs_v1_conf_ul",
-    "automotive_v2_obs_v1_conf_dl",
-    "automotive_v2_obs_v1_conf_v2v",
-    "automotive_v2_obs_v1_helper_contact_remaining_s",
-    "automotive_v2_obs_v1_helper_busy_fraction",
-    "automotive_v2_obs_v1_epsilon_class",
-    "automotive_v2_obs_v1_criticality_high_share",
-    "automotive_v2_obs_v1_criticality_medium_share",
-    "automotive_v2_obs_v1_mec_workers",
-)
+def _load_v2_context_feature_names() -> tuple:
+    """Single source of truth: `spec.automotive_training.v2.context_fields`.
+
+    The list is NOT duplicated here. Duplicating it is exactly how the encoder and the
+    environment would silently drift apart and emit a tensor whose width disagrees with its
+    declared schema. Dimensions everywhere are derived from `len(...)` of this tuple.
+
+    The import is guarded so that frozen v1 paths keep working if `spec/` is absent; the v2
+    version then refuses to activate instead of quietly falling back to the v1 width.
+    """
+    try:
+        from spec.automotive_training.v2.context_fields import (
+            v2_context_feature_names,
+        )
+    except Exception:                                   # pragma: no cover - v1-only envs
+        return ()
+    return tuple(v2_context_feature_names())
+
+
+V2_CONTEXT_FEATURE_NAMES: tuple[str, ...] = _load_v2_context_feature_names()
+#: True when the shared v2 context contract could be resolved (required for the v2 version)
+V2_CONTEXT_CONTRACT_AVAILABLE: bool = bool(V2_CONTEXT_FEATURE_NAMES)
 FEATURE_NAMES_AUTOMOTIVE_V2: tuple[str, ...] = (
     FEATURE_NAMES_AUTOMOTIVE_MC_V1 + V2_CONTEXT_FEATURE_NAMES
 )
@@ -208,6 +216,11 @@ def set_obs_version(version: str) -> None:
     elif version == "v3":
         FEATURE_NAMES = FEATURE_NAMES_V3
     elif version == "automotive_v2_obs_v1":
+        if not V2_CONTEXT_CONTRACT_AVAILABLE:
+            raise EncoderGraphError(
+                "the shared v2 context contract (spec.automotive_training.v2."
+                "context_fields) could not be resolved, so automotive_v2_obs_v1 must not "
+                "be activated: refusing to emit a v1-width tensor under a v2 label")
         FEATURE_NAMES = FEATURE_NAMES_AUTOMOTIVE_V2
     else:
         FEATURE_NAMES = FEATURE_NAMES_AUTOMOTIVE_MC_V1

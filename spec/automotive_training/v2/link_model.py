@@ -160,6 +160,27 @@ class LinkProcess:
         sigma = float(self.regime.estimation_sigma)
         return float(max(0.0, min(1.0, 1.0 / (1.0 + sigma))))
 
+    def estimate_age_s(self, link: str, t: float = 0.0) -> float:
+        """Age of the OBSERVABLE information the estimate rests on, in seconds.
+
+        Definition (declared): the time since the last OBSERVED outage ended on this link,
+        within the observed window [0, t]. With no outage observed yet it is 0.0, documented
+        as "the estimator has seen a clean link so far" rather than as a missing value. This
+        is genuinely decision-time information: it never reads a step after `t`.
+        """
+        idx = self._idx(t)
+        window = self._outage[link][: idx + 1]
+        observed = np.nonzero(window)[0]
+        if observed.size == 0:
+            return 0.0
+        last_out_step = int(observed[-1])
+        last_out_end_s = (last_out_step + 1) * float(self.regime.dt_s)
+        return float(max(0.0, float(t) - last_out_end_s))
+
+    def observed_outage_fraction(self, link: str, t: float = 0.0) -> float:
+        """Alias of `past_outage_fraction` with a name that says what it measures."""
+        return self.past_outage_fraction(link, t)
+
     def confidence_vs_truth(self, link: str, t: float = 0.0) -> float:
         """Diagnostic ONLY (post-hoc analysis). Never feed this into an observation,
         admission rule or policy-accessible score."""

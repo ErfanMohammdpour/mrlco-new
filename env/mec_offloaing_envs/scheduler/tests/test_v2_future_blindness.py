@@ -66,6 +66,10 @@ class _SamePastDifferentFuture:
     def past_outage_fraction(self, link, t=0.0):
         return 0.0
 
+    def estimate_age_s(self, link, t=0.0):
+        # observable evidence age: identical in both variants
+        return 0.0
+
     def confidence_vs_truth(self, link, t=0.0):
         # DIAGNOSTIC ONLY: this is the value that must never reach a decision
         return 0.95 if self.out_after_s is None else 0.05

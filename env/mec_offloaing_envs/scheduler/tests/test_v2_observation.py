@@ -27,7 +27,9 @@ class TestSchema(unittest.TestCase):
         self.assertEqual(V2_CONTEXT_DIM, len(V2_CONTEXT_FIELDS))
         self.assertEqual(V2_FEATURE_DIM, V1_FEATURE_DIM + V2_CONTEXT_DIM)
         self.assertEqual(V2_PACKED_DIM, V1_PACKED_DIM + V2_CONTEXT_DIM)
-        self.assertEqual((V2_FEATURE_DIM, V2_PACKED_DIM), (52, 91))
+        # dims are DERIVED from the declared field names, never hardcoded
+        self.assertEqual(V2_FEATURE_DIM, V1_FEATURE_DIM + len(V2_CONTEXT_FIELDS))
+        self.assertEqual(V2_PACKED_DIM, V1_PACKED_DIM + len(V2_CONTEXT_FIELDS))
 
     def test_feature_names_are_v1_prefix_then_context(self):
         names = v2_feature_names()

@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from spec.automotive_training.automotive_loader import load_dataset  # noqa: E402
+from spec.automotive_training.v2.observation import V2_PACKED_DIM  # noqa: E402
 from spec.automotive_training.v2.env import (  # noqa: E402
     V2_CONTEXT_FIELDS, V2AutomotiveEnv, V2EnvError,
 )
@@ -34,7 +35,7 @@ class TestSurface(unittest.TestCase):
         for attr in ("input_dim", "total_task", "set_task", "reset", "step",
                      "sample_tasks", "set_constraint_lambdas"):
             self.assertTrue(hasattr(env, attr), attr)
-        self.assertEqual(env.input_dim, 91)
+        self.assertEqual(env.input_dim, V2_PACKED_DIM)
         # single-distribution layout: one dist, one slot per graph
         self.assertEqual(env.total_task, 1)
         self.assertEqual(env.slots_per_task, 3)
@@ -42,12 +43,12 @@ class TestSurface(unittest.TestCase):
     def test_reset_returns_v1_observation_shape(self):
         env = _env()
         obs = env.reset()
-        self.assertEqual(np.asarray(obs).shape, (3, 20, 91))
+        self.assertEqual(np.asarray(obs).shape, (3, 20, V2_PACKED_DIM))
 
     def test_step_contract(self):
         env = _env()
         obs, rewards, done, info = env.step(np.ones((3, 20), dtype=int))
-        self.assertEqual(np.asarray(obs).shape, (3, 20, 91))
+        self.assertEqual(np.asarray(obs).shape, (3, 20, V2_PACKED_DIM))
         self.assertEqual(len(rewards), 3)
         self.assertEqual(len(rewards[0]), 20)
         self.assertTrue(done)

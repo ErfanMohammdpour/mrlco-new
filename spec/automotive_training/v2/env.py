@@ -43,13 +43,10 @@ from spec.automotive_training.v2.world import (
     V2World, V2WorldConfig, V2WorldError, build_world, pure_location_worlds,
 )
 
-V2_CONTEXT_FIELDS = (
-    "est_ul", "est_dl", "est_v2v",
-    "conf_ul", "conf_dl", "conf_v2v",
-    "helper_contact_remaining_s", "helper_busy_fraction",
-    "epsilon_class", "criticality_high_share", "criticality_medium_share",
-    "mec_workers",
-)
+#: The v2 decision-time context contract lives in ONE leaf module so the environment and the
+#: frozen encoder cannot drift apart; see `v2/context_fields.py` for what each entry means
+#: and for the observability rules every entry must satisfy.
+from spec.automotive_training.v2.context_fields import V2_CONTEXT_FIELDS  # noqa: E402
 
 
 class V2EnvError(RuntimeError):
@@ -180,6 +177,8 @@ class V2AutomotiveEnv:
         self.link_process = None if self.link_regime == "stable" else None  # per reset
         self._worlds: dict = {}
         self._reference_ranges: dict = {}
+        self._reference_results: dict = {}
+        self._reference_ledgers: dict = {}
         # ---- constraints: one manager per worker; lambdas held fixed inside a rollout ----
         from env.mec_offloaing_envs.scheduler.constraints import ConstraintSpec
 
@@ -269,13 +268,17 @@ class V2AutomotiveEnv:
         if self.link_regime != "stable":
             self.link_process = make_process(self.link_regime,
                                              seed=self.base_seed * 1000003 + self.episodes)
-        # ONE canonical world per slot: foreground DAG + declared background competitors
+        # ONE canonical world per FLAT SLOT POSITION (not per dataset graph index: two slots
+        # may legitimately hold the same dataset graph under different conditions, and keying
+        # by the graph index would collapse them into one world)
         self._worlds = {}
         self._reference_ranges = {}
+        self._reference_results = {}
+        self._reference_ledgers = {}
         self.helper_states = []
-        for i, slot in enumerate(slots):
-            world = self._build_slot_world(int(slot), i)
-            self._worlds[int(slot)] = world
+        for flat in range(len(slots)):
+            world = self._build_slot_world(flat)
+            self._worlds[flat] = world
             self.helper_states.append(world.helpers)
         self._slot_spec_cache = {}
         self.last_v2_context = self._contexts()
@@ -291,18 +294,36 @@ class V2AutomotiveEnv:
         return self._packed_observation(self.last_v2_context)
 
     # -- canonical world construction --------------------------------------
-    def _build_slot_world(self, slot: int, index: int) -> "V2World":
-        """Build the world for a flat slot id using the SHARED builder."""
+    def _build_slot_world(self, flat: int) -> "V2World":
+        """Build the world for FLAT SLOT POSITION `flat` using the SHARED builder.
+
+        Identity is explicit and never conflated: `flat` is the batch slot position,
+        `dataset_graph_id` is the graph's index in the loaded corpus (read from
+        `graph_indices[flat]`), and `world_id` carries the episode and the flat position.
+        """
+        flat = int(flat)
+        indices = np.asarray(getattr(self.base, "graph_indices", []), dtype=object).reshape(-1)
+        if flat >= indices.size:
+            raise V2EnvError("flat slot %d is outside graph_indices (%d entries)"
+                             % (flat, indices.size))
         try:
-            graph = self.base.graph_objects[self.base._graph_index(int(slot))]
+            # `graph_indices[flat]` IS the dataset graph index of slot `flat` (v1 layout: the
+            # base env resolves a slot with `graph_objects[graph_indices[slot]]`). It is NOT a
+            # slot position, so it must never be fed back through `_graph_index`.
+            dataset_graph_id = int(indices[flat])
+        except (TypeError, ValueError) as exc:
+            raise V2EnvError("graph_indices[%d] is not an integer: %r"
+                             % (flat, indices[flat])) from exc
+        try:
+            graph = self.base.graph_objects[dataset_graph_id]
         except Exception as exc:                      # pragma: no cover - layout guard
-            raise V2EnvError("slot %s has no graph: %s" % (slot, exc)) from exc
-        mc = self.base._slot_mc[slot] if self.base._slot_mc else None
+            raise V2EnvError("flat slot %d -> graph %d has no object: %s"
+                             % (flat, dataset_graph_id, exc)) from exc
+        mc = self.base._slot_mc[flat] if self.base._slot_mc else None
         return build_world(
-            graph, slot_id=int(slot), world_id="ep%d_slot%d" % (self.episodes, int(slot)),
-            mc=mc, dataset_graph_id=int(self.base._graph_index(int(slot))),
-            config=self.world_config,
-            helper_seed=self.base_seed * 7919 + self.episodes * 31 + int(index))
+            graph, slot_id=flat, world_id="ep%d_slot%d" % (self.episodes, flat), mc=mc,
+            dataset_graph_id=dataset_graph_id, config=self.world_config,
+            helper_seed=self.base_seed * 7919 + self.episodes * 31 + flat)
 
     def world_for_slot(self, slot: int) -> "V2World":
         world = self._worlds.get(int(slot))
@@ -333,6 +354,13 @@ class V2AutomotiveEnv:
         refs = reference_ranges_from_plans(
             plans, scheduler_config_sha256=self._scheduler_fingerprint())
         self._reference_ranges[slot] = refs
+        # keep the plans AND their energy ledgers: the observation's decision-time queue/load
+        # and energy channels read these, and they are pure plan-time quantities (no realized
+        # link process is involved), so they cannot leak a future
+        self._reference_results[slot] = plans
+        self._reference_ledgers[slot] = (
+            {name: schedule_energy(res) for name, res in plans.items()}
+            if self.energy_enabled else {})
         return refs
 
     def _scheduler_fingerprint(self) -> str:
@@ -374,27 +402,33 @@ class V2AutomotiveEnv:
         return out
 
     def _slot_of_graph(self, graph):
-        """Flat slot index whose graph is `graph` (None when the layout does not expose it)."""
+        """FIRST flat slot position whose DATASET graph is `graph` (None when unavailable).
+
+        Resolved by dataset graph identity, never by Python object identity. When the same
+        dataset graph occupies several slots this returns the first one, which is why every
+        internal caller that knows its slot passes it explicitly
+        (`_context_vector(flat) -> _context_for_graph(graph, slot=flat, world=...)`).
+        """
         indices = np.asarray(getattr(self.base, "graph_indices", []), dtype=object).reshape(-1)
         try:
             target = int(self.base.graph_objects.index(graph))
         except ValueError:
             return None
-        for slot, value in enumerate(indices):
+        for flat, value in enumerate(indices):
             try:
                 if int(value) == target:
-                    return slot
+                    return flat
             except (TypeError, ValueError):
                 continue
         return None
 
     def _contexts(self) -> list:
-        """One v2 context per flat slot (training: meta_batch x slots_per_task)."""
+        """One v2 context per FLAT SLOT POSITION (never per dataset graph index)."""
         indices = getattr(self.base, "graph_indices", None)
         if indices is None:
             return []
-        flat = np.asarray(indices).reshape(-1)
-        return [self._context_vector(int(slot)) for slot in flat]
+        return [self._context_vector(flat)
+                for flat in range(int(np.asarray(indices).reshape(-1).size))]
 
     # -- execution ---------------------------------------------------------
     def _slot_specs(self, slot: int):
@@ -625,6 +659,20 @@ class V2AutomotiveEnv:
             "v2": v2,
         }
 
+    def helper_busy_fraction(self, slot: int) -> float:
+        """Committed helper busy time as a FRACTION of its predicted contact window.
+
+        Separate from the `helper_busy_s` context channel on purpose: the audit flagged
+        labelling busy SECONDS as a busy FRACTION.
+        """
+        world = self._worlds.get(int(slot))
+        helper = world.helpers.get(0) if world is not None else None
+        predicted = getattr(helper, "predicted_contact_end_s", None) if helper else None
+        if helper is None or predicted is None or not math.isfinite(float(predicted)):
+            return 0.0
+        window = max(1e-9, float(predicted) - float(helper.contact_start_s))
+        return float(max(0.0, min(1.0, float(helper.busy_until_s) / window)))
+
     def _unmodeled_components(self, slot: int) -> tuple:
         from spec.automotive_training.v2.energy import UNMODELED
 
@@ -632,32 +680,132 @@ class V2AutomotiveEnv:
 
     # -- v2 context (not yet in the TF observation) ------------------------
     def _context_vector(self, slot: int) -> np.ndarray:
-        return self._context_for_graph(self.base.graph_objects[self.base._graph_index(int(slot))])
+        """The v2 context of ONE flat slot, resolved by IDENTITY.
 
-    def _context_for_graph(self, graph) -> np.ndarray:
-        est = {LINK_UL: 1.0, LINK_DL: 1.0, LINK_V2V: 1.0}
-        conf = {LINK_UL: 1.0, LINK_DL: 1.0, LINK_V2V: 1.0}
+        The slot's own world carries `world_id`/`slot_id`/`dataset_graph_id`, so two slots that
+        contain the SAME dataset graph but different contact conditions (or a nonzero dataset
+        index) each get their own correct vector: the lookup is by slot identity, never by
+        object identity inside `graph_objects`.
+        """
+        slot = int(slot)
+        world = self._worlds.get(slot)
+        if world is None:
+            graph = self.base.graph_objects[self.base._graph_index(slot)]
+            return self._context_for_graph(graph, slot=None)
+        graph = self.base.graph_objects[world.dataset_graph_id]
+        return self._context_for_graph(graph, slot=slot, world=world)
+
+    def _context_for_graph(self, graph, *, slot: int | None = None, world=None) -> np.ndarray:
+        """Decision-time context. `slot` (hence the world) is optional only for legacy calls."""
+        links = (LINK_UL, LINK_DL, LINK_V2V)
+        est = {link: 1.0 for link in links}
+        conf = {link: 1.0 for link in links}
+        age = {link: 0.0 for link in links}
+        observed_outage = {link: 0.0 for link in links}
         if self.link_process is not None:
-            for link in (LINK_UL, LINK_DL, LINK_V2V):
-                est[link] = self.link_process.estimate_at(link, 0.0)
-                conf[link] = self.link_process.confidence(link, 0.0)
-        slot = self._slot_of_graph(graph)
-        helper = self.helper_states[slot].get(0) if slot is not None else None
+            for link in links:
+                est[link] = float(self.link_process.estimate_at(link, 0.0))
+                conf[link] = float(self.link_process.confidence(link, 0.0))
+                age[link] = float(self.link_process.estimate_age_s(link, 0.0))
+                observed_outage[link] = float(
+                    self.link_process.past_outage_fraction(link, 0.0))
+        if world is None and slot is not None:
+            world = self._worlds.get(int(slot))
+        if world is None and slot is None:
+            slot = self._slot_of_graph(graph)
+            world = self._worlds.get(int(slot)) if slot is not None else None
+        # ---- helper contact: remaining, committed BUSY SECONDS and the busy FRACTION ----
+        helper = None
+        if world is not None:
+            helper = world.helpers.get(0)
+        elif slot is not None and slot < len(self.helper_states):
+            helper = self.helper_states[int(slot)].get(0)
         predicted = getattr(helper, "predicted_contact_end_s", None) if helper else None
-        remaining = 0.0 if predicted is None or not math.isfinite(float(predicted)) else float(predicted)
+        contact_start = float(getattr(helper, "contact_start_s", 0.0)) if helper else 0.0
+        busy_s = float(getattr(helper, "busy_until_s", 0.0)) if helper else 0.0
+        if predicted is None or not math.isfinite(float(predicted)):
+            remaining = 0.0
+            busy_fraction = 0.0
+            window = float("inf")
+        else:
+            remaining = max(0.0, float(predicted) - 0.0)
+            window = max(1e-9, float(predicted) - contact_start)
+            busy_fraction = float(max(0.0, min(1.0, busy_s / window)))
+        # ---- per-NODE epsilons from the criticality class of EVERY task ----------------
         counts = {"HIGH": 0, "MEDIUM": 0, "other": 0}
-        for t in graph.tasks:
-            cls = str(t.criticality).upper()
+        eps_nodes = []
+        for task in graph.tasks:
+            cls = str(task.criticality).upper()
+            cls = cls if cls in ("HIGH", "MEDIUM") else "LOW"
             counts[cls if cls in ("HIGH", "MEDIUM") else "other"] += 1
+            eps_nodes.append(float(self._classes[cls].epsilon))
         total = max(1, sum(counts.values()))
         crit = str(graph.tasks[0].criticality).upper() if graph.tasks else "MEDIUM"
-        eps = float(self._classes.get(crit, self._classes["MEDIUM"]).epsilon)
-        return np.asarray([
+        eps_class = float(self._classes.get(crit, self._classes["MEDIUM"]).epsilon)
+        eps_min = float(min(eps_nodes)) if eps_nodes else eps_class
+        eps_max = float(max(eps_nodes)) if eps_nodes else eps_class
+        eps_mean = float(sum(eps_nodes) / len(eps_nodes)) if eps_nodes else eps_class
+        # ---- decision-time queue/load and energy of the three reference plans ----------
+        waits = {"all_mec": 0.0, "all_ue": 0.0, "all_helper": 0.0}
+        energies = {"all_mec": 0.0, "all_ue": 0.0, "all_helper": 0.0}
+        if slot is not None and int(slot) not in self._reference_ranges:
+            try:
+                self.reference_ranges_for_slot(int(slot))
+            except Exception:                     # pragma: no cover - layout guard
+                pass
+        refs = (self._reference_ranges.get(int(slot)) if slot is not None else None)
+        results = (self._reference_results.get(int(slot)) if slot is not None else None) or {}
+        ledgers = (self._reference_ledgers.get(int(slot)) if slot is not None else None) or {}
+        for name in waits:
+            result = results.get(name)
+            if result is not None:
+                waits[name] = float(result.queue_stats["cpu_wait_mean_s"])
+            ledger = ledgers.get(name)
+            if ledger is not None:
+                energies[name] = float(ledger.system_joules)
+        budget_ratio = 0.0
+        if self.constraint_manager is not None and refs is not None:
+            spec = self.constraint_manager.spec
+            if getattr(spec, "total_energy_frac_of_all_ue", None) is not None:
+                budget = float(spec.total_energy_frac_of_all_ue) * float(refs.E_ue)
+                budget_ratio = float(budget / max(max(energies.values()), 1e-12))
+        lambdas = (self.constraint_manager.lambdas_by_name()
+                   if self.constraint_manager is not None else {})
+        slack = 1.0
+        if helper is not None and world is not None:
+            from spec.automotive_training.v2.reliability import contact_slack
+
+            fg = world.foreground
+            payload_in = max([float(t.external_input_bytes) for t in fg.tasks] or [0.0])
+            slack = float(contact_slack(
+                predicted_contact_end_s=predicted, now_s=0.0, payload_in_bytes=payload_in,
+                compute_bytes=float(sum(t.compute_bytes for t in fg.tasks)),
+                v2v_bytes_per_s=float(world.link.v2v_bytes_per_s),
+                helper_bytes_per_s=float(world.compute.helper_cpu_bytes_per_s[0]),
+                output_bytes=float(max([t.output_bytes for t in fg.tasks] or [0.0]))))
+        background = float(world.config.background_dags) if world is not None else 0.0
+        vector = [
             est[LINK_UL], est[LINK_DL], est[LINK_V2V],
             conf[LINK_UL], conf[LINK_DL], conf[LINK_V2V],
-            remaining, float(self.helper_busy_s),
-            eps, counts["HIGH"] / total, counts["MEDIUM"] / total, float(self.mec_workers),
-        ], dtype=np.float32)
+            remaining, busy_s,
+            eps_class, counts["HIGH"] / total, counts["MEDIUM"] / total,
+            float(world.config.mec_workers if world is not None else self.mec_workers),
+            age[LINK_UL], age[LINK_DL], age[LINK_V2V],
+            eps_min, eps_mean, eps_max,
+            waits["all_mec"], waits["all_ue"], waits["all_helper"],
+            energies["all_ue"], energies["all_mec"], energies["all_helper"],
+            budget_ratio,
+            float(lambdas.get("ue_energy", 0.0)), float(lambdas.get("total_energy", 0.0)),
+            float(lambdas.get("helper_energy", 0.0)),
+            slack, background,
+        ]
+        vector = np.asarray(vector, dtype=np.float32)
+        if vector.shape[0] != len(V2_CONTEXT_FIELDS):
+            raise V2EnvError("context width %d != %d declared fields"
+                             % (vector.shape[0], len(V2_CONTEXT_FIELDS)))
+        if not np.all(np.isfinite(vector)):
+            raise V2EnvError("non-finite v2 context entry: %r" % (vector,))
+        return vector
 
     def v2_context(self) -> np.ndarray:
         """[slots, len(V2_CONTEXT_FIELDS)] v2 context vector (encoder-bump pending)."""
