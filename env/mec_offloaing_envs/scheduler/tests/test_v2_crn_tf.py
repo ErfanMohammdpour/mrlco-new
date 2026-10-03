@@ -21,14 +21,6 @@ if str(ROOT) not in sys.path:
 # is run with `python -m unittest discover -s env/mec_offloaing_envs/scheduler/tests`.
 import os
 
-os.environ["MARGO_OBS_VERSION"] = "automotive_v2_obs_v1"
-try:
-    from env.mec_offloaing_envs.scheduler import encoder_obs
-
-    encoder_obs.set_obs_version("automotive_v2_obs_v1")
-except Exception:  # pragma: no cover
-    pass
-
 try:
     import tensorflow as tf
 
@@ -39,6 +31,20 @@ try:
         hasattr(getattr(tf, "random", None), "stateless_multinomial")
 except Exception:
     HAS_TF = False
+
+
+if HAS_TF:  # pragma: no cover - container only
+    # The obs version must be active BEFORE policies/graph2seq_encoder is imported (it binds
+    # PACKED_DIM at import time). This is done ONLY when TensorFlow is really present: an
+    # import-time mutation in a skipped module would otherwise leak the v2 schema into every
+    # other test collected by the same pytest run (14 v1 encoder failures in the full suite).
+    os.environ["MARGO_OBS_VERSION"] = "automotive_v2_obs_v1"
+    try:
+        from env.mec_offloaing_envs.scheduler import encoder_obs
+
+        encoder_obs.set_obs_version("automotive_v2_obs_v1")
+    except Exception:  # pragma: no cover
+        pass
 
 
 @unittest.skipUnless(HAS_TF, "requires TensorFlow (run in the TF1.15 image)")

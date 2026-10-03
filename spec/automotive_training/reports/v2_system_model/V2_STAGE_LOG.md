@@ -279,3 +279,18 @@ training observation would make every v2 training number uninterpretable.
 Next concrete step (needs budget): resolve the sampler->env slot mapping (read
 Seq2SeqMetaSampler.set_task/step and map each returned row to its graph via the sampler's task
 structure), then rerun the CPU smoke, then request human GPU approval for the 1x500 run.
+
+## Regression found in the full suite and FIXED (same round)
+
+`215c0bb` was pushed while the full suite reported 14 failures: `test_v2_crn_tf.py` mutated the
+GLOBAL obs version at **import time** (needed in the container, where the version must precede
+the encoder import), and pytest imports every test module during collection - so merely
+collecting that skipped module switched PACKED_DIM to the v2 schema and broke 14 v1 encoder
+tests that ran afterwards. Evidence: `test_phase2_encoder.py` passes alone (21 passed) and also
+after the v2 env/observation suites, so the failure was collection-order pollution, not a
+functional regression.
+
+Fix: the import-time version switch is now gated on `HAS_TF`, so it happens only in the
+container (TF present) and never in the local suite (TF absent). Full non-TF suite back to
+**1261 passed / 0 failed / 19 skipped**. Lesson recorded: no test module may mutate global
+schema state at import time.
