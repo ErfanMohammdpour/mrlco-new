@@ -82,20 +82,19 @@
     "world_sha256": "5b8e18b3cf48670ae6e2f5316a2733323598f9c2ffbab3659475f972db83dc8a"
   },
   "limitations": [
-    "the frozen TF trainer iteration (trainer.train()) and the 1x500 diagnostic run are NOT RUN",
-    "the TF checkpoint save/restore of the real MRLCO learner is NOT RUN (the contract-level resume with a numpy policy IS bit-identical)",
-    "GPU execution was deliberately not used because another service occupies the GPU",
-    "25 pre-existing failures remain in the TF suite (0 new); 18 are pre-existing global encoder_obs schema state",
-    "the CRN R/S loop executes with a numpy reference policy, not the trained TF policy",
-    "kappa_helper/kappa_mec and the TX powers cite a 2023 source that could not be re-verified",
-    "no accessible 2024-2026 primary source gives a helper/V2V relay energy equation",
-    "reliability is a surrogate, not a calibrated chance constraint",
-    "the pure all-HELPER baseline never wins; the helper benefit is established only for MIXED plans"
+    "the frozen TF trainer iteration (trainer.train()) and the 1x500 diagnostic run are NOT RUN; no runner entry point exists yet",
+    "V2HeldOutEvaluator still has only constructor/metadata wiring: real R/S execution and v2 baselines in the evaluator the trainer uses are NOT done (eval_loop.py is a separate path)",
+    "legacy metrics read with a 0.0 default remain a false-feasibility risk",
+    "per-node epsilon is a graph summary (min/mean/max), not a per-node feature column",
+    "the TF checkpoint save/restore of the real MRLCO learner is NOT RUN; the bit-identical resume is for the numpy reference chain",
+    "the '138 TF tests' phrasing was corrected: only test_v2_crn_tf executes the TF policy",
+    "one pre-existing failure (TF variable reuse) directly affects the trainer path and must be fixed before multi-iteration runs",
+    "GPU execution was deliberately not used; the TF 1.15 container runs on CPU"
   ],
   "repository": {
     "audit_baseline": "d0af6f1bb7b1309f20fed66d33450ff67fda3f25",
     "branch": "phase5-realistic-system-v2",
-    "code_commit": "60a0d72a1fcd18319096cc0eb590ad690f296614",
+    "code_commit": "371d69edea5bd2d064c4a58ec8fd4e7c45c78d6f",
     "code_commit_subject": "test(v2): PPO/MRLCO likelihood-ratio and reset contract audit",
     "commit_chain": {
       "1226612": "executed R/S CRN evaluation loop + step-cost fix + regenerated artifacts",
@@ -109,6 +108,7 @@
     "docs_commit": "this manifest-only commit (no code change)",
     "frozen_v1_additive_note": "automotive_primary.py carries an additive default-off env_factory hook (commit 65de171); the v1 path with env_factory=None is unchanged; encoder_obs.py now DERIVES its v2 feature names from spec/.../context_fields.py instead of duplicating them",
     "frozen_v1_diff_engine_and_env": "EMPTY",
+    "open_review": "V2_REMAINING_WORK.md records the review of ddfcfa7 and the corrections to earlier claims",
     "remote_authorized": "erfan https://github.com/ErfanMohammdpour/mrlco-new.git",
     "reported_entry_point": "c6ad98a",
     "v1_freeze": "92212d1d"
@@ -189,6 +189,16 @@
       "local_mac": "NOT RUN (no TensorFlow for this interpreter)",
       "new_vs_baseline": 0,
       "remaining_explained": "all 25 remaining are pre-existing at c6ad98a; 18 are pre-existing global encoder_obs schema state in the suite",
+      "remaining_inventory": {
+        "all_present_in_baseline": true,
+        "groups": {
+          "pre_existing_encoder_obs_schema_state": 22,
+          "pre_existing_preflight_cli_exit_code": 2,
+          "pre_existing_tf_variable_reuse_on_double_validation": 1
+        },
+        "highest_impact": "the TF variable-reuse error fires on the trainer's own k=0/k=3 validation path",
+        "total": 25
+      },
       "status": "EXECUTED on the server",
       "tests": 1394
     },
