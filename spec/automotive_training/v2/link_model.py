@@ -137,11 +137,12 @@ class LinkProcess:
         return float(self._estimated[link][self._idx(t)])
 
     def past_outage_fraction(self, link: str, t_now: float = 0.0) -> float:
-        """Outage fraction over [0, t_now] ONLY (decision-time information).
+        """Outage fraction over the OBSERVED window [0, t_now] (decision-time information).
 
         Using the whole horizon would be future leakage: an admission decision taken at t=0
-        must not know about an outage that happens later. At t_now=0 there is no history, so
-        the prior of the regime is returned instead.
+        must not know about an outage that happens later. At t_now = 0 the window is the
+        single CURRENT step, i.e. the observable present link state (not a regime prior and
+        not a statement about the future). Steps strictly after `t_now` never enter the mean.
         """
         idx = self._idx(t_now)
         window = self._outage[link][: idx + 1]

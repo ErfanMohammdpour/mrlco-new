@@ -34,6 +34,7 @@ from spec.automotive_training.v2.adapters import (  # noqa: E402
 )
 from spec.automotive_training.v2.helper_model import HelperState  # noqa: E402
 from spec.automotive_training.v2.shared_scheduler import schedule_shared  # noqa: E402
+from spec.automotive_training.v2.world import V2WorldConfig, build_world  # noqa: E402
 
 PLANS = {
     "all_UE": [0] * 20,
@@ -60,18 +61,19 @@ def main() -> int:
     rows = []
     for gi, graph in enumerate(graphs):
         mc = env._slot_mc[gi]
-        link = link_spec(graph)
-        compute = compute_spec([graph])
-        dag = dag_spec_from_graph(graph, dag_id="g", owner=0, mc=mc, helper_id=0)
-        helper_states = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
+        # DEGENERATE configuration: no background, no link process, no reliability gate and
+        # an always-available helper, i.e. the assumptions under which parity with the frozen
+        # v1 engine is a meaningful requirement. Built by the SAME canonical builder.
+        world = build_world(graph, slot_id=gi, world_id="parity_g%d" % gi, mc=mc,
+                            config=V2WorldConfig(background_dags=0, helper_id=0),
+                            helper_seed=0)
+        world.helpers = {0: HelperState(0, world.compute.helper_cpu_bytes_per_s[0],
                                         contact_end_s=float("inf"),
                                         predicted_contact_end_s=float("inf"))}
         for plan_name, actions in PLANS.items():
             v1, _e, _m = env._schedule(gi, actions, mc)
             v1_ms = float(v1.makespan_seconds)
-            res = schedule_shared([dag], {"g": plan_map_from_actions(graph, actions)},
-                                  link=link, compute=compute,
-                                  helper_states=helper_states)
+            res = world.with_foreground_actions(graph, actions).schedule()
             v2_ms = float(res.makespan_s)
             v1_transfers = len(getattr(v1, "transfers", []) or [])
             rows.append({

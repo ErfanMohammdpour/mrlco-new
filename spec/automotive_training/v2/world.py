@@ -146,6 +146,12 @@ class V2World:
         result.foreground_dag_id = self.foreground_id
         return result
 
+    def with_foreground_plan_map(self, plan_map: Mapping) -> "V2World":
+        """Snapshot with a foreground plan given directly as {task_id: action}."""
+        plans = dict(self.plans)
+        plans[self.foreground_id] = {int(k): int(v) for k, v in dict(plan_map).items()}
+        return replace(self, plans=plans)
+
     def with_foreground_actions(self, graph, actions) -> "V2World":
         """A snapshot with a DIFFERENT foreground plan and everything else untouched.
 

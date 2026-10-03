@@ -39,6 +39,7 @@ from spec.automotive_training.v2.shared_scheduler import (  # noqa: E402
     V2ComputeSpec, schedule_shared,
 )
 from spec.automotive_training.v2.stronger_search import stronger_search  # noqa: E402
+from spec.automotive_training.v2.world import V2WorldConfig, build_world  # noqa: E402
 
 REGIMES = {
     # regimes A-D, H, I, K, L: a helper EXISTS (idle, effectively unlimited contact)
@@ -62,29 +63,96 @@ REGIMES = {
 }
 
 
-def _candidate_makespan(graph, plans, link, compute, mc, *, link_process=None,
-                        helper_states=None, reliability_gate=None, evidence=None,
-                        standby_for=None, background=None) -> float:
-    """Foreground DAG completion when scheduled TOGETHER with the background load.
+def _evaluate_plan(world, plan_map, *, link_process=None, reliability_gate=None,
+                   evidence=None, standby_for=None):
+    """Schedule a candidate plan in the SAME world and return the annotated result."""
+    result = world.with_foreground_plan_map(plan_map).schedule(
+        link_process=link_process, reliability_gate=reliability_gate,
+        reliability_evidence=evidence, standby_for=standby_for)
+    world.annotate(result)
+    return result
 
-    The background DAGs consume MEC CPU and the shared MEC radio, so "MEC load" becomes a
-    real queueing state instead of a parameter. The returned time is the completion of the
-    foreground DAG (`completion_by_dag["fg"]`), not the makespan of the whole batch.
+
+def _candidate_plan(world, plan_map, *, link_process=None, reliability_gate=None,
+                    evidence=None, standby_for=None) -> float:
+    """Foreground episode latency for a candidate plan given as {task_id: action}."""
+    return float(_evaluate_plan(world, plan_map, link_process=link_process,
+                                reliability_gate=reliability_gate, evidence=evidence,
+                                standby_for=standby_for).episode_latency_s)
+
+
+def _winner_evidence(world, chosen, *, link_process=None, reliability_gate=None,
+                     evidence=None, standby_for=None) -> dict:
+    """Executed-action evidence for the winning plan plus a NO-HELPER ablation.
+
+    Winners are determined from EXECUTED locations (admission may rewrite a token to UE), and
+    the ablation re-evaluates the same plan with every HELPER action forced to UE, so helper
+    usefulness is measured instead of inferred from an algorithm name.
     """
-    dag = dag_spec_from_graph(graph, dag_id="fg", owner=0, mc=mc,
-                              helper_id=0 if helper_states else None)
-    dags = [dag]
-    plan_batch = {"fg": plans}
-    if background:
-        bg_dags, bg_plans = background
-        dags = list(bg_dags) + [dag]
-        plan_batch = dict(bg_plans)
-        plan_batch["fg"] = plans
-    res = schedule_shared(dags, plan_batch, link=link, compute=compute,
-                          link_process=link_process, helper_states=helper_states,
-                          reliability_gate=reliability_gate, reliability_evidence=evidence,
-                          standby_for=standby_for)
-    return float(res.completion_by_dag["fg"])
+    from spec.automotive_training.v2.energy import schedule_energy
+
+    def run(plan_map):
+        return _evaluate_plan(world, plan_map, link_process=link_process,
+                              reliability_gate=reliability_gate, evidence=evidence,
+                              standby_for=standby_for)
+
+    result = run(chosen)
+    fg = [tm for tm in result.timings.values() if tm.dag_id == world.foreground_id]
+    mix = {"UE": 0, "MEC": 0, "HELPER": 0}
+    for tm in fg:
+        mix[tm.location] = mix.get(tm.location, 0) + 1
+    ledger = schedule_energy(result, background_dag_ids=world.background_ids)
+    no_helper_plan = {int(k): (0 if int(v) == 2 else int(v)) for k, v in dict(chosen).items()}
+    no_helper = run(no_helper_plan)
+    no_helper_ledger = schedule_energy(no_helper, background_dag_ids=world.background_ids)
+    return {
+        "winner_locations": mix,
+        "winner_helper_task_fraction": (float(mix["HELPER"]) / float(len(fg))) if fg else 0.0,
+        "winner_system_joules": float(ledger.system_joules),
+        "winner_background_joules": float(ledger.background_joules),
+        "winner_contact_failures": int(result.queue_stats["helper_contact_failures"]),
+        "winner_reliability_rejections": int(result.queue_stats["reliability_rejections"]),
+        "winner_wasted_work_bytes": float(result.queue_stats["wasted_work_bytes_total"]),
+        "winner_energy_ratio_vs_no_helper":
+            float(ledger.system_joules) / max(1e-12, float(no_helper_ledger.system_joules)),
+        "no_helper_makespan_s": float(no_helper.episode_latency_s),
+        "helper_ablation_gain_pct": 100.0 * (float(no_helper.episode_latency_s)
+                                             - float(result.episode_latency_s)) \
+            / max(1e-12, float(no_helper.episode_latency_s)),
+        "helper_used_in_winning_plan": bool(mix["HELPER"]),
+    }
+
+
+def _candidate_makespan(world, graph, actions, *, link_process=None, reliability_gate=None,
+                        evidence=None, standby_for=None) -> float:
+    """Foreground DAG completion for a candidate plan inside its CANONICAL world.
+
+    The world — background DAGs of OTHER owners, helper states, arrivals, link and compute
+    specs — is built ONCE by `v2.world.build_world` and only the foreground PLAN changes per
+    candidate. The gate therefore evaluates exactly the object the environment trains on
+    (audited defect 3.1: the gate used to construct a different scientific problem), and no
+    candidate can regenerate the background or draw a different exogenous stream.
+    """
+    result = world.with_foreground_actions(graph, actions).schedule(
+        link_process=link_process, reliability_gate=reliability_gate,
+        reliability_evidence=evidence, standby_for=standby_for)
+    world.annotate(result)
+    return float(result.episode_latency_s)
+
+
+def _helper_regime(name, rate):
+    """The declared helper contact regime for the gate (an explicit test condition)."""
+    inf = float("inf")
+    if name == "stable":
+        return {0: HelperState(0, rate, contact_end_s=inf, predicted_contact_end_s=inf)}
+    if name == "idle":
+        return {0: HelperState(0, rate, contact_end_s=100.0, predicted_contact_end_s=100.0)}
+    if name == "busy":
+        return {0: HelperState(0, rate, busy_until_s=2.0, contact_end_s=100.0,
+                               predicted_contact_end_s=100.0)}
+    if name == "short":
+        return {0: HelperState(0, rate, contact_end_s=0.05, predicted_contact_end_s=0.05)}
+    raise ValueError("unknown helper regime %r" % (name,))
 
 
 def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) -> dict:
@@ -99,40 +167,33 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
         compute = compute_spec([graph])
         link_process = None if spec.get("link", "stable") == "stable" else \
             make_process(spec["link"], seed + gi)
-        helper_states = None
-        if spec.get("helper") in ("stable", "idle"):
-            helper_states = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
-                                            contact_end_s=float("inf"),
-                                            predicted_contact_end_s=float("inf"))}
-        elif spec.get("helper") == "idle":
-            helper_states = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
-                                            contact_end_s=100.0, predicted_contact_end_s=100.0)}
-        elif spec.get("helper") == "busy":
-            helper_states = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
-                                            busy_until_s=2.0, contact_end_s=100.0,
-                                            predicted_contact_end_s=100.0)}
-        elif spec.get("helper") == "short":
-            helper_states = {0: HelperState(0, compute.helper_cpu_bytes_per_s[0],
-                                            contact_end_s=0.05, predicted_contact_end_s=0.05)}
+        helper_name = spec.get("helper")
+        helper_states = (_helper_regime(helper_name, compute.helper_cpu_bytes_per_s[0])
+                         if helper_name else None)
         gate = make_gate() if spec.get("reliability") else None
         evidence = {"link_confidence": float(spec.get("confidence", 1.0)),
                     "outage_fraction": float(spec.get("outage", 0.0))} if gate else None
 
-        # concurrent background load on the shared MEC (N-1 identical DAGs)
+        # concurrent background load: N-1 DAGs of OTHER owners on the SAME shared MEC,
+        # built by the canonical world builder (workload-derived, not carbon copies)
         load = int(spec.get("load", 1))
-        background = None
-        if load > 1:
-            bg_dags = [dag_spec_from_graph(graph, dag_id="bg%d" % i, owner=0, mc=mc)
-                       for i in range(load - 1)]
-            background = (bg_dags, {d.dag_id: pure_plan(graph, 1) for d in bg_dags})
+        world = build_world(
+            graph, slot_id=gi, world_id="gate_g%d" % gi, mc=mc, config=V2WorldConfig(
+                background_dags=max(0, load - 1),
+                background_owner_offset=1,
+                background_policy="all_mec",
+                helper_id=0,
+                enable_helpers=helper_states is not None),
+            helper_seed=seed + gi, link=link, compute=compute)
+        if helper_states is not None:
+            # the gate's declared contact regime overrides the default helper draw
+            world.helpers = dict(helper_states)
+            world.provenance["helper_regime"] = str(helper_name)
 
         def cand(actions):
-            return _candidate_makespan(graph, plan_map_from_actions(graph, actions), link,
-                                       compute, mc, link_process=link_process,
-                                       helper_states=helper_states,
+            return _candidate_makespan(world, graph, actions, link_process=link_process,
                                        reliability_gate=gate, evidence=evidence,
-                                       standby_for=standby_rel if gate else None,
-                                       background=background)
+                                       standby_for=standby_rel if gate else None)
 
         standby_rel = standby_required
         panel = {
@@ -150,26 +211,19 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
             for action in (0, 1, 2):
                 trial = dict(chosen)
                 trial[tok] = action
-                value = _candidate_makespan(graph, trial, link, compute, mc,
-                                            link_process=link_process,
-                                            helper_states=helper_states,
-                                            reliability_gate=gate, evidence=evidence,
-                                            standby_for=standby_rel if gate else None,
-                                            background=background)
+                value = _candidate_plan(world, trial, link_process=link_process,
+                                        reliability_gate=gate, evidence=evidence,
+                                        standby_for=standby_rel if gate else None)
                 if best is None or value < best[0]:
                     best = (value, action)
             chosen[tok] = best[1]
-        panel["greedy_cd"] = _candidate_makespan(graph, chosen, link, compute, mc,
-                                                 link_process=link_process,
-                                                 helper_states=helper_states,
-                                                 reliability_gate=gate, evidence=evidence,
-                                                 standby_for=standby_rel if gate else None,
-                                                 background=background)
+        panel["greedy_cd"] = _candidate_plan(world, chosen, link_process=link_process,
+                                             reliability_gate=gate, evidence=evidence,
+                                             standby_for=standby_rel if gate else None)
         # bounded stronger search (candidate-search lower bound)
-        sr = stronger_search(tokens, lambda plan: _candidate_makespan(
-            graph, plan, link, compute, mc, link_process=link_process,
-            helper_states=helper_states, reliability_gate=gate, evidence=evidence,
-            standby_for=standby_rel if gate else None, background=background), starts=2,
+        sr = stronger_search(tokens, lambda plan: _candidate_plan(
+            world, plan, link_process=link_process, reliability_gate=gate,
+            evidence=evidence, standby_for=standby_rel if gate else None), starts=2,
             seed=seed + gi, budget=search_budget, ils_rounds=1)
         panel["stronger_search"] = sr.objective
         pure = {k: panel[k] for k in ("all_UE", "all_MEC", "all_HELPER")}
@@ -193,6 +247,25 @@ def evaluate_regime(graphs, spec, *, seed: int = 0, search_budget: int = 600) ->
             "stronger_search_gain_vs_all_MEC_pct":
                 100.0 * (panel["all_MEC"] - panel["stronger_search"]) / max(panel["all_MEC"], 1e-12),
             "search_evaluations": sr.evaluations,
+            "winner_chosen_plan": {str(k): int(v) for k, v in
+                                   (chosen if winner_name == "greedy_cd" else
+                                    plan_map_from_actions(
+                                        graph, [0] * 20) if winner_name == "all_UE" else
+                                    plan_map_from_actions(
+                                        graph, [1] * 20) if winner_name == "all_MEC" else
+                                    plan_map_from_actions(
+                                        graph, [2] * 20) if winner_name == "all_HELPER" else
+                                    list(plan_map_from_actions(graph, heft_actions).items())
+                                    if winner_name == "heft_v2" else
+                                    chosen).items()},
+            "winner_evidence": _winner_evidence(
+                world, chosen if winner_name == "greedy_cd" else
+                plan_map_from_actions(graph, [0] * 20) if winner_name == "all_UE" else
+                plan_map_from_actions(graph, [1] * 20) if winner_name == "all_MEC" else
+                plan_map_from_actions(graph, [2] * 20) if winner_name == "all_HELPER" else
+                plan_map_from_actions(graph, heft_actions) if winner_name == "heft_v2" else
+                chosen, link_process=link_process, reliability_gate=gate,
+                evidence=evidence, standby_for=standby_rel if gate else None),
         })
     n = float(len(rows))
     return {

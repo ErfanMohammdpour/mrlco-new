@@ -1,0 +1,126 @@
+{
+  "boundaries": {
+    "mobile": "requester + helper CPU + helper radio",
+    "requester": "UE CPU + UE radio",
+    "system": "mobile + MEC compute + MEC TX (frozen primary scope)"
+  },
+  "equations": {
+    "cpu_energy": "E_cpu = P_cpu(tier) * cpu_service_seconds  (== integral P dt; equals kappa*C*f^2 exactly when the allocation is physical)",
+    "cpu_power": "P_cpu(tier) = kappa_tier * f_tier^3",
+    "cycles": "C_executed = executed_bytes * 8 * cycles_per_bit",
+    "tx_energy": "E_tx = P_tx(transmitter tier) * ACTIVE_transfer_service_seconds"
+  },
+  "evidence_class": {
+    "helper_v2v_relay_energy": "no accessible 2024-2026 primary source publishes a helper/V2V relay energy equation: the helper tier is a transparent assumption, not literature-pinned",
+    "kappa_helper": "frozen config cites Liu et al. DCN 9(6) 2023 Table 1 - the source could NOT be re-verified in this session (publisher 403): treat as an unverified transplant pending a check",
+    "kappa_mec": "same source, same caveat; implied dynamic power is 1 kW",
+    "kappa_ue": "frozen config: chosen inside the verified band (kappa 1e-28..1e-26, f 0.2..2.5 GHz); corroborated by ST-HO p_local = 1 W at 1 GHz",
+    "rx_powers": "NOT MODELLED (include_rx_energy=false); ST-HO Table 1 gives p_down = 0.2 W, so a RX sensitivity sweep is possible",
+    "tx_powers": "frozen config cites Liu et al. DCN 2023 (unverified this session)"
+  },
+  "include_rx_energy": false,
+  "known_modelling_note": "the frozen rate table (MEC 10 MiB/s, UE/helper 1 MiB/s) is NOT the physical rate implied by f and cycles_per_bit (4.1667 MiB/s at the MEC), so the ledger uses the DURATION form of the same allocation the scheduler executed and reports the work form and the ratio as provenance.",
+  "model": "physical_v1",
+  "parameters": [
+    {
+      "parameter": "kappa_helper",
+      "source": "Liu et al., Digital Communications and Networks 9(6):1399-1410, 2023, Table 1 (F_j in [1,2] GHz, gamma_j = 5e-27); that paper's objective contains the service-vehicle compute energy (Eq. 15).",
+      "unit": "J/(cycle*Hz^2)",
+      "value": 5e-27
+    },
+    {
+      "parameter": "f_helper",
+      "source": "frozen tier specification",
+      "unit": "Hz",
+      "value": 1500000000.0
+    },
+    {
+      "parameter": "P_helper",
+      "source": "derived: kappa * f^3",
+      "unit": "W",
+      "value": 16.875
+    },
+    {
+      "parameter": "kappa_mec",
+      "source": "Liu et al., DCN 9(6), 2023, Table 1 (F_m = 10 GHz, gamma_m = 1e-27); frequency double-sourced with Zhao et al. arXiv:1807.02311 Table I.",
+      "unit": "J/(cycle*Hz^2)",
+      "value": 1e-27
+    },
+    {
+      "parameter": "f_mec",
+      "source": "frozen tier specification",
+      "unit": "Hz",
+      "value": 10000000000.0
+    },
+    {
+      "parameter": "P_mec",
+      "source": "derived: kappa * f^3",
+      "unit": "W",
+      "value": 1000.0000000000001
+    },
+    {
+      "parameter": "kappa_ue",
+      "source": "chosen inside the verified band (kappa 1e-28..1e-26, f 0.2..2.5 GHz); kappa=1e-27 matches the Gu2025/Liang2024 vehicle tier. NOT imported from Liu2023, which is fully offloaded and has no UE-local tier.",
+      "unit": "J/(cycle*Hz^2)",
+      "value": 1e-27
+    },
+    {
+      "parameter": "f_ue",
+      "source": "frozen tier specification",
+      "unit": "Hz",
+      "value": 1000000000.0
+    },
+    {
+      "parameter": "P_ue",
+      "source": "derived: kappa * f^3",
+      "unit": "W",
+      "value": 1.0
+    },
+    {
+      "parameter": "ue_tx_w",
+      "source": "frozen radio configuration",
+      "unit": "W",
+      "value": 1.0
+    },
+    {
+      "parameter": "mec_tx_w",
+      "source": "frozen radio configuration",
+      "unit": "W",
+      "value": 3.162
+    },
+    {
+      "parameter": "helper_tx_w",
+      "source": "frozen radio configuration",
+      "unit": "W",
+      "value": 1.0
+    },
+    {
+      "parameter": "ue_rx_w",
+      "source": "frozen radio configuration",
+      "unit": "W",
+      "value": null
+    },
+    {
+      "parameter": "helper_rx_w",
+      "source": "frozen radio configuration",
+      "unit": "W",
+      "value": null
+    },
+    {
+      "parameter": "cycles_per_bit",
+      "source": "frozen task data model",
+      "unit": "cycles/bit",
+      "value": 300.0
+    }
+  ],
+  "primary_scope": "system",
+  "schema": "v2_energy_spec_v1",
+  "unmodeled_components": [
+    "receiver/static radio power (include_rx_energy=False in the frozen config)",
+    "CPU idle/leakage power between tasks",
+    "MEC/RSU static (non-compute) power: server_static_power_w is null",
+    "backhaul / core-network transport energy",
+    "battery state dynamics, charging efficiency and reserve accounting",
+    "warm-standby reservation energy (the reservation costs no joules in this model)"
+  ]
+}

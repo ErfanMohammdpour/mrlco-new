@@ -1,0 +1,203 @@
+{
+  "artifacts": {
+    "VP2_ENERGY_SPEC": "V2_ENERGY_SPEC.md/json",
+    "obs_schema": "automotive_v2_obs_v1"
+  },
+  "config": {
+    "background_dags": 0,
+    "graphs": 10,
+    "iterations_measured": 3,
+    "slots": 10,
+    "tokens_per_trajectory": 20
+  },
+  "cpu_iteration_estimate_note": "CPU rollout phases only (reset + 10 slots x one validated step incl. 21 telescoping prefixes, energy ledger and constraints). PPO inner steps, the MRLCO outer update and validation need TensorFlow and are NOT RUN here; they must be measured in the TF environment.",
+  "cpu_iteration_estimate_s": 0.9452532125869766,
+  "energy_example": {
+    "background_components": {
+      "helper_compute_joules": 0.0,
+      "helper_v2v_rx_joules": 0.0,
+      "helper_v2v_tx_joules": 0.0,
+      "mec_compute_joules_optional": 0.0,
+      "mec_tx_joules_optional": 0.0,
+      "total_helper_joules": 0.0,
+      "total_mobile_joules": 0.0,
+      "total_requester_joules": 0.0,
+      "total_system_joules": 0.0,
+      "total_system_joules_optional": 0.0,
+      "total_ue_joules": 0.0,
+      "ue_local_cpu_joules": 0.0,
+      "ue_mec_downlink_joules": 0.0,
+      "ue_mec_uplink_joules": 0.0,
+      "ue_v2v_rx_joules": 0.0,
+      "ue_v2v_tx_joules": 0.0
+    },
+    "background_joules": 0.0,
+    "components": {
+      "helper_compute_joules": 0.0,
+      "helper_v2v_rx_joules": 0.0,
+      "helper_v2v_tx_joules": 0.0,
+      "mec_compute_joules_optional": 11.335096247137685,
+      "mec_tx_joules_optional": 0.0005054608624253212,
+      "total_helper_joules": 0.0,
+      "total_mobile_joules": 0.0,
+      "total_requester_joules": 0.0,
+      "total_system_joules": 11.33560170800011,
+      "total_system_joules_optional": 11.33560170800011,
+      "total_ue_joules": 0.0,
+      "ue_local_cpu_joules": 0.0,
+      "ue_mec_downlink_joules": 0.0,
+      "ue_mec_uplink_joules": 0.0,
+      "ue_v2v_rx_joules": 0.0,
+      "ue_v2v_tx_joules": 0.0
+    },
+    "cpu_duration_form_j": 11.335096247137685,
+    "cpu_work_form_j": 29.07792,
+    "cpu_work_over_duration": 2.56529978802277,
+    "cycles_per_bit": 300.0,
+    "energy_model_sha256": "f3b458b921ac3055a79474ab90224287c601dffd71f4ed17d2bc25d22e3def57",
+    "foreground_joules": 11.33560170800011,
+    "mobile_joules": 0.0,
+    "per_hop_service_seconds": {
+      "MEC_DL": 0.00015985479520092382
+    },
+    "per_tier_cpu_seconds": {
+      "mec": 0.011335096247137683
+    },
+    "priced_events": 19,
+    "primary_joules": 11.33560170800011,
+    "primary_scope": "system",
+    "requester_joules": 0.0,
+    "system_joules": 11.33560170800011,
+    "unmodeled": [
+      "receiver/static radio power (include_rx_energy=False in the frozen config)",
+      "CPU idle/leakage power between tasks",
+      "MEC/RSU static (non-compute) power: server_static_power_w is null",
+      "backhaul / core-network transport energy",
+      "battery state dynamics, charging efficiency and reserve accounting",
+      "warm-standby reservation energy (the reservation costs no joules in this model)"
+    ],
+    "warnings": []
+  },
+  "environment": {
+    "cuda": "none",
+    "numpy": "2.5.0",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.0",
+    "tensorflow": "NOT INSTALLED (TF phases are NOT RUN)"
+  },
+  "notes": [],
+  "parameters": {
+    "energy": [
+      {
+        "parameter": "kappa_helper",
+        "source": "Liu et al., Digital Communications and Networks 9(6):1399-1410, 2023, Table 1 (F_j in [1,2] GHz, gamma_j = 5e-27); that paper's objective contains the service-vehicle compute energy (Eq. 15).",
+        "unit": "J/(cycle*Hz^2)",
+        "value": 5e-27
+      },
+      {
+        "parameter": "f_helper",
+        "source": "frozen tier specification",
+        "unit": "Hz",
+        "value": 1500000000.0
+      },
+      {
+        "parameter": "P_helper",
+        "source": "derived: kappa * f^3",
+        "unit": "W",
+        "value": 16.875
+      },
+      {
+        "parameter": "kappa_mec",
+        "source": "Liu et al., DCN 9(6), 2023, Table 1 (F_m = 10 GHz, gamma_m = 1e-27); frequency double-sourced with Zhao et al. arXiv:1807.02311 Table I.",
+        "unit": "J/(cycle*Hz^2)",
+        "value": 1e-27
+      },
+      {
+        "parameter": "f_mec",
+        "source": "frozen tier specification",
+        "unit": "Hz",
+        "value": 10000000000.0
+      },
+      {
+        "parameter": "P_mec",
+        "source": "derived: kappa * f^3",
+        "unit": "W",
+        "value": 1000.0000000000001
+      },
+      {
+        "parameter": "kappa_ue",
+        "source": "chosen inside the verified band (kappa 1e-28..1e-26, f 0.2..2.5 GHz); kappa=1e-27 matches the Gu2025/Liang2024 vehicle tier. NOT imported from Liu2023, which is fully offloaded and has no UE-local tier.",
+        "unit": "J/(cycle*Hz^2)",
+        "value": 1e-27
+      },
+      {
+        "parameter": "f_ue",
+        "source": "frozen tier specification",
+        "unit": "Hz",
+        "value": 1000000000.0
+      },
+      {
+        "parameter": "P_ue",
+        "source": "derived: kappa * f^3",
+        "unit": "W",
+        "value": 1.0
+      },
+      {
+        "parameter": "ue_tx_w",
+        "source": "frozen radio configuration",
+        "unit": "W",
+        "value": 1.0
+      },
+      {
+        "parameter": "mec_tx_w",
+        "source": "frozen radio configuration",
+        "unit": "W",
+        "value": 3.162
+      },
+      {
+        "parameter": "helper_tx_w",
+        "source": "frozen radio configuration",
+        "unit": "W",
+        "value": 1.0
+      },
+      {
+        "parameter": "ue_rx_w",
+        "source": "frozen radio configuration",
+        "unit": "W",
+        "value": null
+      },
+      {
+        "parameter": "helper_rx_w",
+        "source": "frozen radio configuration",
+        "unit": "W",
+        "value": null
+      },
+      {
+        "parameter": "cycles_per_bit",
+        "source": "frozen task data model",
+        "unit": "cycles/bit",
+        "value": 300.0
+      }
+    ]
+  },
+  "phases": {
+    "energy_ledger_s_per_slot": 0.003671417012810707,
+    "env_reset_s": 0.3373715420020744,
+    "env_step_s": 0.06078816705849022,
+    "final_validated_schedule_s_per_slot": 0.0001027919352054596,
+    "reference_ranges_s_per_slot": 0.10447750007733703,
+    "schedule_throughput_vs_prior_claim": {
+      "now_ms_per_unvalidated_schedule": 0.10966602712869644,
+      "now_ms_per_validated_schedule": 0.11945806909352541,
+      "prior_measured": "~0.4-3.5 ms per schedule, 91.7 s per support rollout (CPU)"
+    },
+    "schedule_unvalidated_s": 0.00010966602712869644,
+    "schedule_validated_s": 0.00011945806909352541,
+    "telescoping_prefixes_s_per_slot": 0.0019819580484181643,
+    "world_build_s": 0.34033495793119073
+  },
+  "schedules_per_second": {
+    "unvalidated": 9118.594209913972,
+    "validated": 8371.138154067146
+  }
+}

@@ -1,48 +1,48 @@
 {
-  "graphs": 8,
+  "graphs": 12,
   "interpretation": "A systematic v2-faster bias means the v2 model is not numerically parity-equivalent to the frozen v1 engine; the geometry-gate headroom must then be reported as a MODEL difference, not as pure geometry.",
   "overall": {
-    "max_abs_rel_diff_pct": 7.8980716710633425,
-    "mean_rel_diff_pct": 0.07401555048273396,
-    "median_rel_diff_pct": -1.5168779035023874e-14,
-    "share_v2_faster": 0.4583333333333333
+    "max_abs_rel_diff_pct": 15.554258266127778,
+    "mean_rel_diff_pct": 0.017439009627071442,
+    "median_rel_diff_pct": -1.327868377152454e-14,
+    "share_v2_faster": 0.4444444444444444
   },
   "per_plan": {
     "all_HELPER": {
-      "max_abs_rel_diff_pct": 1.5490230563993608,
-      "mean_rel_diff_pct": -0.6582749759098051,
-      "median_rel_diff_pct": -0.4997791273971225,
+      "max_abs_rel_diff_pct": 1.9527798737112727,
+      "mean_rel_diff_pct": -0.6509741982274644,
+      "median_rel_diff_pct": -0.4675364015951498,
       "share_v2_faster": 1.0
     },
     "all_MEC": {
-      "max_abs_rel_diff_pct": 1.9809125214496188,
-      "mean_rel_diff_pct": -1.3347392666974365,
-      "median_rel_diff_pct": -1.469403968710391,
+      "max_abs_rel_diff_pct": 15.554258266127778,
+      "mean_rel_diff_pct": -2.9357913713420785,
+      "median_rel_diff_pct": -1.4756866447978638,
       "share_v2_faster": 1.0
     },
     "all_UE": {
       "max_abs_rel_diff_pct": 2.0345114903148816e-14,
-      "mean_rel_diff_pct": -4.630260423174741e-15,
+      "mean_rel_diff_pct": -4.3508579123882474e-15,
       "median_rel_diff_pct": 0.0,
       "share_v2_faster": 0.0
     },
     "alternate_MEC_HELPER": {
-      "max_abs_rel_diff_pct": 7.8980716710633425,
-      "mean_rel_diff_pct": 2.05748155982142,
-      "median_rel_diff_pct": 2.2376482454767395,
-      "share_v2_faster": 0.375
+      "max_abs_rel_diff_pct": 11.539051722323538,
+      "mean_rel_diff_pct": 3.023638915274223,
+      "median_rel_diff_pct": 2.5985887839195874,
+      "share_v2_faster": 0.25
     },
     "alternate_MEC_UE": {
-      "max_abs_rel_diff_pct": 1.0051899705868137,
-      "mean_rel_diff_pct": 0.26131055590304464,
+      "max_abs_rel_diff_pct": 3.2863675553455804,
+      "mean_rel_diff_pct": 0.471470320645008,
       "median_rel_diff_pct": 6.277214790847164e-15,
       "share_v2_faster": 0.0
     },
     "front_MEC_back_UE": {
-      "max_abs_rel_diff_pct": 0.596778956342948,
-      "mean_rel_diff_pct": 0.11831542977918515,
+      "max_abs_rel_diff_pct": 1.1256411202982388,
+      "mean_rel_diff_pct": 0.19629039141274465,
       "median_rel_diff_pct": 0.1340728133790089,
-      "share_v2_faster": 0.375
+      "share_v2_faster": 0.4166666666666667
     }
   },
   "plans": [
@@ -53,7 +53,7 @@
     "alternate_MEC_UE",
     "front_MEC_back_UE"
   ],
-  "rows": 48,
+  "rows": 72,
   "schema": "v1_v2_parity_study_v1",
-  "transfer_count_mismatch_rows": 24
+  "transfer_count_mismatch_rows": 0
 }
