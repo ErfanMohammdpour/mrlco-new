@@ -90,3 +90,23 @@ reward/telemetry from the shared scheduler, and the trainer/sampler bridge. That
 build item (comparable in size to the v1 automotive integration) and it is the next major
 work item; the geometry gate's PASS permits it but nothing on the GPU may start before it
 land with its own tests.
+
+## Stage 9 prerequisite landed: v2 macro-step environment
+
+`v2/env.py` composes the frozen `AutomotiveEnv` (MC realization + v1 79-column observation)
+with the v2 shared scheduler for execution, reward and telemetry:
+* v1-compatible surface (`input_dim`, `total_task`, `set_task`, `reset`, `step`,
+  `sample_tasks`, `set_constraint_lambdas`), single-distribution layout so one slot = one
+  graph (the layout the frozen evaluation uses);
+* telescoping reward under the v2 scheduler (prefix marginal makespans), verified to sum to
+  `-(L_final - L0)/L_scale`;
+* per-episode telemetry: makespan, queue wait, outage wait, helper rejections/contact
+  failures, reliability rejections, fallback reservation, location mix, deadline miss rate
+  with HIGH/MEDIUM counts, scheduler invariants;
+* `v2_context()` exposes the new context (estimated link multipliers, confidences, helper
+  contact remaining, helper busy, reliability epsilon, criticality shares, MEC workers)
+  as a 12-vector per slot.
+Explicit limitation: the TF observation is still the v1 schema, so until the encoder bump
+the policy cannot see the v2 context; a v2 run therefore measures v2 dynamics, not
+v2-informed decision making.
+Tests: `test_v2_env.py` 11 tests, 3 fresh processes, green.
