@@ -367,3 +367,31 @@ silent approximation):
       state the approximation explicitly in the protocol (NOT done here - it would weaken a
       frozen requirement without approval).
 No approximation was applied. `meta_test_access_count = 0`.
+
+## RETRACTION + real measurements: the v2 scheduler is NOT the bottleneck
+
+The previous entry declared a throughput BLOCK ("~8400 schedules per iteration -> weeks").
+That estimate was WRONG and is retracted. Two measurements:
+
+1. `cProfile` of one 20-token telescoping call (21 schedules): **105 schedules in 0.041 s**,
+   i.e. ~0.4 ms per schedule on a validation graph, with no dominant hotspot
+   (`schedule_shared` 0.036 s cumulative, `_earliest_fit` 0.002 s).
+2. Timed container CPU smoke (`v2_timed.py`, build + one support rollout):
+
+```
+build (TF graph on CPU)        31.2 s
+env.reset                       2.14 s
+env.step (20 slots = 420 sched) 1.473 s   -> ~74 ms per slot, ~3.5 ms per schedule
+update_tasks                    0.00 s
+support_rollout                91.7 s
+```
+
+So the scheduler accounts for roughly 15 s of the 92 s rollout; the rest is CPU TensorFlow
+policy work in the container (which has no GPU). The earlier "still running after 60 min" was
+dominated by the PPO inner update / MRLCO outer step on CPU, not by the v2 scheduler.
+
+Consequence for planning (honest, measured): with ~92 s per support rollout on CPU plus the
+inner/outer update (not yet timed separately), a 1x500 run is hours-scale on the GPU box rather
+than weeks. The remaining unknowns before committing to the run are (a) the timed cost of the
+PPO inner update + MRLCO outer step per iteration and (b) the GPU speedup of the policy part.
+No throughput BLOCK stands; stage 9 is gated only by (a)/(b) plus explicit human GPU approval.
