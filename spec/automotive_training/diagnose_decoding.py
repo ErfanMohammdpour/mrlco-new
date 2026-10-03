@@ -30,10 +30,11 @@ CHECKPOINTS = {
 
 
 def action_mix(paths) -> dict:
+    from spec.automotive_training.automotive_primary import _iter_paths
+
     actions = []
-    for task_paths in paths.values():
-        for path in task_paths:
-            actions.append(np.asarray(path["actions"]).reshape(-1))
+    for path in _iter_paths(paths):
+        actions.append(np.asarray(path["actions"]).reshape(-1))
     if not actions:
         return {}
     flat = np.concatenate(actions)
