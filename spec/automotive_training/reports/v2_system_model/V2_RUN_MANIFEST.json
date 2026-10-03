@@ -82,22 +82,20 @@
     "world_sha256": "5b8e18b3cf48670ae6e2f5316a2733323598f9c2ffbab3659475f972db83dc8a"
   },
   "limitations": [
-    "TF encoder consumption of the 109-wide schema and any gradient check through the context columns are NOT RUN",
-    "PPO/MRLCO EXECUTION for v2, checkpoint save/restore and the end-to-end smoke are NOT RUN (numpy contract and source guards only)",
+    "the frozen TF trainer iteration (trainer.train()) and the 1x500 diagnostic run are NOT RUN",
+    "the TF checkpoint save/restore of the real MRLCO learner is NOT RUN (the contract-level resume with a numpy policy IS bit-identical)",
+    "GPU execution was deliberately not used because another service occupies the GPU",
+    "25 pre-existing failures remain in the TF suite (0 new); 18 are pre-existing global encoder_obs schema state",
     "the CRN R/S loop executes with a numpy reference policy, not the trained TF policy",
-    "the frozen chain requires TensorFlow 1.15 with tf.contrib, unavailable for this interpreter (Python 3.14 / Apple Silicon)",
-    "estimate age is 0 at plan time under every shipped regime (the estimator refreshes each decision epoch)",
-    "kappa_helper/kappa_mec and the TX powers cite a 2023 source that could not be re-verified; flagged unverified in V2_ENERGY_SPEC",
-    "no accessible 2024-2026 primary source gives a helper/V2V relay energy equation: transparent assumption",
-    "reliability is a surrogate, not a calibrated chance constraint; no empirical 1e-5 assurance claimed",
-    "warm standby is not priced in joules; checkpointing is explicitly unsupported",
-    "the gate's stronger_search result is a candidate-search lower bound, never an oracle",
+    "kappa_helper/kappa_mec and the TX powers cite a 2023 source that could not be re-verified",
+    "no accessible 2024-2026 primary source gives a helper/V2V relay energy equation",
+    "reliability is a surrogate, not a calibrated chance constraint",
     "the pure all-HELPER baseline never wins; the helper benefit is established only for MIXED plans"
   ],
   "repository": {
     "audit_baseline": "d0af6f1bb7b1309f20fed66d33450ff67fda3f25",
     "branch": "phase5-realistic-system-v2",
-    "code_commit": "9e9e216faf45d3be18309576a5ccdc1da05a0d45",
+    "code_commit": "60a0d72a1fcd18319096cc0eb590ad690f296614",
     "code_commit_subject": "test(v2): PPO/MRLCO likelihood-ratio and reset contract audit",
     "commit_chain": {
       "1226612": "executed R/S CRN evaluation loop + step-cost fix + regenerated artifacts",
@@ -127,6 +125,41 @@
     "parity_env_seed": 303,
     "validation_env_base_seed": 303
   },
+  "server_verification": {
+    "baseline_c6ad98a": {
+      "errors": 38,
+      "failures": 5,
+      "problems": 43,
+      "tests": 1265
+    },
+    "baseline_checkout": "/root/v2-baseline (git worktree at c6ad98a)",
+    "checkout": "/root/v2-verify (isolated; /opt/margo untouched)",
+    "command": "docker run --rm -e CUDA_VISIBLE_DEVICES= -v <checkout>:/work -w /work margo-phase4-tf115-gpu:latest bash -lc 'python -m unittest discover -s env/mec_offloaing_envs/scheduler/tests -t env/mec_offloaing_envs/scheduler/tests -p \"test_*.py\" -v'",
+    "current": {
+      "errors": 23,
+      "failures": 2,
+      "problems": 25,
+      "tests": 1394
+    },
+    "host": "kish-ai (aizarepor, x86_64, RTX 4090, 88 GB RAM)",
+    "image": "margo-phase4-tf115-gpu:latest (TensorFlow 1.15.5 with tf.contrib, Python 3.7.5, numpy 1.18.5)",
+    "isolation": "all containers ran with CUDA_VISIBLE_DEVICES=\"\"; the vLLM service (21.5 GB of 24.6 GB GPU) and qdrant were not disturbed",
+    "logs": [
+      "/root/v2-verify/_verify/baseline_tf115.log",
+      "/root/v2-verify/_verify/full_after_fixes.log",
+      "/root/v2-verify/_verify/targeted.log"
+    ],
+    "set_comparison": {
+      "baseline_problems_resolved": 18,
+      "new_problems": 0,
+      "remaining_all_present_in_baseline": true
+    },
+    "v2_modules_in_tf115": {
+      "modules": 14,
+      "result": "OK",
+      "tests": 138
+    }
+  },
   "test_status": {
     "crn_r_s_loop": {
       "engine": "numpy reference policy (declared substitution)",
@@ -139,7 +172,7 @@
     },
     "non_tf": {
       "failed": 0,
-      "passed": 1362,
+      "passed": 1372,
       "skip_reason": "all 19 skips require TensorFlow",
       "skipped": 19
     },
@@ -151,11 +184,16 @@
       "status": "PARTIAL"
     },
     "tf": {
-      "reason": "TensorFlow is not installed",
-      "status": "NOT RUN"
+      "errors": 23,
+      "failures": 2,
+      "local_mac": "NOT RUN (no TensorFlow for this interpreter)",
+      "new_vs_baseline": 0,
+      "remaining_explained": "all 25 remaining are pre-existing at c6ad98a; 18 are pre-existing global encoder_obs schema state in the suite",
+      "status": "EXECUTED on the server",
+      "tests": 1394
     },
     "training": {
-      "reason": "correctness gates unmet + no TF/GPU capacity",
+      "reason": "the frozen TF trainer iteration and the 1x500 diagnostic run are not executed; the contract chain, env, energy, constraints, CRN and resume ARE executed",
       "status": "NOT STARTED"
     }
   }
