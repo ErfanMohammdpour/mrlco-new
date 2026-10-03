@@ -53,7 +53,8 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                               helper_contact_cv: float = 0.5,
                               helper_busy_s: float = 0.0,
                               r_select: int = DEFAULT_R_SELECT,
-                              s_select: int = DEFAULT_S_SELECT):
+                              s_select: int = DEFAULT_S_SELECT,
+                              background_dags: int = 0):
     """Build (Trainer, MRLCO) on the frozen dataset with the v2 system model."""
     if str(link_regime) not in V2_ALLOWED_LINK_REGIMES:
         raise AutomotivePrimaryError("link_regime must be one of %s"
@@ -114,7 +115,8 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                               reliability=bool(reliability),
                               helper_contact_mean_s=float(helper_contact_mean_s),
                               helper_contact_cv=float(helper_contact_cv),
-                              helper_busy_s=float(helper_busy_s))
+                              helper_busy_s=float(helper_busy_s),
+                              background_dags=int(background_dags))
         env.constraint_controller = adapter
         env.constraint_spec = None
         return env
@@ -152,7 +154,8 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                                reliability=bool(reliability),
                                helper_contact_mean_s=float(helper_contact_mean_s),
                                helper_contact_cv=float(helper_contact_cv),
-                               helper_busy_s=float(helper_busy_s))
+                               helper_busy_s=float(helper_busy_s),
+                               background_dags=int(background_dags))
 
     flags = decoding_flags(decoding)
     held_out = V2HeldOutEvaluator(
@@ -190,6 +193,7 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     trainer.auto_protocol_id = PROTOCOL_ID
     trainer.auto_obs_version = V2_OBS_VERSION
     trainer.auto_v2_system = {"link_regime": str(link_regime), "mec_workers": int(mec_workers),
+                              "background_dags": int(background_dags),
                               "reliability": bool(reliability),
                               "helper_contact_mean_s": float(helper_contact_mean_s),
                               "helper_contact_cv": float(helper_contact_cv),

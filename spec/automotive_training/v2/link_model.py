@@ -136,8 +136,32 @@ class LinkProcess:
     def estimate_at(self, link: str, t: float = 0.0) -> float:
         return float(self._estimated[link][self._idx(t)])
 
+    def past_outage_fraction(self, link: str, t_now: float = 0.0) -> float:
+        """Outage fraction over [0, t_now] ONLY (decision-time information).
+
+        Using the whole horizon would be future leakage: an admission decision taken at t=0
+        must not know about an outage that happens later. At t_now=0 there is no history, so
+        the prior of the regime is returned instead.
+        """
+        idx = self._idx(t_now)
+        window = self._outage[link][: idx + 1]
+        if window.size == 0:
+            return float(self.regime.outage_prob_per_step)
+        return float(np.mean(window))
+
     def confidence(self, link: str, t: float = 0.0) -> float:
-        """1.0 when estimated == realized on average, lower under high variance/outage."""
+        """Estimate-model confidence: a function of the ESTIMATION model, not of truth.
+
+        The audited defect was `1 - |estimate - realized| / ...`, which reads hidden realized
+        truth at decision time. Confidence is now derived from the declared estimation noise
+        of the regime (a property of the estimator), so it is observable at plan time.
+        """
+        sigma = float(self.regime.estimation_sigma)
+        return float(max(0.0, min(1.0, 1.0 / (1.0 + sigma))))
+
+    def confidence_vs_truth(self, link: str, t: float = 0.0) -> float:
+        """Diagnostic ONLY (post-hoc analysis). Never feed this into an observation,
+        admission rule or policy-accessible score."""
         idx = self._idx(t)
         r = float(self._realized[link][idx])
         e = float(self._estimated[link][idx])
@@ -172,7 +196,8 @@ class LinkProcess:
                 "estimated_mean_multiplier": float(np.mean(e)),
                 "outage_steps": int(np.sum(self._outage[link])),
                 "outage_fraction": float(np.mean(self._outage[link])),
-                "mean_confidence": float(np.mean(np.clip(
+                "mean_confidence_estimate_model": float(self.confidence(link)),
+                "mean_confidence_vs_truth_diagnostic_only": float(np.mean(np.clip(
                     1.0 - np.abs(e - r) / np.maximum(np.maximum(r, e), 1e-9), 0.0, 1.0))),
             }
         return out

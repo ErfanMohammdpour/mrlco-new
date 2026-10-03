@@ -770,6 +770,7 @@ def build_frozen_primary_stack(seed=0, n_itr=3500, ckpt_dir="./meta_model_inner_
             link_regime=str(os.environ.get("MARGO_V2_LINK_REGIME", "stable")),
             mec_workers=int(os.environ.get("MARGO_V2_MEC_WORKERS", "1")),
             reliability=bool(int(os.environ.get("MARGO_V2_RELIABILITY", "0"))),
+            background_dags=int(os.environ.get("MARGO_V2_BACKGROUND", "0")),
         )
     if str(dataset) == "automotive_mc_v1":
         from spec.automotive_training.automotive_primary import (

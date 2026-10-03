@@ -80,7 +80,8 @@ class V2AutomotiveEnv:
                  helper_contact_mean_s: float = 2.0, helper_contact_cv: float = 0.5,
                  helper_busy_s: float = 0.0, reliability: bool = False,
                  runtime_deadline_scale: float = 1.0, mc_enabled: bool = True,
-                 constraint_controller: Any | None = None, single_dist: bool = False):
+                 constraint_controller: Any | None = None, single_dist: bool = False,
+                 background_dags: int = 0, background_owner_offset: int = 1):
         # Two layouts are supported, exactly as in the frozen env:
         # * single_dist=False (training): one distribution per graph, `slots_per_task`
         #   trajectories per distribution, `sample_tasks(meta_batch_size)` selects graphs;
@@ -104,6 +105,10 @@ class V2AutomotiveEnv:
         self.reliability_enabled = bool(reliability)
         self.runtime_deadline_scale = float(runtime_deadline_scale)
         self.constraint_controller = constraint_controller
+        #: number of background DAGs (other owners) that compete with the foreground DAG in
+        #: the SAME world/scheduler call. 0 keeps the single-DAG behaviour.
+        self.background_dags = max(0, int(background_dags))
+        self.background_owner_offset = max(1, int(background_owner_offset))
         self._classes = load_classes()
         self.episodes = 0
         self.last_telemetry: list = []
@@ -271,19 +276,41 @@ class V2AutomotiveEnv:
             conf = 1.0
             outage = 0.0
             if self.link_process is not None:
+                # DECISION-TIME evidence only: confidence comes from the estimation model and
+                # the outage fraction from the PAST window [0, t_now] (t_now = plan time = 0).
                 conf = float(np.mean([self.link_process.confidence(LINK_UL),
                                       self.link_process.confidence(LINK_DL),
                                       self.link_process.confidence(LINK_V2V)]))
-                outage = float(np.mean([np.mean(self.link_process._outage[LINK_UL]),
-                                        np.mean(self.link_process._outage[LINK_DL]),
-                                        np.mean(self.link_process._outage[LINK_V2V])]))
-            evidence = {"link_confidence": conf, "outage_fraction": outage}
-        return schedule_shared([dag], {"s%d" % slot: plan}, link=link, compute=compute,
-                               link_process=self.link_process,
-                               helper_states=self.helper_states[slot],
-                               reliability_gate=gate, reliability_evidence=evidence,
-                               standby_for=standby_required if gate else None,
-                               validate=bool(validate))
+                outage = float(np.mean([self.link_process.past_outage_fraction(LINK_UL, 0.0),
+                                        self.link_process.past_outage_fraction(LINK_DL, 0.0),
+                                        self.link_process.past_outage_fraction(LINK_V2V, 0.0)]))
+            evidence = {"link_confidence": conf, "outage_fraction": outage,
+                        "evidence_window": "past_only:[0,plan_time]"}
+        fg_id = "s%d" % slot
+        dags, plans = [dag], {fg_id: plan}
+        if self.background_dags:
+            owners = compute.ue_cpu_bytes_per_s
+            for b in range(self.background_dags):
+                bg_owner = (self.background_owner_offset + b) % max(1, len(owners))
+                bg = dag_spec_from_graph(
+                    graph, dag_id="%s_bg%d" % (fg_id, b), owner=bg_owner,
+                    mc=(self.base._slot_mc[slot] if self.base._slot_mc else None),
+                    helper_id=None)
+                dags.append(bg)
+                # FROZEN background policy: every background token goes to the MEC. It is a
+                # declared, fixed workload generator, not a learned competitor.
+                plans[bg.dag_id] = {t.task_id: 1 for t in bg.tasks}
+        result = schedule_shared(dags, plans, link=link, compute=compute,
+                                 link_process=self.link_process,
+                                 helper_states=self.helper_states[slot],
+                                 reliability_gate=gate, reliability_evidence=evidence,
+                                 standby_for=standby_required if gate else None,
+                                 validate=bool(validate))
+        if self.background_dags:
+            # the EPISODE is the foreground DAG: its completion (not the batch makespan) is
+            # the latency the reward and telemetry refer to
+            result.makespan_s = float(result.completion_by_dag[fg_id])
+        return result
 
     def _telescoping(self, slot: int, actions: Sequence[int]) -> list:
         """Prefix marginal makespans under the v2 scheduler (v1 reward semantics)."""

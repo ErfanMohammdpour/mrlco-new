@@ -37,10 +37,13 @@ class TestRegimeProvenance(unittest.TestCase):
         moderate = make_process("moderate", 0).summary({"mec_ul": 20e6, "mec_dl": 20e6, "v2v": 10e6})
         degraded = make_process("degraded", 0).summary({"mec_ul": 20e6, "mec_dl": 20e6, "v2v": 10e6})
         self.assertEqual(stable["links"][LINK_UL]["realized_std_multiplier"], 0.0)
-        self.assertEqual(stable["links"][LINK_UL]["mean_confidence"], 1.0)
-        self.assertLess(moderate["links"][LINK_UL]["mean_confidence"], 1.0)
-        self.assertLess(degraded["links"][LINK_V2V]["mean_confidence"],
-                        moderate["links"][LINK_V2V]["mean_confidence"])
+        # confidence is now estimate-model based (no truth access): it must fall as the
+        # declared estimation noise grows, and it must NOT be a truth comparison
+        key = "mean_confidence_estimate_model"
+        self.assertEqual(stable["links"][LINK_UL][key], 1.0)
+        self.assertLess(moderate["links"][LINK_UL][key], 1.0)
+        self.assertLess(degraded["links"][LINK_V2V][key],
+                        moderate["links"][LINK_V2V][key])
         self.assertLess(degraded["links"][LINK_UL]["realized_mean_multiplier"],
                         moderate["links"][LINK_UL]["realized_mean_multiplier"])
         self.assertGreater(degraded["links"][LINK_DL]["outage_fraction"],
