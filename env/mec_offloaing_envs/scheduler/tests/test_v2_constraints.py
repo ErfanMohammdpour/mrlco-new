@@ -48,7 +48,10 @@ def _env(constraints=False, seed=11):
     env = V2AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
                           slots_per_task=SLOTS, base_seed=seed, single_dist=True,
                           constraints_enabled=constraints,
-                          budget_fractions={"total_energy": 2.0, "ue_energy": 2.0},
+                          # total_energy is a fraction of the pure all-MEC plan's SYSTEM
+                          # energy (the scope-consistent anchor). 0.5 puts the all-MEC plan
+                          # at +1.0 signed cost so the constraint genuinely binds.
+                          budget_fractions={"total_energy": 0.5, "ue_energy": 2.0},
                           scheduler_config_sha256=SHA)
     env.set_task({"dist_index": 0,
                   "graph_indices": np.arange(SLOTS, dtype=np.int32)})
@@ -162,9 +165,14 @@ class TestDualsMoveBothWays(unittest.TestCase):
     def test_lambda_rises_above_budget_and_falls_below_it(self):
         _dag, _helper, plans = _fixture()
         refs = reference_ranges_from_plans(plans, scheduler_config_sha256=SHA)
-        # budget = 10 x the all-UE plan energy: the all-MEC plan is far over it while the
-        # all-HELPER plan is under it, so the dual must move in BOTH directions
-        spec = calibrate_budgets(refs, {"total_energy": 10.0})
+        # The total-energy budget is a fraction of the pure all-MEC plan's SYSTEM energy
+        # (E4.3 scope-consistency fix), because the measured `total_energy_j` is whole-world
+        # system scope. A fraction of 0.5 therefore puts the all-MEC plan AT +1.0 signed cost
+        # (over budget) while the all-HELPER plan sits below it, so the dual must move in BOTH
+        # directions. Anchoring on `E_ue` instead would compare a whole-world measurement with
+        # a foreground-only reference: that was the audited scope mismatch.
+        self.assertAlmostEqual(refs.energy_scope, "system")
+        spec = calibrate_budgets(refs, {"total_energy": 0.5})
         manager = V2ConstraintManager(spec=spec, references=refs, dual_lr=0.5,
                                       scheduler_config_sha256=SHA)
         # two over-budget all-MEC episodes -> lambda must rise
@@ -271,3 +279,58 @@ class TestFailFast(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestTotalEnergyScopeConsistency(unittest.TestCase):
+    """E4.3: the total-energy measurement and its reference must share one scope.
+
+    Audited defect: `metrics.total_energy_j` is WHOLE-WORLD SYSTEM energy (foreground plus
+    every declared background DAG of other owners, which share the same MEC CPU and radio),
+    but its budget and scale were anchored on `refs.E_ue` - the system energy of the pure
+    all-UE plan. In a background world that anchor is tiny, because the all-UE plan leaves the
+    shared MEC energy to the background. A production GPU run consequently reported a signed
+    cost of +136.6 (vs a budget of 0.14 J for a 38.3 J episode) and penalties near 1.9e3 per
+    episode. These tests pin the corrected formulation.
+    """
+
+    def _plans(self):
+        _dag, _helper, plans = _fixture()
+        return plans
+
+    def test_anchor_is_all_mec_system_energy_not_all_ue(self):
+        from spec.automotive_training.v2.constraints_v2 import (
+            spec_from_fractions, v2_constraint_costs,
+        )
+        from spec.automotive_training.v2.energy import (
+            reference_ranges_from_plans, schedule_energy,
+        )
+
+        dag, _helper, plans = _fixture()
+        refs = reference_ranges_from_plans(plans, scheduler_config_sha256=SHA)
+        spec = spec_from_fractions({"total_energy": 0.5})
+        result = schedule_shared([dag], {"d": {0: 1}}, link=LINK, compute=COMPUTE)
+        ledger = schedule_energy(result)
+        costs = v2_constraint_costs(result, ledger, spec, refs,
+                                    scheduler_config_sha256=SHA)
+        index = list(costs.names).index("total_energy")
+        budget = float(costs.budgets[index])
+        scale = float(costs.scales[index])
+        measured = float(costs.raw[index])
+        # the anchor MUST be the all-MEC system reference, which is what the measured
+        # whole-world system energy is comparable to
+        self.assertAlmostEqual(scale, float(refs.E_mec), places=6)
+        self.assertAlmostEqual(budget, 0.5 * float(refs.E_mec), places=6)
+        self.assertNotAlmostEqual(scale, float(refs.E_ue), places=6)
+        # and the normalised signed cost is O(1) rather than O(100)
+        expected = (measured - budget) / scale
+        self.assertAlmostEqual(float(costs.signed[index]), expected, places=9)
+        self.assertLess(abs(float(costs.signed[index])), 10.0)
+
+    def test_a_foreground_only_reference_would_have_been_off_by_two_orders(self):
+        """Show the magnitude of the defect that was fixed, not merely that the code changed."""
+        from spec.automotive_training.v2.energy import reference_ranges_from_plans
+
+        plans = self._plans()
+        refs = reference_ranges_from_plans(plans, scheduler_config_sha256=SHA)
+        # the all-UE plan's SYSTEM energy is far below the all-MEC plan's on this same world
+        self.assertGreater(float(refs.E_mec) / max(float(refs.E_ue), 1e-12), 10.0)

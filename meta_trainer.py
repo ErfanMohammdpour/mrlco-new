@@ -157,6 +157,15 @@ class Trainer(object):
             return
         self.audit_writer.stage(itr, name, payload or {})
 
+    def _iteration_completed(self, itr):
+        """Called as the LAST statement of each outer iteration in `train()`.
+
+        Default is deliberately inert: `v0.1`/v1 runs keep exactly their previous accounting
+        (they never read this hook). The v2 trainer overrides it to record the iteration as
+        COMPLETED only once every required phase has actually succeeded.
+        """
+        return None
+
     def _core_vars(self):
         sess = tf.compat.v1.get_default_session()
         return sess.run(self.policy.core_policy.get_trainable_variables())
@@ -657,6 +666,14 @@ class Trainer(object):
                 self._audit(itr, "validation", {"k0": k0, "k3": k3})
 
             logger.dumpkvs()
+            # EXPLICIT end-of-iteration boundary. Every required phase for `itr` has now
+            # succeeded: rollouts, inner PPO, query rollout, the outer MRLCO update, the dual
+            # step, and the scheduled validation when one was due. Changing a counter when a
+            # phase is merely ENTERED (for example on reaching validation) over-reports
+            # completion when a later phase crashes, while counting only validated iterations
+            # under-reports every other iteration. The hook is a no-op for every run that does
+            # not override it, so v1 behaviour in this loop is unchanged.
+            self._iteration_completed(itr)
             avg_ret.append(avg_reward)
             if self.pilot_checkpoint_iters and itr in self.pilot_checkpoint_iters:
                 ckpt_path = self._ckpt_path("meta_model_%d.ckpt" % itr)

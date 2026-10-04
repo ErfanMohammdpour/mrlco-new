@@ -32,6 +32,7 @@ measured, and `telescoping_token_rewards` must return bit-identical rewards.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -357,15 +358,37 @@ def budgets_and_scales(
                 max(refs.E_ue, 1e-12),
             )
         elif name == C_TOTAL_ENERGY:
+            # SCOPE-CONSISTENCY FIX. `metrics.total_energy_j` is the SYSTEM-scope energy of
+            # the episode: it includes the foreground requester AND every declared background
+            # DAG belonging to other owners, because those share the same MEC CPU and radio.
+            # This budget and scale used to be anchored on `refs.E_ue`, the SYSTEM-scope
+            # energy of the pure all-UE plan. In a background world that reference is tiny
+            # (measured on the production configuration: E_ue = 0.279 J against a 38.3 J
+            # episode, because the all-UE plan leaves the shared MEC energy to the
+            # background), so a legitimate episode was scored at ~274x its budget and
+            # produced normalized violations near 137 instead of near 1. That was a
+            # measurement/reference scope mismatch, not a measured 137-fold violation.
+            #
+            # The coherent anchor for a whole-world system measurement is the SYSTEM energy
+            # of the pure all-MEC plan measured on the SAME world (same declared background,
+            # same link regime, same realization). It is the system-energy reference the
+            # policy can actually trade against: moving a task off MEC lowers it, moving it
+            # onto MEC raises it. A signed cost of +1.0 then means "this episode spent twice
+            # the whole-world system energy of the all-MEC reference plan".
+            system_reference = float(refs.E_mec)
+            if not math.isfinite(system_reference) or system_reference <= 0.0:
+                raise ValueError(
+                    "the all-MEC system-scope reference energy must be finite and positive "
+                    "to anchor the total-energy budget, got %r" % (system_reference,))
             out[name] = (
                 metrics.total_energy_j,
                 _pick(
                     spec.total_energy_budget_j,
                     spec.total_energy_frac_of_all_ue,
-                    refs.E_ue,
+                    system_reference,
                     name,
                 ),
-                max(refs.E_ue, 1e-12),
+                system_reference,
             )
         elif name == C_V2V_AIRTIME:
             out[name] = (

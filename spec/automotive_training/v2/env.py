@@ -27,8 +27,9 @@ from spec.automotive_training.automotive_primary import AutomotiveResourceCluste
 from spec.automotive_training.v2.adapters import (
     compute_spec, dag_spec_from_graph, link_spec, plan_map_from_actions,
 )
+from spec.automotive_training.v2.constraint_channels import channel_telemetry
 from spec.automotive_training.v2.constraints_v2 import (
-    V2ConstraintError, V2ConstraintManager, spec_from_fractions,
+    ConstraintCostBatch, V2ConstraintError, V2ConstraintManager, spec_from_fractions,
 )
 from spec.automotive_training.v2.energy import reference_ranges_from_plans, schedule_energy
 from spec.automotive_training.v2.helper_model import HelperState, make_helpers
@@ -92,6 +93,8 @@ class V2EpisodeTelemetry:
     mobile_joules: float = 0.0
     system_joules: float = 0.0
     background_joules: float = 0.0
+    foreground_system_joules: float = 0.0
+    world_requester_joules: float = 0.0
     energy_primary_scope: str = "system"
     energy_model_sha256: str = ""
     constraint_penalty: float = 0.0
@@ -181,10 +184,14 @@ class V2AutomotiveEnv:
         self.last_v2_context: list = []
         self.last_link_summary: dict = {}
         self.last_energy_ledger: list = []
-        self.last_constraint_costs: list = []
+        self.last_foreground_ledger: list = []
+        self.last_constraint_costs = ConstraintCostBatch()
+        self.last_constraint_batch = self.last_constraint_costs
+        self._last_results: dict = {}
         self.link_process = None if self.link_regime == "stable" else None  # per reset
         self._worlds: dict = {}
         self._world_key = None
+        self._v1_schedule_trap = False
         self._reference_ranges: dict = {}
         self._reference_results: dict = {}
         self._reference_ledgers: dict = {}
@@ -321,7 +328,10 @@ class V2AutomotiveEnv:
         self.last_v2_context = self._contexts()
         self.last_link_summary = {}
         self.last_energy_ledger = []
-        self.last_constraint_costs = []
+        self.last_foreground_ledger = []
+        self.last_constraint_costs = ConstraintCostBatch()
+        self.last_constraint_batch = self.last_constraint_costs
+        self._last_results = {}
         if self.link_process is not None and slots:
             graph0 = self.base.graph_objects[self.base._graph_index(slots[0])]
             cfg = link_spec(graph0)
@@ -329,6 +339,23 @@ class V2AutomotiveEnv:
                 {"mec_ul": cfg.mec_ul_bytes_per_s, "mec_dl": cfg.mec_dl_bytes_per_s,
                  "v2v": cfg.v2v_bytes_per_s})
         return self._packed_observation(self.last_v2_context)
+
+    def set_v1_schedule_trap(self, armed: bool) -> None:
+        """Arm a trap that makes the V1 `_schedule` path impossible to reach silently.
+
+        `V2AutomotiveEnv` deliberately does not implement `_schedule`; `__getattr__` would
+        otherwise hand the call to the frozen v1 base environment and return v1 numbers under a
+        v2 label. Arming this makes such a delegation raise.
+        """
+        self._v1_schedule_trap = bool(armed)
+
+    def _schedule(self, *args, **kwargs):
+        if getattr(self, "_v1_schedule_trap", False):
+            raise V2EnvError(
+                "the V1 scheduler `_schedule` was reached on a V2 environment: a v2 evaluation "
+                "must score every plan on the canonical v2 world (this is the audited silent "
+                "v1-scoring fallback)")
+        return self.base._schedule(*args, **kwargs)
 
     def set_world_realization(self, key) -> None:
         """Fix the environmental realization by a STABLE identity key.
@@ -455,20 +482,23 @@ class V2AutomotiveEnv:
         # meta task (one graph) per call, so every returned row belongs to the SAME graph. The
         # per-slot vector is therefore the graph's context repeated over its slots; when the
         # executor exposes the flat slot list we still use the exact per-slot mapping.
+        # `graph_indices[flat]` is the DATASET GRAPH of flat slot `flat`, NOT a slot position.
+        # Using it as a slot id collapsed two slots that share a graph (e.g. [0, 0]) onto the
+        # SAME context, hiding differences in contact, world or helper state between
+        # trajectories. The context is resolved by FLAT SLOT POSITION here.
         raw = np.asarray(getattr(self.base, "graph_indices", []), dtype=object).reshape(-1)
-        valid = []
-        for value in raw:
-            try:
-                valid.append(int(value))
-            except (TypeError, ValueError):
-                continue
-        if len(valid) == n_rows and n_rows > 1:
-            ctxs = [self._context_vector(int(s)) for s in valid]
+        if raw.size == n_rows and n_rows > 1:
+            ctxs = [self._context_vector(flat) for flat in range(n_rows)]
         elif len(contexts) == n_rows:
             ctxs = [np.asarray(c, dtype=np.float32) for c in contexts]
         else:
-            gid = valid[0] if valid else int(getattr(self.base, "task_id", 0) or 0)
-            gid = min(max(int(gid), 0), len(self.base.graph_objects) - 1)
+            # single-row layout (one meta task per call): the graph is the task's graph
+            gid = int(self.base.graph_objects.index(self.base.graph_objects[0])) if False else 0
+            try:
+                value = int(raw[0]) if raw.size else int(getattr(self.base, "task_id", 0) or 0)
+                gid = min(max(value, 0), len(self.base.graph_objects) - 1)
+            except (TypeError, ValueError):
+                gid = 0
             ctxs = [self._context_for_graph(self.base.graph_objects[gid])] * n_rows
         out = np.empty((n_rows, rows.shape[1], V2_PACKED_DIM), dtype=np.float32)
         for row in range(n_rows):
@@ -588,6 +618,7 @@ class V2AutomotiveEnv:
         for slot, actions in enumerate(action):
             rewards = self._telescoping(slot, actions)
             result = self._schedule_slot(slot, actions, validate=True)
+            self._last_results[int(slot)] = result
             world = self.world_for_slot(slot)
             index = self.base._graph_index(int(slot))
             graph = self.base.graph_objects[index]
@@ -610,17 +641,46 @@ class V2AutomotiveEnv:
             # ---- REAL energy from the event ledger (no zero-joule shim) ----
             ledger = None
             if self.energy_enabled:
-                ledger = schedule_energy(result)
+                # The background IDs MUST be supplied: the ledger partitions foreground from
+                # background only when it is told which DAGs are background, so omitting them
+                # left `background_joules` at zero while background DAGs consumed energy.
+                ledger = schedule_energy(result, background_dag_ids=world.background_ids)
                 self.last_energy_ledger.append(ledger)
             else:
                 self.last_energy_ledger.append(None)
             # ---- constraints: measured, signed, applied once on the terminal token ----
             costs = None
             penalty = 0.0
+            # ATTRIBUTION FIX (E4.4). The reference ranges are built by
+            # `pure_location_worlds`, which deliberately uses `background_dags=0`: they are
+            # FOREGROUND, background-free plan energies. `total_energy_j` coming from the
+            # WHOLE-WORLD ledger therefore compared a world measurement (foreground +
+            # other owners' background DAGs sharing the same MEC CPU and radio) against a
+            # foreground reference. On the production configuration the background alone was
+            # ~99% of `system_joules` and plan-independent, so the constraint was
+            # STRUCTURALLY INFEASIBLE: the minimum achievable violation exceeded +1.4 no
+            # matter what the policy did, lambda pinned, and the reported ~137 normalized
+            # violation was an artifact rather than a measurement.
+            #
+            # The constraint is now evaluated on the FOREGROUND-only ledger, so the measured
+            # value, the budget and the normalisation scale all describe the same DAG set and
+            # the same energy boundary. `ue_energy` stays the foreground requester's own UE
+            # energy (also the foreground ledger), and `helper_energy` stays
+            # mobile-requester within the same ledger, so the three enabled constraints
+            # cannot disagree about what world they are scoring.
+            if ledger is not None:
+                foreground_ledger = schedule_energy(
+                    result, background_dag_ids=world.background_ids,
+                    dag_filter=[world.foreground_id])
+                self.last_foreground_ledger.append(foreground_ledger)
+            else:
+                foreground_ledger = None
+                self.last_foreground_ledger.append(None)
             if self.constraint_manager is not None:
                 refs = self.reference_ranges_for_slot(slot)
                 self.constraint_manager.references = refs
-                costs = self.constraint_manager.evaluate(result, ledger)
+                costs = self.constraint_manager.evaluate(
+                    result, foreground_ledger if foreground_ledger is not None else ledger)
                 penalty = self.constraint_manager.apply_penalty(rewards, costs)
                 self.constraint_manager.observe(costs)
                 self.last_constraint_costs.append(costs)
@@ -642,10 +702,18 @@ class V2AutomotiveEnv:
                 high_miss_count=misses["HIGH"], medium_miss_count=misses["MEDIUM"],
                 energy_joules=float(reference_energy), scheduler_invariants=dict(result.invariants),
                 world_makespan_s=float(result.world_makespan_s or 0.0),
-                requester_joules=(0.0 if ledger is None else float(ledger.requester_joules)),
+                # `requester` means the FOREGROUND requester, not the sum of every owner's UE
+                # energy: a secondary ledger restricted to the foreground DAG is used, and the
+                # world-wide requester figure is reported separately.
+                requester_joules=(0.0 if foreground_ledger is None
+                                  else float(foreground_ledger.requester_joules)),
                 mobile_joules=(0.0 if ledger is None else float(ledger.mobile_joules)),
                 system_joules=float(reference_energy),
                 background_joules=(0.0 if ledger is None else float(ledger.background_joules)),
+                foreground_system_joules=(0.0 if ledger is None
+                                          else float(ledger.foreground_joules)),
+                world_requester_joules=(0.0 if ledger is None
+                                        else float(ledger.requester_joules)),
                 energy_primary_scope=("" if ledger is None else str(ledger.primary_scope)),
                 energy_model_sha256=("" if ledger is None else str(ledger.spec_sha256)),
                 constraint_penalty=float(penalty),
@@ -681,6 +749,14 @@ class V2AutomotiveEnv:
             energy_batch.append(np.full(len(rewards), float(reference_energy),
                                         dtype=np.float32))
             telemetry_batch.append(self._frozen_telemetry(slot, telemetry))
+        # The FROZEN trainer reads `env.last_constraint_costs.active`/`.as_dict()`. The v2 env
+        # has one cost per SLOT, so the attribute itself is a `ConstraintCostBatch` (a list
+        # subclass): it stays indexable per slot AND exposes the aggregated `.active`/
+        # `.as_dict()` the production loop calls. (A plain list here crashed the trainer with
+        # "'list' object has no attribute 'active'" at the end of the first real iteration.)
+        self.last_constraint_costs = ConstraintCostBatch(
+            [c for c in self.last_constraint_costs if c is not None])
+        self.last_constraint_batch = self.last_constraint_costs
         obs = self._packed_observation(self.last_v2_context)
         return obs, reward_batch, True, (finish_batch, energy_batch, telemetry_batch)
 
@@ -709,6 +785,29 @@ class V2AutomotiveEnv:
                           and slot < len(self.last_constraint_costs)
                           and self.last_constraint_costs[slot] is not None)
                       else {"enabled": False})
+        # ---- the FROZEN trainer observer reads `violation/<NAME>` at the TOP level ----
+        # Without these keys `constraint_violations_from_telemetry` returns {} and the dual
+        # never moves, so a budget cannot influence training at all.
+        world = self._worlds.get(int(slot))
+        result = self._last_results.get(int(slot))
+        channel_keys: dict = {}
+        if world is not None and result is not None:
+            try:
+                foreground = world.foreground
+                criticality = {int(t.task_id): t.criticality for t in foreground.tasks}
+                channel_keys = channel_telemetry(
+                    graph, result, foreground_dag=foreground,
+                    d_g_s=float(getattr(graph, "D_G_s", 0.0)),
+                    lambdas=(self.constraint_manager.lambdas_by_name()
+                             if self.constraint_manager is not None else {}),
+                    penalty=float(telemetry.constraint_penalty),
+                    l_scale=max(float(getattr(graph, "D_G_s", 1.0) or 1.0), 1e-12),
+                    task_criticality=criticality)
+            except Exception as exc:
+                # a missing channel is an ERROR, never a silent zero violation
+                raise V2EnvError(
+                    "cannot produce the trainer constraint channels for slot %s: %s"
+                    % (slot, exc)) from exc
         return {
             "schema_version": TELEMETRY_SCHEMA_VERSION,
             "requester_joules": float(telemetry.requester_joules),
@@ -717,6 +816,8 @@ class V2AutomotiveEnv:
             "primary_scope": primary_scope,
             "primary_joules": float(telemetry.energy_joules),
             "background_joules": float(telemetry.background_joules),
+            "foreground_system_joules": float(telemetry.foreground_system_joules),
+            "world_requester_joules": float(telemetry.world_requester_joules),
             "energy_model_sha256": str(telemetry.energy_model_sha256),
             # components that are OUT of the modelled boundary, so a missing joule is never
             # read as a measured zero
@@ -730,6 +831,7 @@ class V2AutomotiveEnv:
             "latency_only_objective": -float(telemetry.makespan_s) / max(float(graph.D_G_s), 1e-12),
             "energy_constraint": ("configured" if constraint.get("enabled")
                                   else "telemetry_only"),
+            **channel_keys,
             "v2": v2,
         }
 
@@ -841,7 +943,15 @@ class V2AutomotiveEnv:
         if self.constraint_manager is not None and refs is not None:
             spec = self.constraint_manager.spec
             if getattr(spec, "total_energy_frac_of_all_ue", None) is not None:
-                budget = float(spec.total_energy_frac_of_all_ue) * float(refs.E_ue)
+                # MUST mirror `constraints.budgets_and_scales` exactly. The total-energy
+                # measurement is whole-world SYSTEM scope, so its budget and scale are
+                # anchored on the pure all-MEC plan's SYSTEM energy (measured on this same
+                # world, background included) and NOT on `E_ue`, whose all-UE plan leaves the
+                # shared MEC energy to the background and is therefore tiny. Divergence here
+                # made the policy observe a budget ratio that did not match the constraint it
+                # was actually being scored on.
+                system_reference = float(refs.E_mec)
+                budget = float(spec.total_energy_frac_of_all_ue) * system_reference
                 budget_ratio = float(budget / max(max(energies.values()), 1e-12))
         lambdas = (self.constraint_manager.lambdas_by_name()
                    if self.constraint_manager is not None else {})

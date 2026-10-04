@@ -54,7 +54,13 @@ def _env(indices=None, seed=909, constraints=False, background=0):
     env = V2AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
                           slots_per_task=int(idx.size), base_seed=seed, single_dist=True,
                           background_dags=int(background), constraints_enabled=constraints,
-                          budget_fractions={"total_energy": 2.0},
+                          # The total-energy budget is a fraction of the pure all-MEC plan's
+                          # SYSTEM energy, which is the scope-consistent anchor for the
+                          # foreground system measurement. 0.5 therefore places the all-MEC
+                          # plan at +1.0 signed cost (genuinely over budget); a fraction >= 1.0
+                          # would NOT bind for a pure-MEC plan and could not exercise the
+                          # observation channel this fixture is about.
+                          budget_fractions={"total_energy": 0.5},
                           scheduler_config_sha256="c" * 64)
     env.set_task({"dist_index": 0, "graph_indices": idx})
     return env
