@@ -112,8 +112,13 @@ def channel_telemetry(graph, result: V2ScheduleResult, *,
         out["n_violating/%s" % name] = int(channel["n_violating_tasks"])
         n_violating[name] = int(channel["n_violating_tasks"])
     out["constraint_penalty"] = float(penalty)
-    out["penalized_objective"] = -float(result.makespan_s) / max(float(l_scale), 1e-12) \
-        - float(penalty) / max(float(l_scale), 1e-12)
+    # The penalty is ALREADY dimensionless: the dual formulation normalises the signed cost by
+    # the declared scale, so dividing it by `l_scale` again double-normalised it. Both the
+    # telemetry objective and the rollout return use the same dimensionless penalty.
+    latency_norm = -float(result.makespan_s) / max(float(l_scale), 1e-12)
+    out["normalized_latency_objective"] = latency_norm
+    out["unpenalized_objective"] = latency_norm
+    out["penalized_objective"] = latency_norm - float(penalty)
     out["firm_miss_count"] = int(
         n_violating.get("C_HI_TASK_TARDINESS", 0) + n_violating.get("C_MED_TASK_TARDINESS", 0))
     out["task_count"] = int(sum(1 for _ in result.timings))
@@ -125,9 +130,16 @@ def channel_telemetry(graph, result: V2ScheduleResult, *,
             key = str(value).strip().upper()
             if key in counts:
                 counts[key] += 1
+        # BOTH naming families, identical values: the v2 telemetry historically emitted
+        # `n_tasks_high`, while `automotive_primary` consumers read `n_high_tasks` and
+        # `n_tardy_high_tasks`. Emitting only one family made reported tardiness read as zero.
         out["n_tasks_high"] = counts["HIGH"]
         out["n_tasks_medium"] = counts["MEDIUM"]
         out["n_tasks_low"] = counts["LOW"]
+        out["n_high_tasks"] = counts["HIGH"]
+        out["n_medium_tasks"] = counts["MEDIUM"]
+        out["n_tardy_high_tasks"] = int(n_violating.get("C_HI_TASK_TARDINESS", 0))
+        out["n_tardy_medium_tasks"] = int(n_violating.get("C_MED_TASK_TARDINESS", 0))
     return out
 
 

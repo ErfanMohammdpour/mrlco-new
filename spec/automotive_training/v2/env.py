@@ -93,6 +93,8 @@ class V2EpisodeTelemetry:
     mobile_joules: float = 0.0
     system_joules: float = 0.0
     background_joules: float = 0.0
+    foreground_system_joules: float = 0.0
+    world_requester_joules: float = 0.0
     energy_primary_scope: str = "system"
     energy_model_sha256: str = ""
     constraint_penalty: float = 0.0
@@ -182,6 +184,7 @@ class V2AutomotiveEnv:
         self.last_v2_context: list = []
         self.last_link_summary: dict = {}
         self.last_energy_ledger: list = []
+        self.last_foreground_ledger: list = []
         self.last_constraint_costs = ConstraintCostBatch()
         self.last_constraint_batch = self.last_constraint_costs
         self._last_results: dict = {}
@@ -325,6 +328,7 @@ class V2AutomotiveEnv:
         self.last_v2_context = self._contexts()
         self.last_link_summary = {}
         self.last_energy_ledger = []
+        self.last_foreground_ledger = []
         self.last_constraint_costs = ConstraintCostBatch()
         self.last_constraint_batch = self.last_constraint_costs
         self._last_results = {}
@@ -637,7 +641,10 @@ class V2AutomotiveEnv:
             # ---- REAL energy from the event ledger (no zero-joule shim) ----
             ledger = None
             if self.energy_enabled:
-                ledger = schedule_energy(result)
+                # The background IDs MUST be supplied: the ledger partitions foreground from
+                # background only when it is told which DAGs are background, so omitting them
+                # left `background_joules` at zero while background DAGs consumed energy.
+                ledger = schedule_energy(result, background_dag_ids=world.background_ids)
                 self.last_energy_ledger.append(ledger)
             else:
                 self.last_energy_ledger.append(None)
@@ -653,6 +660,14 @@ class V2AutomotiveEnv:
                 self.last_constraint_costs.append(costs)
             else:
                 self.last_constraint_costs.append(None)
+            foreground_ledger = None
+            if ledger is not None:
+                foreground_ledger = schedule_energy(
+                    result, background_dag_ids=world.background_ids,
+                    dag_filter=[world.foreground_id])
+                self.last_foreground_ledger.append(foreground_ledger)
+            else:
+                self.last_foreground_ledger.append(None)
             reference_energy = 0.0 if ledger is None else float(ledger.system_joules)
             telemetry = V2EpisodeTelemetry(
                 slot=slot, graph_id=graph.graph_id, makespan_s=float(result.makespan_s),
@@ -669,10 +684,18 @@ class V2AutomotiveEnv:
                 high_miss_count=misses["HIGH"], medium_miss_count=misses["MEDIUM"],
                 energy_joules=float(reference_energy), scheduler_invariants=dict(result.invariants),
                 world_makespan_s=float(result.world_makespan_s or 0.0),
-                requester_joules=(0.0 if ledger is None else float(ledger.requester_joules)),
+                # `requester` means the FOREGROUND requester, not the sum of every owner's UE
+                # energy: a secondary ledger restricted to the foreground DAG is used, and the
+                # world-wide requester figure is reported separately.
+                requester_joules=(0.0 if foreground_ledger is None
+                                  else float(foreground_ledger.requester_joules)),
                 mobile_joules=(0.0 if ledger is None else float(ledger.mobile_joules)),
                 system_joules=float(reference_energy),
                 background_joules=(0.0 if ledger is None else float(ledger.background_joules)),
+                foreground_system_joules=(0.0 if ledger is None
+                                          else float(ledger.foreground_joules)),
+                world_requester_joules=(0.0 if ledger is None
+                                        else float(ledger.requester_joules)),
                 energy_primary_scope=("" if ledger is None else str(ledger.primary_scope)),
                 energy_model_sha256=("" if ledger is None else str(ledger.spec_sha256)),
                 constraint_penalty=float(penalty),
@@ -775,6 +798,8 @@ class V2AutomotiveEnv:
             "primary_scope": primary_scope,
             "primary_joules": float(telemetry.energy_joules),
             "background_joules": float(telemetry.background_joules),
+            "foreground_system_joules": float(telemetry.foreground_system_joules),
+            "world_requester_joules": float(telemetry.world_requester_joules),
             "energy_model_sha256": str(telemetry.energy_model_sha256),
             # components that are OUT of the modelled boundary, so a missing joule is never
             # read as a measured zero

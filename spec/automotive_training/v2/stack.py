@@ -16,7 +16,9 @@ The frozen v1 budgets are enforced identically (meta_batch 10, support 20, 3 inn
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
+from pathlib import Path as _Path
 from typing import Any, Mapping, Sequence
 
 import numpy as np
@@ -214,6 +216,73 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
         the penalty and the dual ascent.
         """
 
+        # -- 2.1 explicit iteration accounting ---------------------------------
+        def _audit(self, itr, name, payload=None):
+            """Count STARTED and COMPLETED outer iterations from the real loop phases.
+
+            `meta_trainer.Trainer.train` uses a local `itr` and never assigns
+            `trainer.itr`/`trainer.iteration`, so anything reading those attributes reported
+            zero even for a successful run. The loop's first phase is
+            `sync_task_policies_from_core` and its last is `validation`; an iteration counts as
+            COMPLETED only when the validation phase is reached, so a crash inside an
+            iteration leaves it counted as started but not completed.
+            """
+            if name == "sync_task_policies_from_core":
+                self.started_iterations = int(getattr(self, "started_iterations", 0)) + 1
+                self.current_iteration = int(itr)
+            super(AutomotiveV2Trainer, self)._audit(itr, name, payload)
+            if name == "validation":
+                self.completed_iterations = int(itr) + 1
+                self.last_completed_iteration = int(itr)
+                self._write_progress()
+
+        def _progress_path(self):
+            run_dir = getattr(self, "auto_run_dir", None)
+            if run_dir is None:
+                return None
+            return _Path(str(run_dir)) / "v2_progress.json"
+
+        def _write_progress(self):
+            """Atomic per-iteration telemetry: a final-only summary is not progress."""
+            path = self._progress_path()
+            if path is None:
+                return
+            manager = getattr(self, "auto_v2_constraint_manager", None)
+            env = getattr(self, "auto_env", None)
+            try:
+                record = {
+                    "schema": "v2_progress_v1",
+                    "started_iterations": int(getattr(self, "started_iterations", 0)),
+                    "completed_iterations": int(getattr(self, "completed_iterations", 0)),
+                    "last_completed_iteration": int(getattr(self, "last_completed_iteration", -1)),
+                    "penalty": {
+                        "episodes": int(getattr(self, "auto_penalty_episodes", 0)),
+                        "episodes_with_nonzero_penalty": int(
+                            getattr(self, "auto_penalty_episodes_nonzero", 0)),
+                        "penalty_sum": float(getattr(self, "auto_penalty_sum", 0.0)),
+                        "steps_with_penalty": int(getattr(self, "auto_penalty_steps", 0)),
+                        "signed_rows_observed": int(getattr(self, "auto_v2_signed_rows", 0)),
+                    },
+                    "mean_system_joules": float(
+                        getattr(self, "auto_energy_last_iteration", 0.0)),
+                    "mean_requester_joules": float(
+                        getattr(self, "auto_requester_last_iteration", 0.0)),
+                    "mean_violation": float(getattr(self, "auto_violation_last_iteration", 0.0)),
+                    "lambdas": (manager.lambdas_by_name() if manager is not None else {}),
+                    "dual_updates": (int(manager.controller.updates) if manager is not None
+                                     else 0),
+                    "lambda_broadcast_targets": int(
+                        getattr(self, "auto_lambda_broadcast_targets", 0)),
+                    "world_realization": (env.world_realization_key() if env is not None
+                                          and hasattr(env, "world_realization_key") else None),
+                    "updated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }
+                tmp = path.with_suffix(".tmp")
+                tmp.write_text(json.dumps(record, sort_keys=True))
+                os.replace(str(tmp), str(path))
+            except Exception as exc:                # progress must never mask training
+                self.auto_progress_error = "%s: %s" % (type(exc).__name__, exc)
+
         def constraint_observer(self, samples_data=None, task_specs=None, paths=None) -> dict:
             manager = getattr(self, "auto_v2_constraint_manager", None)
             if manager is None:
@@ -308,7 +377,20 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
         "objectives": {"primary": "constrained_latency",
                        "weighted_ablation": "w_T*T/T_ref + w_E*E/E_ref"},
     }
-    trainer.auto_controller = controller
+    # ONE authoritative dual owner. Assigning the legacy deadline-channel controller here
+    # overwrote the v2 manager set above, so the trainer's observer/broadcaster/report and the
+    # environment penalty referred to DIFFERENT objects. The legacy adapter is kept only as a
+    # separate, clearly-named reference for the deadline channels.
+    trainer.auto_legacy_deadline_controller = controller
+    if trainer.auto_controller is not controller:
+        if getattr(trainer, "auto_controller", None) is None:
+            trainer.auto_controller = controller
+        else:
+            # v2 manager is the authority; assert the two are not both driving duals
+            if trainer.auto_controller is not env.constraint_manager:
+                raise AutomotivePrimaryError(
+                    "two competing constraint authorities would be active: %r and %r"
+                    % (trainer.auto_controller, env.constraint_manager))
     trainer.auto_dataset_fingerprint = dataset.fingerprint()
     trainer.auto_sampler = budgeted
     trainer.auto_scheduler_fingerprint = config_fingerprint(env.configs[0])

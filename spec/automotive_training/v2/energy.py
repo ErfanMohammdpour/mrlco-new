@@ -190,7 +190,8 @@ def _tier_of(location: str, spec: EnergyModelSpec) -> str:
 
 
 def schedule_energy(result: V2ScheduleResult, *, spec: EnergyModelSpec | None = None,
-                    background_dag_ids: Sequence[str] = ()) -> V2EnergyLedger:
+                    background_dag_ids: Sequence[str] = (),
+                    dag_filter: Sequence[str] | None = None) -> V2EnergyLedger:
     """Price every event of a v2 `V2ScheduleResult`.
 
     `background_dag_ids` splits the ledger into foreground-attributed and background
@@ -199,6 +200,7 @@ def schedule_energy(result: V2ScheduleResult, *, spec: EnergyModelSpec | None = 
     """
     spec = spec or frozen_energy_spec()
     background_ids = {str(d) for d in background_dag_ids}
+    include = None if dag_filter is None else {str(d) for d in dag_filter}
     resources = _ResourceShim(spec)
     total = EnergyBreakdown()
     background = EnergyBreakdown()
@@ -211,6 +213,8 @@ def schedule_energy(result: V2ScheduleResult, *, spec: EnergyModelSpec | None = 
 
     # ---- CPU: attempted remote work + final executed work --------------------
     for tm in result.timings.values():
+        if include is not None and str(tm.dag_id) not in include:
+            continue
         if tm.contact_failure:
             # the failed remote attempt is billed at the tier where it ran and the local
             # restart at the requester tier; nothing is free and nothing is double counted
@@ -244,6 +248,8 @@ def schedule_energy(result: V2ScheduleResult, *, spec: EnergyModelSpec | None = 
 
     # ---- radio: active service time per booked transfer ----------------------
     for rec in result.radio_ledger:
+        if include is not None and str(rec["dag_id"]) not in include:
+            continue
         hop = _V2_TO_V1_HOP.get(str(rec["hop"]))
         if hop is None:
             raise V2EnergyError("unknown hop %r in the v2 radio ledger" % (rec["hop"],))

@@ -34,6 +34,8 @@ import time
 from pathlib import Path
 from typing import Any, Mapping
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -57,7 +59,10 @@ def _collect_evidence(trainer, env, algo, *, elapsed: float, iterations: int) ->
     counters = dict(getattr(sampler, "counters", {}) or {})
     evidence: dict[str, Any] = {
         "iterations_requested": int(iterations),
-        "iterations_executed": int(getattr(trainer, "itr", getattr(trainer, "iteration", 0)) or 0),
+        # NEVER inferred from requested n_itr, tensor norms or a checkpoint's existence
+        "iterations_started": int(getattr(trainer, "started_iterations", 0) or 0),
+        "iterations_completed": int(getattr(trainer, "completed_iterations", 0) or 0),
+        "last_completed_iteration": int(getattr(trainer, "last_completed_iteration", -1)),
         "wall_seconds": _finite(elapsed),
         "sampler_counters": {k: int(v) for k, v in counters.items()},
         "penalty": {
@@ -92,7 +97,8 @@ def _collect_evidence(trainer, env, algo, *, elapsed: float, iterations: int) ->
             evidence["trained_core_norms"] = {
                 "n_tensors": len(core),
                 "total_norm": float(sum(float((v ** 2).sum()) ** 0.5 for v in values)),
-                "all_finite": bool(all(bool((v == v).all()) for v in values)),
+                # np.isfinite detects BOTH NaN and +-inf; `v == v` misses infinity
+                "all_finite": bool(all(bool(np.isfinite(v).all()) for v in values)),
             }
     except Exception as exc:                     # pragma: no cover - evidence only
         evidence["trained_core_norms"] = {"error": str(exc)[:200]}
@@ -203,9 +209,12 @@ def _collect_evidence(trainer, env, algo, *, elapsed: float, iterations: int) ->
 
 def _assert_real_run(evidence: Mapping) -> None:
     """A run that executed nothing, or never measured anything, is a FAILURE."""
-    if int(evidence["iterations_executed"]) < 1:
-        raise V2RunError("no training iteration executed (iterations_executed=%r)"
-                         % evidence["iterations_executed"])
+    if int(evidence["iterations_completed"]) < 1:
+        raise V2RunError(
+            "no outer iteration COMPLETED (started=%r completed=%r last_completed=%r): an "
+            "iteration counts only after its scheduled validation phase"
+            % (evidence["iterations_started"], evidence["iterations_completed"],
+               evidence["last_completed_iteration"]))
     if not evidence["sampler_counters"]:
         raise V2RunError("the sampler reported no counters: no rollout can have happened")
     last = evidence["last_rollout"]
@@ -286,7 +295,13 @@ def main(argv=None) -> int:
             evidence = _collect_evidence(trainer, env, algo, elapsed=elapsed,
                                         iterations=int(args.iterations))
             evidence["checkpoint"] = {"path": ckpt_path, "restored_from": args.resume_from,
-                                      "was_resume": bool(restored)}
+                                      "was_resume": bool(restored),
+                                      "status": ("partial_failed" if failed is not None
+                                                 else "completed_iterations=%d"
+                                                      % evidence["iterations_completed"])}
+            progress = Path(str(getattr(trainer, "auto_run_dir", args.ckpt_dir))) / "v2_progress.json"
+            evidence["progress"] = {"path": str(progress),
+                                    "exists": bool(progress.exists())}
             evidence["config"] = {
                 "seed": int(args.seed), "iterations": int(args.iterations),
                 "background_dags": int(args.background),
