@@ -1,162 +1,183 @@
 {
-  "artifacts": {
-    "V2_BUG_AUDIT.md": "verified code/config artifact",
-    "V2_CRN_EVALUATION.json": "verified code/config artifact",
-    "V2_ENERGY_SPEC.json": "verified code/config artifact",
-    "V2_ENERGY_SPEC.md": "verified code/config artifact",
-    "V2_FINAL_ACCEPTANCE.md": "verified code/config artifact",
-    "V2_FLOW_CONTRACT.md": "verified code/config artifact",
-    "V2_PPO_META_AUDIT.md": "PPO/MRLCO likelihood-ratio and reset contract audit",
-    "V2_REGRESSION_DIAGNOSIS.md": "verified code/config artifact",
-    "V2_RUN_MANIFEST.json": "verified code/config artifact",
-    "V2_STAGE_LOG.md": "verified code/config artifact",
-    "V2_THROUGHPUT.json": "verified code/config artifact"
-  },
-  "blocker": {
-    "condition": "TensorFlow 1.15 with tf.contrib is not installable for this interpreter",
-    "evidence": "python3 -c 'import tensorflow' -> ModuleNotFoundError; the frozen PPO/MRLCO/policy chain imports tf.compat.v1 + tf.contrib",
-    "remaining": "run the TF smoke chain (support -> inner PPO -> query -> outer -> checkpoint save/restore -> resume) and the diagnostic 1x500 training run",
-    "unblocked_work_completed": "all CPU-accessible repairs, tests, gates, parity, CRN R/S loop, benchmark and artifacts"
-  },
-  "commands": {
-    "benchmark": "python3 -m spec.automotive_training.v2.benchmark_v2 --graphs 10 --iters 3 --slots 10",
-    "crn_evaluation": "python3 -m spec.automotive_training.v2.eval_loop --graphs 8 --r 5 --s 5",
-    "diagnostic_training_NOT_STARTED": "1 seed x 500 outer iterations, frozen config, seed and protocol; blocked by the unmet TF gates (PPO/MRLCO, checkpoint/resume) and by the absence of TF/GPU capacity",
-    "geometry_gate": "python3 -m spec.automotive_training.v2.geometry_gate --graphs 20 --search-budget 600",
-    "non_tf_suite": "cd <repo> && python3 -m pytest env/mec_offloaing_envs/scheduler/tests -q -p no:nameko --ignore=env/mec_offloaing_envs/scheduler/tests/test_phase2_encoder_tf.py --ignore=env/mec_offloaing_envs/scheduler/tests/test_phase3_learning_tf.py",
-    "parity_study": "python3 -m spec.automotive_training.v2.parity_study --graphs 12",
-    "tf_smoke_ppo_resume_NOT_RUN": "python3 -m spec.automotive_training.v2.stack  # requires TensorFlow 1.15 with tf.contrib; not installed"
-  },
-  "environment": {
-    "gpu": "none",
-    "meta_test_access_count": 0,
-    "numpy": "2.5.0",
-    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
-    "python": "3.14.0",
-    "tensorflow": "NOT INSTALLED"
-  },
-  "generated_utc": "2026-10-03T19:26:12Z",
-  "hashes": {
-    "benchmark_v2_sha256": "7ba8140931527cb15bc0abbbb31a1ed8e0cd7965ba8bd3f40c4350fca43b6beb",
-    "constraints_v2_sha256": "143a6604b429a4170b18fc9776fe8aa6bd06ab77fca2553a00974798d8c94f18",
-    "context_fields_sha256": "5133b6c213e2bd89f09aed03b8a5db03d41e09ee5b13d435d5223994894c4d52",
-    "crn_evaluation_json_sha256": "6f1eb2addf77320134bb5e4ec40b3f1367db0066e500e65183780e8883df500b",
-    "crn_protocol_id": "automotive_crn_gumbel_v1",
-    "crn_protocol_sha256": "c0290d063d3f43c82d171a2c3e0f82144092061bf43fe6d3305382332888bc5f",
-    "crn_sha256": "f8356d37edfb7f84f1b2e9545d9cd4abea80c345a8080e6d0aa78196eff0d5f4",
-    "energy_model_spec_sha256": "f3b458b921ac3055a79474ab90224287c601dffd71f4ed17d2bc25d22e3def57",
-    "energy_sha256": "05cb0275346f2b960798a6dab8710ddfc3bad254c8cfeb1ce915e3c3fafbd48f",
-    "energy_spec_md_sha256": "7ab5c5c1c1788b4f24dbf07bc99f648284df672a4856da3d8e36a315ec299d68",
-    "env_sha256": "19018e8345a0587a0580d7c0029ada5a9de18274879255b04af47b71acee739b",
-    "eval_loop_sha256": "5955021a476b8b8df2364501e27ae8c93330d00ff7609ecf4a18f8eee945c8ce",
-    "eval_protocol_defaults": {
-      "background_dags": 0,
-      "energy_primary_scope": "system",
-      "greedy_sweeps": 1,
-      "link_regime": "stable",
-      "mec_workers": 1,
-      "protocol_id": "automotive_crn_gumbel_v1",
-      "r_select": 5,
-      "s_select": 5,
-      "tokens": 20
-    },
-    "frozen_config_sha256": "25f4df762ee45dd5f16078bf3beb59323abff0a8f30f23d2ea7b7028d95078c6",
-    "geometry_gate_json_sha256": "82c675642af5b8cabe0df9cc785765cb86d440650b13a58d4d2135610c02e6a5",
-    "geometry_gate_sha256": "35b8d4bde8e914241565b66d4c4e1bb660fc679efe55b77f4a56a81d17c08da8",
-    "link_model_sha256": "6a76ae550828ab2f95fe0c7858eaf0404b252387221937ac2494dd6394f94036",
-    "obs_contract_fields_sha256": "5133b6c213e2bd89f09aed03b8a5db03d41e09ee5b13d435d5223994894c4d52",
-    "obs_schema_sha256": "f5b5828cfa02bb5cefaa4e3bbb489dfea84af1bf4b32f975bd47474b53c126c8",
-    "obs_version": "automotive_v2_obs_v1",
-    "observation_sha256": "2ce645004f27c095c033c5a806b2f5f87435b5ce8ccdfe7317262806b5ae182f",
-    "parity_json_sha256": "5c6af1cd54b163b0704c418b00d757cc7175bd0e85097347183022cfba460d3f",
-    "parity_study_sha256": "ec94fa163ffe6be286e5636faaf8d4860b96cd17313453bfd38c753e0761eee9",
-    "ppo_contract_test_sha256": "19eec8d9ade1fd4979bec626a7ddbc7f6f8e153f09276c473aa64590e485f21f",
-    "reliability_sha256": "0f822848a700ade83cce4dfb2f63ca274da34d7dad799867cedf6ca8c00b2a25",
-    "shared_scheduler_sha256": "b147f76d75270043309374ecabe90b074d923e6417263d0c6058ef89058d9671",
-    "throughput_json_sha256": "8effc4f2c0cc302e8e2d751f66bfc7ed1a9c5a1386d8b9946b0d25eb496bb57f",
-    "v2_context_dim": 30,
-    "v2_feature_dim": 70,
-    "v2_packed_dim": 109,
-    "v2_stats_sha256": "786e428f24af20d2df58145394e39530d39edb3ea41dad9beb75974fa1b4c3b0",
-    "world_config_default_sha256": "4ff11500feb091e43acebd51ff24d07291c7cb422925c7135596c6b379044fe3",
-    "world_sha256": "5b8e18b3cf48670ae6e2f5316a2733323598f9c2ffbab3659475f972db83dc8a"
-  },
-  "limitations": [
-    "TF encoder consumption of the 109-wide schema and any gradient check through the context columns are NOT RUN",
-    "PPO/MRLCO EXECUTION for v2, checkpoint save/restore and the end-to-end smoke are NOT RUN (numpy contract and source guards only)",
-    "the CRN R/S loop executes with a numpy reference policy, not the trained TF policy",
-    "the frozen chain requires TensorFlow 1.15 with tf.contrib, unavailable for this interpreter (Python 3.14 / Apple Silicon)",
-    "estimate age is 0 at plan time under every shipped regime (the estimator refreshes each decision epoch)",
-    "kappa_helper/kappa_mec and the TX powers cite a 2023 source that could not be re-verified; flagged unverified in V2_ENERGY_SPEC",
-    "no accessible 2024-2026 primary source gives a helper/V2V relay energy equation: transparent assumption",
-    "reliability is a surrogate, not a calibrated chance constraint; no empirical 1e-5 assurance claimed",
-    "warm standby is not priced in joules; checkpointing is explicitly unsupported",
-    "the gate's stronger_search result is a candidate-search lower bound, never an oracle",
-    "the pure all-HELPER baseline never wins; the helper benefit is established only for MIXED plans"
-  ],
+  "schema": "v2_run_manifest_v2",
+  "generated_utc": "2026-10-04T20:10:00Z",
+  "branch": "phase5-realistic-system-v2",
+  "base_head": "0f9cb096b76a84d3c7b260d539b4e2ad15dceac6",
+  "repair_commit": "48a4367",
+  "repair_commit_subject": "fix(v2): iteration accounting, resume ledger, energy scope and the run guard",
   "repository": {
-    "audit_baseline": "d0af6f1bb7b1309f20fed66d33450ff67fda3f25",
-    "branch": "phase5-realistic-system-v2",
-    "code_commit": "9e9e216faf45d3be18309576a5ccdc1da05a0d45",
-    "code_commit_subject": "test(v2): PPO/MRLCO likelihood-ratio and reset contract audit",
-    "commit_chain": {
-      "1226612": "executed R/S CRN evaluation loop + step-cost fix + regenerated artifacts",
-      "65e1a5f": "helper test + single-reservation booking + contact/fallback semantics",
-      "9e9e216faf45d3be18309576a5ccdc1da05a0d45": "PPO/MRLCO likelihood-ratio and reset contract audit",
-      "a39f070": "complete decision-time observation contract + slot identity fix",
-      "a8fd86a": "canonical-builder gate/parity + future-blindness + CPU benchmark + artifacts",
-      "d55d5bc": "constraint integration tests (reward penalty, signed duals, fail-fast)",
-      "ff3997e": "real event-based energy + budget/dual constraints + canonical world builder"
-    },
-    "docs_commit": "this manifest-only commit (no code change)",
-    "frozen_v1_additive_note": "automotive_primary.py carries an additive default-off env_factory hook (commit 65de171); the v1 path with env_factory=None is unchanged; encoder_obs.py now DERIVES its v2 feature names from spec/.../context_fields.py instead of duplicating them",
-    "frozen_v1_diff_engine_and_env": "EMPTY",
-    "remote_authorized": "erfan https://github.com/ErfanMohammdpour/mrlco-new.git",
-    "reported_entry_point": "c6ad98a",
-    "v1_freeze": "92212d1d"
+    "server_git_repo": "/root/v2-verify",
+    "server_deployed_tree": "/root/v2-final",
+    "note": "/root/v2-repair is NOT a git repository; it is a plain working directory mounted read-write into containers. /root/v2-baseline is a git worktree detached at c6ad98a."
   },
-  "schema": "v2_run_manifest_v1",
-  "seeds": {
-    "background_seed_rule": "sha256(world_id|bg|index)[:12] mod 2**31-1",
-    "crn_r_axis": "seed_pair(protocol,r,0,graph_id)",
-    "crn_s_axis": "gumbel_noise(protocol,r,s,graph_id)",
-    "gate_seed": 0,
-    "helper_seed_rule": "base_seed*7919 + episode*31 + flat_slot",
-    "identity_rule": "flat slot position, never dataset graph index or a task id",
-    "link_process_seed_rule": "base_seed*1000003 + episode",
-    "parity_env_seed": 303,
-    "validation_env_base_seed": 303
+  "artifacts": {
+    "V2_ACCEPTANCE_MATRIX.md": "criteria, code path, command, raw evidence, result, limitation",
+    "V2_BUG_AUDIT.md": "every finding with reproduction, status and test evidence (round 2 appended)",
+    "V2_SERVER_VERIFICATION.md": "host, images, repository topology, resolved contradictions, executed GPU evidence",
+    "V2_RUN_MANIFEST.json": "this file",
+    "V2_CRN_EVALUATION.json": "R/S CRN evaluation (declared numpy reference policy)",
+    "V2_ENERGY_SPEC.json": "energy model, units, scopes and coefficient provenance",
+    "V2_ENERGY_SPEC.md": "energy model narrative",
+    "ENERGY_LITERATURE_REVIEW.md": "primary-source comparison table and modelling boundaries",
+    "V2_FLOW_CONTRACT.md": "world/meta-task/observation/action/result/reset semantics",
+    "V2_PPO_META_AUDIT.md": "PPO/MRLCO likelihood-ratio and reset contract audit",
+    "V2_TF_INTEGRATION_REPORT.md": "TensorFlow integration evidence",
+    "V2_TF_RESUME_REPORT.md": "resume state bundle and its verification status",
+    "V2_FINAL_TEST_PLAN.md": "commands and environments for every suite",
+    "GEOMETRY_GATE.json": "geometry gate on the canonical builder",
+    "OBS_SCHEMA_V2.json": "observation schema contract"
   },
-  "test_status": {
-    "crn_r_s_loop": {
-      "engine": "numpy reference policy (declared substitution)",
-      "note": "the trained TF policy path is NOT RUN",
-      "status": "EXECUTED"
+  "images": {
+    "gpu_compatible_candidate": {
+      "tag": "margo-phase4-tf115-nv2212:latest",
+      "image_id": "sha256:82bc781bc2888a171379e1b45da6846c559ef712e33a76f74948b1cd7172dc46",
+      "python": "3.8.10",
+      "tensorflow": "1.15.5",
+      "tf_contrib": "present",
+      "cuda": "11.8",
+      "used_for": "every GPU run in this round"
     },
-    "gpu": {
-      "reason": "no GPU execution capacity allocated",
-      "status": "NOT RUN"
-    },
-    "non_tf": {
-      "failed": 0,
-      "passed": 1362,
-      "skip_reason": "all 19 skips require TensorFlow",
-      "skipped": 19
-    },
-    "ppo_meta_contract": {
-      "artifact": "V2_PPO_META_AUDIT.md",
-      "executed": "numpy likelihood-ratio contract (8 tests) in test_v2_ppo_contract.py",
-      "not_run": "any execution of the TF 1.15 graph, support/query independence, update magnitudes, checkpoint contents, resume",
-      "reviewed_static": "ratio built from stored actions; per-task inner-optimizer reset; per-iteration core sync; first-order mean_pseudogradient with no tf.gradients",
-      "status": "PARTIAL"
-    },
-    "tf": {
-      "reason": "TensorFlow is not installed",
-      "status": "NOT RUN"
-    },
-    "training": {
-      "reason": "correctness gates unmet + no TF/GPU capacity",
-      "status": "NOT STARTED"
+    "earlier_failing": {
+      "tag": "margo-phase4-tf115-gpu:latest",
+      "image_id": "sha256:af7550b0d2ccfcf4a6fc135693ab6e17a41cd05e5b39dc488a4f8ba2b4cc4a40",
+      "python": "3.7.5",
+      "tensorflow": "1.15.5",
+      "used_for": "the CPU gate2 run"
     }
-  }
+  },
+  "host": {
+    "name": "aizarepor",
+    "ssh_alias": "kish-ai",
+    "cpus": 32,
+    "gpu": "1x NVIDIA GeForce RTX 4090, 24564 MiB",
+    "coresident_vllm_mib": 21508,
+    "protected_services_untouched": ["vLLM (VLLM::EngineCore)", "qdrant"]
+  },
+  "resolved_gpu_run_configuration": {
+    "device": "gpu",
+    "gpu_fraction": 0.03,
+    "intra_op": 8,
+    "inter_op": 2,
+    "seed": 0,
+    "background_dags": 2,
+    "background_policy": "all_mec",
+    "link_regime": "moderate",
+    "mec_workers": 1,
+    "energy_budget_fraction": 0.5,
+    "ue_budget_fraction": 1.0,
+    "r_select": 2,
+    "s_select": 2,
+    "reward_mode": "latency_only",
+    "constraints": true,
+    "meta_batch_size": 10,
+    "support_trajectories": 20,
+    "query_trajectories": 20,
+    "k_steps": 3,
+    "inner_learning_rate": 0.0005,
+    "outer_learning_rate": 0.0005,
+    "dual_lr": 0.05,
+    "max_lambda": 1000.0,
+    "outer_update_method": "mrlco_first_order_meta",
+    "validation_interval": 50,
+    "obs_version": "automotive_v2_obs_v1",
+    "protocol_id": "automotive_crn_gumbel_v1",
+    "split_version": "MARGO-SPLIT-v1",
+    "dataset": "MARGO-AUTOMOTIVE-MC-v1"
+  },
+  "command_forms": {
+    "gpu_acceptance": "docker run --rm --name v2gatefinal --gpus all -v /root/v2-final:/work -v <out>:/out -w /work margo-phase4-tf115-nv2212:latest python -m spec.automotive_training.v2.run_tf --device gpu --gpu-fraction 0.03 --intra-op 8 --inter-op 2 --iterations 2 --seed 0 --background 2 --link-regime moderate --energy-budget-fraction 0.5 --ue-budget-fraction 1.0 --r-select 2 --s-select 2 --ckpt-dir /out/ckpt --json /out/run.json",
+    "final_500": "bash /root/v2-runs/final500_seed0_20261005T0200/run.sh",
+    "non_tf_suite": "python3 -m pytest env/mec_offloaing_envs/scheduler/tests -q -p no:nameko --ignore=env/mec_offloaing_envs/scheduler/tests/test_phase2_encoder_tf.py --ignore=env/mec_offloaing_envs/scheduler/tests/test_phase3_learning_tf.py"
+  },
+  "runs": {
+    "historical_gpu3": {
+      "path": "/root/v2-runs/gpu3_20261004T185340",
+      "verdict": "FAILED in the reporting phase (KeyError: iterations_executed) after 2 iterations were started and 1 was counted; ok=true with a traceback; resource and energy evidence valid",
+      "preserved": true
+    },
+    "historical_cpu_gate2": {
+      "path": "/root/v2-runs/gate2_20261004T103331",
+      "verdict": "FAILED in the reporting phase (KeyError: iterations_executed); training completed with outer_update_count=2",
+      "preserved": true
+    },
+    "acceptance_run_gpu_final": {
+      "path": "/root/v2-runs/gate_final_20261005T0015",
+      "container": "v2gatefinal",
+      "source": "/root/v2-final @ 48a4367",
+      "target_iterations": 2,
+      "verdict": "see V2_SERVER_VERIFICATION.md and V2_ACCEPTANCE_MATRIX.md",
+      "artifacts": {
+        "log": "logs/stdout.log",
+        "report": "run.json",
+        "progress": "v2_progress.json",
+        "phase_timings": "v2_phase_timings.jsonl",
+        "checkpoint_dir": "ckpt/"
+      }
+    },
+    "final_500_seed0": {
+      "path": "/root/v2-runs/final500_seed0_20261005T0200",
+      "container": "v2final500",
+      "launcher": "run.sh",
+      "source_revision_file": "SOURCE_REVISION.txt",
+      "source": "/root/v2-final @ 48a4367",
+      "image": "margo-phase4-tf115-nv2212:latest @ sha256:82bc781bc288...",
+      "seed": 0,
+      "target_iterations": 500,
+      "iterations_semantics": "TOTAL completed outer iterations, not an additional count",
+      "background_dags": 2,
+      "link_regime": "moderate",
+      "background_policy": "all_mec",
+      "r_select": 2,
+      "s_select": 2,
+      "validation_interval": 50,
+      "validation_iterations": [0, 50, 100, 150, 200, 250, 300, 350, 400, 450],
+      "artifacts": {
+        "log": "logs/stdout.log",
+        "report": "run.json",
+        "progress": "v2_progress.json",
+        "phase_timings": "v2_phase_timings.jsonl",
+        "resume_state": "ckpt/v2_resume_state.json",
+        "checkpoint_dir": "ckpt/"
+      },
+      "status": "PREPARED_NOT_YET_LAUNCHED",
+      "monitor": "ssh kish-ai 'tail -f /root/v2-runs/final500_seed0_20261005T0200/logs/stdout.log'",
+      "resume_command": "docker run --rm --name v2final500r --gpus all -v /root/v2-final:/work -v /root/v2-runs/final500_seed0_20261005T0200:/out -w /work margo-phase4-tf115-nv2212:latest python -m spec.automotive_training.v2.run_tf --device gpu --gpu-fraction 0.03 --intra-op 8 --inter-op 2 --iterations 500 --seed 0 --background 2 --link-regime moderate --background-policy all_mec --energy-budget-fraction 0.5 --ue-budget-fraction 1.0 --r-select 2 --s-select 2 --resume-from /out/ckpt/v2_run.ckpt --ckpt-dir /out/ckpt --json /out/run.json"
+    }
+  },
+  "declared_configuration_change": {
+    "what": "the total-energy constraint measurement attribution and its budget/scale anchor",
+    "before": {
+      "measurement": "whole-world system energy (foreground + background DAGs of other owners)",
+      "anchor": "refs.E_ue (pure all-UE plan, foreground-only, background-free)",
+      "consequence": "structurally infeasible with background DAGs; measured M/B = 274.2, normalized violation ~137, penalty ~1.9e3/episode"
+    },
+    "after": {
+      "measurement": "foreground-only system energy (dag_filter=[world.foreground_id])",
+      "anchor": "refs.E_mec (pure all-MEC plan system energy on the same world)",
+      "fraction_semantics": "--energy-budget-fraction is now a fraction of E_mec"
+    },
+    "justification": "the previous formulation compared a whole-world measurement against a foreground-only reference and was unsatisfiable by construction; lambda could only pin. No validation or meta-test data was used to choose the new configuration."
+  },
+  "acceptance_evidence": {
+    "non_tf_suite": {
+      "command": "python3 -m pytest env/mec_offloaing_envs/scheduler/tests -q -p no:nameko --ignore=<tf tests>",
+      "result": "1389 passed, 19 skipped, 0 failed"
+    },
+    "new_regression_suite": {
+      "path": "env/mec_offloaing_envs/scheduler/tests/test_v2_iteration_accounting.py",
+      "result_on_previous_code": "7 failed, 8 passed",
+      "result_on_repaired_code": "15 passed"
+    },
+    "energy_scope_tests": {
+      "path": "env/mec_offloaing_envs/scheduler/tests/test_v2_constraints.py::TestTotalEnergyScopeConsistency",
+      "result": "2 passed"
+    }
+  },
+  "outstanding": [
+    "fresh-process TensorFlow resume equivalence comparison (NOT RUN)",
+    "candidate-feasibility sweep over the corrected energy formulation on training/validation fixtures (NOT RUN)",
+    "end-to-end in-repo test of the v2 deepcopy-clone lambda broadcast through the trainer (covered by an out-of-repo probe and by field evidence)",
+    "the energy budget fraction remains a declared engineering setting, not a calibrated constant",
+    "the constraints measure the foreground ledger by design, so the background owners' energy is not priced by the constraint"
+  ]
 }

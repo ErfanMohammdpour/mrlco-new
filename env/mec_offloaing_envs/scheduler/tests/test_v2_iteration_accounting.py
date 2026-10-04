@@ -172,6 +172,34 @@ class IterationAccountingTests(unittest.TestCase):
                          "the outer update was counted without the phase running")
         self.assertEqual(h.completed_iterations, 1)
 
+    def test_the_ledger_survives_a_failing_rich_progress_record(self):
+        """Field defect: a failure building the rich record lost the completion boundary.
+
+        The run's own `v2_phase_timings.jsonl` was created but never written, because
+        `_write_progress` raised BEFORE the append ran and the exception escaped
+        `_iteration_completed`. The counters must survive any single failing observability
+        path: the degraded record is written and the phase-timing append still happens.
+        """
+        class _Boom:
+            def world_realization_key(self):
+                raise RuntimeError("simulated telemetry failure")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            h = _make_harness()
+            h.auto_run_dir = Path(tmp)
+            h.auto_env = _Boom()          # makes building the rich record raise
+            _run_iteration(h, 0, PHASES_WITH_VALIDATION)
+            progress = Path(tmp) / "v2_progress.json"
+            self.assertTrue(progress.exists(),
+                            "the completion ledger was lost because a richer field failed")
+            rec = json.loads(progress.read_text())
+            self.assertTrue(rec.get("degraded"))
+            self.assertEqual(rec["completed_iterations"], 1)
+            self.assertEqual(rec["next_iteration"], 1)
+            # the phase-timing path must still have run
+            self.assertTrue((Path(tmp) / "v2_phase_timings.jsonl").exists())
+            self.assertTrue(getattr(h, "auto_progress_error", None))
+
     def test_progress_file_is_atomic_and_carries_the_ledger(self):
         with tempfile.TemporaryDirectory() as tmp:
             h = _make_harness()

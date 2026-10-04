@@ -280,8 +280,17 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
             self.last_completed_iteration = int(itr)
             self.completed_iterations = int(self.last_completed_iteration) + 1
             self.next_iteration = int(self.last_completed_iteration) + 1
-            self._write_progress()
+            # The ledger is updated BEFORE any observability write, and each write is
+            # isolated: a defect in one reporting path must never lose the completion
+            # boundary or abort the loop. (Observed in the field: `_write_progress` failed,
+            # which also silently prevented the phase-timing append from ever running.)
             self._append_phase_timings(int(itr))
+            self._write_progress()
+            if getattr(self, "auto_progress_error", None) or \
+                    getattr(self, "auto_phase_timing_error", None):
+                print("WARNING v2 progress telemetry failed: progress=%r phase_timings=%r"
+                      % (getattr(self, "auto_progress_error", None),
+                         getattr(self, "auto_phase_timing_error", None)))
 
         def _phase_jsonl_path(self):
             run_dir = getattr(self, "auto_run_dir", None)
@@ -320,13 +329,19 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
             return _Path(str(run_dir)) / "v2_progress.json"
 
         def _write_progress(self):
-            """Atomic per-iteration telemetry: a final-only summary is not progress."""
-            path = self._progress_path()
-            if path is None:
-                return
-            manager = getattr(self, "auto_v2_constraint_manager", None)
-            env = getattr(self, "auto_env", None)
+            """Atomic per-iteration telemetry: a final-only summary is not progress.
+
+            The whole body is inside the `try`, including the path resolution: a failure while
+            BUILDING the record must not escape into `_iteration_completed` and be mistaken for
+            a failed iteration. Failures are recorded on the trainer and printed by
+            `_iteration_completed`, so they are visible instead of silent.
+            """
             try:
+                path = self._progress_path()
+                if path is None:
+                    return
+                manager = getattr(self, "auto_v2_constraint_manager", None)
+                env = getattr(self, "auto_env", None)
                 record = {
                     "schema": "v2_progress_v1",
                     "started_iterations": int(getattr(self, "started_iterations", 0)),
@@ -376,6 +391,34 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                 os.replace(str(tmp), str(path))
             except Exception as exc:                # progress must never mask training
                 self.auto_progress_error = "%s: %s" % (type(exc).__name__, exc)
+                # LAST RESORT: the completion ledger itself must not be lost because some
+                # richer field could not be built. Write the counters alone, which depend on
+                # nothing but the trainer's own attributes.
+                try:
+                    minimal = {
+                        "schema": "v2_progress_v1",
+                        "degraded": True,
+                        "error": self.auto_progress_error,
+                        "started_iterations": int(getattr(self, "started_iterations", 0)),
+                        "completed_iterations": int(getattr(self, "completed_iterations", 0)),
+                        "last_completed_iteration": int(
+                            getattr(self, "last_completed_iteration", -1)),
+                        "next_iteration": int(getattr(self, "next_iteration", 0)),
+                        "outer_updates_completed": int(
+                            getattr(self, "outer_updates_completed", 0)),
+                        "dual_updates_completed": int(
+                            getattr(self, "dual_updates_completed", 0)),
+                        "validations_completed": int(
+                            getattr(self, "validations_completed", 0)),
+                        "updated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    }
+                    fallback = self._progress_path()
+                    if fallback is not None:
+                        fb_tmp = fallback.with_suffix(".tmp")
+                        fb_tmp.write_text(json.dumps(minimal, sort_keys=True))
+                        os.replace(str(fb_tmp), str(fallback))
+                except Exception:                   # nothing further can be done
+                    pass
 
         def constraint_observer(self, samples_data=None, task_specs=None, paths=None) -> dict:
             manager = getattr(self, "auto_v2_constraint_manager", None)

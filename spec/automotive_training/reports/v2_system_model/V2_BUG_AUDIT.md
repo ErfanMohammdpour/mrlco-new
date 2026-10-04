@@ -104,3 +104,160 @@ fixture's premise (helper CPU advantage wins) is wrong and must be re-derived ag
 scheduler rather than relaxed, or (b) the booking fixed point introduced a real regression.
 Not diagnosed yet; no threshold was changed. This must be settled before any geometry/energy
 gate is regenerated, because helper usefulness is one of the gate criteria.
+
+---
+
+# Round 2 findings (this repair round)
+
+Base at the start of the round: `0f9cb096`. Findings below were reproduced against **preserved
+run artifacts** on the server, not against fixtures alone. Repairs and their regression tests are
+in commit `48a4367`.
+
+> The earlier entries in this file are **superseded** where they describe energy, the λ penalty
+> or the observation contract as unimplemented. Those features do exist in the tree; the defects
+> recorded below are in how they were measured and counted.
+
+## R2-1 — the runner could not report a finished run (`KeyError: 'iterations_executed'`)
+
+* **Status:** reproduced in TWO independent runs, then **FIXED**.
+* **Where:** `spec/automotive_training/v2/run_tf.py::main`, terminal summary.
+* **Symptom:** training completes, a valid checkpoint is written, and the process then dies with
+  `KeyError: 'iterations_executed'` while `run.json` still claims `ok: true` and `error: null`.
+* **Reproduced:**
+  * CPU gate `gate2_20261004T103331` → traceback at `run_tf.py:355` (image Python 3.7.5);
+  * GPU run `gpu3_20261004T185340` → traceback at `run_tf.py:365` (Python 3.8.10),
+    `iterations_completed = 1`, `ok = True`, `error = None`.
+  * The CPU/GPU line-number difference is the same defect at two revisions of the file.
+* **Root cause:** the summary reads `evidence["iterations_executed"]`, which
+  `_collect_evidence` has never produced. `report["ok"]` is computed from `trainer.train()`
+  alone and written **before** `_assert_real_run`, so the JSON asserts success that the
+  assertions never confirmed.
+* **Fix:** the key exists (as an explicit alias of `iterations_completed`), the summary reads
+  only contracted keys, and `_assert_real_run` runs before any success exit.
+* **Test:** `test_v2_iteration_accounting.py::ReportContractTests` (4 tests).
+
+## R2-2 — completion was counted on phase ENTRY, and unvalidated iterations were invisible
+
+* **Status:** reproduced in `gpu3` (`started=2`, `completed=1` for two real iterations),
+  **FIXED**.
+* **Where:** `spec/automotive_training/v2/stack.py::AutomotiveV2Trainer._audit`.
+* **Root cause:** `completed_iterations = itr + 1` was assigned when the `validation` audit
+  fired. Validation is neither the end of the iteration nor scheduled for every iteration
+  (`validation_interval = 50`), so a crash after validation over-counts and every `itr % 50 != 0`
+  iteration under-counts.
+* **Fix:** an explicit end-of-iteration boundary, `Trainer._iteration_completed(itr)`, called as
+  the loop's last statement (a **no-op** default, so v1 is unchanged), with separate persistent
+  counters for started / completed / next / outer updates / dual updates / validations.
+  `--iterations` is now the TOTAL target and a resume restores `next_iteration`, so completed
+  work is never repeated.
+* **Test:** `test_v2_iteration_accounting.py` — 15 tests, of which **7 fail against the previous
+  code**.
+
+## R2-3 — the total-energy constraint measured a different world than its own reference
+
+* **Status:** reproduced from preserved run evidence, **FIXED** (the headline defect of the round).
+* **Where:** measurement in `spec/automotive_training/v2/env.py::step`; anchor in
+  `env/mec_offloaing_envs/scheduler/constraints.py::budgets_and_scales`.
+* **Root cause (two independent faults):**
+  1. `total_energy_j` was measured on the **whole-world** ledger (foreground + background DAGs of
+     other owners sharing the same MEC/radio), while the budget and scale were anchored on
+     `refs.E_ue`, the **foreground-only, background-free** all-UE plan energy
+     (`pure_location_worlds` pins `background_dags=0`). The background was ~99 % of the
+     measurement and approximately plan-independent, so the constraint was **structurally
+     infeasible** — the floor violation exceeded +1.4 regardless of the policy.
+  2. Anchoring a system budget on `E_ue` is additionally unsatisfiable for any fraction `< 1.0`
+     even with `background_dags = 0`, because the all-UE plan is the *global minimum* of the
+     system-boundary measurement (verified by a 403-plan sweep: zero plans below it).
+* **Reconstruction from the preserved GPU evidence** (`g = (M − 0.5·E_ue)/E_ue`):
+  `M = 38.3209 J`, `g = 136.6042` ⇒ `E_ue = 0.2795 J`, `B = 0.1398 J`, **`M/B = 274.2`**.
+  With `dual_lr = 0.05` this also explains the earlier CPU run's `penalty = 938`
+  (`λ = 0.05 × 132.4 ≈ 7.08`; `7.08 × 132.4 ≈ 938`), which the second audit independently
+  reproduced from the published λ values.
+* **Reported "≈139 normalized violation" verdict:** a **scope/attribution artifact**, not a
+  measured 139-fold violation. The global-infeasibility inference drawn from it was therefore
+  unjustified. The budget was **not** loosened to manufacture a pass; the measurement and the
+  reference were brought into the same scope.
+* **Fix:** evaluate the constraints on the **foreground-only** ledger
+  (`dag_filter=[world.foreground_id]`), so measurement, budget and scale describe the same DAG
+  set and boundary; anchor the total-energy budget and scale on `refs.E_mec`, the pure all-MEC
+  plan's system energy on the same world; mirror the same anchor in the observed
+  `budget_ratio`.
+* **Disclosed change:** `--energy-budget-fraction 0.5` keeps its value but now means
+  `0.5 × E_mec` rather than `0.5 × E_ue`. The prior formulation was unsatisfiable by
+  construction, so this is a correction, not a relaxation; the fraction remains a declared
+  engineering setting.
+* **Test:** `test_v2_constraints.py::TestTotalEnergyScopeConsistency` (asserts the scale is
+  `E_mec` and not `E_ue`, the budget is `0.5·E_mec`, and `|g| < 10`).
+* **Two tests encoded the old anchor** and could no longer bind under the corrected formulation
+  (the all-MEC plan is exactly `E_mec`); they were updated to a genuinely binding fraction with
+  the reason recorded in the test body, not weakened.
+
+## R2-4 — the run guard accepted a run whose Lagrangian loop never closed
+
+* **Status:** **FIXED**.
+* **Where:** `spec/automotive_training/v2/run_tf.py::_assert_real_run`.
+* **Root cause:** it asserted only iterations, sampler counters, finite makespan and
+  `system_joules > 0`. A run with λ ≡ 0, zero broadcast targets and zero observed signed rows
+  would still print `REAL TF RUN OK` and could be promoted as a constrained-RL result.
+* **Fix:** require `constraints.updates >= 1`, `penalty.signed_rows_observed >= 1`,
+  `lambda_broadcast.targets >= 1`, and at least one penalised episode once two iterations have
+  completed.
+* **Test:** `test_assert_real_run_*` in `test_v2_iteration_accounting.py`.
+
+## R2-5 — the `constraints` audit phase is dead on the v2 path
+
+* **Status:** identified by an independent audit, **FIXED**.
+* **Where:** `meta_trainer.py` (`last_costs = getattr(self.env, "last_constraint_costs")`).
+* **Root cause:** the rollouts execute on `copy.deepcopy(env)` clones, so the trainer's original
+  env is never stepped and its `last_constraint_costs` stays an empty, inactive batch. The phase
+  never fired: `dual_updates_completed` stayed 0 while `manager.controller.updates` was > 0 in
+  the same record (a self-contradictory ledger that would also restore a wrong counter), and the
+  CSV never received the raw/budget/signed/violation channels.
+* **Fix:** `AutomotiveV2Trainer.constraint_observer` — which holds the real telemetry rows —
+  records the phase with its own payload.
+
+## R2-6 — `steps_with_penalty` counted outer iterations, not steps
+
+* **Status:** identified by an independent audit, **labelled CORRECTLY**.
+* **Where:** `spec/automotive_training/v2/stack.py::constraint_observer`.
+* **Root cause:** the counter increments once per iteration when any episode carried a nonzero
+  penalty. The v1 report writes the same counter as
+  `iteration_with_nonzero_penalty`, confirming the intended semantics and the mislabel.
+* **Fix:** the definition is documented at the assignment and the value is also exposed as
+  `iterations_with_nonzero_penalty`; the legacy key is retained for continuity. `episodes` is
+  documented as counting **query-rollout** episodes only (the observer sees `new_paths`), and
+  `penalty_sum` as a running sum, not a mean.
+
+## R2-7 — `--iterations` was an additional count, so a resume would repeat all completed work
+
+* **Status:** **FIXED**.
+* **Where:** `spec/automotive_training/v2/run_tf.py`, `stack.py`.
+* **Root cause:** `start_itr` was hard-wired to 0 and no resume bundle existed, so restoring a
+  checkpoint at iteration N and re-launching with `--iterations 500` would re-execute 0..N and
+  stop at 500 rather than finishing the remaining work.
+* **Fix:** a versioned, atomically written `v2_resume_state.json` alongside the TensorFlow
+  checkpoint (iteration ledger, duals, sampler counters, observation/split/config fingerprints,
+  `best_val_objective`), restored **before the first reset**, with incompatible checkpoints
+  rejected; `--iterations` is the total target and `start_itr = next_iteration`.
+* **Test:** `ResumeSemanticsTests` + `ResumeBundleTests` in `test_v2_iteration_accounting.py`.
+* **Remaining gap:** the Python-side bundle is tested; the **fresh-process TensorFlow**
+  comparison is **NOT RUN** (see the acceptance matrix limitation 1).
+
+## R2-8 — non-defects confirmed by audit (do NOT "fix" these)
+
+* the penalty is applied **exactly once**, on the terminal token;
+* the dual uses the **signed** cost and can therefore decrease;
+* the λ broadcast **does** reach the deepcopy clones (11 targets = 1 original + 10 clones);
+* the loop's order of operations has **no off-by-one**: iteration N's rollouts use the λ
+  broadcast at the end of N−1, and iteration 0 correctly runs at λ = 0;
+* validation does **not** update the training duals (its envs are built without constraints);
+* `reset_batch` touches only the episode buffer, never the multipliers or the counters.
+
+## R2-9 — latent issues observed, not on the launched path
+
+* `background_policy="all_ue"` raises `IndexError` in `shared_scheduler`
+  (`compute.ue_cpu_bytes_per_s[dag.owner]`); the launched configuration uses `all_mec`.
+* A hop priced to zero appends a `ledger.warnings` entry that the production telemetry path
+  drops, so a silent zero is possible without being flagged in the run output.
+* `energy_enabled=False` yields `system_joules = 0.0` with no "unmeasured" tag, and with
+  constraints enabled would raise a bare `AttributeError`.

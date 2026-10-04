@@ -538,6 +538,13 @@ class Trainer(object):
             logger.log("Optimizing policy...")
             adapted = self._task_vars() if self.audit_writer is not None else None
             self.algo.UpdateMetaPolicy()
+            # THE OUTER UPDATE IS UNCONDITIONAL. Gating this audit call on `audit_writer`
+            # meant the real MRLCO parameter displacement was invisible whenever no audit
+            # writer was attached (the v2 production runner), so the outer-update counter
+            # read 0 for a run that had performed the update. `_audit` is a documented no-op
+            # when there is no writer, so firing it unconditionally changes no v1 behaviour.
+            if self.audit_writer is None:
+                self._audit(itr, "outer_update", None)
             if self.audit_writer is not None:
                 theta1 = self._core_vars()
                 self._audit(itr, "outer_update", {
