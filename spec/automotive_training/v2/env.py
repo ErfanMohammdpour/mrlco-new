@@ -808,7 +808,7 @@ class V2AutomotiveEnv:
                 raise V2EnvError(
                     "cannot produce the trainer constraint channels for slot %s: %s"
                     % (slot, exc)) from exc
-        return {
+        out = {
             "schema_version": TELEMETRY_SCHEMA_VERSION,
             "requester_joules": float(telemetry.requester_joules),
             "mobile_joules": float(telemetry.mobile_joules),
@@ -834,6 +834,29 @@ class V2AutomotiveEnv:
             **channel_keys,
             "v2": v2,
         }
+        # FLATTEN the per-constraint measurements to TOP-LEVEL `constraint_*` numbers.
+        #
+        # They were only inside the nested `constraints` mapping, and the trainer's
+        # aggregation deliberately copies only top-level numeric keys with that prefix
+        # (`validate_energy_telemetry`), so M_i, B_i, S_i, g_i, the positive violation and the
+        # lambda ACTIVE DURING THIS ROLLOUT never reached the log. A finished run could not
+        # audit its own constraint, which is exactly the gap that let the earlier
+        # scope-mismatched energy violation ship: the only visible number was the applied
+        # penalty. `foreground_system_joules` is emitted too, because the total-energy
+        # constraint is measured on that boundary while `energy/system_joules` is whole-world.
+        flattened: dict = {}
+        for name in (constraint.get("names") or []):
+            prefix = "constraint_%s_" % name
+            for suffix in ("raw", "budget", "scale", "signed", "violation", "lambda"):
+                value = constraint.get("%s_%s" % (name, suffix))
+                if isinstance(value, (int, float)):
+                    flattened["%s%s" % (prefix, suffix)] = float(value)
+        for key in ("total_violation", "penalty_applied", "updates", "enabled"):
+            value = constraint.get(key)
+            if isinstance(value, (int, float, bool)):
+                flattened["constraint_%s" % key] = float(value)
+        out.update(flattened)
+        return out
 
     def helper_busy_fraction(self, slot: int) -> float:
         """Committed helper busy time as a FRACTION of its predicted contact window.
