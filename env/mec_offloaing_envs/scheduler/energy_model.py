@@ -36,6 +36,17 @@ from typing import Any
 
 from .validate import require_finite, require_nonneg_float, require_positive_rate
 
+
+from functools import lru_cache as _lru_cache  # noqa: E402
+
+
+@_lru_cache(maxsize=16)
+def _frozen_yaml_document(path: str):
+    """Parse a frozen-spec yaml ONCE per path (read-only shared mapping)."""
+    import yaml
+
+    return yaml.safe_load(Path(path).read_text())
+
 MODEL_LEGACY = "legacy"
 MODEL_PHYSICAL = "physical_v1"
 ENERGY_MODELS = (MODEL_LEGACY, MODEL_PHYSICAL)
@@ -208,7 +219,12 @@ class EnergyModelSpec:
 
         if path is None:
             path = Path(__file__).resolve().parents[3] / "spec" / "frozen_experiment.yaml"
-        doc = yaml.safe_load(Path(path).read_text()) or {}
+        # The frozen spec is immutable for the process, but this was re-parsed on EVERY
+        # call: after the sibling cache in `automotive_resources`, profiling one v2
+        # `env.reset()` showed 180 remaining `yaml.safe_load` calls costing 6.6 s of 8.5 s
+        # (78 %), all from here via `frozen_energy_spec`. Memoise the PARSE, then build a
+        # fresh spec object so callers never share mutable state.
+        doc = _frozen_yaml_document(str(Path(path))) or {}
         spec = cls.from_dict(doc.get("energy_model"))
         validate_frozen_energy_scope(doc, spec)
         return spec

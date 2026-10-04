@@ -25,6 +25,7 @@ available under an explicit name for reproduction/control only.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -33,6 +34,25 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FROZEN_YAML = REPO_ROOT / "spec" / "frozen_experiment.yaml"
 DATASET_WORKLOAD_YAML = REPO_ROOT / "spec" / "automotive_mc_v1" / "workload_model_v2.yaml"
+
+
+@lru_cache(maxsize=32)
+def _frozen_document(path: str) -> Mapping[str, Any]:
+    """Parse a FROZEN SPEC yaml ONCE per path for the whole process.
+
+    These specs are immutable for the duration of a run, but they were re-parsed on every
+    call: profiling one v2 `env.reset()` showed 1449 `yaml.safe_load` calls costing 49.9 s
+    of 51.9 s (96 %) for a single episode, reached through
+    `config_for -> co_physical_config_for_graph -> dataset_reference_parameters /
+    _energy_spec / _radio_spec` roughly 363 times per reset. The parsed document is
+    returned as a shared mapping: callers must treat it as READ-ONLY (they already do -
+    every caller only reads keys).
+    """
+    return yaml.safe_load(Path(path).read_text())
+
+
+def _frozen_yaml(path: Any | None = None) -> Mapping[str, Any]:
+    return _frozen_document(str(Path(path or FROZEN_YAML)))
 
 #: The eight resource keys every frozen graph must carry.
 REQUIRED_RESOURCE_KEYS = (
@@ -66,7 +86,7 @@ class AutomotiveResourceError(ValueError):
 
 def dataset_reference_parameters() -> dict:
     """f_ref / xi as frozen by the dataset workload model."""
-    doc = yaml.safe_load(DATASET_WORKLOAD_YAML.read_text())
+    doc = _frozen_document(str(DATASET_WORKLOAD_YAML))
     ref = doc["reference_compute_model"]
     return {
         "f_ref_hz": float(ref["f_ref_hz"]),
@@ -78,7 +98,7 @@ def dataset_reference_parameters() -> dict:
 
 def frozen_radio_eta(path: Path | None = None) -> dict:
     """The frozen spectral efficiency per radio link (bit/s/Hz), with its flags."""
-    doc = yaml.safe_load(Path(path or FROZEN_YAML).read_text())
+    doc = _frozen_yaml(path)
     out = {}
     for name, spec in (doc.get("radio_model", {}).get("links") or {}).items():
         if spec.get("rate_model") != "eta" or spec.get("spectral_efficiency") is None:
@@ -99,7 +119,7 @@ def frozen_radio_eta(path: Path | None = None) -> dict:
 
 def frozen_energy_parameters(path: Path | None = None) -> dict:
     """Per-tier kappa and the TX powers used by the physical energy model."""
-    doc = yaml.safe_load(Path(path or FROZEN_YAML).read_text())
+    doc = _frozen_yaml(path)
     em = doc.get("energy_model") or {}
     tiers = {
         name: float(spec["kappa"]) for name, spec in (em.get("tiers") or {}).items()
