@@ -319,6 +319,10 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
             self.auto_penalty_episodes_nonzero = int(
                 getattr(self, "auto_penalty_episodes_nonzero", 0)
                 + sum(1 for value in penalties if abs(value) > 1e-12))
+            self.auto_penalty_sum = float(getattr(self, "auto_penalty_sum", 0.0)) + float(
+                sum(penalties))
+            self.auto_penalty_steps = int(getattr(self, "auto_penalty_steps", 0)) + (
+                1 if any(abs(value) > 1e-12 for value in penalties) else 0)
             return {name: [row.get(name, 0.0) for row in rows]
                     for name in (rows[0] if rows else {})}
 

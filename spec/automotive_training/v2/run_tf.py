@@ -245,6 +245,14 @@ def main(argv=None) -> int:
     ap.add_argument("--json", default="/tmp/v2run/v2_tf_run.json")
     ap.add_argument("--r-select", type=int, default=2)
     ap.add_argument("--s-select", type=int, default=2)
+    ap.add_argument("--device", default="cpu", choices=("cpu", "gpu"),
+                    help="cpu honours CUDA_VISIBLE_DEVICES from the environment; gpu requests "
+                         "the device explicitly with a BOUNDED memory fraction so a co-resident "
+                         "service is never displaced")
+    ap.add_argument("--gpu-fraction", type=float, default=0.08,
+                    help="hard cap on the process GPU memory as a fraction of the card")
+    ap.add_argument("--intra-op", type=int, default=0, help="0 = TensorFlow default")
+    ap.add_argument("--inter-op", type=int, default=0, help="0 = TensorFlow default")
     args = ap.parse_args(argv)
 
     started = time.time()
@@ -265,8 +273,23 @@ def main(argv=None) -> int:
 
     graph = tf.compat.v1.get_default_graph()
     with graph.as_default():
-        sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(
-            allow_soft_placement=True, log_device_placement=False))
+        cfg = tf.compat.v1.ConfigProto(allow_soft_placement=True,
+                                       log_device_placement=False)
+        if int(args.intra_op) > 0:
+            cfg.intra_op_parallelism_threads = int(args.intra_op)
+        if int(args.inter_op) > 0:
+            cfg.inter_op_parallelism_threads = int(args.inter_op)
+        if str(args.device) == "gpu":
+            # BOUNDED allocation: a co-resident service (vLLM) keeps its memory, and this
+            # process can never grow into it. allow_growth is deliberately NOT combined with
+            # the fraction cap, so the cap is a hard ceiling.
+            cfg.gpu_options.per_process_gpu_memory_fraction = float(args.gpu_fraction)
+            cfg.gpu_options.allow_growth = True
+        session_cfg = cfg
+        device_used = "GPU" if str(args.device) == "gpu" else "CPU"
+        print("session device=%s gpu_fraction=%s intra_op=%s inter_op=%s"
+              % (device_used, args.gpu_fraction, args.intra_op, args.inter_op))
+        sess = tf.compat.v1.Session(config=session_cfg)
         with sess.as_default():
             saver = None
             restored = False
@@ -302,6 +325,9 @@ def main(argv=None) -> int:
             progress = Path(str(getattr(trainer, "auto_run_dir", args.ckpt_dir))) / "v2_progress.json"
             evidence["progress"] = {"path": str(progress),
                                     "exists": bool(progress.exists())}
+            evidence["device"] = {"requested": str(args.device),
+                                  "cuda_visible_devices": os.environ.get(
+                                      "CUDA_VISIBLE_DEVICES", "<unset>")}
             evidence["config"] = {
                 "seed": int(args.seed), "iterations": int(args.iterations),
                 "background_dags": int(args.background),
@@ -312,6 +338,8 @@ def main(argv=None) -> int:
                 "budget_fractions": {"total_energy": float(args.energy_budget_fraction),
                                      "ue_energy": float(args.ue_budget_fraction)},
                 "r_select": int(args.r_select), "s_select": int(args.s_select),
+                "device": str(args.device), "gpu_fraction": float(args.gpu_fraction),
+                "intra_op": int(args.intra_op), "inter_op": int(args.inter_op),
                 "obs_version": getattr(trainer, "auto_obs_version", None),
                 "v2_system": getattr(trainer, "auto_v2_system", None),
                 "v2_constraints": getattr(trainer, "auto_v2_constraints", None),

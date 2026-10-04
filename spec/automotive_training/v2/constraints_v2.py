@@ -281,6 +281,22 @@ class V2ConstraintManager:
     def batch_size(self, name=None) -> int:
         return len(self.controller._buffer)
 
+    def as_dict(self) -> dict:
+        """The frozen trainer report writer calls `controller.as_dict()` and
+        `controller.lambdas` on whatever `auto_controller` is. The v2 manager is that object,
+        so it must expose the same read-only surface (`state()` already exists)."""
+        return {
+            "schema": "v2_constraint_manager_v1",
+            "names": list(self.names),
+            "lambdas": self.lambdas_by_name(),
+            "updates": int(self.controller.updates),
+            "batch_size": int(len(self.controller._buffer)),
+            "spec": self.spec.as_dict(),
+            "reference_scope": self.state().get("reference_scope"),
+            "constraints_sha256": self.state().get("constraints_sha256"),
+            "status": self.status(),
+        }
+
     def status(self) -> dict:
         """Per-constraint status strings, so the frozen trainer can log them unchanged."""
         return self.spec.constraint_status()
