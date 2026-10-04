@@ -249,8 +249,11 @@ def main(argv=None) -> int:
                     help="cpu honours CUDA_VISIBLE_DEVICES from the environment; gpu requests "
                          "the device explicitly with a BOUNDED memory fraction so a co-resident "
                          "service is never displaced")
-    ap.add_argument("--gpu-fraction", type=float, default=0.08,
+    ap.add_argument("--gpu-fraction", type=float, default=0.03,
                     help="hard cap on the process GPU memory as a fraction of the card")
+    ap.add_argument("--gpu-allow-growth", dest="gpu_allow_growth", action="store_true",
+                    default=False,
+                    help="grow incrementally instead of pre-allocating the whole cap")
     ap.add_argument("--intra-op", type=int, default=0, help="0 = TensorFlow default")
     ap.add_argument("--inter-op", type=int, default=0, help="0 = TensorFlow default")
     args = ap.parse_args(argv)
@@ -283,9 +286,15 @@ def main(argv=None) -> int:
             # BOUNDED allocation: a co-resident service (vLLM) keeps its memory, and this
             # process can never grow into it. allow_growth is deliberately NOT combined with
             # the fraction cap, so the cap is a hard ceiling.
+            # A pre-allocated HARD CAP (allow_growth False) avoids growth-triggered allocator
+            # failures when another service owns most of the card. allow_growth is opt-in.
             cfg.gpu_options.per_process_gpu_memory_fraction = float(args.gpu_fraction)
-            cfg.gpu_options.allow_growth = True
+            cfg.gpu_options.allow_growth = bool(args.gpu_allow_growth)
         session_cfg = cfg
+        if str(args.device) == "gpu":
+            # the image exports TF_FORCE_GPU_ALLOW_GROWTH=1, which TF 1.15 cannot parse and
+            # which silently contradicts the fraction cap
+            os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true" if args.gpu_allow_growth else "false"
         device_used = "GPU" if str(args.device) == "gpu" else "CPU"
         print("session device=%s gpu_fraction=%s intra_op=%s inter_op=%s"
               % (device_used, args.gpu_fraction, args.intra_op, args.inter_op))
@@ -339,6 +348,7 @@ def main(argv=None) -> int:
                                      "ue_energy": float(args.ue_budget_fraction)},
                 "r_select": int(args.r_select), "s_select": int(args.s_select),
                 "device": str(args.device), "gpu_fraction": float(args.gpu_fraction),
+                "gpu_allow_growth": bool(args.gpu_allow_growth),
                 "intra_op": int(args.intra_op), "inter_op": int(args.inter_op),
                 "obs_version": getattr(trainer, "auto_obs_version", None),
                 "v2_system": getattr(trainer, "auto_v2_system", None),
