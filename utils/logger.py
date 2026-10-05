@@ -52,7 +52,17 @@ class HumanOutputFormat(KVWriter, SeqWriter):
                 valstr = '%-8.3g' % (val,)
             else:
                 valstr = str(val)
-            key2str[self._truncate(key)] = self._truncate(valstr)
+            # KEY IDENTITY MUST BE PRESERVED. Keying this dict on the TRUNCATED name made any
+            # two keys sharing the first 20 characters collide, and because the loop iterates
+            # `sorted(kvs.items())` the lexicographically LAST key silently overwrote the
+            # others. In the MARGO v2 run that hid `constraint/total_energy_signed` behind
+            # `constraint/total_energy_violation` and `constraint/mean_signed_total_energy`
+            # behind `constraint/mean_signed_ue_energy` (ue > total), which made a completed
+            # 500-iteration run look self-contradictory: the visible "mean signed" was the
+            # ue_energy channel (correctly ~ -0.49 with lambda_ue = 0) while lambda_total_energy
+            # genuinely ascended to 1.3055. The table simply widens now (`keywidth` is derived
+            # from these keys below); the CSV and JSON writers already kept full keys.
+            key2str[key] = self._truncate(valstr)
 
         # Find max widths
         if len(key2str) == 0:

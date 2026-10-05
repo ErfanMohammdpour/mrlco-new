@@ -130,19 +130,39 @@ boundaries ARE clean and analysable.
 | `constraint/lambda_total_energy` | 0.0 | **1.3055** | 0.0 | 1.3055 | 0.9251 | 0.3504 | 1.164 |
 | `constraint/lambda_ue_energy` | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
 | `constraint/lambda_broadcast_targets` | 11 | 11 | 11 | 11 | 11 | 11 | 11 |
-| `constraint/total_energy_signed` | 0.00277 | 0.101 | 0.00277 | 0.360 | 0.0973 | 0.1444 | 0.0811 |
 | `constraint/total_energy_violation` | 0.00996 | 0.101 | 0.00429 | 0.360 | 0.0975 | 0.1450 | 0.0811 |
-| `constraint/ue_energy_signed` | 0.00719 | 0.0 | 0.0 | 0.00719 | 0.000175 | 0.000514 | 1.76e-05 |
+| `constraint/ue_energy_violation` | 0.00719 | 0.0 | 0.0 | 0.00719 | 0.000175 | 0.000514 | 1.76e-05 |
+| `constraint/total_violation` (= sum of channels) | 0.00996 | 0.101 | 0.00429 | 0.360 | 0.0977 | — | — |
 | `constraint/penalty` | 0.0 | 0.132 | 0.0 | 0.199 | 0.0788 | 0.0491 | 0.0944 |
 | `constraint/penalty_applied` | 0.0 | 0.132 | 0.0 | 0.199 | 0.0788 | 0.0491 | 0.0944 |
-| `constraint/mean_signed_total_energy` | -0.399 | -0.537 | -0.771 | -0.108 | **-0.4945** | -0.4786 | -0.5664 |
-| `constraint/mean_signed_ue_energy` | see note | | | | | | |
-| `constraint_status/total_energy` | `active` | | | | | | |
-| `constraint_status/ue_energy` | `active` | | | | | | |
-| `constraint_status/{deadline,helper_energy,mec_task_fraction,v2v_airtime,v2v_task_fraction}` | `not_configured` | | | | | | |
-| `correctness/lambda_b...` | 11 | 11 | 11 | 11 | 11 | 11 | 11 |
-| `correctness/penalty_...` | 0 | 440 | 0 | 440 | 216 | 20 | 415 |
-| `constraint/batch_size_after_reset_*` | 0 | | | | | | |
+| `constraint/mean_signed_ue_energy` | -0.399 | -0.537 | -0.771 | -0.108 | -0.4945 | -0.4786 | -0.5664 |
+
+> **COLUMN-IDENTITY CORRECTION (important).** The stdout table truncates keys longer than 23
+> characters and `HumanOutputFormat.writekvs` keyed its print dict on the TRUNCATED name while
+> iterating `sorted(...)`, so within each 20-character prefix group the lexicographically LAST
+> key silently overwrote the others. In this run that meant:
+>
+> | printed label | what actually survived | what was hidden |
+> |---|---|---|
+> | `constraint/total_ene...` | `constraint/total_energy_violation` | `..._signed`, `..._raw`, `..._budget`, `..._scale`, `..._lambda` |
+> | `constraint/ue_energy...` | `constraint/ue_energy_violation` | `..._signed`, `..._raw`, `..._budget`, `..._scale`, `..._lambda` |
+> | `constraint/mean_sign...` | **`constraint/mean_signed_ue_energy`** (`ue` > `total`) | `constraint/mean_signed_total_energy` |
+> | `constraint/batch_siz...` | `batch_size_after_reset_ue_energy` | `..._total_energy` |
+>
+> Verified by forcing the repo's own `HumanOutputFormat` with both channels. So in this run's
+> log `constraint/total_energy_signed` and `constraint/mean_signed_total_energy` **never appeared
+> at all**, and an earlier version of this report mislabelled them — which produced a spurious
+> "unresolved contradiction" (a strongly negative mean signed cost beside a rising lambda). That
+> contradiction does **not** exist: the negative series is the `ue_energy` channel, whose
+> `lambda_ue_energy` is correctly 0.
+>
+> **Fixed** in `utils/logger.py` (key identity preserved; the table just widens) with a
+> regression test that fails on the old code (`test_logger_key_identity.py`, 3 tests).
+>
+> **The training dual was always correct.** Reconstructed from the λ column,
+> `mean_signed_total_energy = (λ_t − λ_{t−1}) / 0.05` averages **+0.103** over iterations 1–240
+> and **+0.006** over 241–499, going negative for 33 iterations — only a SIGNED ascent can do
+> that. `λ_final / 0.05 = 1.3055 / 0.05 = 26.11`, i.e. mean +0.0522 over 500 steps.
 
 ### Run-level penalty totals (`run.json`)
 
@@ -160,18 +180,19 @@ constraints.lambdas                     = {total_energy: 1.3055, ue_energy: 0.0}
 dual took exactly one step per outer iteration, λ_total_energy ascended 0 → 1.3055, and the
 penalty is a nonzero, dimensionless quantity applied once on the terminal token.
 
-**UNRESOLVED CONTRADICTION — flagged, not explained away.** `constraint/total_energy_violation`
-is positive every iteration (mean +0.0975) while `constraint/mean_signed_total_energy` is
-NEGATIVE every iteration (mean -0.4945). `ConstraintController.dual_step` computes
-`lambda += dual_lr * mean_signed` with `dual_lr = 0.05`; a persistently negative mean_signed
-drives λ **down** to 0, yet λ rose to 1.3055. So `constraint/mean_signed_<name>` and
-`constraint/lambda_<name>` cannot both describe the same update. The same sign pattern is
-present in the earlier 2-iteration GPU run (`mean_signed_total_energy = -0.397` with
-`lambda_total_energy = 7.08`, i.e. λ rising on a negative mean). Either the `mean_signed` column
-is misattributed to a different controller (the legacy deadline adapter still exists as
-`auto_legacy_deadline_controller`), or the ascent has a second driver. **A reader must not use
-`constraint/mean_signed_*` as the ascent input for this run.** The positive-violation,
-penalty, λ and `updates` columns are mutually consistent and are the ones used above.
+**The dual is verified correct — the earlier "contradiction" was a display bug.** One
+authoritative dual owner exists (`env.constraint_controller` = `trainer.auto_controller` =
+`auto_v2_constraint_manager` = one `V2ConstraintManager`); the legacy
+`auto_legacy_deadline_controller` is never observed and never stepped and has no `mean_signed`
+key at all. The apparent sign conflict came solely from the truncated-key collision documented
+above, now fixed.
+
+**Binding, stated precisely.** A positive hinge mean is not evidence of binding: it is nonzero
+whenever any episode is over budget. Binding requires the SIGNED mean to approach zero at
+λ* > 0, which is what happened — λ plateaued/oscillated at ~1.23–1.31 while the reconstructed
+signed mean decayed from +0.103 to +0.006. 60.5 % of episodes were over the **total-energy**
+budget (λ_ue = 0, so the penalty is total-energy only). The `ue_energy` channel is active but
+NOT binding: mean signed −0.4945, violation ≈ 0, λ_ue = 0.
 
 ### Validation — real R/S evaluation, 10 checkpoints
 
@@ -275,7 +296,8 @@ effect.
 * any meta-learning advantage: k3 regret is not better than k0 at the end (0.0610 vs 0.0563);
 * that whole-world system energy is controlled: the constraint measures the **foreground**
   ledger while `energy/system_joules` (mean 82.74 J) is whole-world and background-dominated;
-* that `constraint/mean_signed_*` is the ascent input — the sign contradiction above is open;
+* ~~that `constraint/mean_signed_*` is the ascent input~~ — the dual IS verified correct; the
+  apparent contradiction was a display-layer key collision (section 3), now fixed;
 * per-episode or per-schedule behaviour: `audit_writer=None` on the v2 path, so no
   `trajs_ppo.jsonl` / `trajs_eval.jsonl` exist;
 * the R/S per-cell structure: only aggregated validation rows are logged.
@@ -285,7 +307,9 @@ effect.
 1. `v2_progress.json` was never written and `v2_phase_timings.jsonl` is 0 bytes for the entire
    500-iteration run — the atomic progress reporting required by the spec does not work on the
    v2 TF path, so there is no per-phase timing record despite the instrumentation existing.
-2. `constraint/mean_signed_*` contradicts `constraint/lambda_*` (section 3).
+2. ~~`constraint/mean_signed_*` contradicts `constraint/lambda_*`~~ — **RESOLVED**: it was the
+   stdout truncated-key collision, not a dual defect (section 3). Fixed in `utils/logger.py`
+   with a regression test; the dual was correct all along.
 3. No `progress.csv` (`logger.configure()` is never called for v2).
 4. `foreground_system_joules` is not a logged column, so the constrained energy is not directly
    visible in the run's own output.
