@@ -277,6 +277,11 @@ def _greedy_plan(env, index: int, mc, n_tasks: int = 20) -> list:
     return chosen
 
 
+#: Rollout metric keys that are LABELS, not measurements. `evaluate` averages every key of
+#: the metric block, which silently coerced `primary_scope` ("system") with float() and raised.
+_NON_NUMERIC_METRIC_KEYS = frozenset({"primary_scope"})
+
+
 def per_graph_makespans(paths) -> dict:
     """slot -> makespan (and violation flags) for one query rollout batch."""
     out = {}
@@ -304,6 +309,17 @@ def per_graph_makespans(paths) -> dict:
                 "n_tardy_high": float(record.get("n_tardy_high_tasks", 0.0)),
                 "n_tardy_medium": float(record.get("n_tardy_medium_tasks", 0.0)),
                 "high_preserved": bool(record.get("high_preserved", 1.0)),
+                # ENERGY FROM THE MODEL'S OWN ROLLOUT. The v2 environment already puts the
+                # three boundaries into the per-episode `energy_telemetry` record, and this
+                # function already has that record in hand -- but only latency and deadline
+                # fields were copied out. That is why the baselines (whose energy comes from
+                # `_score`) could be reported with joules while the MODEL could not: the model's
+                # energy was measured on every configured rollout and then discarded here.
+                "system_joules": float(record.get("system_joules", 0.0)),
+                "requester_joules": float(record.get("requester_joules", 0.0)),
+                "mobile_joules": float(record.get("mobile_joules", 0.0)),
+                "primary_scope": str(record.get("primary_scope", "")),
+                "constraint_penalty": float(record.get("constraint_penalty", 0.0)),
             }
     return out
 
@@ -415,6 +431,17 @@ def rollout_metric_block(by_slot: Mapping) -> dict:
         "hi_mode_rate": float(np.mean([v["mode"] == "HI" for v in values])),
         "mc_policy_violation_count": float(sum(1 for v in values if not v["high_preserved"])),
         "mean_dropped_task_count": float(np.mean([v["dropped"] for v in values])),
+        # SCOPED ENERGY of the rollout, on the same three boundaries the baselines report.
+        # Absent telemetry yields 0.0; callers that must distinguish "unmeasured" from "zero"
+        # check `n_energy_episodes` against `rollouts`.
+        "mean_system_joules": float(np.mean([v.get("system_joules", 0.0) for v in values])),
+        "mean_requester_joules": float(np.mean([v.get("requester_joules", 0.0) for v in values])),
+        "mean_mobile_joules": float(np.mean([v.get("mobile_joules", 0.0) for v in values])),
+        "primary_scope": str(values[0].get("primary_scope", "")),
+        "n_energy_episodes": int(sum(1 for v in values
+                                     if float(v.get("system_joules", 0.0)) > 0.0)),
+        "mean_constraint_penalty": float(
+            np.mean([v.get("constraint_penalty", 0.0) for v in values])),
         "rollouts": int(n),
     }
 
@@ -734,6 +761,10 @@ class AutomotiveHeldOutEvaluator(object):
             for key in blocks[0]:
                 if key == "rollouts":
                     out[key] = int(sum(b[key] for b in blocks))
+                    continue
+                if key in _NON_NUMERIC_METRIC_KEYS:
+                    # not a measurement: a label such as the energy boundary name
+                    out[key] = blocks[0][key]
                     continue
                 values = [float(b[key]) for b in blocks if b.get(key) is not None]
                 if values:
