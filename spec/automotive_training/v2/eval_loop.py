@@ -121,6 +121,30 @@ def _score(world: V2World, plan_map: Mapping, *, link_process=None) -> dict:
     ledger = schedule_energy(result)
     metrics = v2_metrics(result, ledger)
     timings = [tm for tm in result.timings.values() if tm.dag_id == world.foreground_id]
+    # REAL deadline statistics. `deadline_miss_rate` was hard-coded to 0.0, so every baseline
+    # reported a perfect deadline record that was never measured -- while the model's own
+    # tardiness came from a different path. Computed here from the same ScheduleResult so the
+    # baselines and the model can be compared on misses at all.
+    n_judged = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    tardy = {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    tardy_seconds = {"HIGH": 0.0, "MEDIUM": 0.0, "LOW": 0.0}
+    for spec in world.foreground.tasks:
+        crit = str(getattr(spec, "criticality", "LOW")).upper()
+        if crit not in n_judged:
+            crit = "LOW"
+        deadline = getattr(spec, "deadline_s", None)
+        if deadline is None:
+            continue
+        tm = result.timings.get((world.foreground_id, int(spec.task_id)))
+        if tm is None:
+            continue
+        n_judged[crit] += 1
+        late = float(tm.finish_s) - float(deadline)
+        if late > 0.0:
+            tardy[crit] += 1
+            tardy_seconds[crit] += late
+    judged = sum(n_judged.values())
+    missed = sum(tardy.values())
     return {
         "episode_latency_s": float(result.episode_latency_s),
         "world_makespan_s": float(result.world_makespan_s),
@@ -128,7 +152,17 @@ def _score(world: V2World, plan_map: Mapping, *, link_process=None) -> dict:
         "requester_joules": float(ledger.requester_joules),
         "mobile_joules": float(ledger.mobile_joules),
         "helper_task_fraction": float(metrics.v2v_task_fraction),
-        "deadline_miss_rate": 0.0,
+        "deadline_miss_rate": (float(missed) / float(judged)) if judged else 0.0,
+        "n_judged_tasks": int(judged),
+        "n_judged_high": int(n_judged["HIGH"]),
+        "n_judged_medium": int(n_judged["MEDIUM"]),
+        "n_tardy_high": int(tardy["HIGH"]),
+        "n_tardy_medium": int(tardy["MEDIUM"]),
+        "n_tardy_low": int(tardy["LOW"]),
+        "tardiness_high_s": float(tardy_seconds["HIGH"]),
+        "tardiness_medium_s": float(tardy_seconds["MEDIUM"]),
+        "tardiness_low_s": float(tardy_seconds["LOW"]),
+        "hard_violation_count": int(missed),
         "cpu_wait_mean_s": float(result.queue_stats["cpu_wait_mean_s"]),
         "wasted_work_bytes": float(result.queue_stats["wasted_work_bytes_total"]),
         "v2v_airtime_s": float(metrics.v2v_airtime_s),

@@ -650,22 +650,38 @@ class V2HeldOutEvaluator(AutomotiveHeldOutEvaluator):
                     link_process = make_process(str(self.v2_system["link_regime"]),
                                                 seed=seed_base + index)
                 entry: dict = {}
+                # FULL METRICS PER CANDIDATE. `_score` already computes latency, the three
+                # energy boundaries, helper fraction, deadline/queue statistics, wasted work,
+                # V2V airtime and the location mix -- but only `episode_latency_s` was kept, so
+                # every baseline was comparable to the model on LATENCY ALONE and the energy /
+                # miss / airtime columns could not be produced for all_UE, all_MEC, all_HELPER,
+                # greedy, HEFT or the oracle at all. The scalar keys stay (candidate_oracle and
+                # the existing consumers use them); the full block is added alongside.
+                def _score_full(plan_map):
+                    full = _score(world, plan_map, link_process=link_process)
+                    return full
+
                 for name, action in (("all_UE", 0), ("all_MEC", 1), ("all_HELPER", 2)):
-                    entry[name] = float(_score(world, pure_plan(graph, action),
-                                               link_process=link_process)["episode_latency_s"])
+                    full = _score_full(pure_plan(graph, action))
+                    entry[name] = float(full["episode_latency_s"])
+                    entry["%s_metrics" % name] = full
                 plans = baseline_plans(world, graph, protocol)
-                entry["greedy_coordinate_descent_MC"] = float(
-                    _score(world, plans["greedy_cd"], link_process=link_process)
-                    ["episode_latency_s"])
+                full = _score_full(plans["greedy_cd"])
+                entry["greedy_coordinate_descent_MC"] = float(full["episode_latency_s"])
+                entry["greedy_coordinate_descent_MC_metrics"] = full
                 heft_actions, heft_nominal = heft_plan_for_graph(graph)
-                entry["heft_reference_v2"] = float(
-                    _score(world, plan_map_from_actions(graph, list(heft_actions)),
-                           link_process=link_process)["episode_latency_s"])
+                full = _score_full(plan_map_from_actions(graph, list(heft_actions)))
+                entry["heft_reference_v2"] = float(full["episode_latency_s"])
+                entry["heft_reference_v2_metrics"] = full
                 entry["heft_nominal_s"] = float(heft_nominal)
                 entry["heft_plan"] = [int(a) for a in heft_actions]
                 entry["greedy_plan"] = [int(plans["greedy_cd"][t])
                                         for t in sorted(plans["greedy_cd"])]
-                entry["_name"], entry["candidate_oracle_s"] = candidate_oracle(entry)
+                # `candidate_oracle` compares the SCALAR latency of the named candidates; the
+                # `*_metrics` blocks must not be visible to it.
+                scalar_view = {k: v for k, v in entry.items()
+                               if not k.endswith("_metrics") and isinstance(v, (int, float))}
+                entry["_name"], entry["candidate_oracle_s"] = candidate_oracle(scalar_view)
                 entry["scoring"] = "v2_canonical_world_foreground_episode_latency"
                 panel[index] = entry
             finally:
