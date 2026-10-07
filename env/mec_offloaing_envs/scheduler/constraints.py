@@ -358,23 +358,18 @@ def budgets_and_scales(
                 max(refs.E_ue, 1e-12),
             )
         elif name == C_TOTAL_ENERGY:
-            # SCOPE-CONSISTENCY FIX. `metrics.total_energy_j` is the SYSTEM-scope energy of
-            # the episode: it includes the foreground requester AND every declared background
-            # DAG belonging to other owners, because those share the same MEC CPU and radio.
-            # This budget and scale used to be anchored on `refs.E_ue`, the SYSTEM-scope
-            # energy of the pure all-UE plan. In a background world that reference is tiny
-            # (measured on the production configuration: E_ue = 0.279 J against a 38.3 J
-            # episode, because the all-UE plan leaves the shared MEC energy to the
-            # background), so a legitimate episode was scored at ~274x its budget and
-            # produced normalized violations near 137 instead of near 1. That was a
-            # measurement/reference scope mismatch, not a measured 137-fold violation.
-            #
-            # The coherent anchor for a whole-world system measurement is the SYSTEM energy
-            # of the pure all-MEC plan measured on the SAME world (same declared background,
-            # same link regime, same realization). It is the system-energy reference the
+            # SCOPE-CONSISTENCY FIX. The measurement `metrics.total_energy_j` is the
+            # FOREGROUND-ONLY ledger (see `V2AutomotiveEnv.step`, which passes the
+            # `dag_filter=[foreground_id]` ledger into `evaluate`), while the budget and scale
+            # are anchored on `refs.E_mec` - the SYSTEM-scope energy of the pure all-MEC plan,
+            # which `pure_location_worlds` builds background-free on the SAME graph. Both sides
+            # therefore describe the SAME DAG set (foreground) and the SAME physical boundary
+            # (system = UE + helper + MEC CPU + TX), which resolves the earlier mismatch where
+            # a whole-world measurement (with other owners' background DAGs sharing the MEC)
+            # was compared against a background-free reference. The anchor is the plan the
             # policy can actually trade against: moving a task off MEC lowers it, moving it
-            # onto MEC raises it. A signed cost of +1.0 then means "this episode spent twice
-            # the whole-world system energy of the all-MEC reference plan".
+            # onto MEC raises it; a signed cost of +1.0 means "this episode spent twice the
+            # all-MEC plan's system energy". (F09)
             system_reference = float(refs.E_mec)
             if not math.isfinite(system_reference) or system_reference <= 0.0:
                 raise ValueError(

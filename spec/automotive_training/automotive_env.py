@@ -263,9 +263,14 @@ class AutomotiveEnv(object):
             self._slot_realizations, self._slot_mc = [], []
             return
         self._slot_realizations, self._slot_mc = [], []
-        for slot in self.graph_indices:
+        for flat, slot in enumerate(self.graph_indices):
+            # F02: `slot` is the VALUE inside graph_indices, not the trajectory position. In
+            # ordinary training every value is 0, so seeding by `int(slot)` gave all
+            # `slots_per_task` trajectories the SAME MC realization (and, downstream, the same
+            # world). The independent sampling unit is the FLAT SLOT POSITION `flat`; the
+            # dataset graph stays resolved separately via `_graph_index`, exactly as F01 demands.
             graph = self.graph_objects[self._graph_index(int(slot))]
-            seed = self.rollout_seed(graph.graph_id, int(slot))
+            seed = self.rollout_seed(graph.graph_id, int(flat))
             if self.mc_enabled:
                 realized = mc_runtime.draw_realized_demands(graph, seed, self.uncertainty)
                 mc = mc_runtime.resolve_mode_and_execution(

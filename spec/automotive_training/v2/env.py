@@ -381,18 +381,19 @@ class V2AutomotiveEnv:
         `graph_indices[flat]`), and `world_id` carries the episode and the flat position.
         """
         flat = int(flat)
-        indices = np.asarray(getattr(self.base, "graph_indices", []), dtype=object).reshape(-1)
-        if flat >= indices.size:
-            raise V2EnvError("flat slot %d is outside graph_indices (%d entries)"
-                             % (flat, indices.size))
+        # ONE AUTHORITATIVE SLOT-IDENTITY RESOLVER. The base env's `_graph_index` is the only
+        # place that understands BOTH layouts: single_dist maps `graph_indices[slot] -> graph`,
+        # while ordinary training (single_dist=False) keeps `graph_indices` at all zeros and
+        # resolves every slot of the current task to `self.task_id`. Reading `graph_indices[flat]`
+        # directly here therefore built graph0 for EVERY meta-task in the 500-run while the MC
+        # realization and the base env had already resolved the SAME slot to the task's graph:
+        # the scheduled world, its normalization, and the executed sub-DAG belonged to different
+        # graphs. (F01)
         try:
-            # `graph_indices[flat]` IS the dataset graph index of slot `flat` (v1 layout: the
-            # base env resolves a slot with `graph_objects[graph_indices[slot]]`). It is NOT a
-            # slot position, so it must never be fed back through `_graph_index`.
-            dataset_graph_id = int(indices[flat])
-        except (TypeError, ValueError) as exc:
-            raise V2EnvError("graph_indices[%d] is not an integer: %r"
-                             % (flat, indices[flat])) from exc
+            dataset_graph_id = int(self.base._graph_index(flat))
+        except Exception as exc:                      # pragma: no cover - layout guard
+            raise V2EnvError("cannot resolve the dataset graph of flat slot %d: %s"
+                             % (flat, exc)) from exc
         try:
             graph = self.base.graph_objects[dataset_graph_id]
         except Exception as exc:                      # pragma: no cover - layout guard

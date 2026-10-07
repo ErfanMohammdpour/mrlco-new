@@ -394,6 +394,47 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     concurrency: list = []
     calendar_of = {HOP_UL: ul, HOP_UL_DIRECT: ul, HOP_DL: dl, HOP_DL_DIRECT: dl, HOP_V2V: v2v}
 
+    def _planned_delivery(src, dst, ready, payload):
+        """Non-mutating delivery time for a route on the ACTUAL shared calendars.
+
+        The F07 defect was to estimate the helper's result return with the queue-free
+        `_service_detail`, which ignored that another DAG may already hold the V2V channel;
+        the check passed, then `book()` reserved the return AFTER contact end. This plans the
+        whole route with `Calendar.plan_service` (same fixed point `book()` uses) WITHOUT
+        committing, so the feasibility check sees the real queued delivery time. A later
+        `book()` of the same route yields the same intervals because the calendar state has
+        not changed in between.
+        """
+        t = float(ready)
+        cache = {}
+
+        def duration_fn(start):
+            key = round(float(start), 12)
+            hit = cache.get(key)
+            if hit is None:
+                hit = _service_detail(float(start), payload,
+                                      _rate_for(HOP_V2V, 0, link),
+                                      HOP_TO_LINK[HOP_V2V])[0]
+                cache[key] = hit
+            return hit
+
+        for hop, _hsrc, _hdst in _route_steps(src, dst, link):
+            base = float(_rate_for(hop, 0, link))
+            cal = calendar_of[hop]
+
+            def hop_duration_fn(start, _base=base, _hop=hop):
+                k = round(float(start), 12)
+                hit = cache.get((_hop, k))
+                if hit is None:
+                    hit = _service_detail(float(start), payload, _base,
+                                          HOP_TO_LINK[_hop])[0]
+                    cache[(_hop, k)] = hit
+                return hit
+
+            _idx, start, _dur, end = cal.plan_service(t, hop_duration_fn)
+            t = end
+        return t
+
     def _service_detail(start, payload, base, link_name):
         """(channel occupancy s, outage wait s, outage events) for a transfer starting at `start`.
 
@@ -633,9 +674,11 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                     effective_loc[(dag_id, c)] != HELPER for c in succ_by_dag[dag_id][task_id])
                 return_needed = 0.0
                 if return_required and float(spec.output_bytes) > 0.0:
-                    return_needed = _service_detail(
-                        cpu_end, float(spec.output_bytes),
-                        float(link.v2v_bytes_per_s), HOP_TO_LINK[HOP_V2V])[0]
+                    # F07: plan the result return against the ACTUAL shared calendars, not the
+                    # queue-free service duration. The helper result is useful only if the whole
+                    # route completes before contact ends.
+                    return_needed = max(0.0, _planned_delivery(
+                        HELPER, UE, cpu_end, float(spec.output_bytes)) - cpu_end)
                 if cpu_end + return_needed > contact_end + 1e-12:
                     contact_failure = True
                     # Work the helper actually performed before disconnection. It is WASTED:
