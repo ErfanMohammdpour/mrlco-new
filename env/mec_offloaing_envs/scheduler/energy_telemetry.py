@@ -13,6 +13,8 @@ Aggregation is episode-weighted: every episode contributes exactly once.
 from __future__ import annotations
 
 import math
+
+import numpy as np
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -331,6 +333,41 @@ def legacy_average_energy_kvs(avg_energy: Any) -> dict[str, Any]:
         AVERAGE_ENERGY_LEGACY_KEY: avg_energy,
         "energy/average_energy_scope": AVERAGE_ENERGY_LEGACY_SCOPE,
     }
+
+
+#: Marker a V2 environment sets on itself to declare what its `energy` channel carries. The
+#: frozen trainer sums that channel over the TOKEN axis; for an episode-replicated channel that
+#: multiplies one episode's joules by the number of tokens (measured: 20x, F12). A V2 env must
+#: therefore either declare `episode_replicated` (aggregated once, below) or leave the marker
+#: absent (legacy per-token semantics, V1 unchanged).
+ENERGY_CHANNEL_SEMANTICS_ATTR = "energy_channel_semantics"
+EPISODE_REPLICATED = "episode_replicated"
+
+
+def aggregate_episode_energy(energy_channel: Any, *, semantics: str = "per_token") -> np.ndarray:
+    """One energy value per EPISODE from an `energy` channel.
+
+    `episode_replicated` (V2): every token of a path carries the SAME complete-episode joule
+    value, so the value is taken once per path and the equality of the tokens is ASSERTED --
+    if the channel is not in fact constant along the token axis the marker is lying and we fail
+    loudly instead of silently reporting a wrong average.
+
+    `per_token` (legacy V1): the historical `sum` over the token axis, preserved exactly.
+    """
+    arr = np.asarray(energy_channel, dtype=np.float64)
+    if arr.size == 0:
+        return np.asarray([], dtype=np.float64)
+    if str(semantics) != EPISODE_REPLICATED:
+        return np.sum(arr, axis=-1)
+    if arr.ndim < 2:
+        return arr.reshape(-1)
+    per_path = np.max(arr, axis=-1) - np.min(arr, axis=-1)
+    if float(np.max(per_path)) > 1e-4 * max(1.0, float(np.max(np.abs(arr)))):
+        raise ValueError(
+            "energy channel declared %r but tokens within a path are not identical "
+            "(max spread %.6g): the semantics marker is wrong and the average would be "
+            "mis-scaled" % (EPISODE_REPLICATED, float(np.max(per_path))))
+    return np.array(arr[..., 0], dtype=np.float64)
 
 
 def collect_energy_telemetry(samples_data_batch: Iterable[Any]) -> list[dict[str, Any]]:

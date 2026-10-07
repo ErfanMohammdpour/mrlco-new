@@ -106,27 +106,53 @@ class CategoricalPd(Distribution):
         return -neg_log
 
     def log_likelihood(self, xs, logits):
-        """
-        Compute the log likelihood log p(x) of the distribution
+        """Numerically stable log p(x) for the NumPy path: `log_softmax(logits)[x]`.
+
+        The audited implementation had three defects (F21): it normalised with the Python builtin
+        `sum` (wrong axis for batched `[B, C]` logits), it took `log(one_hot * p)` which includes
+        `log(0) = -inf` for the unselected classes so EVERY entry collapsed to `-inf`, and it
+        built `final_shape` from `list.append` (which returns None) so the reshape was a no-op.
+        It returned `[-inf, -inf]` for zero logits and actions [0, 1] instead of `-log(3)`.
+
+        Computed as `logits - logsumexp(logits)` (a stable log-softmax) and gathered at the
+        selected actions, so scalar / batched / time-indexed inputs and large logits all agree
+        with the TensorFlow `log_likelihood_sym` path.
 
         Args:
-           x_var (numpy array): variable where to evaluate the log likelihood
-           dist_info_vars (dict) : dict of distribution parameters as numpy array
+            xs: array of action indices, broadcast-compatible with `logits[..., 0]`
+            logits: array with the action axis last, shape (..., C)
 
         Returns:
-            (numpy array): log likelihood
+            (numpy array) log likelihood with shape `logits.shape[:-1]`
         """
-        softmax_pd = np.exp(logits) / sum(np.exp(logits))
-
-        targets_shape = list(np.array(xs).shape)
-        final_shape = targets_shape.append(self._dim)
-
-        targets = np.array(xs).reshape(-1)
-        one_hot_targets = np.eye(self._dim)[targets].reshape(final_shape)
-
-        log_p = np.sum(np.log(one_hot_targets *softmax_pd), axis=-1)
-
-        return log_p
+        logits = np.asarray(logits, dtype=np.float64)
+        if logits.ndim < 1:
+            raise ValueError("logits must have at least one dimension, got %r"
+                             % (logits.shape,))
+        if logits.shape[-1] != int(self._dim):
+            raise ValueError("logits last axis is %d but the distribution has %d actions"
+                             % (logits.shape[-1], int(self._dim)))
+        logits = np.nan_to_num(logits, nan=-np.inf, posinf=np.inf, neginf=-np.inf)
+        # stable log-softmax along the ACTION axis (last), never a Python builtin sum
+        axis = logits.ndim - 1
+        shift = np.max(logits, axis=axis, keepdims=True)
+        shift = np.where(np.isfinite(shift), shift, 0.0)
+        shifted = logits - shift
+        lse = np.log(np.sum(np.exp(shifted), axis=axis, keepdims=True)) + shift
+        log_probs = logits - lse
+        idx = np.asarray(xs, dtype=np.int64)
+        if idx.shape != log_probs.shape[:-1]:
+            try:
+                idx = np.broadcast_to(idx, log_probs.shape[:-1])
+            except ValueError as exc:
+                raise ValueError(
+                    "action shape %r is not broadcastable to the logits batch shape %r"
+                    % (np.asarray(xs).shape, log_probs.shape[:-1])) from exc
+        if np.any((idx < 0) | (idx >= int(self._dim))):
+            raise ValueError("action index outside [0, %d): %r"
+                             % (int(self._dim), np.asarray(xs)))
+        gathered = np.take_along_axis(log_probs, idx[..., None], axis=axis)[..., 0]
+        return gathered
 
     def entropy_sym(self, logits):
         """

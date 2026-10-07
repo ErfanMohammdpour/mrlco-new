@@ -576,15 +576,31 @@ class Trainer(object):
 
             if self.env.resource_cluster.use_energy:
                 energy = np.array([])
+                # F12: the frozen loop summed the token axis. That is only correct for a
+                # per-token channel; the V2 env marks its channel `episode_replicated`, in which
+                # case one episode's joules were being multiplied by the token count. The
+                # aggregation semantics are declared by the env, so the V1 path is unchanged.
+                from env.mec_offloaing_envs.scheduler.energy_telemetry import (
+                    ENERGY_CHANNEL_SEMANTICS_ATTR, EPISODE_REPLICATED,
+                    aggregate_episode_energy,
+                )
+                _sem = str(getattr(self.env, ENERGY_CHANNEL_SEMANTICS_ATTR, "per_token"))
                 for i in range(len(new_samples_data)):
                     if 'energy' in new_samples_data[i]:
-                        energy = np.concatenate((energy, np.sum(new_samples_data[i]['energy'], axis=-1)), axis=-1)
+                        _chunk = aggregate_episode_energy(new_samples_data[i]['energy'],
+                                                          semantics=_sem)
+                        energy = np.concatenate((energy, _chunk), axis=-1)
                 if len(energy) > 0:
                     avg_energy = np.mean(energy)
                     print(f"Average energy per iteration {itr}: {avg_energy:.4f}")
                     # legacy MOBILE metric, explicitly labelled (E4.1)
                     for key, value in legacy_average_energy_kvs(avg_energy).items():
                         logger.logkv(key, value)
+                    if _sem == EPISODE_REPLICATED:
+                        # the channel is the V2 SYSTEM-scope episode energy, so state that
+                        # explicitly instead of leaving the MOBILE label as the only description
+                        logger.logkv("energy/v2_episode_system_joules_mean", float(avg_energy))
+                        logger.logkv("energy/v2_episode_scope", "system_foreground")
                     avg_energies.append(avg_energy)
                 else:
                     print(f"Average energy per iteration {itr}: 0.0 (no energy data)")

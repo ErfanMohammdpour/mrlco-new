@@ -117,6 +117,11 @@ class V2EpisodeTelemetry:
 class V2AutomotiveEnv:
     """Duck-type compatible with the frozen sampler/trainer env interface."""
 
+    #: F12: the `energy` channel returned by `step` repeats ONE complete-episode joule value on
+    #: every token, so the trainer must aggregate it once per trajectory rather than summing the
+    #: token axis. V1 leaves this attribute absent and keeps its historical per-token sum.
+    energy_channel_semantics = "episode_replicated"
+
     def __init__(self, graphs: Sequence, cluster: Any | None = None, *,
                  role: str = "meta_train", slots_per_task: int = 1, base_seed: int = 0,
                  link_regime: str = "stable", mec_workers: int = 1,
@@ -770,7 +775,11 @@ class V2AutomotiveEnv:
             self.last_v2_context.append(self._context_vector(slot))
             reward_batch.append(np.asarray(rewards, dtype=np.float32))
             finish_batch.append(float(result.makespan_s))
-            # the energy channel of the frozen interface now carries REAL joules
+            # the energy channel of the frozen interface now carries REAL joules.
+            # NOTE (F12): every token of a path carries the SAME complete-episode value, so the
+            # channel is EPISODE-REPLICATED, not per-token. `energy_channel_semantics` tells the
+            # frozen trainer to aggregate it once; summing the token axis would multiply one
+            # episode's joules by `len(rewards)` (measured 20x).
             energy_batch.append(np.full(len(rewards), float(reference_energy),
                                         dtype=np.float32))
             telemetry_batch.append(self._frozen_telemetry(slot, telemetry))
