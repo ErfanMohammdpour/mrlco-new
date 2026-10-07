@@ -140,8 +140,20 @@ class LinkProcess:
 
     # -- accessors ---------------------------------------------------------
     def _idx(self, t: float) -> int:
-        return min(len(self._realized[self.links[0]]) - 1,
-                   max(0, int(math.floor(max(0.0, float(t)) / self.regime.dt_s))))
+        """Trace index of the piecewise-constant rate containing `t`.
+
+        The `+ 1e-9` snap matters: exact grid points computed by repeated addition land a few
+        ulp BELOW the boundary (e.g. 0.3/0.1 = 2.9999999999999996), and `floor` would then
+        select the PREVIOUS interval's rate for a time that is really on the boundary. The
+        snap is far smaller than any real dt (>= 1e-6 s), so it cannot blur a genuine boundary.
+        """
+        dt = float(self.regime.dt_s)
+        idx = int(math.floor(max(0.0, float(t)) / dt + 1e-9))
+        return min(len(self._realized[self.links[0]]) - 1, max(0, idx))
+
+    def horizon_s(self) -> float:
+        """End of the realized trace. Beyond it the rate is NOT defined."""
+        return len(self._realized[self.links[0]]) * float(self.regime.dt_s)
 
     def realized(self, link: str, t: float = 0.0) -> float:
         return float(self._realized[link][self._idx(t)])

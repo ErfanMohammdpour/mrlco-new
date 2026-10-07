@@ -48,6 +48,7 @@ from spec.automotive_training.v2.world import (
 #: frozen encoder cannot drift apart; see `v2/context_fields.py` for what each entry means
 #: and for the observability rules every entry must satisfy.
 from spec.automotive_training.v2.context_fields import V2_CONTEXT_FIELDS  # noqa: E402
+from spec.objective_contract import SHAPING_DISCOUNT  # noqa: E402
 
 
 class V2EnvError(RuntimeError):
@@ -134,7 +135,8 @@ class V2AutomotiveEnv:
                  constraint_spec: Any | None = None,
                  budget_fractions: Mapping | None = None,
                  dual_lr: float = 0.05, max_lambda: float = 1e3,
-                 scheduler_config_sha256: str | None = None):
+                 scheduler_config_sha256: str | None = None,
+                 shaping_discount: float = SHAPING_DISCOUNT):
         # Two layouts are supported, exactly as in the frozen env:
         # * single_dist=False (training): one distribution per graph, `slots_per_task`
         #   trajectories per distribution, `sample_tasks(meta_batch_size)` selects graphs;
@@ -142,6 +144,10 @@ class V2AutomotiveEnv:
         #   slot per graph.
         graphs = list(graphs)
         self.single_dist = bool(single_dist)
+        if not (0.0 < float(shaping_discount) <= 1.0):
+            raise V2EnvError("shaping_discount must be in (0, 1], got %r"
+                             % (shaping_discount,))
+        self.shaping_discount = float(shaping_discount)
         slots = max(1, len(graphs)) if self.single_dist else max(1, int(slots_per_task))
         self.base = AutomotiveEnv(graphs, cluster or AutomotiveResourceCluster(),
                                   role=role, slots_per_task=slots,
@@ -585,10 +591,25 @@ class V2AutomotiveEnv:
         return result
 
     def _telescoping(self, slot: int, actions: Sequence[int]) -> list:
-        """Prefix marginal makespans under the v2 scheduler (v1 reward semantics)."""
+        """Discount-COMPATIBLE prefix marginal makespans (objective contract v1).
+
+        The declared contract is ``J_t = L_t / L_scale`` and ``r_t = J_{t-1} - gamma*J_t``
+        (see ``spec/objective_contract.py``). That form is what makes the DISCOUNTED return
+        telescope exactly::
+
+            sum_t gamma^(t-1) r_t = J_0 - gamma^N * J_N
+
+        which is path-independent, so ranking by the optimised criterion agrees with ranking by
+        the terminal plan objective ``-J_N``. Emitting the plain delta ``J_{t-1} - J_t`` (gamma=1)
+        and letting the processor discount it on top does NOT telescope: the ranking then depends
+        on the intermediate prefixes, which contradicted the contract (F13). The discount is baked
+        into the reward HERE, and the processor applies the same gamma on top; that combination is
+        the contract, not a double discount.
+        """
         index = self.base._graph_index(int(slot))
         graph = self.base.graph_objects[index]
         n = len(self.base.orders[index])
+        gamma = float(getattr(self, "shaping_discount", SHAPING_DISCOUNT))
         previous = self._schedule_slot(slot, [0] * n, validate=False).makespan_s
         rewards = []
         l_scale = max(float(graph.D_G_s), 1e-12)
@@ -598,7 +619,7 @@ class V2AutomotiveEnv:
             # speed-up: identical schedule arithmetic, skipped O(tasks x edges) re-check).
             # The episode's final schedule IS validated in step().
             current = self._schedule_slot(slot, prefix, validate=False).makespan_s
-            rewards.append(-(current - previous) / l_scale)
+            rewards.append((previous / l_scale) - gamma * (current / l_scale))
             previous = current
         return rewards
 
@@ -682,7 +703,10 @@ class V2AutomotiveEnv:
                 self.constraint_manager.references = refs
                 costs = self.constraint_manager.evaluate(
                     result, foreground_ledger if foreground_ledger is not None else ledger)
-                penalty = self.constraint_manager.apply_penalty(rewards, costs)
+                gamma = float(getattr(self, "shaping_discount", SHAPING_DISCOUNT))
+                n_tokens = max(1, len(rewards))
+                penalty = self.constraint_manager.apply_penalty(
+                    rewards, costs, terminal_weight=gamma ** (n_tokens - 1))
                 self.constraint_manager.observe(costs)
                 self.last_constraint_costs.append(costs)
             else:

@@ -123,10 +123,20 @@ class TestRewardPenaltyIsReal(unittest.TestCase):
             np.testing.assert_allclose(got[:-1], base[:-1], rtol=0.0, atol=1e-6)
             if applied:
                 checked += 1
-                # the terminal token is reduced by EXACTLY the penalty, once (the reward
-                # vector is stored as float32, hence the float32-scale tolerance)
-                np.testing.assert_allclose(float(got[-1]), float(base[-1]) - applied,
-                                           rtol=1e-5, atol=1e-5)
+                # The terminal token carries -penalty/gamma^(N-1) so that its contribution to the
+                # DISCOUNTED return is exactly -penalty (the constrained objective is
+                # R = J_0 - gamma^N J_N - penalty). Asserting the raw terminal value against
+                # `base[-1] - applied` would encode the old, gamma-mis-scaled convention.
+                from spec.objective_contract import SHAPING_DISCOUNT
+                w = SHAPING_DISCOUNT ** (len(got) - 1)
+                np.testing.assert_allclose(float(got[-1]), float(base[-1]) - applied / w,
+                                           rtol=1e-4, atol=1e-4)
+                # and the discounted contribution of the charge is exactly the penalty
+                self.assertAlmostEqual(
+                    float(np.sum(got * (SHAPING_DISCOUNT ** np.arange(len(got)))))
+                    - float(np.sum(np.asarray(base, dtype=float)
+                                   * (SHAPING_DISCOUNT ** np.arange(len(base))))),
+                    -applied, places=4)
         self.assertGreater(checked, 0, "the fixture must contain an over-budget slot")
 
     def test_telemetry_exposes_violations_and_denominators(self):

@@ -359,6 +359,27 @@ HOP_TO_LINK = {HOP_UL: "mec_ul", HOP_DL: "mec_dl", HOP_V2V: "v2v",
                HOP_UL_DIRECT: "mec_ul", HOP_DL_DIRECT: "mec_dl"}
 
 
+def _declared_horizon(link_process) -> float | None:
+    """The realized trace length in seconds, or None when the process does not declare one.
+
+    Accepts either the real `LinkProcess.horizon_s()` method or a plain numeric attribute, so
+    duck-typed test doubles work without silently inventing a horizon.
+    """
+    for attr in ("horizon_s", "horizon"):
+        value = getattr(link_process, attr, None)
+        if value is None:
+            continue
+        if callable(value):
+            value = value()
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value) and value > 0.0:
+            return value
+    return None
+
+
 def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]],
                     *, link: V2LinkSpec, compute: V2ComputeSpec,
                     link_process=None, helper_states: Mapping | None = None,
@@ -454,6 +475,12 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         outage_wait = 0.0
         outage_events = 0
         steps = 0
+        # The rate trace is PIECEWISE CONSTANT on [k*dt, (k+1)*dt). Integrating with a full-dt
+        # step from an arbitrary start applied one interval's rate across the next interval's
+        # boundary (F06): a transfer starting at 0.05 s with dt=0.1 s and a x10 rate jump at
+        # 0.1 s finished at 0.160 s instead of the analytic 0.115 s. Every step must therefore
+        # end at the NEXT TRACE BOUNDARY, an outage transition, or payload completion.
+        guard = 0
         while served + 1e-12 < payload:
             steps += 1
             if steps > int(max_service_steps):
@@ -461,13 +488,37 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                     "transfer on %s starting at %.6fs did not complete within %d rate steps "
                     "(horizon exhaustion: the open-loop plan cannot finish)"
                     % (link_name, start, int(max_service_steps)))
+            if guard > int(max_service_steps) + 1:
+                raise V2ScheduleError("service integration did not advance on %s" % link_name)
+            guard += 1
+            # --- finite horizon, stated explicitly (no silent infinite extension) ---
+            # Only enforced when the process actually declares a horizon: the real LinkProcess
+            # exposes `horizon_s()`; lightweight test doubles may expose nothing, in which case
+            # the horizon is unknown and cannot be checked.
+            horizon = _declared_horizon(link_process)
+            if horizon is not None and t >= horizon - 1e-12:
+                raise V2ScheduleError(
+                    "transfer on %s starting at %.6fs reached the end of the realized link "
+                    "trace (%.6fs) with %.6f of %.6f bytes served: the frozen horizon does not "
+                    "cover this plan, so the rate beyond it is undefined"
+                    % (link_name, start, horizon, served, payload))
             rate = base * float(link_process.realized(link_name, t))
+            # next trace boundary strictly after `t`
+            boundary = (math.floor(t / dt + 1e-9) + 1) * dt
             if rate <= 0.0:
-                t += dt
-                outage_wait += dt
+                # an outage pause also stops AT the boundary; it never straddles one
+                advance = max(boundary - t, 0.0)
+                if advance <= 0.0:
+                    advance = dt
+                t += advance
+                outage_wait += advance
                 outage_events += 1
                 continue
-            step = min(dt, (payload - served) / rate)
+            step = min(boundary - t, dt, (payload - served) / rate)
+            if step <= 0.0:
+                # `t` is exactly on the boundary: the next rate applies from here
+                t = boundary if boundary > t else t + dt
+                continue
             served += rate * step
             t += step
         return (t - float(start)), outage_wait, outage_events

@@ -152,18 +152,35 @@ class TestExecution(unittest.TestCase):
         for record in info[2]:
             self.assertIn("location_mix", record["v2"])
 
-    def test_telescoping_sums_to_total_latency_change(self):
+    def test_telescoping_obeys_the_discount_contract(self):
+        """objective_contract v1: r_t = J_{t-1} - gamma*J_t.
+
+        The DISCOUNTED sum is the criterion and telescopes exactly to J_0 - gamma^N J_N. The
+        plain (undiscounted) sum is the labelled companion
+        `J_0 + (1-gamma)*sum_{t<N} J_t - gamma*J_N`. The pre-F13 form emitted the gamma=1 delta
+        `J_{t-1} - J_t`, whose discounted sum is NOT path-independent.
+        """
+        from spec.objective_contract import (
+            SHAPING_DISCOUNT, discounted_return, legacy_sum_from_potentials,
+        )
         env = _env()
         actions = np.ones((3, 20), dtype=int)
         _o, rewards, _d, info = env.step(actions)
-        # sum_t r_t = -(L_final - L0)/L_scale with L0 = all-UE prefix makespan
+        gamma = SHAPING_DISCOUNT
         for slot in range(3):
             graph = env.base.graph_objects[env.base._graph_index(slot)]
             l_scale = max(float(graph.D_G_s), 1e-12)
-            total = float(np.sum(rewards[slot]))
-            final = float(info[0][slot])
-            l0 = env._schedule_slot(slot, [0] * 20).makespan_s
-            self.assertAlmostEqual(total, -(final - l0) / l_scale, places=6)
+            r = np.asarray(rewards[slot], dtype=float)
+            # reconstruct the prefix potentials [J_0, J_1, ..., J_N]
+            pot = [env._schedule_slot(slot, [0] * 20).makespan_s / l_scale]
+            for k in range(20):
+                prefix = [1] * (k + 1) + [0] * (20 - k - 1)
+                pot.append(env._schedule_slot(slot, prefix, validate=False).makespan_s / l_scale)
+            n = len(pot) - 1
+            self.assertAlmostEqual(discounted_return(r, gamma),
+                                   pot[0] - (gamma ** n) * pot[-1], places=6)
+            self.assertAlmostEqual(float(np.sum(r)),
+                                   legacy_sum_from_potentials(np.asarray(pot), gamma), places=6)
 
     def test_determinism_same_seed_bit_identical(self):
         a = _env(seed=7)

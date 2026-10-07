@@ -233,17 +233,29 @@ class V2ConstraintManager:
         return costs
 
     def apply_penalty(self, rewards: Sequence[float],
-                      costs: ConstraintCosts) -> float:
-        """Add `-penalty` to the TERMINAL token only. Returns the applied penalty.
+                      costs: ConstraintCosts,
+                      *, terminal_weight: float = 1.0) -> float:
+        """Charge `-penalty` on the TERMINAL token. Returns the applied penalty.
 
-        The episode cost is charged exactly once: charging it on every token would multiply
-        it by the token count, and charging it on the first token would break the
-        `sum(rewards) == -latency_improvement - penalty` identity that the returns rely on.
+        The episode cost is charged exactly once: charging it on every token would multiply it
+        by the token count, and charging it on the first token would break the telescoping
+        identity the returns rely on.
+
+        `terminal_weight` is the weight the terminal token carries in the DISCOUNTED return,
+        ``gamma**(N-1)``. The penalty is divided by it so that the discounted return contains
+        exactly ``-penalty`` -- the constrained objective is
+        ``R = J_0 - gamma^N * J_N - sum_i lambda_i * max(0, g_i)``. Without this the constraint
+        would be silently mis-scaled by ``gamma**(N-1)`` (0.826 at N=20, gamma=0.99), so the
+        declared budget would not be the budget the learner actually faced.
         """
         penalty = float(self.controller.penalty(costs)) if costs.active else 0.0
         self.applied_penalty = penalty
         if penalty and len(rewards):
-            rewards[-1] = float(rewards[-1]) - penalty
+            weight = float(terminal_weight)
+            if not (weight > 0.0) or not math.isfinite(weight):
+                raise V2ConstraintError(
+                    "terminal_weight must be finite and > 0, got %r" % (terminal_weight,))
+            rewards[-1] = float(rewards[-1]) - penalty / weight
         return penalty
 
     def observe(self, costs: ConstraintCosts) -> None:

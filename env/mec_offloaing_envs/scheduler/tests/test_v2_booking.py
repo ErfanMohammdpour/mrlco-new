@@ -181,9 +181,13 @@ class TestAdversarialLinks(unittest.TestCase):
         res = schedule_shared([dag], {"d": {0: 1}}, link=LINK, compute=_compute(),
                               link_process=process)
         rec = [r for r in res.radio_ledger if r["hop"] == "MEC_DL"][-1]
-        self.assertAlmostEqual(rec["outage_s"], 1.0, places=9)
+        # The DL transfer starts when the MEC compute ends: 1e6 B at 10e6 B/s = 0.1 s. The
+        # outage covers t < 1.0, so the pause actually remaining from a 0.1 s start is 0.9 s.
+        # (The pre-F06 integrator returned 1.0 here only because repeated `t += dt` accumulated
+        # to 0.9999999999999999 and the final sample was still classified as an outage.)
+        self.assertAlmostEqual(rec["outage_s"], 0.9, places=9)
         self.assertAlmostEqual(rec["service_s"], 2e6 / 20e6, places=9)
-        self.assertGreaterEqual(res.makespan_s, 1.0 + 2e6 / 20e6 - 1e-9)
+        self.assertGreaterEqual(res.makespan_s, 0.9 + 2e6 / 20e6 - 1e-9)
 
     def test_multiple_rate_and_outage_boundaries_are_integrated(self):
         # [0,0.1) full, [0.1,0.2) OUT, [0.2,0.3) HALF, [0.3,0.4) full, [0.4,0.5) OUT, then full.
