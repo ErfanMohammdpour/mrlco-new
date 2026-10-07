@@ -522,7 +522,23 @@ def main(argv=None) -> int:
                 "crn": getattr(trainer, "auto_crn", None),
             }
             evidence["error"] = failed
-            report = {"schema": "v2_tf_run_v1", "ok": failed is None, "evidence": evidence,
+            # F31: the verdict must be FINAL before any success artifact is written. The
+            # assertions used to run AFTER `run.json` had already been committed with
+            # `ok = (failed is None)`, so a run that failed `_assert_real_run` still left a
+            # truthful-looking `{"ok": true, "error": null}` on disk. Failures are now folded
+            # into the verdict first, and the machine-readable result carries the reason.
+            if failed is None:
+                try:
+                    _assert_real_run(evidence)
+                except Exception as exc:                 # noqa: BLE001 - verdict boundary
+                    failed = "%s: %s" % (type(exc).__name__, exc)
+            incomplete_reason = None
+            if failed is None and not reached_target:
+                incomplete_reason = ("target not reached: %d of %d iterations completed"
+                                     % (completed, int(args.iterations)))
+            report = {"schema": "v2_tf_run_v1", "ok": failed is None and incomplete_reason is None,
+                      "error": failed, "incomplete_reason": incomplete_reason,
+                      "evidence": evidence,
                       "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started))}
             out = Path(args.json)
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -542,10 +558,9 @@ def main(argv=None) -> int:
                                                 "constraint_penalty", "world_id")},
                               "error": failed}, indent=2, sort_keys=True))
             if failed is not None:
-                print("REAL TF RUN FAILED ->", out, file=sys.stderr)
+                print("REAL TF RUN FAILED -> %s : %s" % (out, failed), file=sys.stderr)
                 return 2
-            _assert_real_run(evidence)
-            if not reached_target:
+            if incomplete_reason is not None:
                 # Everything asserted above passed, but `--iterations` is the TOTAL target
                 # and it was not reached: this is an incomplete run with a resumable
                 # boundary, not a successfully finished one.

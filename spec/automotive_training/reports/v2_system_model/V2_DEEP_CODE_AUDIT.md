@@ -222,40 +222,81 @@ mapping name `total_energy_mec`, and it changes the constraint fingerprint
   `effective_equiv`), but the tier frequency used for timing vs energy pricing is inconsistent.
   Documented; the correct mapping must be versioned before energy comparisons are trusted.
 
-### F12 — average energy multiplies episode joules by 20 — **REPRODUCED (legacy label only)**
+### F12 — average energy multiplies episode joules by 20 — **REPRODUCED → FIXED (V2-scoped)**
 - **Path:** `v2/env.py::step` fills `energy_batch` with `np.full(len(rewards), episode_energy)`;
-  `meta_trainer.py:581` sums that vector.
-- **Proof:** slot with episode `system_joules=0.118` → `sum(energy_batch)=2.368 = 20×0.118`.
-- **Status:** the scoped telemetry columns (`energy/system_joules` etc.) are CORRECT; only the
-  legacy "Average energy" scalar is 20× the episode value. It is already labelled
-  `legacy_average_energy_kvs` (MOBILE). Fixing the shared `meta_trainer.py` sum would touch the
-  frozen V1 path; deferred with this label. Do NOT report "Average energy" as episode joules.
+  `meta_trainer.py:581` summed that vector.
+- **Measured:** episode `system_joules` 0.118 J → `sum(energy_batch)` 2.368 J = 20 × 0.118.
+- **Fix (V2-scoped, V1 byte-for-byte preserved):** the env declares
+  `energy_channel_semantics = "episode_replicated"`; `energy_telemetry.aggregate_episode_energy`
+  takes ONE value per trajectory for that marker and **asserts** the tokens within a path are
+  identical (a wrong marker fails loudly rather than reporting a mis-scaled mean); the trainer
+  branches on the declared semantics and logs `energy/v2_episode_system_joules_mean` with an
+  explicit `system_foreground` scope, so the V2 number is never described only by the legacy
+  MOBILE label. V1 leaves the marker absent and keeps the historical per-token sum exactly.
+- **Regression:** `test_v2_energy_aggregation.py` (6 tests; the marker test fails pre-fix).
 
-### F13 — dense shaping and gamma mismatch the objective — **CONTRACT_CONFLICT (reproduced)**
-- **Path:** `v2/env.py::_telescoping` emits `r_t = J_{t-1} − J_t` (γ=1); PPO applies
-  `discount=0.99` (`stack.py:173`).
-- **Proof:** `[5,3]`→7.97 vs `[1,7]`→7.93 (both undiscounted = 8) — ranking depends on the
-  intermediate prefix, contradicting `spec/objective_contract.py:22-28` which declares
-  `r_t = J_{t-1} − γ·J_t` (telescopes to `J_0 − γ^N·J_N`).
-- **Status:** CONTRACT_CONFLICT — **NOT fixed** (would change the reward and require re-evaluation;
-  out of scope without explicit approval). The discount-consistent form already exists in the
-  offloading env (`offloading_env.py:247`, `reward.py:135`). The automotive v2 stack never wires
-  `shaping_discount`.
+### F13 — dense shaping and gamma mismatch the objective — **REPRODUCED → FIXED**
+- **Path:** `v2/env.py::_telescoping`; `v2/constraints_v2.py::apply_penalty`; `v2/stack.py:177`.
+- **Fix:** `_telescoping` now emits the contract form `r_t = J_{t-1} - gamma*J_t`
+  (`J = L/L_scale`, `gamma = shaping_discount`, validated in (0,1]). The processor applies the
+  same gamma on top; that combination IS the contract (`spec/objective_contract.py:22`), not a
+  double discount. The terminal constraint penalty is divided by `gamma^(N-1)` so its contribution
+  to the discounted return is exactly `-penalty` (otherwise the declared budget would be
+  mis-scaled by 0.826 at N=20).
+- **Contract identities now hold:**
+  ```
+  discounted   sum_t gamma^(t-1) r_t = J_0 - gamma^N * J_N      (path-independent)
+  undiscounted sum_t r_t             = legacy_sum_from_potentials(potentials, gamma)
+  ```
+- **Regression:** `test_v2_discount_contract.py` (6 tests; the env-level test fails pre-fix).
+- Three pre-existing tests encoded the old semantics and were corrected with the reasoning inline
+  (`test_v2_env` now asserts the two contract identities; `test_v2_constraints` asserts the
+  DISCOUNTED charge is exactly `-penalty`).
 
-### F06 — service integration skips rate-change boundaries — **REPRODUCED (not yet fixed)**
-- **Path:** `shared_scheduler.py::_service_detail` (step advances full `dt`, samples rate only at
-  step start); `link_model.py::_idx` (`floor(t/dt)`).
-- **Proof:** analytic `0.115 s` vs scheduler `0.160 s` (exact match to the finding).
-- **Status:** REPRODUCED. Fix (integrate to the next trace boundary / outage / contact transition)
-  is understood but not applied in this session; it changes transfer timing and must be followed
-  by re-evaluation.
+### F06 — service integration skips rate-change boundaries — **REPRODUCED → FIXED**
+- **Path:** `shared_scheduler.py::_service_detail`; `link_model.py::_idx`.
+- **Fix:** every integration step now terminates at the NEXT TRACE BOUNDARY (or outage transition
+  or payload completion); `_idx` snaps exact grid points (`+1e-9`, because `0.3/0.1 =
+  2.9999999999999996` selected the PREVIOUS interval); and the finite horizon is an explicit
+  error (`_declared_horizon`) instead of silently extending the final rate sample forever.
+- **Before/after on the exact finding fixture** (start 0.05 s, dt 0.1 s, 20 B, base 100 B/s, x10
+  from 0.1 s; analytic 0.115 s):
+  ```
+  PRE-FIX : booked [0.0500, 0.1600]  completion 0.1600 s
+  POST-FIX: booked [0.0500, 0.1150]  completion 0.1150 s
+  ```
+- **Regression:** `test_v2_service_boundary.py` (6 tests; 2 fail pre-fix).
+- **Third finding from the same fix:** an adversarial test expected a 1.0 s outage to cost 1.0 s;
+  the true overlap from a 0.1 s start against an outage on `t < 1.0` is **0.9 s**, and the old 1.0
+  was a floating-point artefact (repeated `t += dt` accumulated to `0.9999999999999999`, so the
+  last sample was still classified as an outage). The test now asserts 0.9 with the reason inline.
 
-### F21 — NumPy categorical log_likelihood broken — **REPRODUCED (dead/latent)**
-- **Path:** `policies/distributions/categorical_pd.py::log_likelihood` (builtin `sum` wrong axis;
-  `log(one_hot*p)` includes `log(0)`).
-- **Proof:** zero logits, actions [0,1] → `[-inf,-inf]` (expected `[-log3,-log3]`).
-- **Status:** REPRODUCED but **zero call sites** on the training path (TF `log_likelihood_sym` is
-  correct and is what PPO uses). Did NOT cause TF training. Low priority; fix or delete the dead API.
+### F21 — NumPy categorical log_likelihood broken — **REPRODUCED → FIXED (was dead code)**
+- **Path:** `policies/distributions/categorical_pd.py::log_likelihood`.
+- **Three defects:** normalised with the Python builtin `sum` (wrong axis for batched `[B,C]`
+  logits); took `log(one_hot * p)` so `log(0) = -inf` collapsed every entry; built `final_shape`
+  from `list.append` (returns None) making the reshape a no-op.
+- **Fix:** stable log-softmax (`logits - logsumexp`) gathered at the selected action, with
+  action-axis and index-range validation.
+- **Before/after, in the TF1 container:**
+  ```
+  PRE-FIX : Ran 8 tests -> FAILED (failures=5, errors=2)     exact `[-inf, -inf]` reproduced
+  POST-FIX: Ran 8 tests -> OK
+  ```
+- **Regression:** `test_categorical_log_likelihood.py` (8 tests, TF-gated; includes agreement with
+  the TF symbolic path on random logits/actions).
+- **Reachability unchanged:** ZERO call sites; PPO uses the correct TF `log_likelihood_sym`. This
+  defect did **not** cause any TF learning failure and is not offered as an explanation for one.
+
+### F08 — validator did not check the helper contact window — **REPRODUCED → FIXED (validator half)**
+- **Path:** `shared_scheduler.py::validate_schedule`.
+- **Fix:** the validator now takes `helper_states` and independently enforces, for every transfer
+  whose source is HELPER, `start_s >= contact_start_s` and `end_s <= contact_end_s`; it reports
+  `helper_contact_window` and `helper_transfers_checked` so a run can show the invariant was
+  exercised. A late return raises `V2ScheduleError`.
+- **Regression:** `test_v2_helper_return_queue.py::ValidatorContactInvariantTests` (2 tests).
+- **Still NOT_VERIFIED in F08:** abandoned CPU/radio reservations, wasted-vs-restart billing on
+  fan-out, direct/staged route variants, and the effective-producer location for successors.
 
 ### F30 — completion counters depend on validation scheduling — **ALREADY_FIXED_WITH_PROOF**
 - `stack.py::_iteration_completed` (the loop's last statement) sets `completed_iterations`,
@@ -281,23 +322,18 @@ mapping name `total_energy_mec`, and it changes the constraint fingerprint
 ## 2. Stage status and verdict
 
 ### Stages completed this session
-- **Stage A (implementation repairs):** F01 (graph identity), F02 (MC independence), F07 (helper
-  return queue) **fixed with regressions**; F09 validated by measurement; C6 anchor naming
-  versioned. **F06, F12, F13, F21 remain open** (see below).
-- **Stage B (NOT_VERIFIED findings):** only the findings listed in section 1 were executed. The
-  rest (F03–F05, F08, F14–F29, F32–F34) are **NOT_VERIFIED at `a9e8f10`**.
-- **Stage C (short gate + fresh diagnostic):** **NOT RUN.** No real-TF 3-iteration gate, no
-  fresh-process resume comparison, no repaired-code training diagnostic was executed in this
-  session.
-
-### Why F06/F12/F13/F21 are left open (explicit, not "out of scope")
-- **F06** (rate-boundary integration) changes transfer timing → requires re-evaluation of every
-  timing/energy number. Reproduced with the exact claimed numbers; fix direction known.
-- **F12** (legacy ×20 energy) lives in the shared `meta_trainer.py` sum that V1 also uses; the
-  scoped telemetry columns are correct, so the fix must be a V2-specific adapter, not a shared edit.
-- **F13** (shaping/γ) is a genuine contract conflict; correcting it changes the objective and
-  therefore all learning results, which requires the authorized re-evaluation campaign.
-- **F21** is dead code (zero call sites); TF `log_likelihood_sym` is correct and is what PPO uses.
+- **Stage A (implementation repairs): ALL of the previously open Stage-A items are now repaired
+  with executed regressions:** F01, F02, F07, **F06, F08 (validator), F12, F13, F21**, plus F09
+  validated by measurement and C6 anchor versioning. Pre-fix failure counts:
+  ```
+  F01/F02/F07 : 4 of 8 new tests fail pre-fix   -> 8 passed
+  F06/F13     : 3 of 12 new tests fail pre-fix  -> 12 passed
+  F12         : 1 of 6 new tests fails pre-fix  -> 6 passed
+  F21         : 7 of 8 new tests fail pre-fix   -> 8 passed (TF container)
+  ```
+- **Stage B (NOT_VERIFIED findings):** only the findings reproduced in section 1 were executed.
+  F03–F05, F14–F29 and F32–F34 remain **NOT_VERIFIED at this revision**.
+- **Stage C (short gate + fresh diagnostic):** in progress — see section 3.
 
 ### Verdicts
 **IMPLEMENTATION_READY: NO.** Concrete blockers:

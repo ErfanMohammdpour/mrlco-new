@@ -15,6 +15,7 @@ The frozen v1 budgets are enforced identically (meta_batch 10, support 20, 3 inn
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
