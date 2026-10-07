@@ -426,6 +426,45 @@ Two sub-findings from the same run:
    self-contradictory and needs its own investigation; it is reported here as an open inconsistency
    rather than explained away.
 
+### F33 — ROOT CAUSE of the resume divergence, localised
+
+The decisive evidence is the WORLD IDENTITY, not the counters:
+
+```
+control  last_rollout.world_id = ep11_slot19   makespan 0.512884   system_joules 196.451
+resume   last_rollout.world_id = ep3_slot19    makespan 0.595720   system_joules 200.273
+```
+
+Both runs are at iteration 2 with identical configuration and `next_iteration=3`, but they are
+building DIFFERENT worlds: the resumed process is at episode 3 where the control is at episode 11.
+The world identity in the V2 env is derived from the episode counter, the reset counter and the
+world key, and those also feed the MC realization, the background workloads and the helper seeds.
+
+`_resume_bundle` (run_tf.py:238-263) persists: schema, iteration counters, seed, background DAGs,
+link regime, background policy, mec workers, R/S, obs version, protocol id, dataset/scheduler
+fingerprints, the constraint manager state, `sampler_counters`, and `best_val_objective`.
+
+It does **NOT** persist: the environment's episode counter, the reset counter, `_world_key`, the
+realization epoch, and any NumPy/TF RNG state.
+
+That is precisely why the bookkeeping restores (counters, duals, broadcast targets, selection
+state) while the training trajectory does not (34 % difference in `mean_system_joules`, different
+lambdas, no penalty applied in the resumed iteration). It also explains the earlier `--iterations`
+accounting work being necessary but not sufficient: the loop resumes at the right iteration number
+while replaying a different world sequence.
+
+**Fix direction (not applied):** extend the bundle with an environment-identity section
+(`episodes`, `reset_count`, `_world_key`, realization epoch) plus explicitly deterministic,
+identity-derived streams for the link/helper/background/MC draws, and re-run this same
+control-vs-resume comparison as its acceptance test. A raw TF/Numpy RNG state dump is acceptable
+only if the streams are actually stateful; identity-derived streams are preferable because they
+survive a process boundary. Record the measured CPU/GPU tolerance and the determinism limits.
+
+**Related design wart found in the same run:** the "a constraint must bind" guard is PROCESS-local
+(`penalty.episodes` counts only this process), so a legitimately resumed short run cannot satisfy
+it even when the run as a whole bound the constraint. Once resume is trustworthy the guard must be
+evaluated over the RUN.
+
 ### Stage B — still NOT_VERIFIED at this revision
 F03, F04, F05, F14, F15, F16, F17, F18, F19, F20, F22, F23, F24, F25, F26, F27, F28, F29, F34.
 No claim is made about any of them. The earlier partial reports are not substitutes; several
