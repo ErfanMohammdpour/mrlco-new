@@ -335,20 +335,142 @@ mapping name `total_energy_mec`, and it changes the constraint fingerprint
   F03–F05, F14–F29 and F32–F34 remain **NOT_VERIFIED at this revision**.
 - **Stage C (short gate + fresh diagnostic):** in progress — see section 3.
 
-### Verdicts
-**IMPLEMENTATION_READY: NO.** Concrete blockers:
-1. Stage C not executed: no real-TF ≥3-iteration gate on the repaired revision, no fresh-process
-   resume equivalence, no repaired-code learning diagnostic.
-2. F06 open (transfer timing can be wrong across rate/outage boundaries).
-3. F13 open (the reward shaping does not implement the declared discount-compatible contract).
-4. F03–F05, F08, F14–F29, F32–F34 unverified at this revision.
-5. The historical 500-run and all its checkpoints were produced under F01+F02; they are retained
-   as defective-environment artifacts and cannot certify the repaired system.
+### Stage C — executed (real TF1/contrib, GPU)
 
-**LEARNING_COMPETITIVE: NOT_YET_MEASURED.** Every performance number in the repository
-(k=0 0.0806 s, the 2.69× all-MEC gap, the −66 % validation latency, the k-sweep saturation) was
-measured either on the defective environment or with the pre-fix evaluator. No performance claim
-about the repaired code is currently supported.
+Two gates were run with the proven compatible image. Both used `--device gpu`, seed 0,
+`background=2`, `link-regime moderate`, `background-policy all_mec`, `--r-select 2 --s-select 2`.
+
+**Gate 1 — `--iterations 3`, budget fraction 0.5. VERDICT: FAILED (correctly).**
+```
+V2RunError: after 3 completed iterations no episode was ever penalised:
+             a constraint that never binds is not evidence that the loop works
+```
+This is the run-level guard refusing to certify a run whose constraint never bound, and it is the
+right outcome: at `fraction=0.5` the policy's foreground energy stayed under `0.5 * E_mec`, so no
+constraint ever bound and there was no evidence the constrained loop works. Gate 1 also exposed
+two live defects, both now fixed:
+- **F32** — `WARNING v2 progress telemetry failed: progress="NameError: name 'json' is not defined"`
+  (`v2_progress.json` missing, `v2_phase_timings.jsonl` 0 bytes) → `json` import restored.
+- **F31** — `run.json` said `ok: true, error: null` while the guard had raised → verdict now final
+  before the artifact is written.
+
+**Gate 2 — `--iterations 3`, budget fraction 0.05 (binding). VERDICT: PASSED.**
+```
+REAL TF RUN OK -> /out/run.json
+ok=True  error=None  incomplete=None
+completed=3  validations=1  outer_updates_completed=3  dual_updates_completed=3
+lambda_broadcast_targets=11
+penalties = 400/600 episodes with a nonzero penalty, penalty_sum=15.7566, steps_with_penalty=2
+lambdas   = {total_energy: 0.019716, ue_energy: 0.107848}
+mean_violation = 0.9252   mean_system_joules = 101.256 J
+```
+The constraint BINDS, both duals move above zero, one validation ran, and the machine-readable
+verdict matches the exit code. Progress artifacts now exist:
+`v2_progress.json` (1229 B, per-iteration counters, lambdas, broadcast targets, violation, energy)
+and `v2_phase_timings.jsonl` (1326 B, one record per iteration).
+
+**Measured per-iteration cost on the repaired code** (from `v2_phase_timings.jsonl`,
+iteration 2, the worst of the three):
+```
+iteration_total_s       23.358
+  process_samples_ppo   10.882
+  process_samples_eval  10.784
+  inner_ppo              1.604
+  outer_update           0.0780
+  constraints            0.0094
+  sample_tasks           0.0003
+```
+=> **~23.4 s per outer iteration**. Pre-F01 code measured ~26 s/iteration over the 500-run, so the
+repaired world-build path is not materially slower. Estimate for 500 iterations: **~11 700 s
+(3 h 15 m)** plus validation overhead. This is a measured estimate on a repaired 3-iteration run,
+not a projection from the defective run.
+
+### Stage C — fresh-process resume: **NOT equivalent (F33 REPRODUCED LIVE)**
+Control: uninterrupted `--iterations 3`. Resume: `--iterations 2` (clean exit), then a NEW process
+with `--iterations 3 --resume-from /out/ckpt/v2_run.ckpt`.
+
+What DOES restore correctly:
+```
+resumed from /out/ckpt/v2_run.ckpt at next_iteration=2 target=3
+last_completed_iteration 2 == 2      next_iteration 3 == 3
+outer_updates_completed  3 == 3      dual_updates_completed 3 == 3
+lambda_broadcast_targets 11 == 11
+```
+What does NOT — comparing each run's iteration-2 snapshot:
+
+| field | control itr 2 | resume itr 2 | match |
+|---|---|---|---|
+| `mean_system_joules` | 101.256 | 66.961 | **NO (−34 %)** |
+| `mean_requester_joules` | 0.3588 | 0.2672 | **NO** |
+| `mean_violation` | 0.9252 | 0.9390 | **NO** |
+| `lambdas.total_energy` | 0.019716 | 0.017826 | **NO** |
+| `lambdas.ue_energy` | 0.107848 | 0.110330 | **NO** |
+| episodes with a penalty (process) | 400/600 | 0/200 | **NO** |
+
+**Verdict: the checkpoint, counters, dual state and selection state restore, but the resumed
+iteration is a DIFFERENT iteration from the control's.** The fresh process does not reproduce the
+sampling/RNG/world sequence, so a resumed run diverges from an uninterrupted one in the quantity
+that matters (the training trajectory), even though the bookkeeping looks identical. This is
+exactly the F33 defect ("model-weight load is not reproducible training resume"), now demonstrated
+end-to-end rather than argued. It also honestly self-reports: the resumed run's `run.json` carries
+`ok: false` with the guard's reason.
+
+Two sub-findings from the same run:
+1. **The "constraint bound" guard is process-local.** A resumed process that runs one iteration can
+   fail the guard even though the run as a whole bound the constraint (the control applied 400
+   penalties; the resumed process saw 0). The guard must be evaluated over the RUN, not the
+   process, once resume is trustworthy.
+2. **`mean_violation = 0.939` coexists with `episodes_with_nonzero_penalty = 0`** in the same
+   snapshot, and `mean_violation = 0.925` coexists with 400/600 penalised episodes in the control.
+   A positive signed violation with a positive lambda and zero applied penalties is
+   self-contradictory and needs its own investigation; it is reported here as an open inconsistency
+   rather than explained away.
+
+### Stage B — still NOT_VERIFIED at this revision
+F03, F04, F05, F14, F15, F16, F17, F18, F19, F20, F22, F23, F24, F25, F26, F27, F28, F29, F34.
+No claim is made about any of them. The earlier partial reports are not substitutes; several
+findings were only partially addressed in prior sessions and are not re-asserted here.
+
+### Verdicts
+
+**IMPLEMENTATION_READY: NO.** Concrete blockers, in order:
+1. **F33 is now REPRODUCED LIVE**: a fresh-process resume restores weights/counters/duals but does
+   NOT reproduce the control's training trajectory (iteration-2 `mean_system_joules` differs by
+   34 %, both duals differ, the penalty history differs). Until continuation is equivalent, a
+   >1-session run cannot be certified.
+2. **Stage B is incomplete**: F03–F05, F14–F29 (except the pieces listed) and F34 are NOT_VERIFIED
+   at this revision. In particular the TF gradient/CRN/behaviour-likelihood contract (F18/F19/F20),
+   schema/import order (F23), the paired evaluator on one immutable world (F25/F26) and
+   energy-aware checkpoint selection (F28) have not been executed here.
+3. **F11 physical-unit conflict is documented but not resolved.** The ledger charges the
+   duration form while tracking the work form, and timing rates come from per-graph resource
+   frequencies while energy prices use frozen tier frequencies (`E_dur/E_work =
+   R_physical/R_scheduled`). Absolute joule values are not yet dimensionally certified.
+4. **F08 is only half done**: the validator half is fixed and tested; abandoned CPU/radio
+   reservations, fan-out billing, direct/staged route variants and effective-producer locations
+   are not verified.
+5. **The "positive violation with zero applied penalties" inconsistency** found in the resume gate
+   is unexplained.
+6. Every historical artifact (the 500-run, its checkpoints, and all performance numbers derived
+   from them) was produced under F01+F02 and is retained only as a defective-environment record.
+
+**LEARNING_COMPETITIVE: NOT_YET_MEASURED.** No performance claim about the repaired code is
+supported. The historical numbers (k=0 0.0806 s, the 2.69x all-MEC latency gap, the 2.35x energy
+gap, the k-sweep saturation at ~6 %) were all measured on the defective environment or with the
+pre-fix reward/evaluator, and are explicitly NOT results of the repaired system. A repaired-code
+learning diagnostic (Stage C item 4) has not been run; the three-iteration gates above establish
+that the loop WORKS, not that it LEARNS WELL.
+
+### What is actually established
+- The constrained chain runs ≥3 real outer iterations on the repaired code, with a binding
+  constraint, moving duals, one validation, per-iteration progress, periodic checkpoints, and a
+  machine-readable verdict consistent with the exit code (Gate 2).
+- Seven implementation defects are repaired with regressions that fail on the pre-fix code:
+  F01, F02, F06, F07, F08 (validator), F12, F13, F21, plus F31 and F32 found live by the gate.
+- The configured energy budget is NOT infeasible: a feasible witness exists on train data
+  (all-UE 0.192 J and other candidates vs B = 10.03 J), and excluding all-MEC is a legitimate
+  trade-off (C1).
+- F01/F02 were LIVE at the historical 500-run source `49e5cb8`, so that run's evidence is void.
 
 ### Eligible long-run configuration (not launched)
 ```
@@ -360,10 +482,11 @@ command  : python -m spec.automotive_training.v2.run_tf --device gpu --gpu-fract
            --energy-budget-fraction 0.5 --ue-budget-fraction 1.0 --r-select 2 --s-select 2
            --ckpt-dir /out/ckpt --json /out/run.json
 ```
-Measured runtime on the repaired code (per-phase instrumentation): the pre-F01 code completed
-500 iterations in 13 055 s (≈26 s/iteration) **with the YAML memoisation**. On the repaired code the
-world-build path now resolves a different graph per meta-task, so the per-iteration cost must be
-re-measured; **no estimate is offered** because none has been taken on `a9e8f10`.
+Measured runtime on the repaired code: **≈23.4 s per outer iteration** (Gate 2, iteration 2:
+23.358 s total, of which `process_samples_ppo` 10.88 s and `process_samples_eval` 10.78 s).
+Estimate for the total target: **500 iterations ≈ 11 700 s ≈ 3 h 15 m** of GPU time, plus
+validation. This is measured on the repaired revision, not projected from the defective run.
+It does NOT include the time to re-certify Stage B or the F33 continuation repair.
 
 ### Remaining modelling assumptions / unmodelled components
 `system_joules = UE CPU + helper CPU + MEC CPU + UE/helper/MEC TX`. Not modelled (from
