@@ -51,7 +51,7 @@ def _env(constraints=False, seed=11):
                           # total_energy is a fraction of the pure all-MEC plan's SYSTEM
                           # energy (the scope-consistent anchor). 0.5 puts the all-MEC plan
                           # at +1.0 signed cost so the constraint genuinely binds.
-                          budget_fractions={"total_energy": 0.5, "ue_energy": 2.0},
+                          budget_fractions={"total_energy_mec": 0.5, "ue_energy": 2.0},
                           scheduler_config_sha256=SHA)
     env.set_task({"dist_index": 0,
                   "graph_indices": np.arange(SLOTS, dtype=np.int32)})
@@ -172,7 +172,7 @@ class TestDualsMoveBothWays(unittest.TestCase):
         # directions. Anchoring on `E_ue` instead would compare a whole-world measurement with
         # a foreground-only reference: that was the audited scope mismatch.
         self.assertAlmostEqual(refs.energy_scope, "system")
-        spec = calibrate_budgets(refs, {"total_energy": 0.5})
+        spec = calibrate_budgets(refs, {"total_energy_mec": 0.5})
         manager = V2ConstraintManager(spec=spec, references=refs, dual_lr=0.5,
                                       scheduler_config_sha256=SHA)
         # two over-budget all-MEC episodes -> lambda must rise
@@ -265,7 +265,7 @@ class TestFailFast(unittest.TestCase):
     def test_scope_mismatch_is_rejected(self):
         _dag, _helper, plans = _fixture()
         refs = reference_ranges_from_plans(plans, scheduler_config_sha256=SHA)
-        spec = calibrate_budgets(refs, {"total_energy": 0.5})
+        spec = calibrate_budgets(refs, {"total_energy_mec": 0.5})
         manager = V2ConstraintManager(spec=spec, references=refs, scheduler_config_sha256=SHA)
         result = schedule_shared([_dag], {"d": {0: 1}}, link=LINK, compute=COMPUTE)
         ledger = schedule_energy(result)
@@ -284,7 +284,7 @@ if __name__ == "__main__":
 class TestTotalEnergyScopeConsistency(unittest.TestCase):
     """E4.3: the total-energy measurement and its reference must share one scope.
 
-    Audited defect: `metrics.total_energy_j` is WHOLE-WORLD SYSTEM energy (foreground plus
+    Audited defect (F09): the measurement was WHOLE-WORLD SYSTEM energy (foreground plus
     every declared background DAG of other owners, which share the same MEC CPU and radio),
     but its budget and scale were anchored on `refs.E_ue` - the system energy of the pure
     all-UE plan. In a background world that anchor is tiny, because the all-UE plan leaves the
@@ -307,7 +307,7 @@ class TestTotalEnergyScopeConsistency(unittest.TestCase):
 
         dag, _helper, plans = _fixture()
         refs = reference_ranges_from_plans(plans, scheduler_config_sha256=SHA)
-        spec = spec_from_fractions({"total_energy": 0.5})
+        spec = spec_from_fractions({"total_energy_mec": 0.5})
         result = schedule_shared([dag], {"d": {0: 1}}, link=LINK, compute=COMPUTE)
         ledger = schedule_energy(result)
         costs = v2_constraint_costs(result, ledger, spec, refs,

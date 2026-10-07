@@ -130,7 +130,11 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     adapter = AutomotiveDualAdapter(controller, enabled)
     cluster = AutomotiveResourceCluster(energy_config={}, constraint_controller=adapter)
 
-    fractions = dict(budget_fractions or {"total_energy": 0.5, "ue_energy": 1.0})
+    # The default V2 configuration names the ANCHOR explicitly (`total_energy_mec`), so the
+    # budget is f * E_mec and the knob can never be confused with the V1 `total_energy` =
+    # f * E_ue semantics. A caller that passes the historical `total_energy` key still gets the
+    # all-UE anchor, unchanged.
+    fractions = dict(budget_fractions or {"total_energy_mec": 0.5, "ue_energy": 1.0})
 
     def make_env(role: str) -> V2AutomotiveEnv:
         env = V2AutomotiveEnv(train_graphs, cluster, role=role,

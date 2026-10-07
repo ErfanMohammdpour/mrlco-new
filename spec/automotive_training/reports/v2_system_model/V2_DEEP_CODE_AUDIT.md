@@ -1,22 +1,142 @@
 # V2_DEEP_CODE_AUDIT — deep audit, repair, and evidence-based readiness
 
-**Audited revision.** The independently readable GitHub SHA `4a4e40f160e153b0dbf7baf134254ab12b77cacd`
-(phase5-realistic-system-v2) is **NOT present** in the local mirror (`git cat-file` fails) nor on
-the server git repo (`/root/v2-verify` HEAD = `0f9cb096b76a84d3c7b260d539b4e2ad15dceac6`). The
-actual executed/trained code is the local mirror at:
+**Audited and tested revision: `a9e8f1049bcd16a7c2ae22f3eae5e719755ac7ea`** (this document).
 
-- base: `0f9cb096b76a84d3c7b260d539b4e2ad15dceac6` ("identity-keyed environmental realizations…")
-- this session's repairs: `48a4367` → `e07ba6a` (the 500-run used `49e5cb8`)
+## 0. Revision and execution provenance (resolved)
 
-Every finding below is therefore marked against **HEAD `e07ba6a`** (this audit's tested SHA).
-Findings that were only reproduced at the audited remote SHA and could not be re-verified here
-are marked NOT_VERIFIED.
+| role | FULL SHA | date | note |
+|---|---|---|---|
+| base | `0f9cb096b76a84d3c7b260d539b4e2ad15dceac6` | 2026-10-03 23:14 | "identity-keyed environmental realizations…" |
+| **historical 500-run source** | `49e5cb832110ab6528d7ad767c5ba9d0d66d5ebb` | 2026-10-05 02:24 | `feat(v2): emit per-constraint measurements…` |
+| repair (prior session) | `e07ba6a66e16c244d217ecaafcf6032104f2a8e8` | 2026-10-06 14:57 | model energy discarded every rollout |
+| **audited HEAD** | `a9e8f1049bcd16a7c2ae22f3eae5e719755ac7ea` | 2026-10-07 12:07 | F01/F02/F07 repairs |
 
-**Status vocabulary:** REPRODUCED / ALREADY_FIXED_WITH_PROOF / CONTRACT_CONFLICT / HYPOTHESIS /
-NOT_VERIFIED.
+All four are ancestors of HEAD (`git merge-base --is-ancestor` = YES for each). Working tree clean.
 
-**Regression baseline:** `1393 passed, 19 skipped` before this audit; `1401 passed, 19 skipped`
-after (8 new tests, all fail on the pre-fix code).
+**Repository / remotes.** The mirror's only remote is a local git bundle
+(`_scratch/repo/v2.bundle`), created from the server checkout. The server git repo is
+`/root/v2-verify` with remotes `origin https://github.com/MA-RGO/MARGO.git` and
+`erfan https://github.com/ErfanMohammdpour/mrlco-new.git`; its HEAD is `0f9cb096`. The
+independently retrieved SHA `4a4e40f160e153b0dbf7baf134254ab12b77cacd` is **not** object-present in
+either the mirror or `/root/v2-verify`; it could not be reconciled here. `e07ba6a` / `a9e8f10` are
+present only in this mirror (they were created here). **No test result, timing or verdict in this
+document is transferred from `4a4e40f`.**
+
+**Provenance of the historical 500-run source (`49e5cb8`) — F01/F02 were LIVE in it:**
+```
+git show 49e5cb8:spec/automotive_training/v2/env.py        -> line 392: dataset_graph_id = int(indices[flat])
+git show 49e5cb8:spec/automotive_training/automotive_env.py -> line 266: for slot in self.graph_indices:
+                                                               line 268: seed = self.rollout_seed(graph.graph_id, int(slot))
+```
+Both sites are byte-identical at the base `0f9cb096` as well (lines 365 / 266). The 500-run's
+checkpoints are therefore **products of the defective environment**; they are preserved and may be
+used for diagnostic re-evaluation only, never as evidence of training the repaired system.
+
+**Container used for every executed TF/GPU check** (recorded from the image):
+`margo-phase4-tf115-nv2212:latest` @ `sha256:82bc781bc2888a171379e1b45da6846c559ef712e33a76f74948b1cd7172dc46`,
+Python 3.8.10, TensorFlow 1.15.5, `tf.contrib` importable, CUDA 11.8, NumPy per that image.
+Host `aizarepor` (ssh `kish-ai`), RTX 4090, co-resident vLLM left untouched.
+
+---
+
+## 1. Corrections to the previous report (read before any configuration change)
+
+### C1 — F10 was WRONG and is withdrawn
+The previous report claimed the energy budget was infeasible because "measured all-MEC energy
+equals its anchor, so g(all-MEC)=+0.5 ⇒ fraction ≥ 1.0 is required". **Both halves are wrong.**
+
+1. The claim tested the wrong quantity. `_score` (eval_loop) computes `schedule_energy(result)`
+   with **no `dag_filter`** (unfiltered, includes background), while the constraint measures
+   `schedule_energy(..., dag_filter=[foreground_id])`. Comparing those two produced a spurious
+   "3.06× anchor mismatch". Measured correctly, the anchor matches the realized plan:
+   ```
+   E_mec (anchor, background-free reference)             = 20.059 J
+   all-MEC measured (background=2, FOREGROUND-filtered)  = 20.089 J   ratio 1.001x
+   E_ue (anchor) = 0.192 J ; all-UE measured (FG-filter) = 0.192 J    ratio 1.000x
+   ```
+2. Even if all-MEC violates, that alone proves nothing about the feasible set. A TRAIN-ONLY study
+   (12 `meta_train` graphs, background=2, moderate link, canonical v2 scorer, `fraction=0.5`,
+   B = 10.0295 J) shows the feasible set is **large**:
+
+| candidate | fg energy J | latency s | energy OK | joint OK |
+|---|---|---|---|---|
+| `all_UE` | 0.192 | 0.1919 | 12/12 | 12/12 |
+| `all_HELPER` | 2.124 | 0.1339 | 12/12 | 12/12 |
+| `mix_mec25` | 2.145 | 0.2103 | 12/12 | 12/12 |
+| `rand_01` | 7.297 | 0.2752 | 12/12 | 12/12 |
+| `greedy_cd` | 9.195 | 0.1804 | 4/12 | 4/12 |
+| `mix_mec50` | 10.140 | 0.1215 | 6/12 | 6/12 |
+| `rand_00` | 9.436 | 0.3446 | 11/12 | 11/12 |
+| `mix_mec75` | 14.493 | 0.0783 | 0/12 | 0/12 |
+| `heft` | 18.255 | 0.2096 | 0/12 | 0/12 |
+| `all_MEC` | 20.089 | 0.0437 | 0/12 | 0/12 |
+
+**Feasible witness exists** (all-UE at 0.192 J; also all-HELPER, 25 %-MEC mixes and random mixes).
+**Proven infeasibility bound: none.** Excluding all-MEC is a legitimate design choice for a
+constrained formulation — it trades latency for energy, which is the intended behaviour.
+`fraction ≥ 1.0` is **not** required. No calibration is required on infeasibility grounds, and the
+fraction was **not** changed.
+
+**Binding-axis caveat:** on these 12 train graphs every candidate has `miss_rate = 0` and
+`hard = 0`, so the deadline axis is **not** binding on this fixture. The joint column therefore
+equals the energy column here. A harder fixture (tighter deadlines or higher load) is needed to
+make the deadline axis informative; that is a limitation of this study, stated rather than hidden.
+
+### C2 — F11 ratio direction was inverted
+Correct relation, for a common workload unit with `c` cycles/bit:
+```
+R_physical        = f / (8*c)
+E_duration/E_work = R_physical / R_scheduled      <-- this, not its inverse
+```
+Verified numerically against the shipped coefficients:
+```
+UE  : R_phys/R_sched = 416666.7/1048576 = 0.39744  == E_dur/E_work 0.39738
+HLP : 625000.0/1048576                  = 0.59605  == 0.59600
+MEC : 4166666.7/10485760                = 0.39744  == 0.39738
+```
+The ledger **charges** the duration form (`compute_joules_from_duration`) and only tracks the work
+form (`cpu_work_form_j`). Timing rates come from per-graph resource frequencies; energy prices use
+the frozen tier frequencies. The contract conflict stands; the previous report's explanation of the
+ratio (R_scheduled/R_physical) was wrong.
+
+### C3 — F02 proves MC-realization reuse, not identical trajectories
+Per-stream independent unit, from the code:
+
+| stream | keying | pre-fix independence |
+|---|---|---|
+| MC realization | `rollout_seed(graph_id, int(slot))` — the `graph_indices` **value** | **1 per meta-task** (defect) |
+| helper state | `stable_seed(base_seed, "helper", world_key, flat)` | already 1 per slot |
+| background workload | `world_id = "w_<key>_slot<flat>"` | already 1 per slot |
+| TF policy sampling | graph2seq/decoder RNG | not audited on this axis (NOT_VERIFIED) |
+
+F02 therefore proves the **MC axis** collapsed to 1 effective sample per meta-task. It does **not**
+prove identical full trajectories, and it does not license a claim about the other streams.
+
+### C4 — Evidence counts, exactly
+The previous report said "8 new tests, all fail on the pre-fix code". **Correct: 8 new tests,
+4 fail pre-fix.** Raw before/after (parent `e07ba6a` file versions vs HEAD):
+```
+pre-fix : 4 failed, 4 passed
+post-fix: 8 passed
+```
+Exact failing test IDs:
+```
+test_v2_graph_identity.py::GraphIdentityTests::test_non_single_dist_world_equals_task_graph
+test_v2_graph_identity.py::GraphIdentityTests::test_nonzero_task_ids_across_the_corpus
+test_v2_graph_identity.py::MCIndependenceTests::test_repeated_slots_draw_independent_realizations
+test_v2_helper_return_queue.py::HelperReturnQueueTests::test_return_behind_another_v2v_booking_falls_back
+```
+
+### C5 — Learning verdict must not mix environments
+Historical metrics (`k=0` 0.0806 s, `all_MEC` 2.69×, the "−66 % validation latency") describe the
+**old defective environment** (F01/F02 live). Repaired-training performance is
+**NOT_YET_MEASURED**. Old checkpoints are retained for diagnostic re-evaluation only.
+
+### C6 — The anchor knob was renamed, not reinterpreted
+`total_energy_frac_of_all_ue` multiplies `refs.E_ue` **literally** (V1 semantics preserved). The
+all-MEC anchor is a NEW, explicitly named field `total_energy_frac_of_all_mec`, selected by the new
+mapping name `total_energy_mec`, and it changes the constraint fingerprint
+(`c06c0598…` vs `fa3668af…`). The production default and `run_tf.py` now pass `total_energy_mec`.
 
 ---
 
@@ -64,24 +184,28 @@ after (8 new tests, all fail on the pre-fix code).
 
 ### F09 — world energy constrained against a background-free reference — **ALREADY_FIXED_WITH_PROOF**
 - **Path:** `v2/env.py::step` + `constraints.py::budgets_and_scales`.
-- **Proof of fix:** `step` evaluates the constraint on the foreground-only ledger
-  (`dag_filter=[world.foreground_id]`); the total-energy anchor is `refs.E_mec`. Comment corrected
-  this session to state the measurement is foreground-only (it had said "whole-world").
-- **Residual:** the reference worlds are still built background-free by design (`pure_location_worlds`),
-  which is now consistent with the foreground-only measurement. Attribution axes remain: requester /
-  mobile / system boundary × foreground / background / world ownership — documented in
-  `V2_ENERGY_SCOPE_FEASIBILITY.md`.
+- **Fix:** `step` evaluates the constraint on the foreground-only ledger
+  (`schedule_energy(..., dag_filter=[world.foreground_id])`); the total-energy anchor is the
+  background-free pure all-MEC plan. Both sides are now the same DAG set and the same boundary.
+- **Measured validation (TRAIN-ONLY, 12 graphs, background=2):** the anchor reproduces the realized
+  plan to within 0.1 %:
+  ```
+  E_mec (anchor)  = 20.059 J   vs   all-MEC measured (FG-filtered) = 20.089 J   ratio 1.001x
+  E_ue  (anchor)  =  0.192 J   vs   all-UE  measured (FG-filtered) =  0.192 J   ratio 1.000x
+  ```
+- **Residual (stated, not hidden):** the reference world is deliberately background-free, so it does
+  not carry the competitor load; the measured plan does. The 0.1 % agreement shows this does not
+  distort the FOREGROUND ledger on this fixture (UE CPU is per-owner and the foreground ledger is
+  filtered), but a fixture with heavy shared-MEC contention could reopen the gap. Not re-verified
+  under a high-contention setting.
 
-### F10 — default budget analytically infeasible even without background — **REPRODUCED (config)**
-- **Path:** `constraints.py` C_TOTAL_ENERGY anchor + `--energy-budget-fraction 0.5`.
-- **Proof:** under the fixed scope, `all-MEC` foreground energy **equals** the anchor `E_mec` by
-  construction, so budget `0.5 × E_mec` gives `g = (1.0 − 0.5)/1.0 = +0.5` — **all-MEC is
-  infeasible by construction** and it is the near-optimal-latency plan (only 5 % behind the panel
-  oracle). A fraction ≥ 1.0 is required for all-MEC feasibility.
-- **Status:** this is a **configuration/calibration** defect, not a code bug; the fraction was
-  disclosed as "an engineering setting, not calibrated". The feasibility study
-  (`V2_ENERGY_SCOPE_FEASIBILITY.md`) states the requested 0.5 spec is infeasible for the
-  near-optimal plan and a calibrated fraction ≥ 1.0 (or a different constraint scope) is required.
+### F10 — energy budget feasibility — **CORRECTED: NOT infeasible** (see C1)
+- The previous "proven infeasible / fraction ≥ 1.0 required" claim is **withdrawn**.
+- Measured TRAIN-ONLY: feasible witness exists (all-UE 0.192 J vs B = 10.03 J; also all-HELPER,
+  25 %-MEC, random mixes). all-MEC (20.089 J) and HEFT (18.255 J) are excluded, which is a
+  legitimate trade-off, not a defect.
+- Remaining genuine defect: the knob/name mismatch, now fixed by C6.
+- Limitation: the deadline axis is non-binding on the studied fixture.
 
 ### F11 — physical work/time/energy identities disagree — **REPRODUCED (units)**
 - **Path:** `energy_model.py::compute_joules` vs `compute_joules_from_duration`; scheduler rates
@@ -154,12 +278,60 @@ after (8 new tests, all fail on the pre-fix code).
   in earlier sessions (see `V2_ACCEPTANCE_MATRIX.md`, `V2_ROOT_CAUSE_ANALYSIS.md`); they are not
   re-asserted here.
 
-## Verdict
+## 2. Stage status and verdict
 
-- **IMPLEMENTATION_READY: NO.** F01/F02 invalidate the 500-run's evidence (repaired, but the run
-  itself used the defective graph/realization identity). F06/F07 are transfer-semantics defects;
-  F07 is now fixed, F06 is not. F13 is a contract conflict. F10 is a feasibility defect.
-- **LEARNING_COMPETITIVE: NO / NOT_YET_MEASURED.** Under the repaired environment the trained
-  policy is dominated by all-MEC on both latency (2.69×) and energy (2.35×) at the pre-fix
-  revision; but that measurement itself predates F01/F02, so it is **NOT_YET_MEASURED** on the
-  repaired code.
+### Stages completed this session
+- **Stage A (implementation repairs):** F01 (graph identity), F02 (MC independence), F07 (helper
+  return queue) **fixed with regressions**; F09 validated by measurement; C6 anchor naming
+  versioned. **F06, F12, F13, F21 remain open** (see below).
+- **Stage B (NOT_VERIFIED findings):** only the findings listed in section 1 were executed. The
+  rest (F03–F05, F08, F14–F29, F32–F34) are **NOT_VERIFIED at `a9e8f10`**.
+- **Stage C (short gate + fresh diagnostic):** **NOT RUN.** No real-TF 3-iteration gate, no
+  fresh-process resume comparison, no repaired-code training diagnostic was executed in this
+  session.
+
+### Why F06/F12/F13/F21 are left open (explicit, not "out of scope")
+- **F06** (rate-boundary integration) changes transfer timing → requires re-evaluation of every
+  timing/energy number. Reproduced with the exact claimed numbers; fix direction known.
+- **F12** (legacy ×20 energy) lives in the shared `meta_trainer.py` sum that V1 also uses; the
+  scoped telemetry columns are correct, so the fix must be a V2-specific adapter, not a shared edit.
+- **F13** (shaping/γ) is a genuine contract conflict; correcting it changes the objective and
+  therefore all learning results, which requires the authorized re-evaluation campaign.
+- **F21** is dead code (zero call sites); TF `log_likelihood_sym` is correct and is what PPO uses.
+
+### Verdicts
+**IMPLEMENTATION_READY: NO.** Concrete blockers:
+1. Stage C not executed: no real-TF ≥3-iteration gate on the repaired revision, no fresh-process
+   resume equivalence, no repaired-code learning diagnostic.
+2. F06 open (transfer timing can be wrong across rate/outage boundaries).
+3. F13 open (the reward shaping does not implement the declared discount-compatible contract).
+4. F03–F05, F08, F14–F29, F32–F34 unverified at this revision.
+5. The historical 500-run and all its checkpoints were produced under F01+F02; they are retained
+   as defective-environment artifacts and cannot certify the repaired system.
+
+**LEARNING_COMPETITIVE: NOT_YET_MEASURED.** Every performance number in the repository
+(k=0 0.0806 s, the 2.69× all-MEC gap, the −66 % validation latency, the k-sweep saturation) was
+measured either on the defective environment or with the pre-fix evaluator. No performance claim
+about the repaired code is currently supported.
+
+### Eligible long-run configuration (not launched)
+```
+source   : a9e8f10 (after F06/F13 decisions and a passed Stage C)
+image    : margo-phase4-tf115-nv2212:latest @ sha256:82bc781bc288...
+command  : python -m spec.automotive_training.v2.run_tf --device gpu --gpu-fraction 0.03
+           --intra-op 8 --inter-op 2 --iterations <TOTAL> --seed 0 --background 2
+           --link-regime moderate --background-policy all_mec
+           --energy-budget-fraction 0.5 --ue-budget-fraction 1.0 --r-select 2 --s-select 2
+           --ckpt-dir /out/ckpt --json /out/run.json
+```
+Measured runtime on the repaired code (per-phase instrumentation): the pre-F01 code completed
+500 iterations in 13 055 s (≈26 s/iteration) **with the YAML memoisation**. On the repaired code the
+world-build path now resolves a different graph per meta-task, so the per-iteration cost must be
+re-measured; **no estimate is offered** because none has been taken on `a9e8f10`.
+
+### Remaining modelling assumptions / unmodelled components
+`system_joules = UE CPU + helper CPU + MEC CPU + UE/helper/MEC TX`. Not modelled (from
+`run.json.unmodeled_components`): receiver/static radio power (`include_rx_energy=False`), CPU
+idle/leakage between tasks, MEC/RSU static power (`server_static_power_w` null), backhaul/core
+transport, battery dynamics/charging/reserve, warm-standby reservation energy. Absolute joule values
+are a lower bound and must not be presented as measured hardware consumption.

@@ -413,7 +413,7 @@ def main(argv=None) -> int:
         reliability=bool(args.reliability), background_dags=int(args.background),
         background_policy=str(args.background_policy),
         constraints_enabled=bool(args.constraints),
-        budget_fractions={"total_energy": float(args.energy_budget_fraction),
+        budget_fractions={"total_energy_mec": float(args.energy_budget_fraction),
                           "ue_energy": float(args.ue_budget_fraction)},
         r_select=int(args.r_select), s_select=int(args.s_select))
 
@@ -510,7 +510,7 @@ def main(argv=None) -> int:
                 "link_regime": str(args.link_regime), "mec_workers": int(args.mec_workers),
                 "reliability": bool(args.reliability), "constraints": bool(args.constraints),
                 "reward_mode": str(args.reward_mode),
-                "budget_fractions": {"total_energy": float(args.energy_budget_fraction),
+                "budget_fractions": {"total_energy_mec": float(args.energy_budget_fraction),
                                      "ue_energy": float(args.ue_budget_fraction)},
                 "r_select": int(args.r_select), "s_select": int(args.s_select),
                 "device": str(args.device), "gpu_fraction": float(args.gpu_fraction),

@@ -89,8 +89,9 @@ class ConstraintSpec:
 
     Absolute budgets:  ``ue_energy_budget_j``, ``helper_energy_budget_j``,
     ``total_energy_budget_j``, ``v2v_airtime_budget_s``, ``deadline_s``.
-    Fractional budgets (episode-local reference):  ``*_frac_of_all_ue``,
-    ``*_frac_of_makespan``, ``deadline_frac_of_all_mec``.
+    Fractional budgets (episode-local reference, name states the ANCHOR):
+    ``*_frac_of_all_ue`` (anchor ``refs.E_ue``), ``total_energy_frac_of_all_mec``
+    (anchor ``refs.E_mec``), ``*_frac_of_makespan``, ``deadline_frac_of_all_mec``.
     A constraint is active iff at least one of its budget knobs is set.
     """
 
@@ -105,6 +106,13 @@ class ConstraintSpec:
 
     total_energy_budget_j: float | None = None
     total_energy_frac_of_all_ue: float | None = None
+    #: F10/F09: an EXPLICIT all-MEC anchor for the total-energy budget. The knob above is named
+    #: `..._of_all_ue` and therefore multiplies `refs.E_ue` LITERALLY (V1 semantics, unchanged);
+    #: reinterpreting it as an all-MEC fraction would be a silent unit change. The production
+    #: V2 configuration uses THIS field, so the anchor is visible in the name and in the
+    #: fingerprint. `E_ue` is the system-boundary energy of the pure all-UE plan; `E_mec` is the
+    #: same boundary for the pure all-MEC plan.
+    total_energy_frac_of_all_mec: float | None = None
 
     v2v_airtime_budget_s: float | None = None
     v2v_airtime_frac_of_makespan: float | None = None
@@ -142,6 +150,7 @@ class ConstraintSpec:
             "ue_energy_frac_of_all_ue",
             "helper_energy_frac_of_all_ue",
             "total_energy_frac_of_all_ue",
+            "total_energy_frac_of_all_mec",
             "v2v_airtime_frac_of_makespan",
             "v2v_task_fraction_max",
             "mec_task_fraction_max",
@@ -191,6 +200,7 @@ class ConstraintSpec:
         if (
             self.total_energy_budget_j is not None
             or self.total_energy_frac_of_all_ue is not None
+            or self.total_energy_frac_of_all_mec is not None
         ):
             active.append(C_TOTAL_ENERGY)
         if (
@@ -370,19 +380,35 @@ def budgets_and_scales(
             # policy can actually trade against: moving a task off MEC lowers it, moving it
             # onto MEC raises it; a signed cost of +1.0 means "this episode spent twice the
             # all-MEC plan's system energy". (F09)
-            system_reference = float(refs.E_mec)
+            # EXPLICIT ANCHOR SELECTION (versioned). The knob's NAME must state its anchor:
+            #   total_energy_frac_of_all_mec -> B = f * E_mec  (production V2 configuration)
+            #   total_energy_frac_of_all_ue  -> B = f * E_ue   (V1 semantics, unchanged)
+            #   total_energy_budget_j        -> absolute joules
+            # `E_mec` is used when the caller asked for it by name; `width` is always the
+            # selected anchor, so the signed cost is dimensionless against the same plan family
+            # the budget came from.
+            if spec.total_energy_frac_of_all_mec is not None:
+                system_reference = float(refs.E_mec)
+                frac = float(spec.total_energy_frac_of_all_mec)
+                anchor_name = "E_mec"
+            elif spec.total_energy_frac_of_all_ue is not None:
+                system_reference = float(refs.E_ue)
+                frac = float(spec.total_energy_frac_of_all_ue)
+                anchor_name = "E_ue"
+            else:
+                system_reference = float(refs.E_mec)
+                frac = None
+                anchor_name = "E_mec"
             if not math.isfinite(system_reference) or system_reference <= 0.0:
                 raise ValueError(
-                    "the all-MEC system-scope reference energy must be finite and positive "
-                    "to anchor the total-energy budget, got %r" % (system_reference,))
+                    "the %s system-scope reference energy must be finite and positive to "
+                    "anchor the total-energy budget, got %r" % (anchor_name, system_reference))
+            budget = (abs(float(spec.total_energy_budget_j))
+                      if spec.total_energy_budget_j is not None
+                      else abs(frac) * max(system_reference, 0.0))
             out[name] = (
                 metrics.total_energy_j,
-                _pick(
-                    spec.total_energy_budget_j,
-                    spec.total_energy_frac_of_all_ue,
-                    system_reference,
-                    name,
-                ),
+                budget,
                 system_reference,
             )
         elif name == C_V2V_AIRTIME:

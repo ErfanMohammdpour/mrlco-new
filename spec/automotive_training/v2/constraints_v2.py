@@ -359,9 +359,13 @@ class V2ConstraintManager:
 
 #: constraint name -> ConstraintSpec knob for fractional budgets
 FRACTION_KNOBS = {
+    # The mapping name -> field states the ANCHOR, so a caller can never reinterpret a fraction
+    # silently. `total_energy` keeps the historical all-UE anchor (V1 semantics); `total_energy_mec`
+    # selects the all-MEC anchor introduced for the V2 scope-consistency repair (F09/F10).
     "ue_energy": "ue_energy_frac_of_all_ue",
     "helper_energy": "helper_energy_frac_of_all_ue",
     "total_energy": "total_energy_frac_of_all_ue",
+    "total_energy_mec": "total_energy_frac_of_all_mec",
 }
 
 
