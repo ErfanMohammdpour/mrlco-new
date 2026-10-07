@@ -869,7 +869,8 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         active_concurrency=active_series)
     if validate:
         result.invariants = validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu,
-                                              helper_cpu, ul, dl, v2v)
+                                              helper_cpu, ul, dl, v2v,
+                                              helper_states=helper_states)
     else:
         # prefix/telescoping evaluation: the same schedule computation without the
         # O(tasks x edges) route re-verification (the final episode schedule is validated)
@@ -878,7 +879,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
 
 
 def validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu, helper_cpu,
-                      ul, dl, v2v) -> dict:
+                      ul, dl, v2v, helper_states=None) -> dict:
     """Hard invariants; any violation raises."""
     checks = {}
     # precedence + data arrival
@@ -953,4 +954,38 @@ def validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu, helper_cpu,
             if v < -1e-9 or v > 1.0 + 1e-9:
                 raise V2ScheduleError("impossible utilization %s=%r" % (name, v))
     checks["utilization_bounds"] = True
+    # helper CONTACT invariant (F07/F08). The validator previously accepted a schedule whose
+    # helper result was delivered AFTER the helper disconnected, because the return was planned
+    # with the queue-free service duration and no invariant re-checked the booked interval. Every
+    # transfer that LEAVES a helper must complete inside that helper's contact window; otherwise
+    # the task must have been reported as a contact failure / fallback, not as a helper success.
+    if helper_states:
+        dag_by_id = {d.dag_id: d for d in dags}
+        checked_helper_transfers = 0
+        for rec in result.radio_ledger:
+            if str(rec.get("src")) != HELPER:
+                continue
+            dag = dag_by_id.get(str(rec.get("dag_id")))
+            hid = getattr(dag, "helper_id", None) if dag is not None else None
+            state = (helper_states or {}).get(hid) if hid is not None else None
+            if state is None:
+                continue
+            contact_end = float(getattr(state, "contact_end_s", float("inf")))
+            if not math.isfinite(contact_end):
+                continue
+            end = float(rec.get("end_s"))
+            if end > contact_end + 1e-9:
+                raise V2ScheduleError(
+                    "helper %r transfer for %s/%s completes at %.9f, after contact ends at "
+                    "%.9f: a helper result delivered after disconnection is not a success"
+                    % (hid, rec.get("dag_id"), rec.get("task_id"), end, contact_end))
+            start = float(rec.get("start_s"))
+            if start + 1e-9 < float(getattr(state, "contact_start_s", 0.0)):
+                raise V2ScheduleError(
+                    "helper %r transfer for %s/%s starts at %.9f, before contact begins at "
+                    "%.9f" % (hid, rec.get("dag_id"), rec.get("task_id"), start,
+                              float(getattr(state, "contact_start_s", 0.0))))
+            checked_helper_transfers += 1
+        checks["helper_contact_window"] = True
+        checks["helper_transfers_checked"] = checked_helper_transfers
     return checks

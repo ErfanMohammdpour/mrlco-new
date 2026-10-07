@@ -56,3 +56,40 @@ class HelperReturnQueueTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ValidatorContactInvariantTests(unittest.TestCase):
+    """F08: the validator must REJECT a helper transfer that leaves after contact ends.
+
+    The pre-fix validator checked precedence, calendars, ledger, completion and utilization but
+    never the contact window, so a late return passed validation.
+    """
+
+    def _schedule(self, contact_end, validate=True):
+        LINK = V2LinkSpec(20e6, 20e6, 100.0)
+        COMPUTE = V2ComputeSpec(10e6, 1, (1e6,), (1e6,))
+        fg = V2DAGSpec("fg", 0, [V2TaskSpec(0, 100.0, 10.0, (), True, True, "HIGH", None, 0)],
+                       helper_id=0)
+        helper = {0: HelperState(0, 1e6, contact_end_s=contact_end,
+                                 predicted_contact_end_s=5.0)}
+        return schedule_shared([fg], {"fg": [2]}, link=LINK, compute=COMPUTE,
+                               helper_states=helper, validate=validate)
+
+    def test_validator_reports_the_contact_check(self):
+        res = self._schedule(contact_end=5.0)
+        self.assertIn("helper_contact_window", res.invariants)
+        self.assertGreaterEqual(res.invariants["helper_transfers_checked"], 1)
+
+    def test_late_helper_transfer_is_rejected_by_the_validator(self):
+        """A HELPER transfer ending after contact_end must raise, not silently pass."""
+        from spec.automotive_training.v2.shared_scheduler import V2ScheduleError
+        # contact ends at 0.05 s; the 10 B return at 100 B/s needs 0.1 s, so it cannot fit.
+        # The scheduler must therefore NOT report a successful helper execution; if it did, the
+        # validator has to reject it. Either way a late HELPER transfer must never validate.
+        try:
+            res = self._schedule(contact_end=0.05)
+        except V2ScheduleError:
+            return                      # rejected during planning -> also acceptable
+        for rec in res.radio_ledger:
+            if str(rec.get("src")) == "HELPER":
+                self.assertLessEqual(float(rec["end_s"]), 0.05 + 1e-9)
