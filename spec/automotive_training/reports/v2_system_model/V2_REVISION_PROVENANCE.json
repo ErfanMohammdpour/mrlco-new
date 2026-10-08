@@ -1,0 +1,64 @@
+{
+  "schema": "v2_revision_provenance_v1",
+  "generated_utc": "2026-10-09",
+  "note": "Reconciles the two SHAs that reports quote for the F33 work, so a delivery manifest and an audit header can never be read as contradicting each other.",
+  "head_delivered": "246ae78011ebe4f7d61454b3e3722a9eccbe03ef",
+  "head_tested_code_revision": "1e1aa5962ed345af6ffa749cb370c7234bbf98eb",
+  "relationship": {
+    "parent_of_head_delivered": "1e1aa5962ed345af6ffa749cb370c7234bbf98eb",
+    "head_delivered_is_descendant": true,
+    "diff_between_them": "spec/automotive_training/reports/v2_system_model/V2_DEEP_CODE_AUDIT.md only (+38 lines, documentation)",
+    "code_files_changed_between_tested_and_delivered": []
+  },
+  "interpretation": "1e1aa59 is the revision whose BEHAVIOUR was measured (the F33 control/resume comparison and the 1443-test suite). 246ae78 adds only the audit document that records it. There is no code difference between them, so behaviour evidence attaches to 1e1aa59 and is valid for 246ae78.",
+  "bundle": {
+    "name": "v2-repair-246ae78.bundle",
+    "sha256": "3dabeaa5c36254ba1015a92f1d49f03adb093f80ae818744f43092195c35e6ed",
+    "bytes": 37890959,
+    "git_bundle_verify": "complete history",
+    "ref": "refs/heads/phase5-realistic-system-v2 -> 246ae78011ebe4f7d61454b3e3722a9eccbe03ef",
+    "hash_recomputed_independently": true
+  },
+  "sampling_contract": {
+    "id": "crn_token_keyed_v2",
+    "class": "policies.meta_seq2seq_policy.FixedSequenceLearningCRNHelper",
+    "v2_stack_enable_crn": true,
+    "default_enable_crn": false,
+    "consequence": "A checkpoint produced BEFORE this change cannot be EXACTLY resumed: its rollouts used the stateful Categorical(...).sample(seed=...) stream, whose advanced draw history is not in any Saver checkpoint. The code enforces this by refusing a v2_resume_state_v1 bundle and offering --warm-start-weights-from (weights only, explicitly NOT continuation)."
+  },
+  "f33_claim_scope": {
+    "established": "CPU, seed 0, total-energy fraction 0.05 (binding diagnostic), --r-select 2 --s-select 2, --intra-op 1 --inter-op 1: an uninterrupted 3-iteration control and a 2-iteration process resumed in a fresh process to total target 3 produce identical third-iteration records (mean_system_joules 110.8925 both, mean_violation 0.50871 both, both lambdas equal, 200 penalised episodes both).",
+    "not_established": [
+      "continuation across a scheduled validation boundary (validation interval is frozen at 50)",
+      "recovery from an incomplete/partial checkpoint generation",
+      "GPU numeric equivalence",
+      "equivalence over other seeds and configurations",
+      "the approved production fraction 0.5 configuration (that gate predates the sampling change)"
+    ]
+  },
+  "evidence_standard": {
+    "controls_bit_identical": true,
+    "controls_detail": "two uninterrupted CPU controls produced identical per-iteration records (70.1617 / 67.5686 / 99.6693 J) and identical lambdas",
+    "tolerance_enlarged": false,
+    "tf_variables_compared_by_value": 1043,
+    "tf_variables_differing": 0,
+    "control_only_variables": "62, all scoped ppo_update_validation_policy_deterministic (lazily built validation sub-graph)"
+  },
+  "revision_chain": {
+    "base": "0f9cb096b76a84d3c7b260d539b4e2ad15dceac6",
+    "historical_500_run_source": "49e5cb832110ab6528d7ad767c5ba9d0d66d5ebb",
+    "repair_pre_graph_seed": "e07ba6a66e16c244d217ecaafcf6032104f2a8e8",
+    "f01_f02_f07": "a9e8f1049bcd16a7c2ae22f3eae5e719755ac7ea",
+    "stage_a_c": "bb60e24742918ef6a06dfe592c2ca5879cb74da6",
+    "resume_repair_production_gate": "f6c5659d56f2e33509687e59ac25b11dea4a4ae7",
+    "trace_pre_sampling_fix": "dcae8103673015176feddc79a8d41ce837c7fa42",
+    "f33_exact_continuation": "1e1aa5962ed345af6ffa749cb370c7234bbf98eb",
+    "delivered_head": "246ae78011ebe4f7d61454b3e3722a9eccbe03ef",
+    "unreconciled": "4a4e40f160e153b0dbf7baf134254ab12b77cacd (not object-present in the mirror or the server repo; no evidence transferred from it)"
+  },
+  "verdicts": {
+    "implementation_ready": "NOT_READY",
+    "campaign_operationally_ready": "NOT_READY",
+    "learning_competitive": "NOT_YET_MEASURED"
+  }
+}
