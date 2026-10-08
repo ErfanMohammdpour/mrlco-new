@@ -1,5 +1,43 @@
 # V2_DEEP_CODE_AUDIT — deep audit, repair, and evidence-based readiness
 
+> **CURRENT STATUS (tested HEAD `1e1aa5962ed345af6ffa749cb370c7234bbf98eb`).** F33 exact
+> fresh-process continuation is now **SOLVED and measured**: control vs a two-iteration process
+> resumed in a fresh process to total target three produce **identical** third-iteration records
+> (`mean_system_joules` 110.8925 both, `mean_violation` 0.50871 both, both lambdas equal to 8
+> decimals, 200 penalised episodes both, `EXACT MATCH: True`). Sections below that describe a
+> "34 % divergence", an "unexplained zero-penalty" guard, or the earlier 0.06-4.8 % residual are
+> **SUPERSEDED** and retained only as history; see section 0 for the resolution chain.
+>
+> Superseded status statements, by date: the 34 % resume gap (2026-10-07, revision `a9e8f10`),
+> the unconditional penalty guard (2026-10-07, `4771b1e`), the "0.06-4.8 % unexplained" residual
+> (2026-10-08, `dcae810`), and the "no feasible witness" claim withdrawn the same day.
+> **Still open** (not superseded): F06/F11 unit consistency, the F13 weighted-objective
+> resolution, F08's remaining fallback accounting, F17-F29 contract executions, and F34 measured
+> kernel placement. These are listed in the matrix below.
+
+## 0. F33 resolution chain (each step measured, in order)
+
+| # | defect | evidence | status |
+|---|---|---|---|
+| 1 | world/episode identity not restored; the counters live on the sampler's **deep-copied clones**, built before any restore | `world_id` control `ep11_slot19` vs resume `ep3_slot19` | FIXED |
+| 2 | multipliers broadcast only at iteration END, so the first post-resume iteration collected with a stale zero dual | resumed itr-2 penalised 0 episodes while violation and lambda were positive | FIXED |
+| 3 | `sampler_counters` written into the bundle but **never applied** | all counters zero at the resumed boundary | FIXED |
+| 4 | stdlib `random` stream never carried, although the stack seeds it | B1 trace digest differed | FIXED |
+| 5 | per-clone `task_id`/`graph_indices` not restored | B1 trace: control 117/84/... vs resume -1 | FIXED |
+| 6 | **ROOT CAUSE** — training called `get_actions(obs)` with no `crn_seed`, so it took the **stateful** `Categorical(...).sample(seed=...)` branch; the TF op-level random stream's advanced draw history is not in any `Saver` | source `seq2seq_meta_sampler.py:95` + `meta_seq2seq_policy.py:158`; residual survived a bit-exact variable restore | FIXED |
+| 7 | my own restore wrote the draw cursor to the **wrapper**, not the inner sampler (`__getattr__` forwards reads, not writes) | `_draw_cursor: 4` in the bundle but the resumed draw sequence restarted | FIXED |
+
+Evidence standard used throughout: two uninterrupted controls on the fixed CPU configuration are
+**bit-identical**, so no tolerance was enlarged to absorb a difference; and all 1043 shared TF
+variable values were compared (not counted), which refuted the optimizer-slot hypothesis by value.
+
+Sampling-contract version: `crn_token_keyed_v2` (`FixedSequenceLearningCRNHelper`). It also fixes
+F20: the previous helper reused ONE seed pair at every token, replaying the same draw across the
+horizon. The draw law is unchanged (a categorical draw from the same masked softmax), masks /
+temperature / top-p preserved, `enable_crn` defaults to False so V1 keeps historical sampling.
+
+ — deep audit, repair, and evidence-based readiness
+
 **Audited and tested revision: `a9e8f1049bcd16a7c2ae22f3eae5e719755ac7ea`** (this document).
 
 ## 0. Revision and execution provenance (resolved)
