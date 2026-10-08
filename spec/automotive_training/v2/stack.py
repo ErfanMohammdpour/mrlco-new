@@ -333,6 +333,61 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                 return None
             return _Path(str(run_dir)) / "v2_progress.json"
 
+        def _append_iteration_record(self, record):
+            """Append ONE per-iteration record with its own process-local deltas."""
+            try:
+                path = self._progress_path()
+                if path is None:
+                    return
+                prev = getattr(self, "_prev_iteration_totals", None)
+                cur = {
+                    "penalty_episodes": int(getattr(self, "auto_penalty_episodes", 0)),
+                    "penalty_nonzero": int(getattr(self, "auto_penalty_episodes_nonzero", 0)),
+                    "penalty_sum": float(getattr(self, "auto_penalty_sum", 0.0)),
+                    "signed_rows": int(getattr(self, "auto_v2_signed_rows", 0)),
+                }
+                delta = cur if prev is None else {k: cur[k] - prev[k] for k in cur}
+                self._prev_iteration_totals = cur
+                line = {
+                    "schema": "v2_iteration_record_v1",
+                    "iteration": int(getattr(self, "last_completed_iteration", -1)),
+                    "process_iteration_index": int(
+                        getattr(self, "current_iteration", -1)),
+                    "outer_updates_completed": int(
+                        getattr(self, "outer_updates_completed", 0)),
+                    "dual_updates_completed": int(
+                        getattr(self, "dual_updates_completed", 0)),
+                    "validations_completed": int(
+                        getattr(self, "validations_completed", 0)),
+                    "mean_system_joules": float(
+                        getattr(self, "auto_energy_last_iteration", 0.0)),
+                    "mean_requester_joules": float(
+                        getattr(self, "auto_requester_last_iteration", 0.0)),
+                    "mean_violation": float(
+                        getattr(self, "auto_violation_last_iteration", 0.0)),
+                    "lambdas": (getattr(self, "auto_v2_constraint_manager", None).
+                                lambdas_by_name()
+                                if getattr(self, "auto_v2_constraint_manager", None)
+                                is not None else {}),
+                    "lambda_broadcast_targets": int(
+                        getattr(self, "auto_lambda_broadcast_targets", 0)),
+                    "iteration_delta": delta,
+                    "world_realization": (
+                        getattr(self, "auto_env", None).world_realization_key()
+                        if getattr(self, "auto_env", None) is not None
+                        and hasattr(getattr(self, "auto_env", None), "world_realization_key")
+                        else None),
+                    "iteration_total_s": float(sum(
+                        (getattr(self, "_phase_timings", None) or {}).get(
+                            int(getattr(self, "current_iteration", -1)), {}).values())),
+                    "updated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }
+                hist = path.parent / "v2_iterations.jsonl"
+                with hist.open("a") as fh:
+                    fh.write(json.dumps(line, sort_keys=True, default=str) + "\n")
+            except Exception as exc:                          # noqa: BLE001
+                self._progress_failure = "iteration-history: %r" % (exc,)
+
         def _write_progress(self):
             """Atomic per-iteration telemetry: a final-only summary is not progress.
 
@@ -391,6 +446,12 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                                           and hasattr(env, "world_realization_key") else None),
                     "updated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 }
+                # PER-ITERATION HISTORY (F33 acceptance). A cumulative counter cannot answer
+                # "does the resumed iteration 2 match the control iteration 2": the control's
+                # totals span three iterations while a resumed process sees only its own
+                # increment. Append the iteration's own record so the comparison is
+                # iteration-by-iteration, and keep the per-iteration DELTAS explicit.
+                self._append_iteration_record(record)
                 tmp = path.with_suffix(".tmp")
                 tmp.write_text(json.dumps(record, sort_keys=True))
                 os.replace(str(tmp), str(path))

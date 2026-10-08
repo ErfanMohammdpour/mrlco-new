@@ -388,6 +388,19 @@ class Trainer(object):
             self.algo.sync_task_policies_from_core()
             theta0 = self._core_vars() if self.audit_writer is not None else None
             self._audit(itr, "sync_task_policies_from_core")
+            # F33: push the CURRENT multipliers to the rollout clones BEFORE this iteration
+            # collects. The end-of-iteration broadcast below only arms the NEXT iteration, which
+            # is correct for a fresh run (lambda starts at zero, so this is a no-op) but wrong
+            # after an exact resume: the manager holds the restored positive dual while the
+            # clones still hold the value they were deep-copied with, so the first resumed
+            # iteration collected with a stale zero and applied NO penalty even though the
+            # measured violation and the restored lambda were both positive. Broadcasting here
+            # is idempotent and makes the first post-resume iteration use the authoritative dual.
+            _pre_controller = getattr(self.env, "constraint_controller", None)
+            _pre_bcast = getattr(self, "broadcast_constraint_lambdas", None)
+            if (_pre_bcast is not None and _pre_controller is not None
+                    and getattr(getattr(_pre_controller, "spec", None), "enabled", False)):
+                _pre_bcast()
             logger.log("Sampling set of tasks/goals for this meta-batch...")
 
             task_specs = self.sampler.update_tasks()
