@@ -135,3 +135,51 @@ class ResumeIdentityTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class RngAndCounterRestoreTests(unittest.TestCase):
+    """F33: the boundary must carry the stdlib random state and the sampler counters."""
+
+    def test_python_random_state_is_captured_and_restored(self):
+        import random as _random
+        tr = _FakeTrainer(_FakeEnv(), [])
+        _random.seed(1234)
+        doc = run_tf._rng_state(tr)
+        self.assertIn("python_random", doc)
+        expected = _random.random()
+        _random.seed(999)                      # a fresh process reseeds during stack build
+        run_tf._restore_rng_state(tr, doc)
+        self.assertEqual(_random.random(), expected,
+                         "the stdlib random stream was not restored")
+
+    def test_sampler_counters_are_applied(self):
+        class _S:
+            def __init__(self):
+                self.counters = {"support_calls": 0, "query_calls": 0,
+                                 "unique_rollout_seeds": 0}
+        tr = _FakeTrainer(_FakeEnv(), [])
+        tr.sampler = _S()
+        run_tf._restore_sampler_counters(tr, {"support_calls": 2, "query_calls": 2,
+                                              "unique_rollout_seeds": 1})
+        self.assertEqual(tr.sampler.counters["support_calls"], 2)
+        self.assertEqual(tr.sampler.counters["query_calls"], 2)
+        self.assertEqual(tr.sampler.counters["unique_rollout_seeds"], 1)
+
+    def test_per_clone_task_identity_round_trips(self):
+        env = _FakeEnv()
+        clones = [_FakeEnv() for _ in range(3)]
+        for i, c in enumerate(clones):
+            c.episodes = 4 + i
+            c.base.task_id = 100 + i
+            c.base.graph_indices = np.zeros(5, dtype=np.int32)
+        tr = _FakeTrainer(env, clones)
+        doc = run_tf._env_identity(env, tr)
+        self.assertEqual(doc["clone_task_ids"], [100, 101, 102])
+        fresh = _FakeEnv()
+        fclones = [_FakeEnv() for _ in range(3)]
+        for c in fclones:
+            c.base.task_id = -1
+        ntr = _FakeTrainer(fresh, fclones)
+        run_tf._restore_env_identity(ntr, doc)
+        self.assertEqual([c.base.task_id for c in fclones], [100, 101, 102])
+        self.assertTrue(all(len(c.base.graph_indices) == 5 for c in fclones))

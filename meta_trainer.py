@@ -385,6 +385,18 @@ class Trainer(object):
             logger.log("\n ---------------- Iteration %d ----------------" % itr)
             if self.audit_writer is not None:
                 self.audit_writer.begin_iter(itr)
+            # F33 FIRST-DIVERGENCE TRACE: fingerprint the state this iteration will START
+            # from, before any sync/task-selection/reset consumes it. Emitted for controls and
+            # resumes alike, so `B1_iter2` of a control can be diffed against `B1_iter2` of a
+            # resumed process key by key.
+            _tracer = getattr(self, "auto_state_tracer", None)
+            if _tracer is not None and getattr(_tracer, "path", None) is not None:
+                try:
+                    from spec.automotive_training.v2.state_trace import boundary1_default
+                    _tracer.record("B1_iter%d" % int(itr), boundary1_default(self))
+                except Exception as _exc:                          # noqa: BLE001
+                    _tracer.record("B1_iter%d" % int(itr),
+                                   {"error": "%s: %s" % (type(_exc).__name__, _exc)})
             self.algo.sync_task_policies_from_core()
             theta0 = self._core_vars() if self.audit_writer is not None else None
             self._audit(itr, "sync_task_policies_from_core")
@@ -697,6 +709,15 @@ class Trainer(object):
             if _broadcast is not None:
                 logger.logkv("constraint/lambda_broadcast_targets",
                              float(_broadcast() or 0))
+            # F33: the dual/selector side of the iteration, after the update and the broadcast
+            if _tracer is not None and getattr(_tracer, "path", None) is not None:
+                try:
+                    from spec.automotive_training.v2.state_trace import boundary6
+                    _tracer.record("B6_iter%d" % int(itr),
+                                   boundary6(self.env, self))
+                except Exception as _exc:                          # noqa: BLE001
+                    _tracer.record("B6_iter%d" % int(itr),
+                                   {"error": "%s: %s" % (type(_exc).__name__, _exc)})
             if itr % self.validation_interval == 0:
                 k0, k3 = self._run_validation(itr)
                 self._audit(itr, "validation", {"k0": k0, "k3": k3})

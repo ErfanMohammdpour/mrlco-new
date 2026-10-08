@@ -299,6 +299,15 @@ def _env_identity(env, trainer=None) -> dict:
         out["clone_episodes"] = [int(getattr(c, "episodes", 0) or 0) for c in clones]
         out["clone_reset_counts"] = [
             int(getattr(getattr(c, "base", None), "reset_count", 0) or 0) for c in clones]
+        out["clone_task_ids"] = [
+            int(getattr(getattr(c, "base", None), "task_id", -1)) for c in clones]
+        def _gi(c):
+            gi = getattr(getattr(c, "base", None), "graph_indices", None)
+            if gi is None:
+                return []
+            return [int(x) for x in np.asarray(gi).reshape(-1)]
+
+        out["clone_graph_indices"] = [_gi(c) for c in clones]
     inner = getattr(env, "env", None)
     if inner is not None and inner is not env:
         out["wrapped"] = _env_identity(inner)
@@ -325,6 +334,18 @@ def _rng_state(trainer) -> dict:
             "has_gauss": int(state[3]),
             "cached_gaussian": float(state[4]),
         }
+    # The v2 stack seeds the stdlib `random` module during construction
+    # (`meta_trainer.py: `random.seed(SEED)`), so its state at a checkpoint boundary is part of
+    # the run's identity. The first-divergence trace showed it differing while every shared TF
+    # variable was bit-identical; it is restored here so the boundary is complete whether or not
+    # any current consumer advances it.
+    try:
+        import random as _random
+        st = _random.getstate()
+        out["python_random"] = {"kind": "python_random", "version": int(st[0]),
+                                "keys": [str(x) for x in st[1]], "gauss": st[2]}
+    except Exception:                                          # pragma: no cover
+        pass
     np_state = np.random.get_state()
     out["numpy_global"] = {
         "kind": "numpy_randomstate",
@@ -346,12 +367,41 @@ def _restore_rng_state(trainer, doc) -> None:
     entry = doc.get("numpy_global")
     if entry is not None:
         np.random.set_state(_rng_tuple(entry))
+    entry = doc.get("python_random")
+    if entry is not None:
+        import random as _random
+        version = int(entry["version"])
+        _random.setstate((version, tuple(int(x) for x in entry["keys"]),
+                          entry.get("gauss")))
 
 
 def _rng_tuple(entry) -> tuple:
     keys = np.array([int(x) for x in entry["keys"]], dtype=np.uint32)
     return (str(entry["bit_generator"]), keys, int(entry["pos"]),
             int(entry["has_gauss"]), float(entry["cached_gaussian"]))
+
+
+def _restore_sampler_counters(trainer, counters) -> None:
+    """Re-apply the persisted sampler counters to whichever object owns them."""
+    if not counters:
+        return
+    for attr in ("sampler", "meta_sampler"):
+        obj = getattr(trainer, attr, None)
+        if obj is None:
+            continue
+        existing = getattr(obj, "counters", None)
+        if isinstance(existing, dict):
+            for k, v in dict(counters).items():
+                if k in existing:
+                    existing[k] = int(v)
+            return
+        inner = getattr(obj, "sampler", None)
+        inner_counters = getattr(inner, "counters", None)
+        if isinstance(inner_counters, dict):
+            for k, v in dict(counters).items():
+                if k in inner_counters:
+                    inner_counters[k] = int(v)
+            return
 
 
 def _restore_env_identity(trainer, doc) -> None:
@@ -388,12 +438,20 @@ def _restore_env_identity(trainer, doc) -> None:
             "resume bundle carries %d clone episode counters but this process has %d sampler "
             "clones: the world sequence cannot be restored exactly, refusing to resume"
             % (len(eps), len(clones)))
+    tids = list(root.get("clone_task_ids") or [])
+    gids = list(root.get("clone_graph_indices") or [])
     for i, clone in enumerate(clones):
         if eps:
             clone.episodes = int(eps[i])
         cbase = getattr(clone, "base", None)
         if rcs and cbase is not None:
             cbase.reset_count = int(rcs[i])
+        # the clone's CURRENT task assignment is part of the boundary too: it is what the
+        # next `sync_task_policies_from_core` / reset reads before `update_tasks` replaces it
+        if tids and cbase is not None:
+            cbase.task_id = int(tids[i])
+        if gids and cbase is not None and gids[i]:
+            cbase.graph_indices = np.asarray(gids[i], dtype=np.int32)
         if hasattr(clone, "set_realization_epoch"):
             clone.set_realization_epoch(doc.get("realization_epoch"))
         elif rcs and cbase is not None and doc.get("realization_epoch") is not None:
@@ -498,6 +556,12 @@ def _restore_resume_state(trainer, path, args) -> dict:
     # is what made the resumed process replay different worlds.
     _restore_env_identity(trainer, raw.get("environment"))
     _restore_rng_state(trainer, raw.get("rng"))
+    # The bundle WROTE `sampler_counters` but nothing ever applied them, so a resumed process
+    # reported zero support/query calls and zero unique graphs/rollout seeds for work it had
+    # already done (the first-divergence trace at B1 showed them all zero). They are the run's
+    # own accounting of how many trajectories and distinct identities were consumed, so they are
+    # restored with the rest of the boundary.
+    _restore_sampler_counters(trainer, raw.get("sampler_counters"))
     trainer.last_completed_iteration = int(raw.get("last_completed_iteration", -1))
     trainer.completed_iterations = int(raw.get("completed_iterations", 0))
     trainer.next_iteration = int(raw.get("next_iteration", 0))
@@ -599,6 +663,10 @@ def main(argv=None) -> int:
                     help="EXACT continuation from a v2 generation (TF checkpoint + v2 resume "
                          "bundle). Requires a v2_resume_state_v2 bundle; a legacy v1 bundle is "
                          "refused because it cannot reproduce the world sequence.")
+    ap.add_argument("--state-trace", default=None,
+                    help="F33 first-divergence trace: append per-boundary state fingerprints "
+                         "(B1 saved/restored, B2 worlds, B3 observations, B6 costs) to this "
+                         "JSONL so a control and a resume can be diffed boundary by boundary.")
     ap.add_argument("--warm-start-weights-from", default=None,
                     help="WEIGHTS-ONLY warm start: load the TF variables from this checkpoint and "
                          "begin a NEW run (iteration 0, fresh duals, fresh world sequence). This "
@@ -634,6 +702,10 @@ def main(argv=None) -> int:
         r_select=int(args.r_select), s_select=int(args.s_select))
 
     import tensorflow as tf
+
+    from spec.automotive_training.v2.state_trace import StateTracer, boundary1
+
+    tracer = StateTracer(getattr(args, "state_trace", None))
 
     graph = tf.compat.v1.get_default_graph()
     with graph.as_default():
@@ -695,6 +767,15 @@ def main(argv=None) -> int:
                     trainer, _resume_bundle_path(args.ckpt_dir), args)
                 print("resumed from %s at next_iteration=%d target=%d"
                       % (args.resume_from, trainer.start_itr, int(args.iterations)))
+            # B1: the saved/restored boundary, BEFORE any reset consumes it. On a resume this
+            # is the state the first post-resume iteration will start from; on a control (no
+            # --resume-from) it is the initialised state, which is how the very first boundary
+            # gets pinned for the fresh run too.
+            trainer.auto_state_tracer = tracer
+            if tracer.path is not None:
+                tracer.record(
+                    "B1_iter%d" % int(getattr(trainer, "start_itr", 0) or 0),
+                    boundary1(sess, trainer))
             env.reset()
             try:
                 trainer.train()
