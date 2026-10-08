@@ -92,6 +92,19 @@ class Seq2SeqMetaSampler(Sampler):
             # obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             obs_per_task = np.array(obses)
 
+            # V2 SAMPLING CONTRACT (F33/F20): pin an IDENTITY-KEYED draw before this rollout.
+            # Without it `get_actions` falls through to `Categorical(...).sample(seed=...)`, whose
+            # op-level TF random stream is seeded once per process and whose ADVANCED DRAW HISTORY
+            # is not part of a Saver checkpoint -- a resumed process then replays a different draw
+            # sequence. The identity advances with `self._draw_cursor`, which is derived from the
+            # sampler counters that ARE part of the resume bundle, so the sequence continues
+            # exactly across a process boundary instead of restarting.
+            base_seed = int(getattr(self, "draw_identity_seed", 0) or 0)
+            cursor = int(getattr(self, "_draw_cursor", 0))
+            self._draw_cursor = cursor + 1
+            pin = getattr(policy, "set_draw_identity", None)
+            if pin is not None and getattr(policy, "enable_crn", False):
+                pin([base_seed, cursor])
             actions, logits, values = policy.get_actions(obs_per_task)
             # The mask the rollout actually used: store it, never recompute it at
             # update time, otherwise the PPO importance ratio stops being a

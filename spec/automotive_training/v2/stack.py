@@ -165,12 +165,21 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     env = make_env("meta_train")
     _greedy_plan, greedy_finish, _greedy_energy = env.greedy_solution()
     baseline = ValueFunctionBaseline()
+    # `enable_crn=True` builds the identity-keyed stateless decoder the rollout uses when a
+    # draw identity is pinned (see `Seq2SeqMetaSampler.set_draw_identity`). This is the V2
+    # sampling contract: a draw must be reproducible across processes, and each token must be an
+    # independent draw. The categorical draw LAW is unchanged.
     meta_policy = MetaSeq2SeqPolicy(meta_batch_size=int(meta_batch_size),
                                     obs_dim=env.input_dim, encoder_units=128,
-                                    decoder_units=128, vocab_size=3)
+                                    decoder_units=128, vocab_size=3,
+                                    enable_crn=True)
     sampler = Seq2SeqMetaSampler(env, meta_policy, rollouts_per_meta_task=1,
                                  meta_batch_size=int(meta_batch_size),
                                  max_path_length=TOKENS_PER_TRAJECTORY, parallel=False)
+    # the run seed keys every identity-keyed draw; the cursor advances per rollout and is part
+    # of the resume bundle, so the draw sequence continues across a process boundary
+    sampler.draw_identity_seed = int(seed)
+    sampler._draw_cursor = 0
     budgeted = AutomotiveMetaSampler(
         sampler, meta_batch_size=int(meta_batch_size),
         trajectories_per_meta_task=int(support_trajectories),

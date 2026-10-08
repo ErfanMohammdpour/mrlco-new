@@ -381,27 +381,66 @@ def _rng_tuple(entry) -> tuple:
             int(entry["has_gauss"]), float(entry["cached_gaussian"]))
 
 
-def _restore_sampler_counters(trainer, counters) -> None:
-    """Re-apply the persisted sampler counters to whichever object owns them."""
-    if not counters:
-        return
+def _attribute_owner(trainer, name):
+    """The object whose `__dict__` actually holds `name`.
+
+    `AutomotiveMetaSampler` forwards READS to its inner sampler through `__getattr__`, but a WRITE
+    on the wrapper lands on the wrapper and is invisible to the code that reads the attribute off
+    the inner object. Resolving the true owner through `__dict__` is what makes the restore
+    effective; using `hasattr` alone silently wrote the draw cursor (and the counters) to the
+    wrapper, which is why the resumed process still replayed draws from the start.
+    """
+    candidates = []
     for attr in ("sampler", "meta_sampler"):
         obj = getattr(trainer, attr, None)
         if obj is None:
             continue
-        existing = getattr(obj, "counters", None)
-        if isinstance(existing, dict):
-            for k, v in dict(counters).items():
-                if k in existing:
-                    existing[k] = int(v)
-            return
         inner = getattr(obj, "sampler", None)
-        inner_counters = getattr(inner, "counters", None)
-        if isinstance(inner_counters, dict):
-            for k, v in dict(counters).items():
-                if k in inner_counters:
-                    inner_counters[k] = int(v)
-            return
+        if inner is not None:
+            candidates.append(inner)
+        candidates.append(obj)
+    for obj in candidates:
+        if name in getattr(obj, "__dict__", {}):
+            return obj
+    return None
+
+
+def _draw_identity_owner(trainer):
+    """The object that owns `_draw_cursor` (the meta sampler, however it is wrapped)."""
+    return _attribute_owner(trainer, "_draw_cursor")
+
+
+def _read_draw_cursor(trainer) -> int:
+    obj = _draw_identity_owner(trainer)
+    return int(getattr(obj, "_draw_cursor", 0) or 0)
+
+
+def _restore_draw_cursor(trainer, value) -> None:
+    if value is None:
+        return
+    obj = _draw_identity_owner(trainer)
+    if obj is not None:
+        obj._draw_cursor = int(value)
+
+
+def _restore_sampler_counters(trainer, counters) -> None:
+    """Re-apply the persisted sampler counters to whichever object owns them."""
+    if not counters:
+        return
+    owner = _attribute_owner(trainer, "counters")
+    if owner is None:
+        for attr in ("sampler", "meta_sampler"):
+            obj = getattr(trainer, attr, None)
+            if obj is not None and isinstance(getattr(obj, "counters", None), dict):
+                owner = obj
+                break
+    if owner is None:
+        return
+    existing = getattr(owner, "counters", None)
+    if isinstance(existing, dict):
+        for k, v in dict(counters).items():
+            if k in existing:
+                existing[k] = int(v)
 
 
 def _restore_env_identity(trainer, doc) -> None:
@@ -497,6 +536,11 @@ def _build_resume_state(trainer, args) -> dict:
         "constraints": (manager.state() if manager is not None else None),
         "sampler_counters": {str(k): int(v) for k, v in
                              dict(getattr(sampler, "counters", {}) or {}).items()},
+        # F33: the IDENTITY-KEYED draw cursor. The rollout pins
+        # [draw_identity_seed, _draw_cursor] before every `get_actions`, so this counter IS the
+        # draw sequence; without it a resumed process would restart the identity at 0 and replay
+        # the same draws it already made.
+        "draw_cursor": _read_draw_cursor(trainer),
         "best_val_objective": getattr(trainer, "best_val_objective", None),
         # F33 additions: the identity that decides WHICH worlds the next iteration sees, and the
         # advanced Python/NumPy random streams. Without these the loop resumes at the right
@@ -562,6 +606,7 @@ def _restore_resume_state(trainer, path, args) -> dict:
     # own accounting of how many trajectories and distinct identities were consumed, so they are
     # restored with the rest of the boundary.
     _restore_sampler_counters(trainer, raw.get("sampler_counters"))
+    _restore_draw_cursor(trainer, raw.get("draw_cursor"))
     trainer.last_completed_iteration = int(raw.get("last_completed_iteration", -1))
     trainer.completed_iterations = int(raw.get("completed_iterations", 0))
     trainer.next_iteration = int(raw.get("next_iteration", 0))

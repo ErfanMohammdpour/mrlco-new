@@ -193,8 +193,22 @@ class FixedSequenceLearningCRNHelper(FixedSequenceLearningSampleEmbedingHelper):
     Gumbel-max rule with a deterministic noise stream.
     """
 
+    #: Sampling-contract version. v1 reused ONE seed pair at every token (F20): with equal
+    #: logits that replays the same draw across the horizon, so the autoregressive samples were
+    #: not independent. v2 mixes the decode step into the seed, which keeps the draw law
+    #: (a categorical draw from the same masked softmax) while making each token an independent,
+    #: reproducible stateless draw. Recorded so a checkpoint's sampling semantics are explicit.
+    SAMPLING_CONTRACT_VERSION = "crn_token_keyed_v2"
+
+    #: Odd 32-bit multipliers for the per-token seed mix. They are widened to int64 for the
+    #: arithmetic (a 64-bit constant such as 0x9E3779B97F4A7C15 is NOT representable as a signed
+    #: int64 tensor value and TF rejects it with "Python int too large to convert to C long").
+    _TOKEN_MIX0 = 0x9E3779B1
+    _TOKEN_MIX1 = 0x85EBCA6B
+
     def __init__(self, sequence_length, embedding, start_tokens, end_token,
-                 seed_pair, softmax_temperature=None, top_p=None, feasible_mask=None):
+                 seed_pair, softmax_temperature=None, top_p=None, feasible_mask=None,
+                 token_keyed=True):
         super(FixedSequenceLearningCRNHelper, self).__init__(
             sequence_length=sequence_length, embedding=embedding, start_tokens=start_tokens,
             end_token=end_token, softmax_temperature=softmax_temperature, seed=None,
@@ -202,6 +216,16 @@ class FixedSequenceLearningCRNHelper(FixedSequenceLearningSampleEmbedingHelper):
         if seed_pair is None:
             raise ValueError("CRN helper requires a seed_pair tensor")
         self._seed_pair = seed_pair
+        self.token_keyed = bool(token_keyed)
+
+    def _token_seed(self, time):
+        """`[2]` int32 seed that depends on the decode step as well as the identity."""
+        if not self.token_keyed:
+            return self._seed_pair
+        step = tf.cast(time, tf.int64) + tf.constant(1, dtype=tf.int64)
+        base = tf.cast(self._seed_pair, tf.int64)
+        mix = tf.constant([self._TOKEN_MIX0, self._TOKEN_MIX1], dtype=tf.int64)
+        return tf.cast(base + mix * step, tf.int32)
 
     def sample(self, time, outputs, state, name=None):
         del state
@@ -209,7 +233,7 @@ class FixedSequenceLearningCRNHelper(FixedSequenceLearningSampleEmbedingHelper):
         if self._feasible_mask is not None:
             logits, _dead_end = mask_logits_tf(logits, self._feasible_mask, time=time)
         drawn = tf.random.stateless_multinomial(
-            logits, 1, seed=self._seed_pair, output_dtype=tf.int32)
+            logits, 1, seed=self._token_seed(time), output_dtype=tf.int32)
         return tf.reshape(drawn, [-1])
 
 
@@ -769,6 +793,7 @@ class Seq2SeqPolicy():
         # builds both decoders, so this only switches which one `get_actions` fetches;
         # training keeps the stochastic default.
         self._deterministic_default = False
+        self._draw_identity = None
         self.enable_crn = bool(enable_crn)
         self.crn_seed = (
             tf.compat.v1.placeholder(shape=[2], dtype=tf.int32, name="crn_seed_ph_" + name)
@@ -886,6 +911,20 @@ class Seq2SeqPolicy():
         """Record the CRN seed pair used by the next `get_actions` call (None disables)."""
         self._crn_seed_pair = None if seed_pair is None else [int(seed_pair[0]), int(seed_pair[1])]
 
+    def set_draw_identity(self, seed_pair) -> None:
+        """Pin the DRAW IDENTITY for subsequent `get_actions` calls that pass no `crn_seed`.
+
+        Training used to fall through to the `else` branch, i.e. the STATEFUL
+        `Categorical(...).sample(seed=self._seed)`: the op-level TF random stream is seeded once
+        per process and its ADVANCED DRAW HISTORY is not part of a `Saver` checkpoint, so a
+        resumed process replayed a different draw sequence and diverged (F33). With an identity
+        pinned here the rollout takes the STATELESS branch, whose draws are an exact function of
+        (identity, weights, observations, decode step) and therefore survive a process boundary.
+        The draw LAW is unchanged: `tf.random.stateless_multinomial` is a categorical draw from
+        the same masked softmax.
+        """
+        self._draw_identity = None if seed_pair is None else [int(seed_pair[0]), int(seed_pair[1])]
+
     def crn_actions(self, observations, seed_pair, feasible_mask=None):
         """Stateless CRN rollout: same (seed_pair, weights) => bit-identical actions."""
         return self.get_actions(observations, feasible_mask=feasible_mask,
@@ -895,6 +934,11 @@ class Seq2SeqPolicy():
                     crn_seed=None):
         if deterministic is None:
             deterministic = bool(getattr(self, "_deterministic_default", False))
+        # An explicit `crn_seed` wins. Otherwise, if a DRAW IDENTITY is pinned and this is not a
+        # deterministic decode, use the stateless branch so the draw is reproducible across
+        # processes. `self.crn_seed` (the placeholder) must exist for the branch to be legal.
+        if crn_seed is None and not deterministic:
+            crn_seed = getattr(self, "_draw_identity", None)
         use_crn = (self.crn_seed is not None and crn_seed is not None
                    and not deterministic)
         sess = tf.compat.v1.get_default_session()
@@ -1017,7 +1061,8 @@ class Seq2SeqPolicy():
 
 class MetaSeq2SeqPolicy():
     def __init__(self, meta_batch_size, obs_dim, encoder_units, decoder_units,
-                 vocab_size, encoder_type="meanagg", readout_type="triple"):
+                 vocab_size, encoder_type="meanagg", readout_type="triple",
+                 enable_crn=False):
 
         self.meta_batch_size = meta_batch_size
         self.obs_dim = obs_dim
@@ -1028,9 +1073,17 @@ class MetaSeq2SeqPolicy():
         self.encoder_type = str(encoder_type)
         self.readout_type = str(readout_type)
 
+        # `enable_crn` builds the STATELESS (identity-keyed) decoder subgraph alongside the
+        # ordinary one. It is OFF by default so V1 and every existing configuration keep the
+        # historical stateful sampling; the V2 training stack turns it ON so a draw is an exact
+        # function of (identity, weights, observations, decode step) and therefore survives a
+        # process boundary (F33) with independent draws per token (F20).
+        self.enable_crn = bool(enable_crn)
+        self._draw_identity = None
         self.core_policy = Seq2SeqPolicy(
             obs_dim, encoder_units, decoder_units, vocab_size, name='core_policy',
             encoder_type=self.encoder_type, readout_type=self.readout_type,
+            enable_crn=self.enable_crn,
         )
 
 
@@ -1043,6 +1096,7 @@ class MetaSeq2SeqPolicy():
                 obs_dim, encoder_units, decoder_units,
                 vocab_size, name="task_"+str(i)+"_policy",
                 encoder_type=self.encoder_type, readout_type=self.readout_type,
+                enable_crn=self.enable_crn,
             ))
 
             self.assign_old_eq_new_tasks.append(
@@ -1092,6 +1146,30 @@ class MetaSeq2SeqPolicy():
         self.last_sample_pi = sample_pis
 
         return meta_actions, meta_logits, meta_v_values
+
+    def set_draw_identity(self, seed_pair) -> None:
+        """Pin the draw identity for every task policy.
+
+        Each task policy gets a DISTINCT derivation of the base pair, so the `meta_batch_size`
+        rollouts draw independently instead of sharing one stream. The identity is a pure
+        function of the caller's identity and the task index, so restoring the caller's counter
+        restores the whole draw sequence.
+        """
+        if seed_pair is None:
+            self._draw_identity = None
+            for pol in self.meta_policies:
+                pol.set_draw_identity(None)
+            return
+        base = [int(seed_pair[0]), int(seed_pair[1])]
+        self._draw_identity = base
+        for i, pol in enumerate(self.meta_policies):
+            # odd multipliers: distinct per task, deterministic, no reliance on RNG state
+            pol.set_draw_identity([base[0] + (i + 1) * 0x9E3779B1,
+                                   base[1] + (i + 1) * 0x85EBCA6B])
+
+    def set_deterministic(self, flag: bool) -> None:
+        for pol in self.meta_policies:
+            pol.set_deterministic(flag)
 
     def async_parameters(self):
         # async_parameters.
