@@ -521,6 +521,58 @@ counters were compared as counters and the post-resume **increments** were compa
 **NOT yet executed:** a split that crosses a scheduled validation boundary (validation is frozen at
 interval 50, so a 3-iteration gate validates only at iteration 0), and a GPU-tolerance comparison.
 
+### F33 — first-divergence trace (this session, tested HEAD `9b1ceb9`)
+
+**Evidence standard first.** Two uninterrupted controls on the fixed CPU configuration
+(`--device cpu --intra-op 1 --inter-op 1`, seed 0, fraction 0.05) are **BIT-IDENTICAL**: every
+per-iteration record equal, identical lambdas to 15 significant digits, identical penalty sums.
+The control-vs-resume difference is therefore a **real state defect, not floating-point noise**,
+and no tolerance was enlarged to absorb it.
+
+**B1 (start of the third iteration), control vs resumed process:**
+
+| | before this session | after |
+|---|---|---|
+| differing leaves | 152 | **8** |
+| training-relevant differences | unknown | **0** |
+
+- **All 1043 SHARED TF variables are identical.** The 62 control-only variables are ALL
+  `ppo_update_validation_policy_deterministic/*` — the validation sub-graph, built lazily on the
+  control's iteration-0 validation and never built by a process that resumes at iteration 2.
+  This **refutes the optimizer-state hypothesis rigorously**, by value comparison, not by counting
+  checkpoint keys.
+- The 8 residual differences are `python.random` (not consumed anywhere in the training path —
+  the only stdlib uses are `random.seed` calls and private `random.Random(...)` instances),
+  process-local counters (`auto_*`, `current_iteration`) and one bookkeeping flag, all of which are
+  different in a fresh process **by construction**.
+
+**Three genuine restore gaps found by the trace and closed:**
+1. `sampler_counters` were WRITTEN into the bundle but **never applied** — a resumed process
+   reported zero support/query calls and zero unique graphs/rollout seeds for work already done.
+2. the stdlib `random` stream was not carried at all, although the stack seeds it
+   (`meta_trainer.py`: `random.seed(SEED)`).
+3. each sampler clone's `task_id`/`graph_indices` (its current task assignment) was not restored.
+
+**Localisation result.** B1 is *training-equivalent*, so the remaining iteration-2 difference
+originates **downstream of the restored boundary**:
+
+| itr 2 | control | resume |
+|---|---|---|
+| `mean_system_joules` | 99.6693 | 100.3308 |
+| `mean_violation` | 0.9184 | 0.9366 |
+| `lambdas.total_energy` | 0.018751 | 0.019648 |
+| penalised episodes (delta) | 200 | 200 |
+
+The penalty axis now MATCHES. The residual 0.7 % energy / 4.8 % lambda_total difference is
+**localised to B2+ (task selection, worlds, or inference)** and is the next trace target. It is
+reported as an open item with the search space halved by evidence; it is NOT attributed to floating
+point.
+
+**Tooling added:** `spec/automotive_training/v2/state_trace.py` with a `--state-trace` CLI flag.
+`digest` is sha256 over a canonical byte form, so equal digests mean equal values. The variable
+fetch is ONE batched `sess.run` (a per-variable fetch cost ~1000 round trips per boundary and made
+a traced run take 13 minutes without finishing one iteration).
+
 ### F14/F33 — the production penalty gate was wrong and is corrected
 
 The gate required `episodes_with_nonzero_penalty >= 1` for any run of >= 2 iterations. That is not a
