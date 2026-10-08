@@ -465,6 +465,111 @@ survive a process boundary. Record the measured CPU/GPU tolerance and the determ
 it even when the run as a whole bound the constraint. Once resume is trustworthy the guard must be
 evaluated over the RUN.
 
+### F33 — continuation repair (this session, 2026-10-08)
+
+Tested HEAD: `4771b1e` (full SHA recorded in the manifest). Three distinct defects were found by
+running the control-vs-resume comparison; none by reading code.
+
+**(a) The world sequence was not restored — this was the actual divergence.**
+The bundle carried the iteration ledger, duals, sampler counters and fingerprints, but not the
+environment identity; the symptom was `world_id` control `ep11_slot19` vs resume `ep3_slot19`.
+The decisive detail is that the counters that name the world live on the **sampler's deep-copied
+clones** (`MetaIterativeEnvExecutor.__init__`, `vectorized_env_executor.py:24`), built once at stack
+construction and therefore BEFORE any restore, so restoring only `trainer.env` could never work.
+The bundle is now `v2_resume_state_v2` with an `environment` section carrying the primary and
+**per-clone** `episodes`/`reset_count`, the world key, the realization epoch, base seed and regime,
+restored positionally and exactly; a clone-count mismatch is refused. Result: **world identities
+now match exactly**.
+
+**(b) The first post-resume iteration collected with a stale zero dual.**
+The multipliers were broadcast at the END of each iteration, which arms only the next one. Correct
+for a fresh run (λ starts at 0) but wrong after a resume: the manager held the restored positive
+dual while the clones still carried their deep-copied value, so the resumed iteration applied **no**
+penalty although violation and λ were both positive. A pre-collection broadcast now runs at the top
+of every iteration; it is idempotent.
+
+Measured, control vs the resumed third iteration (CPU, seed 0, fraction 0.05, `--r-select 2
+--s-select 2`):
+
+| field | control itr 2 | resume itr 2 (before) | resume itr 2 (after) |
+|---|---|---|---|
+| `world_id` | `ep11_slot19` | `ep3_slot19` | **`ep11_slot19`** |
+| penalised episodes (delta) | 200 | **0** | **200** |
+| `mean_system_joules` | 99.6693 | 101.256 | 100.3308 (+0.66 %) |
+| `mean_violation` | 0.9184 | 0.9252 | 0.9366 (+2.0 %) |
+| `lambdas.ue_energy` | 0.107262 | 0.110330 | 0.107331 (+0.06 %) |
+| `lambdas.total_energy` | 0.018751 | 0.017826 | 0.019648 (+4.8 %) |
+
+The control's own per-iteration records are **bit-identical** before and after the broadcast change
+(70.1617 / 67.5686 / 99.6693 J), so fresh-run and V1 semantics are untouched.
+
+**(c) The residual is NOT bit-exact, and the cause is NOT optimizer slots.**
+`tf.train.list_variables` on the generation reports **1042 variables, 682 of them Adam-like**
+(`beta1_power`, `beta2_power`, `inner_adam_task_*` slots), so slot/power coverage is ruled out.
+The policy's sampler is `tf.random.stateless_multinomial(logits, 1, seed=self._seed_pair)`
+(`meta_seq2seq_policy.py:211`), i.e. a pure function of logits and the seed pair, so the TF global
+RNG is not consumed either. Remaining unexplained: 0.06-4.8 % in the third iteration. Candidate
+sources still to test: (i) process-to-process float determinism of the TF ops, (ii) whether any
+observation channel depends on process-local state, (iii) the F20 seed-pair construction (the same
+`_seed_pair` is reused at every token). **This is reported as an open item, not as equivalence.**
+
+**Acceptance coverage actually executed:** uninterrupted 3-iteration control and a separate
+2-iteration process resumed in a fresh process to total target 3, on CPU with `--intra-op 1
+--inter-op 1 --device cpu`, comparing the corresponding third-iteration records. Cumulative
+counters were compared as counters and the post-resume **increments** were compared separately via
+`v2_iterations.jsonl`; the control's 600 episodes were NOT treated as the resume's 200.
+**NOT yet executed:** a split that crosses a scheduled validation boundary (validation is frozen at
+interval 50, so a 3-iteration gate validates only at iteration 0), and a GPU-tolerance comparison.
+
+### F14/F33 — the production penalty gate was wrong and is corrected
+
+The gate required `episodes_with_nonzero_penalty >= 1` for any run of >= 2 iterations. That is not a
+property of a valid constraint: `penalty = sum_i lambda_i * max(0, g_i)`, so with λ = 0 the hinge
+penalty is exactly zero however large the violation, and a feasible production batch may
+legitimately pass with zero penalties. The requirement is **removed**; the guard still requires a
+live dual (`updates >= 1`, signed rows reached the trainer, broadcast targets >= 1). The penalty
+PATH is now pinned by controlled fixtures whose λ can be set explicitly:
+`test_v2_constraint_penalty_path.py` (14 tests) covers λ=0 with a violating row → exactly 0;
+λ>0 × violation; feasible → 0; mixed batch → only violating rows; multi-channel independence;
+terminal charge applied once and contributing exactly `-penalty` to the discounted return; inactive
+costs; rejected negative/unknown/wrong-length λ.
+
+The `mean_violation` vs `nonzero_penalty` "contradiction" recorded earlier is now **explained, not
+dismissed**: it is the documented hinge-primal / signed-dual combination. A batch can contain
+positive per-episode violations while its MEAN signed cost is <= 0, in which case λ stays at 0 and
+no penalty is charged. The production gate below is exactly that case.
+
+### Stage C — final production gate at the APPROVED fraction 0.5 (this session)
+
+```
+command: python -m spec.automotive_training.v2.run_tf --device gpu --gpu-fraction 0.03
+         --intra-op 8 --inter-op 2 --iterations 3 --seed 0 --background 2
+         --link-regime moderate --background-policy all_mec
+         --energy-budget-fraction 0.5 --ue-budget-fraction 1.0
+         --r-select 2 --s-select 2 --ckpt-dir /out/ckpt --json /out/run.json
+verdict: REAL TF RUN OK      ok=True   error=None   resume_mode=fresh
+         session device=GPU gpu_fraction=0.03 intra_op=8 inter_op=2
+         completed=3  started=3  next_iteration=3  outer_updates_completed=3
+         validations_completed=1   checkpoint.status=completed_iterations=3  promotable=true
+per-iteration (v2_iterations.jsonl):
+   itr 0  dv=1  sysJ=70.3084  viol=0.0228  dPen=0  lam={total_energy 0.0, ue_energy 0.0}
+   itr 1  dv=2  sysJ=65.0410  viol=0.0356  dPen=0  lam={total_energy 0.0, ue_energy 0.0}
+   itr 2  dv=3  sysJ=100.5105 viol=0.0057  dPen=0  lam={total_energy 0.0, ue_energy 0.0}
+artifacts: run.json, v2_progress.json, v2_phase_timings.jsonl, v2_iterations.jsonl
+```
+
+This is a **feasible production run under the approved 0.5 budget**: the mean signed cost stays at
+or below budget, so λ remains 0 and no penalty is charged — exactly the legitimate zero-penalty
+outcome the old guard rejected. The constrained machinery is nonetheless proven live (3 dual
+updates, 600 signed rows, 11 broadcast targets) and its penalty path is proven by the fraction-0.05
+binding fixture and the controlled tests above. **The fraction-0.05 numbers are NOT mixed into this
+gate's results.**
+
+**F34 evidence from this gate:** `--device gpu` was requested and the process reports
+`session device=GPU`; the pre-allocated hard cap is `gpu_fraction=0.03` with `allow_growth=false`,
+and vLLM was left untouched throughout. Device placement is asserted by the session banner, not by
+kernel-level profiling, so this is a **recorded configuration**, not a measured kernel breakdown.
+
 ### Stage B — still NOT_VERIFIED at this revision
 F03, F04, F05, F14, F15, F16, F17, F18, F19, F20, F22, F23, F24, F25, F26, F27, F28, F29, F34.
 No claim is made about any of them. The earlier partial reports are not substitutes; several
