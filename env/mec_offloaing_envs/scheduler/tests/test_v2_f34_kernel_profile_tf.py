@@ -55,15 +55,21 @@ class TestKernelProfile(unittest.TestCase):
         tfv1.set_random_seed(0)
 
     def _small_graph(self):
-        """A graph large enough to exceed the profiler's op-count threshold, plus one random op
-        so that a semantic change by the profiler would be visible in the fetched values."""
+        """A graph large enough to exceed the profiler's op-count threshold, plus a STATEFUL
+        counter that increments exactly once per `sess.run` of the fetch.
+
+        A stateful counter (rather than a random op) makes "the profiler must not execute the
+        graph an extra time" a crisp, deterministic assertion: if the profiler secretly ran the
+        fetches for its trace, the counter would advance twice for one logical call.
+        """
         tfv1 = tf.compat.v1
         a = tfv1.placeholder(tf.float32, shape=[64, 64], name="profile_a")
         b = tfv1.placeholder(tf.float32, shape=[64, 64], name="profile_b")
         prod = tf.matmul(a, b, name="profile_matmul")
-        drawn = tf.random.uniform([64, 64], seed=1234, name="profile_uniform")
-        summed = tf.reduce_sum(tf.nn.relu(prod + drawn), name="profile_sum")
-        return [a, b], [summed, prod]
+        counter = tfv1.Variable(0.0, name="profile_counter")
+        bumped = tfv1.assign_add(counter, 1.0, name="profile_bump")
+        summed = tfv1.reduce_sum(prod) + bumped
+        return [a, b], [summed, prod, counter]
 
     def test_profiler_records_observed_device_per_op(self):
         tfv1 = tf.compat.v1
@@ -100,9 +106,15 @@ class TestKernelProfile(unittest.TestCase):
             self.assertIn("placed_device", entry)
         self.assertEqual(doc["observed"]["n_ops"], observed["n_ops"])
 
-    def test_profiling_does_not_change_the_run_or_the_rng_stream(self):
-        """The profiled call must return exactly what an unprofiled call returns, and the stateful
-        random stream must not advance differently."""
+    def test_profiling_does_not_add_a_run_or_change_the_fetched_values(self):
+        """Profiling must not execute the graph an extra time and must return the true outputs.
+
+        The fixture's stateful counter advances exactly once per `sess.run` of the fetches, so an
+        implementation that ran the graph for its trace would show `profiled[2] == 3.0` (two
+        increments for one call) instead of `2.0`. The deterministic fetch (`prod`) must be
+        bit-identical across all three calls, and the counter-dependent fetch must be exactly the
+        graph's value at the advanced counter.
+        """
         tfv1 = tf.compat.v1
         run_tf = _profile_module()
         phs, fetches = self._small_graph()
@@ -118,11 +130,17 @@ class TestKernelProfile(unittest.TestCase):
                 profiled = sess.run(fetches, feed_dict=feed)
                 profiler.stop(sess)
                 plain2 = sess.run(fetches, feed_dict=feed)
-        np.testing.assert_array_equal(profiled[0], plain1[0])
-        # `profile_uniform` is stateful and part of `summed`, so this is a real RNG-stream check
-        self.assertFalse(np.array_equal(plain1[0], plain2[0]),
-                         "the fixture must consume a stateful random stream")
+        # the deterministic fetch is unaffected by profiling
         np.testing.assert_array_equal(profiled[1], plain1[1])
+        np.testing.assert_array_equal(profiled[1], plain2[1])
+        # exactly ONE increment per logical run: no extra traced execution
+        self.assertEqual(float(plain1[2]), 1.0)
+        self.assertEqual(float(profiled[2]), 2.0,
+                         "the profiler executed the graph more than once for one call")
+        self.assertEqual(float(plain2[2]), 3.0)
+        # the counter-dependent fetch is the graph's own value, not a substituted one
+        self.assertAlmostEqual(float(profiled[0]) - float(plain1[0]), 1.0, places=3)
+        self.assertAlmostEqual(float(plain2[0]) - float(profiled[0]), 1.0, places=3)
 
     def test_missing_capture_is_reported_not_faked(self):
         run_tf = _profile_module()

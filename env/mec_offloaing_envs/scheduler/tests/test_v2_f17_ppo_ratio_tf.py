@@ -118,18 +118,32 @@ class TestPPORatioOnRealGraph(unittest.TestCase):
 
     def _stored_batch(self, seed=101, task_id=0):
         """The batch the ROLLOUT would have stored: the policy's OWN logits and actions, fed
-        through the real policy graph, then consumed as `old_logits`/`actions`."""
+        through the real policy graph, then consumed as `old_logits`/`actions`.
+
+        Two passes are needed because the teacher-forced `decoder_logits` requires a
+        `decoder_inputs` feed: (1) a zero shift to read the logits and take the argmax actions,
+        then (2) the SHIFTED stored actions to read the logits the update path also uses. Both
+        passes run the same graph, so the ratio at the stored action is exactly one.
+        """
         rng = np.random.RandomState(seed)
         obs = rng.randn(20, 20, self.obs_dim).astype(np.float32)
         policy = self.meta_policy.meta_policies[task_id]
         full_length = np.array([obs.shape[1]] * obs.shape[0], dtype=np.int32)
-        logits = self.sess.run(
-            policy.network.decoder_logits,
-            feed_dict={policy.obs: obs, policy.decoder_full_length: full_length})
-        actions = np.argmax(np.asarray(logits), axis=-1).astype(np.int32)
+
+        def fetch(decoder_inputs):
+            return np.asarray(self.sess.run(
+                policy.network.decoder_logits,
+                feed_dict={policy.obs: obs,
+                           policy.decoder_inputs: decoder_inputs,
+                           policy.decoder_full_length: full_length}), dtype=np.float32)
+
+        zeros = np.zeros((obs.shape[0], obs.shape[1]), dtype=np.int32)
+        actions = np.argmax(fetch(zeros), axis=-1).astype(np.int32)
+        shift = np.column_stack((np.zeros(actions.shape[0], dtype=np.int32), actions[:, :-1]))
+        logits = fetch(shift)
         batch = _batch(rng, obs_dim=self.obs_dim)
         batch["observations"] = obs
-        batch["logits"] = np.asarray(logits, dtype=np.float32)
+        batch["logits"] = logits
         batch["actions"] = actions
         return batch
 

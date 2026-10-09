@@ -807,6 +807,10 @@ class Seq2SeqPolicy():
         self._deterministic_default = False
         self._draw_identity = None
         self.enable_crn = bool(enable_crn)
+        # The branch the LAST decode actually fetched. Initialised here so a consumer can read
+        # it before any rollout (the runner records the EXECUTED branch instead of inferring it
+        # from `enable_crn`); a missing attribute made that evidence unreadable on a fresh policy.
+        self.last_decode_branch = None
         self.crn_seed = (
             tf.compat.v1.placeholder(shape=[2], dtype=tf.int32, name="crn_seed_ph_" + name)
             if self.enable_crn else None)

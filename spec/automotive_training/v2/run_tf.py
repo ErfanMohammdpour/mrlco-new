@@ -1272,7 +1272,7 @@ def _restore_resume_state(trainer, path, args, manifest=None) -> dict:
     trainer.start_itr = int(trainer.next_iteration)
     # INCREASING the total target is a legitimate continuation ("run 10 more"); DECREASING it
     # below work already done is not, and `trainer.start_itr` is the authority for that.
-    if trainer.start_itr > int(args.iterations):
+    if trainer.start_itr > int(args.iterations) and not bool(getattr(args, "eval_only", False)):
         raise V2RunError("checkpoint is already past the requested total target: next=%d "
                          "target=%d" % (trainer.start_itr, int(args.iterations)))
     stored_target = raw.get("iteration_target")
@@ -1407,6 +1407,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                          "the stateless token-keyed draw (%s); a checkpoint recorded under a "
                          "different contract is refused on resume (F19)."
                          % _sampling_contract_default())
+    ap.add_argument("--eval-only", dest="eval_only", action="store_true", default=False,
+                    help="ISOLATED EVALUATION: require --resume-from, restore that generation, run "
+                         "the production held-out evaluator once per k-step and write the metric "
+                         "block to --json, with NO training iteration and no update. Used to "
+                         "validate the final post-update checkpoint outside the training process.")
     return ap
 
 
@@ -1538,6 +1543,36 @@ def main(argv=None) -> int:
                 return gen
 
             trainer.auto_generation_checkpoint = _maybe_generation_checkpoint
+            if bool(getattr(args, "eval_only", False)):
+                # ISOLATED EVALUATION of the restored checkpoint (Gate A/B): no training loop, no
+                # update, no dual step. The production held-out evaluator is executed once per
+                # k-step against the restored weights and returns the same metric block a
+                # scheduled validation produces, so the FINAL post-update checkpoint can be
+                # checked outside the training process instead of trusting its in-run row.
+                if not args.resume_from:
+                    raise V2RunError("--eval-only requires --resume-from <generation|ckpt-dir>")
+                evaluator = getattr(trainer, "held_out_evaluator", None)
+                if evaluator is None:
+                    raise V2RunError("--eval-only needs the held-out evaluator")
+                k0_metrics = evaluator.evaluate_all(k_steps=0)
+                k3_metrics = evaluator.evaluate_all(k_steps=3)
+                manager = getattr(trainer, "auto_v2_constraint_manager", None)
+                payload = {
+                    "schema": "v2_eval_only_v1",
+                    "resume_from": str(args.resume_from),
+                    "resume_mode": str(resume_mode),
+                    "start_iteration": int(getattr(trainer, "start_itr", 0) or 0),
+                    "completed_iterations": int(getattr(trainer, "completed_iterations", 0) or 0),
+                    "lambdas": (manager.lambdas_by_name() if manager is not None else {}),
+                    "sampling_contract": str(getattr(trainer, "auto_sampling_contract", "")),
+                    "k0": k0_metrics,
+                    "k3": k3_metrics,
+                }
+                eval_out = Path(args.json)
+                eval_out.parent.mkdir(parents=True, exist_ok=True)
+                eval_out.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str))
+                print("EVAL-ONLY OK ->", eval_out)
+                return 0
             if tracer.path is not None:
                 tracer.record(
                     "B1_iter%d" % int(getattr(trainer, "start_itr", 0) or 0),

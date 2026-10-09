@@ -185,18 +185,32 @@ class TestLearningTFSmoke(unittest.TestCase):
 
     # --- F20: the properties the old name claimed -------------------------------------------------
     def test_inner_optimizer_slots_are_zeroed_then_nonzero(self):
-        """(i) the inner Adam reset zeroes the slots and one apply fills them."""
+        """(i) the inner Adam reset zeroes the MOMENT slots and one apply fills them.
+
+        `AdamOptimizer.variables()` also holds the bias-correction counters
+        (`beta1_power`/`beta2_power`), which a FRESH optimizer keeps at beta1/beta2 (0.9 / 0.999),
+        NOT at zero: asserting every variable is zero was simply wrong. The counters are checked
+        separately against their fresh values and the moments against zero.
+        """
         rng = np.random.RandomState(11)
         data = _batch(rng, obs_dim=self.obs_dim)
         self.ppo.reset_inner_optimizer()
-        slots = [v for v in self.ppo.optimizer.variables()]
-        self.assertTrue(slots, "the frozen PPO optimizer must own slot variables")
-        before = self.sess.run(slots)
+        all_vars = list(self.ppo.optimizer.variables())
+        moments = [v for v in all_vars
+                   if "beta1_power" not in v.name and "beta2_power" not in v.name]
+        powers = [v for v in all_vars
+                  if "beta1_power" in v.name or "beta2_power" in v.name]
+        self.assertTrue(moments, "the frozen PPO optimizer must own moment slot variables")
+        before = self.sess.run(moments)
         for v in before:
             self.assertEqual(float(np.max(np.abs(v))), 0.0,
-                             "the Adam slots must start at zero after the reset")
+                             "the Adam moment slots must start at zero after the reset")
+        if powers:
+            fresh = sorted(float(x) for x in np.asarray(self.sess.run(powers)).reshape(-1))
+            self.assertAlmostEqual(fresh[0], 0.9, places=6)
+            self.assertAlmostEqual(fresh[-1], 0.999, places=6)
         self.ppo.UpdatePPOTarget(data, batch_size=20, k_steps=3)
-        after = self.sess.run(slots)
+        after = self.sess.run(moments)
         moved = [float(np.max(np.abs(a))) for a in after]
         self.assertTrue(any(m > 0.0 for m in moved),
                         "one apply must fill at least one Adam slot, got %s" % (moved,))
@@ -204,16 +218,26 @@ class TestLearningTFSmoke(unittest.TestCase):
                         "the Adam slots must stay finite")
 
     def test_outer_adam_moments_persist_across_meta_updates(self):
-        """(ii) the OUTER optimizer is NOT reset per task: its moments accumulate."""
+        """(ii) the OUTER optimizer is NOT reset per task: its moments accumulate.
+
+        The bias-correction counters are read from `outer_optimizer.variables()` by NAME rather
+        than the private `_beta1_power` attribute, which TF 1.15 only creates lazily and which is
+        absent on this optimizer instance.
+        """
         def outer_state():
-            return {"powers": self.sess.run([self.mrlco.outer_optimizer._beta1_power,
-                                             self.mrlco.outer_optimizer._beta2_power]),
-                    "slots": self.sess.run(
-                        [v for v in self.mrlco.outer_optimizer.variables()
-                         if "beta1_power" not in v.name and "beta2_power" not in v.name])}
+            vs = list(self.mrlco.outer_optimizer.variables())
+            powers = sorted((v for v in vs
+                             if "beta1_power" in v.name or "beta2_power" in v.name),
+                            key=lambda v: v.name)
+            slots = [v for v in vs if v not in powers]
+            return {"powers": (self.sess.run(powers) if powers else []),
+                    "slots": self.sess.run(slots)}
 
         rng = np.random.RandomState(12)
         state0 = outer_state()
+        self.assertTrue(state0["powers"],
+                        "the outer Adam must expose its bias-correction counters for the "
+                        "persistence check to be meaningful")
         for v in state0["slots"]:
             self.assertEqual(float(np.max(np.abs(v))), 0.0,
                              "the outer Adam slots must start at zero on a fresh run")
@@ -221,10 +245,10 @@ class TestLearningTFSmoke(unittest.TestCase):
                                    batch_size=20)
         self.mrlco.UpdateMetaPolicy()
         state1 = outer_state()
-        p0 = [float(x) for x in state0["powers"]]
-        p1 = [float(x) for x in state1["powers"]]
+        p0 = [float(x) for x in np.asarray(state0["powers"]).reshape(-1)]
+        p1 = [float(x) for x in np.asarray(state1["powers"]).reshape(-1)]
         self.assertLess(p1[0], p0[0], "beta1_power must decay across outer updates")
-        self.assertLess(p1[1], p0[1], "beta2_power must decay across outer updates")
+        self.assertLess(p1[-1], p0[-1], "beta2_power must decay across outer updates")
         self.assertTrue(any(float(np.max(np.abs(v))) > 0.0 for v in state1["slots"]),
                         "the outer Adam moments must be non-zero after one outer step")
         self.mrlco.UpdatePPOTarget([_batch(rng, obs_dim=self.obs_dim) for _ in range(10)],
@@ -268,10 +292,16 @@ class TestLearningTFSmoke(unittest.TestCase):
             self.ppo.r: data["returns"],
         }
         self.ppo.reset_inner_optimizer()
-        values = self.sess.run([g for g in grads if g is not None], feed_dict=feed)
+        # `tf.gradients` returns `IndexedSlices` for embedding-style lookups, which NumPy cannot
+        # inspect directly; densify before the finiteness check.
+        def _dense(g):
+            return self.tf.convert_to_tensor(g) if hasattr(g, "values") else g
+
+        dense = [_dense(g) for g in grads if g is not None]
+        values = self.sess.run(dense, feed_dict=feed)
         self.assertTrue(values, "the actor loss must have at least one gradient")
         for g in values:
-            self.assertTrue(np.isfinite(g).all(), "actor gradient contains NaN/Inf")
+            self.assertTrue(np.isfinite(np.asarray(g)).all(), "actor gradient contains NaN/Inf")
         before = self.sess.run(params)
         self.ppo.UpdatePPOTarget(data, batch_size=20, k_steps=3)
         after = self.sess.run(params)
