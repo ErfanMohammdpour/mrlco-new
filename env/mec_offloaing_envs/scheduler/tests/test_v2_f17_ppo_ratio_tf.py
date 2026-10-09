@@ -94,6 +94,7 @@ class TestPPORatioOnRealGraph(unittest.TestCase):
         from policies.meta_seq2seq_policy import MetaSeq2SeqPolicy
 
         cls.tfv1 = tfv1
+        cls.tf = tf
         cls.obs_dim = int(PACKED_DIM)
         cls.meta_policy = MetaSeq2SeqPolicy(
             meta_batch_size=10, obs_dim=cls.obs_dim, encoder_units=32, decoder_units=32,

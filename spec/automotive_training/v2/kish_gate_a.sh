@@ -59,7 +59,7 @@ run_v2() {   # run_v2 <label> <iterations> <ckpt_dir> <json> [extra args...]
   t0=$(date -u +%s)
   docker run --rm \
     -e PYTHONPATH=/work -e CUDA_VISIBLE_DEVICES= -e TF_CPP_MIN_LOG_LEVEL=3 \
-    -v "$REPO":/work -w /work --entrypoint python "$IMG" \
+    -v "$REPO":/work -v "$OUT":/out -w /work --entrypoint python "$IMG" \
     -m spec.automotive_training.v2.run_tf \
     --iterations "$iters" --ckpt-dir "$ckpt" --json "$json" \
     "${COMMON[@]}" "$@" 2>&1 | tail -25
@@ -72,11 +72,11 @@ rm -rf "$OUT/control" "$OUT/split"
 mkdir -p "$OUT/control" "$OUT/split"
 
 # 1. uninterrupted control
-run_v2 control "$TOTAL" "$OUT/control/ckpt" "$OUT/control.json"
+run_v2 control "$TOTAL" /out/control/ckpt /out/control.json
 CONTROL_EXIT=$?
 
 # 2. split: first process to SPLIT_AT completed iterations
-run_v2 split-part1 "$SPLIT_AT" "$OUT/split/ckpt" "$OUT/split_part1.json"
+run_v2 split-part1 "$SPLIT_AT" /out/split/ckpt /out/split_part1.json
 SPLIT1_EXIT=$?
 
 echo ""
@@ -85,13 +85,13 @@ ls "$OUT/split/ckpt/generations" 2>/dev/null
 echo "CURRENT: $(cat "$OUT/split/ckpt/generations/CURRENT" 2>/dev/null)"
 
 # 3. fresh process resumes to the TOTAL target
-run_v2 split-part2 "$TOTAL" "$OUT/split/ckpt" "$OUT/split.json" \
-  --resume-from "$OUT/split/ckpt"
+run_v2 split-part2 "$TOTAL" /out/split/ckpt /out/split.json \
+  --resume-from /out/split/ckpt
 SPLIT2_EXIT=$?
 
 # 4. isolated evaluation of the control's FINAL post-update checkpoint
-run_v2 eval-only "$TOTAL" "$OUT/control/ckpt" "$OUT/control_eval.json" \
-  --eval-only --resume-from "$OUT/control/ckpt"
+run_v2 eval-only "$TOTAL" /out/control/ckpt /out/control_eval.json \
+  --eval-only --resume-from /out/control/ckpt
 EVAL_EXIT=$?
 
 echo ""
