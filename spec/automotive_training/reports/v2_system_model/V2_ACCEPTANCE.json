@@ -1,0 +1,60 @@
+{
+  "schema": "v2_acceptance_v1",
+  "generated_utc": "2026-10-09",
+  "tested_code_revision": "PENDING_COMMIT",
+  "gate_A_cpu_continuation_across_validation": {
+    "status": "PASS",
+    "config": {"device": "cpu", "seed": 0, "total_energy_fraction": 0.05,
+               "ue_fraction": 0.05, "r_select": 2, "s_select": 2,
+               "intra_op": 1, "inter_op": 1, "validation_interval": 2,
+               "checkpoint_interval": 2, "iterations_total_target": 6},
+    "design": "uninterrupted control to 6 completed outer iterations vs a 2-iteration process resumed in a FRESH process to TOTAL target 6, crossing scheduled validation at indices 2 and 4",
+    "per_iteration": [
+      {"iteration": 0, "control_J": 68.4962, "resume_J": 68.4962, "rel": "0.0000%", "lambdas_equal": true},
+      {"iteration": 1, "control_J": 74.7600, "resume_J": 74.7600, "rel": "0.0000%", "lambdas_equal": true},
+      {"iteration": 2, "control_J": 110.8925, "resume_J": 110.8925, "rel": "0.0000%", "lambdas_equal": true},
+      {"iteration": 3, "control_J": 89.2519, "resume_J": 89.2519, "rel": "0.0000%", "lambdas_equal": true},
+      {"iteration": 4, "control_J": 71.3395, "resume_J": 71.3395, "rel": "0.0000%", "lambdas_equal": true},
+      {"iteration": 5, "control_J": 70.9763, "resume_J": 70.9763, "rel": "0.0000%", "lambdas_equal": true}
+    ],
+    "worst_relative_energy_difference": "0.0000%",
+    "exact_match_all_compared_iterations": true,
+    "validations": {"control": 3, "resume": 3, "indices_crossed_by_resume": [2, 4]},
+    "completed": {"control": 6, "resume": 6},
+    "resume_resolution": "restored TF checkpoint prefix /out/ckpt/generations/gen_00000001/v2_run.ckpt",
+    "note": "The split run resumed from the newest COMPLETE generation, not from a loose root checkpoint, and then committed gen_00000003 and gen_00000005."
+  },
+  "transactional_generations": {
+    "status": "PASS (behaviour observed)",
+    "control_committed": ["gen_00000001", "gen_00000003", "gen_00000005"],
+    "recoverable_complete_generations": 3,
+    "current_pointer": "{\"generation\": \"gen_00000005\", \"iteration\": 5, \"schema\": \"v2_checkpoint_pointer_v1\"}",
+    "mechanism": "TF shards + state bundle + manifest written into gen_N.tmp, verified, renamed to gen_N (the commit point), then the CURRENT pointer is replaced atomically; recovery validates every manifest file hash and refuses a partial or mixed snapshot"
+  },
+  "gate_B_recovery_and_paired_evaluation": {
+    "status": "NOT_RUN",
+    "partial_generation_recovery_test": "implementation present (_verify_generation / _resolve_resume_generation); the deliberate truncated-shard / missing-bundle fixture has NOT been executed",
+    "legacy_schema_rejection": "implemented and unit-tested (v2_resume_state_v1 refused with an explanation; --warm-start-weights-from is the separately labelled non-equivalent path), but not re-executed in this gate",
+    "paired_R2_S2_evaluation": "NOT_RUN"
+  },
+  "gate_C_production_gpu_smoke_fraction_0_5": {
+    "status": "NOT_RUN",
+    "reason": "must run after the sampling-contract change; the only fraction-0.5 gate on record predates crn_token_keyed_v2",
+    "kernel_placement_profiling": "NOT_RUN"
+  },
+  "non_tf_suite": {"passed": 1443, "failed": 0, "skipped": 19,
+                   "note": "TF-gated files executed separately in the container"},
+  "verdicts": {
+    "implementation_ready": "NOT_READY",
+    "blockers": [
+      "Gate B not run: partial-generation recovery and the paired R=2/S=2 evaluator",
+      "Gate C not run: production fraction-0.5 GPU smoke on the repaired sampling contract",
+      "F11 unit consistency unresolved",
+      "F13 weighted-objective alignment unresolved",
+      "remaining F08 fallback accounting, F03-F05 and F17-F29 contracts, F34 kernel placement"
+    ],
+    "campaign_operationally_ready": "NOT_READY",
+    "learning_competitive": "NOT_YET_MEASURED"
+  },
+  "campaign_1500": {"status": "NOT_LAUNCHED", "reason": "conditional authorization requires Gate B and Gate C to pass first"}
+}

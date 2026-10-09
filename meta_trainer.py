@@ -91,8 +91,15 @@ class Trainer(object):
                 bc_policy=None):
         if int(inner_batch_size) != FROZEN_PPO_BATCH:
             raise ValueError("v0.1 inner_batch_size / ppo_batch_size_trajectories must be 20")
-        if int(validation_interval) != FROZEN_VALIDATION_INTERVAL:
+        # The frozen v0.1 protocol validates every 50 outer iterations. A V2 subclass may declare
+        # `ALLOW_VALIDATION_INTERVAL_OVERRIDE = True` to accept a different interval for explicitly
+        # labelled acceptance/development configurations; the V1 default keeps the frozen guard
+        # exactly as it was, so no existing V1 configuration changes behaviour.
+        _allow_override = bool(getattr(type(self), "ALLOW_VALIDATION_INTERVAL_OVERRIDE", False))
+        if int(validation_interval) != FROZEN_VALIDATION_INTERVAL and not _allow_override:
             raise ValueError("v0.1 validation_interval must be 50")
+        if _allow_override and int(validation_interval) < 1:
+            raise ValueError("validation_interval must be >= 1, got %r" % (validation_interval,))
         if held_out_evaluator is None:
             raise ValueError("v0.1 trainer requires held_out_evaluator (validation every 50 outer iters)")
         self.algo = algo

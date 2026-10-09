@@ -77,7 +77,9 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                               background_dags: int = 0,
                               background_policy: str = "all_mec",
                               constraints_enabled: bool = True,
-                              budget_fractions: Mapping | None = None):
+                              budget_fractions: Mapping | None = None,
+                              validation_interval: int = 50,
+                              checkpoint_interval: int = 10):
     """Build (Trainer, MRLCO) on the frozen dataset with the v2 system model."""
     if str(link_regime) not in V2_ALLOWED_LINK_REGIMES:
         raise AutomotivePrimaryError("link_regime must be one of %s"
@@ -222,6 +224,11 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
     from spec.automotive_training.automotive_trainer import AutomotiveTrainerMixin
 
     class AutomotiveV2Trainer(AutomotiveTrainerMixin, Trainer):
+        #: V2-only: accept a non-default validation interval so an acceptance/development
+        #: configuration can cross a scheduled validation boundary inside a bounded run. The
+        #: interval is part of the run fingerprint, and the production default stays 50.
+        ALLOW_VALIDATION_INTERVAL_OVERRIDE = True
+
         """v2 trainer: the v2 SIGNED costs feed the v2 manager that applies the penalty.
 
         The inherited observer reads `violation/<NAME>` from the telemetry, which the v2 stack
@@ -300,6 +307,18 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
             # which also silently prevented the phase-timing append from ever running.)
             self._append_phase_timings(int(itr))
             self._write_progress()
+            # TRANSACTIONAL CHECKPOINT GENERATION (crash recovery). A completed iteration is not
+            # durable until a COMPLETE generation is committed. A failure here is loud, never
+            # silent, because the next iteration would otherwise advance without a recoverable
+            # boundary.
+            _gen = getattr(self, "auto_generation_checkpoint", None)
+            if callable(_gen):
+                try:
+                    _gen(int(itr))
+                except Exception as exc:                            # noqa: BLE001
+                    self.auto_generation_error = "%s: %s" % (type(exc).__name__, exc)
+                    print("ERROR checkpoint generation failed at iteration %d: %s"
+                          % (int(itr), self.auto_generation_error))
             if getattr(self, "auto_progress_error", None) or \
                     getattr(self, "auto_phase_timing_error", None):
                 print("WARNING v2 progress telemetry failed: progress=%r phase_timings=%r"
@@ -597,7 +616,8 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
         policy=meta_policy, n_itr=int(n_itr), greedy_finish_time=greedy_finish,
         start_itr=0, inner_batch_size=int(support_trajectories),
         print_action_choices=False, action_print_interval=0, seed=seed,
-        validation_interval=50, held_out_evaluator=held_out, ckpt_dir=ckpt_dir,
+        validation_interval=int(validation_interval), held_out_evaluator=held_out,
+        ckpt_dir=ckpt_dir,
         audit_writer=None)
     trainer.auto_spec_map = {k: spec_map[k] for k in enabled}
     if env.constraint_manager is not None:

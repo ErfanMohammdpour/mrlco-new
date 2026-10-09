@@ -26,8 +26,10 @@ iterations is a failure, not a pass.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import shutil
 import os
 import sys
 import time
@@ -497,6 +499,139 @@ def _restore_env_identity(trainer, doc) -> None:
             cbase.realization_epoch = int(doc["realization_epoch"])
 
 
+#: Transactional checkpoint generations. A generation is a directory that contains the TF
+#: shards AND the auxiliary state bundle, committed together. `CURRENT` points at the newest
+#: COMPLETE generation and is replaced atomically, so a crash during a save can never publish a
+#: mixed old-TF / new-state snapshot: the half-written generation is never referenced.
+GEN_DIR = "generations"
+CURRENT_POINTER = "CURRENT"
+GENERATION_MANIFEST = "manifest.json"
+
+
+def _sha256_file(path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _generation_dir(ckpt_dir, itr) -> Path:
+    return Path(ckpt_dir) / GEN_DIR / ("gen_%08d" % int(itr))
+
+
+def _write_generation(sess, saver, trainer, args, itr) -> Path:
+    """Write one COMPLETE generation, then commit it atomically."""
+    import tensorflow as tf  # noqa: F401  (session comes from the caller)
+    root = Path(args.ckpt_dir) / GEN_DIR
+    root.mkdir(parents=True, exist_ok=True)
+    final = _generation_dir(args.ckpt_dir, itr)
+    staging = final.with_name(final.name + ".tmp")
+    if staging.exists():
+        shutil.rmtree(str(staging))
+    staging.mkdir(parents=True)
+    # 1) TF shards
+    if saver is None:
+        saver = tf.compat.v1.train.Saver(max_to_keep=1)
+    saver.save(sess, str(staging / "v2_run.ckpt"))
+    # 2) auxiliary state bundle (written atomically inside the staging dir)
+    state = _build_resume_state(trainer, args)
+    state["generation"] = {"iteration": int(itr), "complete": True}
+    bundle = staging / "v2_resume_state.json"
+    tmp = bundle.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2, sort_keys=True, default=str) + "\n")
+    os.replace(str(tmp), str(bundle))
+    # 3) manifest over every required file
+    required = sorted(p for p in staging.iterdir() if p.is_file())
+    manifest = {
+        "schema": "v2_checkpoint_generation_v1",
+        "iteration": int(itr),
+        "next_iteration": int(itr) + 1,
+        "sampling_contract": getattr(trainer, "auto_sampling_contract", None),
+        "files": {p.name: _sha256_file(p) for p in required},
+        "complete": True,
+    }
+    (staging / GENERATION_MANIFEST).write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    # 4) atomic publish: the rename is the commit point
+    if final.exists():
+        shutil.rmtree(str(final))
+    os.replace(str(staging), str(final))
+    # 5) atomic pointer replacement
+    ptr = Path(args.ckpt_dir) / CURRENT_POINTER
+    tmp = ptr.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"schema": "v2_checkpoint_pointer_v1",
+                               "generation": final.name,
+                               "iteration": int(itr)}, sort_keys=True) + "\n")
+    os.replace(str(tmp), str(ptr))
+    return final
+
+
+def _verify_generation(gen_dir) -> tuple:
+    """(ok, reason). A generation is usable only if every manifest file is present and matches."""
+    gen_dir = Path(gen_dir)
+    man = gen_dir / GENERATION_MANIFEST
+    if not man.is_file():
+        return False, "manifest missing"
+    try:
+        doc = json.loads(man.read_text())
+    except Exception as exc:
+        return False, "manifest unreadable: %s" % exc
+    if doc.get("schema") != "v2_checkpoint_generation_v1":
+        return False, "unexpected manifest schema %r" % (doc.get("schema"),)
+    for name, want in (doc.get("files") or {}).items():
+        f = gen_dir / name
+        if not f.is_file():
+            return False, "missing file %s" % name
+        got = _sha256_file(f)
+        if got != want:
+            return False, "hash mismatch for %s (manifest %s, file %s)" % (name, want[:12], got[:12])
+    if not (gen_dir / "v2_run.ckpt.index").is_file():
+        return False, "tf index missing"
+    if not (gen_dir / "v2_resume_state.json").is_file():
+        return False, "state bundle missing"
+    return True, "complete"
+
+
+def _resolve_resume_generation(ckpt_dir) -> Path:
+    """CURRENT if it is complete, else the newest complete generation, else a precise failure."""
+    ckpt_dir = Path(ckpt_dir)
+    ptr = ckpt_dir / CURRENT_POINTER
+    candidates = []
+    if ptr.is_file():
+        try:
+            name = json.loads(ptr.read_text()).get("generation")
+        except Exception:
+            name = None
+        if name:
+            candidates.append(ckpt_dir / GEN_DIR / str(name))
+    gen_root = ckpt_dir / GEN_DIR
+    if gen_root.is_dir():
+        for d in sorted((p for p in gen_root.iterdir() if p.is_dir()
+                         and not p.name.endswith(".tmp")), reverse=True):
+            if d not in candidates:
+                candidates.append(d)
+    for cand in candidates:
+        ok, reason = _verify_generation(cand)
+        if ok:
+            return cand
+        print("checkpoint generation %s rejected: %s" % (cand.name, reason))
+    raise V2RunError(
+        "no COMPLETE checkpoint generation under %s: refusing to resume from a partial or "
+        "mixed snapshot. Refusing rather than guessing." % (ckpt_dir,))
+
+
+def _resolve_resume_ckpt(ckpt_dir) -> str:
+    """The TF checkpoint PREFIX to restore for an exact continuation."""
+    legacy = Path(ckpt_dir) / "v2_run.ckpt"
+    if (Path(ckpt_dir) / GEN_DIR).is_dir() or (Path(ckpt_dir) / CURRENT_POINTER).is_file():
+        gen = _resolve_resume_generation(ckpt_dir)
+        return str(gen / "v2_run.ckpt")
+    if legacy.is_file() or legacy.with_suffix(".ckpt.index").is_file():
+        return str(legacy)
+    raise V2RunError("no checkpoint found under %s" % (ckpt_dir,))
+
+
 def _build_resume_state(trainer, args) -> dict:
     """The NON-TensorFlow half of a resumable checkpoint.
 
@@ -708,6 +843,13 @@ def main(argv=None) -> int:
                     help="EXACT continuation from a v2 generation (TF checkpoint + v2 resume "
                          "bundle). Requires a v2_resume_state_v2 bundle; a legacy v1 bundle is "
                          "refused because it cannot reproduce the world sequence.")
+    ap.add_argument("--validation-interval", type=int, default=50,
+                    help="V2-only scheduled-validation interval. Production default 50; V1 keeps "
+                         "the frozen 50. A short acceptance configuration may use a smaller value, "
+                         "which is recorded in the run fingerprint.")
+    ap.add_argument("--checkpoint-interval", type=int, default=10,
+                    help="Commit a TRANSACTIONAL full-state checkpoint generation every N "
+                         "completed outer iterations (plus validation points and completion).")
     ap.add_argument("--state-trace", default=None,
                     help="F33 first-divergence trace: append per-boundary state fingerprints "
                          "(B1 saved/restored, B2 worlds, B3 observations, B6 costs) to this "
@@ -744,7 +886,9 @@ def main(argv=None) -> int:
         constraints_enabled=bool(args.constraints),
         budget_fractions={"total_energy_mec": float(args.energy_budget_fraction),
                           "ue_energy": float(args.ue_budget_fraction)},
-        r_select=int(args.r_select), s_select=int(args.s_select))
+        r_select=int(args.r_select), s_select=int(args.s_select),
+        validation_interval=int(args.validation_interval),
+        checkpoint_interval=int(args.checkpoint_interval))
 
     import tensorflow as tf
 
@@ -785,10 +929,14 @@ def main(argv=None) -> int:
             restored = False
             resume_mode = "fresh"
             if args.resume_from:
+                _prefix = str(args.resume_from)
+                if Path(_prefix).is_dir():
+                    _prefix = _resolve_resume_ckpt(_prefix)
                 saver = tf.compat.v1.train.Saver(max_to_keep=1)
-                saver.restore(sess, str(args.resume_from))
+                saver.restore(sess, _prefix)
                 restored = True
                 resume_mode = "exact_continuation"
+                print("restored TF checkpoint prefix %s" % (_prefix,))
             elif args.warm_start_weights_from:
                 # WEIGHTS ONLY. Deliberately NOT a resume: the iteration ledger, duals, world
                 # identity and RNG stay at their fresh values, and run.json records the mode so
@@ -817,6 +965,18 @@ def main(argv=None) -> int:
             # --resume-from) it is the initialised state, which is how the very first boundary
             # gets pinned for the fresh run too.
             trainer.auto_state_tracer = tracer
+            trainer.auto_sampling_contract = "crn_token_keyed_v2"
+
+            def _maybe_generation_checkpoint(itr, _sess=sess, _args=args):
+                every = max(1, int(getattr(_args, "checkpoint_interval", 10) or 10))
+                if (int(itr) + 1) % every != 0:
+                    return None
+                _saver = tf.compat.v1.train.Saver(max_to_keep=1)
+                gen = _write_generation(_sess, _saver, trainer, _args, int(itr))
+                print("committed checkpoint generation %s" % (gen.name,))
+                return gen
+
+            trainer.auto_generation_checkpoint = _maybe_generation_checkpoint
             if tracer.path is not None:
                 tracer.record(
                     "B1_iter%d" % int(getattr(trainer, "start_itr", 0) or 0),
@@ -836,6 +996,10 @@ def main(argv=None) -> int:
                 Path(args.ckpt_dir).mkdir(parents=True, exist_ok=True)
                 ckpt_path = saver.save(sess, str(Path(args.ckpt_dir) / "v2_run.ckpt"))
                 resume_path = _write_resume_state(trainer, args)
+                _fin = _write_generation(sess, saver, trainer, args,
+                                         int(getattr(trainer, "last_completed_iteration",
+                                                     int(args.iterations) - 1)))
+                print("committed FINAL checkpoint generation %s" % (_fin.name,))
             except Exception as exc:
                 raise V2RunError("could not save a real checkpoint: %s" % exc) from exc
             evidence = _collect_evidence(trainer, env, algo, elapsed=elapsed,
