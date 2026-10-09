@@ -151,6 +151,159 @@ class TestTaskLocalState(unittest.TestCase):
         self.assertTrue(res.timings[("d", 1)].contact_failure)
 
 
+class TestDiscardedReservationsAreReleased(unittest.TestCase):
+    """F08/a: a helper CPU interval that a contact failure discards must be given back.
+
+    The audited scheduler committed the helper interval, then discovered the contact failure and
+    left the interval in place (no `Calendar` release API existed). A discarded `[0.0001, 6.0001]`
+    therefore blocked an unrelated DAG's helper reservation until 6.0001 s, and a reservation
+    could even be booked wholly after `contact_end`.
+    """
+
+    def test_a_discarded_interval_does_not_survive_on_the_helper_calendar(self):
+        # DAG "a": 24 MB of helper work = 6.0 s starting after a 1000 B ingress at 0.0001 s, so the
+        # discarded attempt occupies [0.0001, 6.0001] while contact ends at 1.0 s. DAG "b" is then
+        # reserved behind that phantom interval at 6.0001 s. After the release the calendar may
+        # only report the SERVED part of a's attempt, [0.0001, 1.0].
+        a = V2DAGSpec("a", 0, [V2TaskSpec(0, 24e6, 10.0, (), True, True, "MEDIUM", None, 0,
+                                          external_input_bytes=1000.0)], helper_id=0)
+        b = V2DAGSpec("b", 1, [V2TaskSpec(0, 100.0, 10.0, (), True, True, "MEDIUM", None, 1,
+                                          external_input_bytes=1000.0)], helper_id=0)
+        hel = {0: HelperState(0, 4e6, contact_end_s=1.0, predicted_contact_end_s=7.0)}
+        compute = V2ComputeSpec(10e6, 1, (1e6, 1e6), (4e6,))
+        res = schedule_shared([a, b], {"a": {0: 2}, "b": {0: 2}}, link=LINK, compute=compute,
+                              helper_states=hel, validate=True)
+        self.assertTrue(res.timings[("a", 0)].contact_failure)
+        self.assertTrue(res.timings[("b", 0)].contact_failure)
+        # helper busy time == a's served attempt (0.0001 -> 1.0); the horizon is the makespan
+        self.assertAlmostEqual(res.utilizations["HELPER_CPU"][0],
+                               (1.0 - 0.0001) / res.makespan_s, places=9,
+                               msg="the discarded helper interval is still on the calendar")
+
+    def test_helper_cpu_is_never_booked_outside_the_contact_window(self):
+        # DAG "a" holds the helper CPU for the whole contact window (4 MB at 4 MB/s = exactly
+        # 1.0 s, contact ends at 1.0 s). DAG "b" cannot fit and must NOT leave a phantom helper
+        # interval starting at/after `contact_end` (the pre-fix code reserved [1.0, 1.25] and kept
+        # it, so the helper calendar reported 1.25 s of work for a 1.0 s window).
+        a = V2DAGSpec("a", 0, [V2TaskSpec(0, 4e6, 0.0, (), True, False, "MEDIUM", None, 0)],
+                      helper_id=0)
+        b = V2DAGSpec("b", 0, [V2TaskSpec(0, 1e6, 0.0, (), True, False, "MEDIUM", None, 0)],
+                      helper_id=0)
+        hel = {0: HelperState(0, 4e6, contact_end_s=1.0, predicted_contact_end_s=7.0)}
+        res = schedule_shared([a, b], {"a": {0: 2}, "b": {0: 2}}, link=LINK, compute=COMPUTE,
+                              helper_states=hel, validate=True)
+        self.assertEqual(res.timings[("a", 0)].location, "HELPER")
+        tb = res.timings[("b", 0)]
+        self.assertTrue(tb.contact_failure)
+        self.assertEqual(tb.cpu_attempt_seconds, 0.0)
+        self.assertEqual(tb.cpu_wasted_bytes, 0.0)
+        # helper busy time = exactly DAG a's 1.0 s booked second; horizon = makespan 2.0 s
+        # (DAG b's 1.0 s local restart starts at contact_end)
+        self.assertAlmostEqual(res.utilizations["HELPER_CPU"][0], 1.0 / 2.0, places=12)
+
+
+class TestWarmStandbyDoesNotHoldTheRequesterCalendar(unittest.TestCase):
+    """F08/a: an unused warm-standby booking must not cost TIME and zero JOULES.
+
+    The audited hook booked the requester's worst case on the real `UE_CPU` calendar and never
+    released it, so a standby that was never consumed (`fallback_used_s=0`) moved a later UE
+    task's start (0.0 -> 0.6 s) and the makespan, while the blocked CPU time was billed as zero
+    joules (warm-standby energy is declared UNMODELED). The contract now: the standby is
+    REPORTED as a planning reserve and does not occupy the calendar.
+    """
+
+    def _world(self):
+        remote = V2DAGSpec("a_remote", 0, [V2TaskSpec(0, 6e6, 10.0, (), True, True, "HIGH",
+                                                      None, 0, external_input_bytes=0.0)])
+        local = V2DAGSpec("z_local", 0, [V2TaskSpec(0, 1e6, 10.0, (), True, True, "MEDIUM",
+                                                     None, 0, external_input_bytes=0.0)])
+        return [remote, local], {"a_remote": {0: 1}, "z_local": {0: 0}}
+
+    def test_standby_changes_neither_the_schedule_nor_the_makespan(self):
+        dags, plans = self._world()
+        without = schedule_shared(dags, plans, link=LINK, compute=COMPUTE)
+        with_standby = schedule_shared(dags, plans, link=LINK, compute=COMPUTE,
+                                       standby_for=lambda crit: crit == "HIGH")
+        self.assertGreater(with_standby.queue_stats["fallback_reserved_s"], 0.0,
+                           "the planning reserve must still be reported")
+        self.assertEqual(with_standby.queue_stats["fallback_used_s"], 0.0)
+        self.assertAlmostEqual(with_standby.timings[("z_local", 0)].start_s,
+                               without.timings[("z_local", 0)].start_s, places=12,
+                               msg="an unused standby moved a real UE task")
+        self.assertAlmostEqual(with_standby.makespan_s, without.makespan_s, places=12)
+
+
+class TestFallbackInputResidency(unittest.TestCase):
+    """F08/e: a local restart must own the inputs it restarts from.
+
+    The ready loop books predecessor -> task transfers against the PLANNED location, so a
+    HELPER -> HELPER edge books nothing; when the successor then falls back to the UE it restarted
+    from data that still sat on the (now disconnected) helper, and `validate=True` passed because
+    the residency invariant only compared timestamps, never locations.
+    """
+
+    def _dag(self):
+        t0 = V2TaskSpec(0, 6e6, 2e6, (), True, False, "HIGH", None, 0, external_input_bytes=1000)
+        t1 = V2TaskSpec(1, 1e6, 2e6, (0,), False, True, "HIGH", None, 0)
+        return V2DAGSpec("d", 0, [t0, t1], helper_id=0)
+
+    def test_fallback_relays_the_helper_predecessor_to_the_requester(self):
+        hel = {0: HelperState(0, 4e6, contact_end_s=1.8, predicted_contact_end_s=2.07)}
+        res = schedule_shared([self._dag()], {"d": {0: 2, 1: 2}}, link=LINK, compute=COMPUTE,
+                              helper_states=hel, validate=True)
+        first, second = res.timings[("d", 0)], res.timings[("d", 1)]
+        self.assertEqual(first.location, "HELPER")
+        self.assertFalse(first.contact_failure)
+        self.assertTrue(second.contact_failure)
+        self.assertEqual(second.location, "UE")
+        relays = [r for r in res.radio_ledger if r["src"] == "HELPER" and r["dst"] == "UE"]
+        self.assertEqual(len(relays), 1,
+                         "the HELPER -> UE relay of the predecessor's output is missing")
+        self.assertAlmostEqual(relays[0]["bytes"], 2e6, places=6)
+        self.assertLessEqual(relays[0]["end_s"], 1.8 + 1e-9,
+                             "the relay must leave the helper before disconnection")
+        self.assertGreaterEqual(second.ready_s, relays[0]["end_s"] - 1e-9,
+                                "the restart must wait for its input")
+
+    def test_ingress_to_a_disconnected_helper_is_neither_booked_nor_billed(self):
+        # DAG "bg" holds the V2V channel for 6.0 s with its own 60 MB ingress; DAG "fg" is placed
+        # on a helper whose contact ends at 5.0 s, so its 2 MB ingress could only be delivered at
+        # 6.0 s -- after disconnection. The pre-fix scheduler booked and billed it anyway, handing
+        # the helper bytes no task could read.
+        bg = V2DAGSpec("bg", 0, [V2TaskSpec(0, 1e6, 10.0, (), True, False, "MEDIUM", None, 0,
+                                            external_input_bytes=6e7)], helper_id=1)
+        fg = V2DAGSpec("fg", 0, [V2TaskSpec(0, 1e6, 10.0, (), True, True, "MEDIUM", None, 0,
+                                            external_input_bytes=2e6)], helper_id=0)
+        compute = V2ComputeSpec(10e6, 1, (1e6, 1e6), (4e6, 4e6))
+        hel = {0: HelperState(0, 4e6, contact_end_s=5.0, predicted_contact_end_s=5.75),
+               1: HelperState(1, 4e6, contact_end_s=100.0, predicted_contact_end_s=100.0)}
+        res = schedule_shared([bg, fg], {"bg": {0: 2}, "fg": {0: 2}}, link=LINK, compute=compute,
+                              helper_states=hel, validate=True)
+        self.assertEqual([r for r in res.radio_ledger if r["dag_id"] == "fg"], [],
+                         "ingress was booked for a helper that was already out of contact")
+        fg_tm = res.timings[("fg", 0)]
+        self.assertEqual(fg_tm.location, "UE")
+        self.assertEqual(fg_tm.transfer_in_bytes, 0.0)
+
+    def test_validator_rejects_a_restart_without_its_predecessor_data(self):
+        from spec.automotive_training.v2.shared_scheduler import (  # noqa: E402
+            Calendar, V2ScheduleError, validate_schedule,
+        )
+        hel = {0: HelperState(0, 4e6, contact_end_s=1.8, predicted_contact_end_s=2.07)}
+        dag = self._dag()
+        res = schedule_shared([dag], {"d": {0: 2, 1: 2}}, link=LINK, compute=COMPUTE,
+                              helper_states=hel, validate=True)
+        # drop the relay the fallback booked: the consumer's ready time now claims data that the
+        # ledger cannot carry from the helper to the requester
+        res.radio_ledger = [r for r in res.radio_ledger
+                            if not (r["src"] == "HELPER" and r["dst"] == "UE")]
+        with self.assertRaises(V2ScheduleError):
+            validate_schedule([dag], {"d": {0: 2, 1: 2}}, LINK, res, Calendar("MEC_CPU"),
+                              {0: Calendar("UE_CPU_0")}, {0: Calendar("HELPER_CPU_0")},
+                              Calendar("MEC_UL"), Calendar("MEC_DL"), Calendar("V2V"),
+                              helper_states=hel)
+
+
 class TestReliabilityGateMonotonicityEndToEnd(unittest.TestCase):
     def test_more_predicted_contact_never_creates_more_rejections(self):
         gate = make_gate()

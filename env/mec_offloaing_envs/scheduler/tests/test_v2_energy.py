@@ -228,6 +228,63 @@ class TestFailureAndWastedEnergy(unittest.TestCase):
         self.assertTrue(all(math.isfinite(v) for k, v in led.breakdown.as_dict().items()
                             if not k.startswith("total_")))
 
+    def test_genuinely_partial_attempt_bills_only_the_served_work(self):
+        """F08/b: `cpu_end > contact_end`, so `wasted != executed` -- not just a failed return.
+
+        The helper needs 6.1 MB / 4 MB/s = 1.525 s but contact ends at 1.5 s, so it serves
+        1.4999 s (the 0.0001 s ingress already elapsed) and the ledger must price EXACTLY those
+        served seconds at the helper tier plus the whole local restart at the UE tier.
+        """
+        dag = V2DAGSpec("d", 0, [_task(compute=6.1e6)], helper_id=0)
+        hel = {0: HelperState(0, 4e6, contact_end_s=1.5, predicted_contact_end_s=2.0)}
+        res = schedule_shared([dag], {"d": {0: 2}}, link=LINK, compute=COMPUTE,
+                              helper_states=hel)
+        tm = res.timings[("d", 0)]
+        self.assertTrue(tm.contact_failure)
+        self.assertLess(tm.cpu_wasted_bytes, tm.cpu_executed_bytes,
+                        "the attempt must be genuinely partial (wasted < executed)")
+        self.assertAlmostEqual(tm.cpu_wasted_bytes, 1.4999 * 4e6, places=6)
+        self.assertAlmostEqual(tm.cpu_attempt_seconds, 1.4999, places=9)
+        led = schedule_energy(res)
+        self.assertAlmostEqual(led.per_tier_cpu_seconds["helper"], 1.4999, places=9)
+        self.assertAlmostEqual(led.per_tier_cpu_seconds["ue"], 6.1, places=9)
+        self.assertAlmostEqual(led.breakdown.helper_compute_joules, 1.4999 * P_HELPER, places=9)
+        self.assertAlmostEqual(led.breakdown.ue_local_cpu_joules, 6.1 * P_UE, places=9)
+
+    def test_an_unconserved_partial_attempt_is_rejected_by_the_ledger(self):
+        """F08/b: the pricing path must refuse a record whose seconds and bytes disagree."""
+        from spec.automotive_training.v2.energy import V2EnergyError
+        dag = V2DAGSpec("d", 0, [_task()], helper_id=0)
+        hel = {0: HelperState(0, 4e6, contact_end_s=1.6, predicted_contact_end_s=1.84)}
+        res = schedule_shared([dag], {"d": {0: 2}}, link=LINK, compute=COMPUTE,
+                              helper_states=hel)
+        tm = res.timings[("d", 0)]
+        self.assertTrue(tm.contact_failure)
+        self.assertGreater(tm.cpu_attempt_seconds, 0.0)
+        tm.cpu_wasted_bytes = float(tm.cpu_attempt_seconds) * 4e6 * 1.5
+        with self.assertRaises(V2EnergyError):
+            schedule_energy(res)
+
+    def test_a_broadcast_fan_out_is_priced_once(self):
+        """F08/c: two successors in one destination must not pay the DL TX energy twice.
+
+        The pre-fix scheduler booked one `MEC_DL` transfer per DAG edge, so a 4 MB output with two
+        UE successors billed 2 x 0.2 s of RSU transmit energy for the same physical broadcast.
+        """
+        t0 = _task(tid=0, compute=6e6, out=4e6, root=True, sink=False, external=0.0)
+        dag = V2DAGSpec("d", 0, [t0,
+                                 _task(tid=1, compute=1e6, out=0.0, preds=(0,),
+                                       root=False, sink=True, external=0.0),
+                                 _task(tid=2, compute=1e6, out=0.0, preds=(0,),
+                                       root=False, sink=True, external=0.0)])
+        res = schedule_shared([dag], {"d": {0: 1, 1: 0, 2: 0}}, link=LINK, compute=COMPUTE)
+        dl = [r for r in res.radio_ledger if r["hop"] == "MEC_DL"]
+        self.assertEqual(len(dl), 1, "the shared broadcast must be booked once")
+        led = schedule_energy(res)
+        # 4 MB at 20 MB/s = 0.2 s of RSU TX at 3.162 W, charged exactly once
+        self.assertAlmostEqual(led.per_hop_service_seconds["MEC_DL"], 0.2, places=9)
+        self.assertAlmostEqual(led.breakdown.mec_tx_joules_optional, 0.2 * 3.162, places=9)
+
 
 class TestReferenceRanges(unittest.TestCase):
     def test_reference_ranges_come_from_v2_pure_location_plans(self):

@@ -16,6 +16,30 @@ Design (design A = single MEC server; design B = K-worker pool via `mec_workers`
 * Per task we log queue_wait_ul, tx_ul, queue_wait_cpu, cpu_time, queue_wait_dl, tx_dl,
   total_remote_response; per episode we log utilizations, queue-length stats and waits.
 
+Declared F08 semantics (each pinned by a test in `scheduler/tests/test_v2_*`):
+
+* **Count-once broadcast.** A producer's output is transmitted ONCE per
+  (dag, producer, destination location) and shared by every successor placed in that
+  location; distinct destinations keep distinct transfers. Only the first consumer books the
+  transfer, so its radio time, its ledger bytes and its TX energy are charged once.
+* **A discarded reservation is released.** `Calendar.release` removes/shrinks a committed
+  interval. On a helper contact failure the helper CPU interval is truncated to the served
+  prefix `[start, start + served_s]` (the part the energy ledger bills as
+  `cpu_attempt_seconds`); helper CPU is never reserved if it cannot start inside the contact
+  window.
+* **Infeasible ingress is never booked.** A HELPER placement whose input cannot ARRIVE inside
+  the realized contact window falls back to the UE before anything is transmitted to (or
+  billed for) that helper, and no transfer to a helper starts before `contact_start`.
+* **Contact feasibility is route-aware.** The return pre-check asks when the data actually
+  LEAVES the helper (last HELPER-source hop end) for EVERY required successor destination, so
+  it sees the direct-V2I `MEC_ULH` hop instead of assuming a `HELPER -> UE` relay.
+* **A local restart owns its inputs.** On a fallback, any predecessor whose FINAL location is
+  not the UE and whose payload was not already relayed through the UE is transferred to the
+  requester (and priced) BEFORE the restart is reserved.
+* **Warm standby is declared planning state only.** `fallback_reserved_s` is reported but the
+  reserve does NOT occupy the vehicle's real CPU calendar: a reservation that costs no joules
+  (warm-standby energy is in `energy.UNMODELED`) must not cost time either.
+
 This module does not import the frozen engine: it is a new model, and parity with v1 for
 N=1 / free resources is asserted by tests, not assumed.
 """
@@ -89,10 +113,59 @@ class Calendar:
         return best[0], best[1], best[2]
 
     def reserve(self, ready: float, duration: float):
+        """Reserve the earliest feasible interval; returns (start_s, end_s)."""
+        _idx, start, end = self.reserve_indexed(ready, duration)
+        return start, end
+
+    def reserve_indexed(self, ready: float, duration: float):
+        """`reserve` for callers that may later have to RELEASE the booking.
+
+        Returns (server_index, start_s, end_s); `reserve` is the 2-tuple convenience wrapper.
+        A caller that can discover after booking that the reserved time is worthless (a
+        helper CPU attempt discarded by a contact failure, defect F08/a) needs the server
+        index to hand the exact interval back to `release`.
+        """
         if duration < 0.0 or not math.isfinite(duration):
             raise V2ScheduleError("invalid duration for %s: %r" % (self.name, duration))
         end, idx, start = self._earliest_fit(float(ready), float(duration))
-        return self.reserve_at(idx, start, end)
+        self.reserve_at(idx, start, end)
+        return int(idx), float(start), float(end)
+
+    def release(self, idx: int, start: float, end: float) -> float:
+        """Remove/shrink the committed reservation(s) overlapping [start, end) on `idx`.
+
+        A calendar with no release primitive can only grow: the audited F08 defect booked a
+        helper CPU interval for an attempt that was then DISCARDED (contact ended before the
+        result could leave the helper) and left it in place forever, so a completely
+        unrelated later DAG was blocked by CPU time that provably produced nothing, and a
+        warm-standby booking held the vehicle's own calendar while being billed as zero
+        joules (a time/energy inconsistency).
+
+        Semantics: the overlap of [start, end) with every committed interval of server `idx`
+        is cut out; any left/right remainder of a partially covered interval is kept, and the
+        server list is re-sorted, so the calendar stays well ordered and non-overlapping.
+        Returns the released seconds (0.0 when nothing overlapped). Releasing is safe to call
+        with an empty range and never moves a surviving interval in time.
+        """
+        intervals = self._intervals[int(idx)]
+        s_req, e_req = float(start), float(end)
+        if e_req < s_req - 1e-12 or not math.isfinite(s_req) or not math.isfinite(e_req):
+            raise V2ScheduleError("invalid release on %s: [%r, %r]"
+                                  % (self.name, s_req, e_req))
+        kept = []
+        released = 0.0
+        for s, e in intervals:
+            if e <= s_req + 1e-12 or s >= e_req - 1e-12:
+                kept.append((s, e))                       # no overlap
+                continue
+            if s < s_req - 1e-12:
+                kept.append((s, min(e, s_req)))           # left remainder
+            if e > e_req + 1e-12:
+                kept.append((max(s, e_req), e))           # right remainder
+            released += min(e, e_req) - max(s, s_req)
+        kept.sort()
+        self._intervals[int(idx)] = kept
+        return max(0.0, released)
 
     def _fits(self, idx: int, start: float, end: float) -> bool:
         """True when [start, end) does not overlap any reservation of server `idx`."""
@@ -248,6 +321,11 @@ class TaskTiming:
     #: the attempt succeeded). Energy is charged on the REAL executed work, so a failed
     #: remote attempt is billed at the helper tier and the local restart at the UE tier.
     cpu_attempt_seconds: float = 0.0
+    #: bytes/second at which the discarded attempt ran (0.0 when no attempt was made). It lets
+    #: the energy ledger re-derive the partial-attempt byte conservation
+    #: (`cpu_attempt_seconds * cpu_attempt_rate_bytes_per_s == cpu_wasted_bytes`) without being
+    #: handed the compute spec.
+    cpu_attempt_rate_bytes_per_s: float = 0.0
     #: bytes of checkpoint state transferred to the requester before disconnection.
     #: ALWAYS 0 in v2: checkpoint transfer is NOT implemented (labelled unsupported, so it
     #: can never be mistaken for a free recovery mechanism).
@@ -415,8 +493,8 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     concurrency: list = []
     calendar_of = {HOP_UL: ul, HOP_UL_DIRECT: ul, HOP_DL: dl, HOP_DL_DIRECT: dl, HOP_V2V: v2v}
 
-    def _planned_delivery(src, dst, ready, payload):
-        """Non-mutating delivery time for a route on the ACTUAL shared calendars.
+    def _planned_route(src, dst, ready, payload):
+        """Non-mutating plan of a whole route on the ACTUAL shared calendars.
 
         The F07 defect was to estimate the helper's result return with the queue-free
         `_service_detail`, which ignored that another DAG may already hold the V2V channel;
@@ -424,22 +502,13 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         whole route with `Calendar.plan_service` (same fixed point `book()` uses) WITHOUT
         committing, so the feasibility check sees the real queued delivery time. A later
         `book()` of the same route yields the same intervals because the calendar state has
-        not changed in between.
+        not changed in between. Returns [(hop, src, dst, start_s, end_s), ...] in order
+        (empty when src == dst).
         """
         t = float(ready)
         cache = {}
-
-        def duration_fn(start):
-            key = round(float(start), 12)
-            hit = cache.get(key)
-            if hit is None:
-                hit = _service_detail(float(start), payload,
-                                      _rate_for(HOP_V2V, 0, link),
-                                      HOP_TO_LINK[HOP_V2V])[0]
-                cache[key] = hit
-            return hit
-
-        for hop, _hsrc, _hdst in _route_steps(src, dst, link):
+        legs = []
+        for hop, hsrc, hdst in _route_steps(src, dst, link):
             base = float(_rate_for(hop, 0, link))
             cal = calendar_of[hop]
 
@@ -453,8 +522,33 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                 return hit
 
             _idx, start, _dur, end = cal.plan_service(t, hop_duration_fn)
+            legs.append((hop, hsrc, hdst, float(start), float(end)))
             t = end
-        return t
+        return legs
+
+    def _planned_delivery(src, dst, ready, payload):
+        """Non-mutating ARRIVAL time at `dst` for the route src -> dst (see `_planned_route`)."""
+        legs = _planned_route(src, dst, ready, payload)
+        return legs[-1][4] if legs else float(ready)
+
+    def _helper_departure(dst, ready, payload):
+        """When the data actually LEAVES the helper on the route HELPER -> `dst`.
+
+        `_planned_delivery` returns the ARRIVAL time at the destination. The contact window
+        binds the helper's OWN transmissions, and on a relayed route (HELPER -> UE -> MEC) the
+        helper is free as soon as its first hop ends. The pre-fix F08/d check used
+        `HELPER -> UE` unconditionally: correct for the relay topology, but blind to the
+        direct V2I link. With `direct_helper_v2i=True` the route to a MEC destination is the
+        single MEC_ULH HELPER -> MEC hop, so the pre-check passed and the successor then booked
+        a helper departure after `contact_end` (which `validate=True` rejected, while
+        `validate=False` silently accepted it).
+        """
+        legs = _planned_route(HELPER, dst, ready, payload)
+        departure = float(ready)
+        for _hop, hsrc, _hdst, _start, end in legs:
+            if hsrc == HELPER:
+                departure = end
+        return departure
 
     def _service_detail(start, payload, base, link_name):
         """(channel occupancy s, outage wait s, outage events) for a transfer starting at `start`.
@@ -667,6 +761,10 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         for t in dag.tasks:
             if remaining[dag.dag_id][t.task_id] == 0:
                 heapq.heappush(ready_heap, (dag.arrival_s, dag.dag_id, t.task_id))
+    #: (dag_id, predecessor_task_id, destination_location) -> booked delivery end. A
+    #: producer's output is transmitted ONCE per destination location and shared by every
+    #: successor placed there (a broadcast); see the reuse branch in the booking loop.
+    delivered: dict = {}
     while ready_heap:
         _arr, dag_id, task_id = heapq.heappop(ready_heap)
         dag = dag_by_id[dag_id]
@@ -674,24 +772,78 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         location = effective_loc[(dag_id, task_id)]
         helper_rejected, reliability_rejected, p_success = admission[(dag_id, task_id)]
         acc = _new_acc()
+        state = (helper_states or {}).get(dag.helper_id)
+        contact_start = 0.0
+        contact_end = float("inf")
+        if state is not None:
+            contact_start = float(getattr(state, "contact_start_s", 0.0))
+            contact_end = float(getattr(state, "contact_end_s", float("inf")))
 
-        # data-ready time from predecessors (outputs stay where they executed)
+        # ---- data-ready time from predecessors (outputs stay where they executed) ----
+        # The nominal ready time is the latest predecessor finish. Booking happens AFTER the
+        # runtime contact feasibility decision below, so that no ingress is ever booked (or
+        # billed) for a helper placement that cannot receive it.
         ready = float(dag.arrival_s)
+        for p in spec.predecessors:
+            ready = max(ready, float(timings[(dag_id, p)].finish_s))
+
+        # ---- runtime contact feasibility (F08/e) ----
+        # A HELPER placement is realizable only if the task's INPUT can actually arrive inside
+        # the realized contact window. The pre-fix scheduler booked ingress as early as the
+        # calendar allowed and discovered the disconnection afterwards, so a `UE -> HELPER`
+        # transfer could be booked and priced entirely after `contact_end`, delivering bytes no
+        # task could ever read. Probe every required ingress route against the real calendars
+        # first (non-mutating) and give up the helper placement instead of booking it.
+        if location == HELPER and state is not None and math.isfinite(contact_end):
+            probe = float(ready)
+            if spec.is_root and float(spec.external_input_bytes) > 0.0:
+                probe = max(probe, _planned_delivery(
+                    UE, HELPER, max(float(dag.arrival_s), contact_start),
+                    float(spec.external_input_bytes)))
+            for p in spec.predecessors:
+                pt = timings[(dag_id, p)]
+                if pt.location == HELPER:
+                    continue                    # already on the helper: no ingress needed
+                probe = max(probe, _planned_delivery(
+                    pt.location, HELPER, max(pt.finish_s, contact_start),
+                    float(by_dag[dag_id][p].output_bytes)))
+            if probe > contact_end + 1e-12:
+                location = UE
+                effective_loc[(dag_id, task_id)] = UE
+
+        # ---- book the input transfers for the FINAL location ----
         in_bytes = 0.0
+        into_helper = location == HELPER
         if spec.is_root and float(spec.external_input_bytes) > 0.0 and location != UE:
-            # v1 engine semantics: the external input is uploaded before execution
-            ready = book(UE, location, ready, float(spec.external_input_bytes),
+            # v1 engine semantics: the external input is uploaded before execution. Nothing may
+            # be transmitted to a helper before its contact window opens.
+            base = max(float(dag.arrival_s), contact_start) if into_helper else float(dag.arrival_s)
+            ready = book(UE, location, base, float(spec.external_input_bytes),
                          dag_id, task_id, acc)
             in_bytes += float(spec.external_input_bytes)
         for p in spec.predecessors:
             pt: TaskTiming = timings[(dag_id, p)]
-            if pt.location != location:
-                payload = float(by_dag[dag_id][p].output_bytes)
-                ready = max(ready, book(pt.location, location, pt.finish_s, payload,
-                                        dag_id, task_id, acc))
-                in_bytes += payload
-            else:
+            if pt.location == location:
                 ready = max(ready, pt.finish_s)
+                continue
+            payload = float(by_dag[dag_id][p].output_bytes)
+            base = max(pt.finish_s, contact_start) if into_helper else pt.finish_s
+            key = (dag_id, p, location)
+            if key in delivered:
+                # ---- count-once broadcast (F08/c) ----
+                # Two successors in the SAME destination location consume one physical
+                # transmission of the producer's output. The pre-fix scheduler booked one full
+                # `MEC_DL`/`V2V` transfer per DAG EDGE, so a fan-out of 2 shipped (and priced)
+                # the same `output_bytes` twice. The transmission is shared; only the first
+                # consumer books it (and therefore pays its radio time/energy), the second
+                # reuses the already-booked delivery and only records that it received the
+                # bytes. Distinct destinations keep distinct transfers.
+                ready = max(ready, delivered[key])
+            else:
+                end = book(pt.location, location, base, payload, dag_id, task_id, acc)
+                delivered[key] = float(end)
+                ready = max(ready, end)
+            in_bytes += payload
 
         # ---- CPU phase ----
         contact_failure = False
@@ -699,9 +851,9 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         wasted_bytes = 0.0
         restart_bytes = 0.0
         attempt_seconds = 0.0
+        attempt_rate = 0.0
         executed_bytes = float(spec.compute_bytes)
         attempted_location = location
-        state = (helper_states or {}).get(dag.helper_id)
         if location == MEC:
             rate = float(compute.mec_cpu_bytes_per_s)
             cpu_duration = executed_bytes / rate
@@ -713,55 +865,104 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         else:
             rate = float(compute.helper_cpu_bytes_per_s[dag.helper_id])
             cpu_duration = executed_bytes / rate
-            if state is None or not math.isfinite(float(state.contact_end_s)):
-                start, cpu_end = helper_cpu[dag.helper_id].reserve(ready, cpu_duration)
+            cal_h = helper_cpu[dag.helper_id]
+            if state is None or not math.isfinite(contact_end):
+                start, cpu_end = cal_h.reserve(ready, cpu_duration)
             else:
-                contact_end = float(state.contact_end_s)
-                ready_contact = max(ready, float(state.contact_start_s))
-                start, cpu_end = helper_cpu[dag.helper_id].reserve(ready_contact, cpu_duration)
+                ready_contact = max(ready, contact_start)
+                # (F08/a) NEVER reserve helper CPU that cannot start while the helper is in
+                # contact: the attempt would be discarded, and the reservation would block the
+                # helper's calendar for work that provably cannot happen. `helper_slot` is the
+                # committed interval (or None when nothing was reserved) so that a discarded
+                # attempt can be handed back to `Calendar.release`.
+                helper_slot = None
+                if ready_contact < contact_end - 1e-12:
+                    helper_slot = cal_h.reserve_indexed(ready_contact, cpu_duration)
+                    start, cpu_end = helper_slot[1], helper_slot[2]
+                else:
+                    start = cpu_end = ready_contact
                 # Returning the RESULT must also be possible inside the contact window: CPU
-                # completion alone is not sufficient (audited defect 4.6).
-                return_required = bool(spec.is_sink) or any(
-                    effective_loc[(dag_id, c)] != HELPER for c in succ_by_dag[dag_id][task_id])
+                # completion alone is not sufficient (audited defect 4.6). The window binds the
+                # helper's OWN transmission, so the check asks when the data actually LEAVES
+                # the helper for every REQUIRED destination (F08/d): the sink's UE, or each
+                # successor's FINAL location. It is a max over destinations: the helper must be
+                # able to serve ALL of them before disconnecting.
+                required_dsts = []
+                if spec.is_sink:
+                    required_dsts.append(UE)
+                for c in succ_by_dag[dag_id][task_id]:
+                    dst = effective_loc[(dag_id, c)]
+                    if dst != HELPER:
+                        required_dsts.append(dst)
                 return_needed = 0.0
-                if return_required and float(spec.output_bytes) > 0.0:
-                    # F07: plan the result return against the ACTUAL shared calendars, not the
-                    # queue-free service duration. The helper result is useful only if the whole
-                    # route completes before contact ends.
-                    return_needed = max(0.0, _planned_delivery(
-                        HELPER, UE, cpu_end, float(spec.output_bytes)) - cpu_end)
-                if cpu_end + return_needed > contact_end + 1e-12:
+                if required_dsts and float(spec.output_bytes) > 0.0:
+                    leave = max(_helper_departure(dst, cpu_end, float(spec.output_bytes))
+                                for dst in required_dsts)
+                    return_needed = max(0.0, leave - cpu_end)
+                # A start at/after contact_end (queued behind the helper's own workload) also
+                # means no usable work happened: fall back with zero attempt time.
+                no_window = helper_slot is None or start >= contact_end - 1e-12
+                if no_window or cpu_end + return_needed > contact_end + 1e-12:
                     contact_failure = True
                     # Work the helper actually performed before disconnection. It is WASTED:
                     # once contact has ended no transfer can carry the result back, and v2
                     # implements NO checkpointing, so a free partial recovery would be
                     # physically invalid. Recovery is a FULL local restart from the task's
                     # inputs, which the requester already owns.
-                    served_s = max(0.0, min(cpu_end, contact_end) - start)
+                    served_s = 0.0 if helper_slot is None else max(
+                        0.0, min(cpu_end, contact_end) - start)
                     wasted_bytes = min(executed_bytes, served_s * rate)
                     restart_bytes = executed_bytes
                     restart_penalty = restart_bytes / max(
                         1e-9, float(compute.ue_cpu_bytes_per_s[dag.owner]))
-                    _us, ue_end = ue_cpu[dag.owner].reserve(contact_end, restart_penalty)
+                    # (F08/a) the discarded interval must be RELEASED: keep only the served
+                    # prefix [start, start+served_s] (whose energy is billed through
+                    # `cpu_attempt_seconds`) and give the remainder back to the helper's
+                    # calendar, so a second DAG is not blocked by work that produced nothing.
+                    if helper_slot is not None:
+                        cal_h.release(helper_slot[0], start + served_s, cpu_end)
+                    # (F08/e) the local restart must own its INPUTS. A predecessor whose FINAL
+                    # location is not the UE and whose payload was not already relayed through
+                    # the UE on its way to the attempted location still sits there; the restart
+                    # would run on data that is not resident on the requester. The relay is
+                    # booked (and priced) BEFORE the local CPU is reserved, and its delivery
+                    # time bounds the restart's ready time.
+                    for p in spec.predecessors:
+                        pt = timings[(dag_id, p)]
+                        if pt.location == UE:
+                            continue
+                        if any(hsrc == UE or hdst == UE for _h, hsrc, hdst
+                               in _route_steps(pt.location, attempted_location, link)):
+                            continue    # already relayed through the requester on ingress
+                        payload = float(by_dag[dag_id][p].output_bytes)
+                        ready = max(ready, book(pt.location, UE, max(ready, pt.finish_s),
+                                                payload, dag_id, task_id, acc))
+                    start, cpu_end = ue_cpu[dag.owner].reserve(
+                        max(contact_end, ready), restart_penalty)
                     cpu_duration = restart_penalty
-                    cpu_end = ue_end
                     # the FINAL execution re-runs the whole task locally, so the executed
                     # work of this task is the restart; `wasted_bytes` stays separate
                     executed_bytes = restart_bytes
                     attempt_seconds = float(served_s)
+                    attempt_rate = float(rate)
                     location = UE
         queue_wait_cpu = max(0.0, start - ready)
         fallback_reserved = 0.0
         if (location in (MEC, HELPER) and standby_for is not None
                 and standby_for(str(spec.criticality).upper())):
-            # warm standby hook: book the local worst-case duration so the vehicle can
-            # take over if the remote execution fails (reserved, not necessarily used)
+            # Warm standby hook (F08/a): the requester's worst-case local duration is DECLARED
+            # as a planning reserve (`fallback_reserved_s`) but does NOT occupy the vehicle's
+            # real CPU calendar. The pre-fix code booked it and never released it, so a standby
+            # that was never used moved a later UE task's start (0.0 -> 0.6 s) and the whole
+            # makespan while the blocked CPU time was billed as exactly zero joules (warm-standby
+            # energy is in `energy.UNMODELED`): time and energy disagreed. A reservation that
+            # costs no joules must not cost time either. Keeping the booking instead would
+            # require a priced idle/hold power at the requester tier, which the frozen model
+            # does not define, so the standby is reported, not committed.
             worst = executed_bytes / max(1e-9, float(compute.ue_cpu_bytes_per_s[dag.owner]))
             window = max(0.0, float(cpu_end) - float(ready))
             if window > 0.0:
-                standby = min(worst, window)
-                _fs, _fe = ue_cpu[dag.owner].reserve(ready, standby)
-                fallback_reserved = standby
+                fallback_reserved = min(worst, window)
         finish_s = cpu_end
         if spec.is_sink and location != UE:
             finish_s = book(location, UE, cpu_end, float(spec.output_bytes),
@@ -790,6 +991,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             cpu_restart_bytes=float(restart_bytes),
             attempted_location=attempted_location,
             cpu_attempt_seconds=float(attempt_seconds),
+            cpu_attempt_rate_bytes_per_s=float(attempt_rate),
             checkpoint_transfer_bytes=0.0)
         timings[(dag_id, task_id)] = timing
         finish[(dag_id, task_id)] = finish_s
@@ -804,7 +1006,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         completion[dag.dag_id] = max(finish[(dag.dag_id, t.task_id)] for t in dag.tasks)
     makespan = max(completion.values()) if completion else 0.0
     # utilization + queue statistics: the horizon covers the makespan AND any reservation
-    # that extends past it (a warm standby booked on the vehicle calendar)
+    # that extends past it (e.g. a local restart booked after the last task finished)
     ends = [makespan]
     for cal in (shared_cpu, ul, dl, v2v):
         for intervals in cal._intervals:
@@ -870,7 +1072,7 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     if validate:
         result.invariants = validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu,
                                               helper_cpu, ul, dl, v2v,
-                                              helper_states=helper_states)
+                                              helper_states=helper_states, compute=compute)
     else:
         # prefix/telescoping evaluation: the same schedule computation without the
         # O(tasks x edges) route re-verification (the final episode schedule is validated)
@@ -879,8 +1081,13 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
 
 
 def validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu, helper_cpu,
-                      ul, dl, v2v, helper_states=None) -> dict:
-    """Hard invariants; any violation raises."""
+                      ul, dl, v2v, helper_states=None, compute=None) -> dict:
+    """Hard invariants; any violation raises.
+
+    `compute` supplies the CPU rates the scheduler actually allocated. When it is given, the
+    partial-attempt accounting of every contact failure is re-derived and checked (F08/b);
+    without it that check is skipped (the validator stays usable with the pre-F08 signature).
+    """
     checks = {}
     # precedence + data arrival
     for dag in dags:
@@ -906,6 +1113,102 @@ def validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu, helper_cpu,
                         "data arrived before the producer finished %s/%s -> %s"
                         % (dag.dag_id, p, t.task_id))
     checks["precedence_and_data_arrival"] = True
+    # ---- data residency (F08/e) ----
+    # `ready_s` is when a task's inputs are all available, but the check above only compares it
+    # with the producers' finish times: it never asks WHERE those outputs ended up. A task that
+    # fell back to the UE while its predecessor's result still sat on the disconnected helper
+    # therefore validated clean (`validate=True` passed with NO HELPER -> UE transfer at all).
+    # Every edge whose endpoints executed at DIFFERENT locations must be covered by an actually
+    # booked route from the producer's FINAL location to the consumer's FINAL location, starting
+    # after the producer finished and arriving by the consumer's ready time. A producer ->
+    # destination transmission is a broadcast shared by every successor in that location, so the
+    # witness is a route, not a per-task ledger record. (The witness search can reuse one route
+    # for two distinct producers that share a start window; it is a soundness guard for MISSING
+    # data movement, not a proof of uniqueness.)
+    ledger_by_dag: dict = {}
+    for rec in result.radio_ledger:
+        ledger_by_dag.setdefault(str(rec.get("dag_id")), []).append(rec)
+
+    def _route_witness(dag_id, route, not_before, deadline):
+        cursor = float(not_before)
+        for hop, hsrc, hdst in route:
+            hits = [r for r in ledger_by_dag.get(dag_id, ())
+                    if str(r.get("hop")) == hop and str(r.get("src")) == hsrc
+                    and str(r.get("dst")) == hdst
+                    and float(r.get("start_s")) >= cursor - 1e-9
+                    and float(r.get("end_s")) <= deadline + 1e-9]
+            if not hits:
+                return False
+            cursor = min(float(r["end_s"]) for r in hits)
+        return True
+
+    for dag in dags:
+        by_id = {t.task_id: t for t in dag.tasks}
+        for t in dag.tasks:
+            tm = result.timings[(dag.dag_id, t.task_id)]
+            for p in t.predecessors:
+                ptm = result.timings[(dag.dag_id, p)]
+                if ptm.location == tm.location:
+                    continue
+                if float(by_id[p].output_bytes) <= 0.0:
+                    continue                     # nothing to carry: no transfer expected
+                route = _route_steps(ptm.location, tm.location, link)
+                if not _route_witness(dag.dag_id, route, ptm.finish_s, tm.ready_s):
+                    raise V2ScheduleError(
+                        "task %s/%s is ready at %.9f on %s but its predecessor %s/%s finished "
+                        "at %.9f on %s and no booked %s -> %s route carries its %r output "
+                        "bytes: the consumer would run on data that is not resident there"
+                        % (dag.dag_id, t.task_id, tm.ready_s, tm.location, dag.dag_id, p,
+                           ptm.finish_s, ptm.location, ptm.location, tm.location,
+                           float(by_id[p].output_bytes)))
+    checks["data_residency"] = True
+    # ---- partial-attempt conservation (F08/b) ----
+    # `energy.schedule_energy` prices a contact failure as
+    #     P(attempted_tier) * cpu_attempt_seconds + P(final_tier) * cpu_s
+    # so the scheduler must conserve both the attempted work
+    # (`cpu_attempt_seconds * rate(attempted_location) == cpu_wasted_bytes`) and the recovery
+    # work (the restart re-runs the WHOLE task because v2 implements no checkpointing). Neither
+    # assertion existed before F08: only non-negativity/finiteness was checked, so a scheduler
+    # that mis-stated the attempt would have been priced as fact. The residual tolerance is
+    # scaled by the byte magnitude because `executed / rate * rate` is not exactly `executed`
+    # in binary floating point.
+    if compute is not None:
+        for dag in dags:
+            for t in dag.tasks:
+                tm = result.timings[(dag.dag_id, t.task_id)]
+                if not tm.contact_failure:
+                    continue
+                attempted = str(tm.attempted_location)
+                if attempted == HELPER and dag.helper_id is not None:
+                    rate = float(compute.helper_cpu_bytes_per_s[dag.helper_id])
+                elif attempted == MEC:
+                    rate = float(compute.mec_cpu_bytes_per_s)
+                elif attempted == UE:
+                    rate = float(compute.ue_cpu_bytes_per_s[dag.owner])
+                else:
+                    raise V2ScheduleError(
+                        "contact failure %s/%s reports attempted location %r, which has no CPU "
+                        "rate in the compute spec" % (dag.dag_id, t.task_id, attempted))
+                served = float(tm.cpu_attempt_seconds) * rate
+                wasted = float(tm.cpu_wasted_bytes)
+                if abs(served - wasted) > 1e-9 * max(1.0, abs(wasted)):
+                    raise V2ScheduleError(
+                        "partial-attempt billing is not conserved for %s/%s: attempted location "
+                        "%s served %.12f s at %r B/s = %r bytes but cpu_wasted_bytes = %r "
+                        "(energy would price a fiction)"
+                        % (dag.dag_id, t.task_id, attempted, tm.cpu_attempt_seconds, rate,
+                           served, wasted))
+                computes = float(t.compute_bytes)
+                if abs(float(tm.cpu_restart_bytes) - computes) > 1e-9 * max(1.0, abs(computes)):
+                    raise V2ScheduleError(
+                        "contact failure %s/%s restarts %r bytes but the task computes %r: v2 "
+                        "implements no checkpointing, so the local restart re-runs the WHOLE "
+                        "task" % (dag.dag_id, t.task_id, tm.cpu_restart_bytes, t.compute_bytes))
+                if wasted > computes + 1e-9 * max(1.0, abs(computes)):
+                    raise V2ScheduleError(
+                        "contact failure %s/%s wasted %r bytes, more than the %r bytes the task "
+                        "computes" % (dag.dag_id, t.task_id, wasted, t.compute_bytes))
+        checks["cpu_attempt_conservation"] = True
     # calendar consistency: no double-booking beyond servers
     for cal in (shared_cpu, ul, dl, v2v):
         if len(cal._intervals) < 1:
@@ -959,32 +1262,45 @@ def validate_schedule(dags, plans, link, result, shared_cpu, ue_cpu, helper_cpu,
     # with the queue-free service duration and no invariant re-checked the booked interval. Every
     # transfer that LEAVES a helper must complete inside that helper's contact window; otherwise
     # the task must have been reported as a contact failure / fallback, not as a helper success.
+    # F08/f: the SAME window binds transfers that ARRIVE at the helper. The pre-fix scope checked
+    # only `src == HELPER`, so ingress booked before the window opened or after it closed was
+    # invisible (and the `src == HELPER` start half was vacuous because the helper CPU is
+    # reserved at `max(ready, contact_start)`).
     if helper_states:
         dag_by_id = {d.dag_id: d for d in dags}
         checked_helper_transfers = 0
         for rec in result.radio_ledger:
-            if str(rec.get("src")) != HELPER:
+            src, dst = str(rec.get("src")), str(rec.get("dst"))
+            if src != HELPER and dst != HELPER:
                 continue
             dag = dag_by_id.get(str(rec.get("dag_id")))
             hid = getattr(dag, "helper_id", None) if dag is not None else None
             state = (helper_states or {}).get(hid) if hid is not None else None
             if state is None:
                 continue
+            contact_start = float(getattr(state, "contact_start_s", 0.0))
             contact_end = float(getattr(state, "contact_end_s", float("inf")))
-            if not math.isfinite(contact_end):
-                continue
-            end = float(rec.get("end_s"))
-            if end > contact_end + 1e-9:
-                raise V2ScheduleError(
-                    "helper %r transfer for %s/%s completes at %.9f, after contact ends at "
-                    "%.9f: a helper result delivered after disconnection is not a success"
-                    % (hid, rec.get("dag_id"), rec.get("task_id"), end, contact_end))
             start = float(rec.get("start_s"))
-            if start + 1e-9 < float(getattr(state, "contact_start_s", 0.0)):
+            end = float(rec.get("end_s"))
+            if math.isfinite(contact_end):
+                if end > contact_end + 1e-9:
+                    raise V2ScheduleError(
+                        "helper %r transfer for %s/%s (%s -> %s) completes at %.9f, after "
+                        "contact ends at %.9f: no link to the helper exists after disconnection"
+                        % (hid, rec.get("dag_id"), rec.get("task_id"), src, dst, end,
+                           contact_end))
+                if start > contact_end + 1e-9:
+                    raise V2ScheduleError(
+                        "helper %r transfer for %s/%s (%s -> %s) starts at %.9f, after contact "
+                        "ends at %.9f: ingress that arrives after disconnection is billed bytes "
+                        "no task can read"
+                        % (hid, rec.get("dag_id"), rec.get("task_id"), src, dst, start,
+                           contact_end))
+            if start + 1e-9 < contact_start:
                 raise V2ScheduleError(
-                    "helper %r transfer for %s/%s starts at %.9f, before contact begins at "
-                    "%.9f" % (hid, rec.get("dag_id"), rec.get("task_id"), start,
-                              float(getattr(state, "contact_start_s", 0.0))))
+                    "helper %r transfer for %s/%s (%s -> %s) starts at %.9f, before contact "
+                    "begins at %.9f" % (hid, rec.get("dag_id"), rec.get("task_id"), src, dst,
+                                        start, contact_start))
             checked_helper_transfers += 1
         checks["helper_contact_window"] = True
         checks["helper_transfers_checked"] = checked_helper_transfers

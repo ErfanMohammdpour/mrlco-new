@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
 from spec.automotive_training.v2.helper_model import HelperState  # noqa: E402
 from spec.automotive_training.v2.shared_scheduler import (  # noqa: E402
     Calendar, V2ComputeSpec, V2DAGSpec, V2LinkSpec, V2ScheduleError, V2TaskSpec,
-    schedule_shared,
+    schedule_shared, validate_schedule,
 )
 
 LINK = V2LinkSpec(20e6, 20e6, 10e6)
@@ -149,6 +149,133 @@ class TestSharedChannelBooking(unittest.TestCase):
             busy[r["hop"]] = busy.get(r["hop"], 0.0) + (r["end_s"] - r["start_s"])
         for hop, total in busy.items():
             self.assertLessEqual(total, res.makespan_s + 1e-9, "%s over capacity" % hop)
+
+
+class TestCalendarRelease(unittest.TestCase):
+    """F08/a: a calendar must be able to GIVE BACK a committed reservation.
+
+    The audited `Calendar` had no release primitive, so a helper CPU interval booked for an
+    attempt that was then discarded by a contact failure stayed in the calendar forever and
+    blocked an unrelated later DAG.
+    """
+
+    def test_release_removes_a_whole_interval(self):
+        cal = Calendar("c")
+        cal.reserve_at(0, 1.0, 2.0)
+        self.assertAlmostEqual(cal.release(0, 1.0, 2.0), 1.0, places=12)
+        self.assertEqual(cal._intervals[0], [])
+        start, end = cal.reserve(1.0, 0.5)
+        self.assertAlmostEqual(start, 1.0, places=12)
+        self.assertAlmostEqual(end, 1.5, places=12)
+
+    def test_release_truncates_a_tail_and_keeps_the_head(self):
+        cal = Calendar("c")
+        cal.reserve_at(0, 0.0, 6.0)
+        self.assertAlmostEqual(cal.release(0, 1.0, 6.0), 5.0, places=12)
+        self.assertEqual(cal._intervals[0], [(0.0, 1.0)])
+        cal.reserve_at(0, 1.0, 2.0)
+        self.assertEqual(cal._intervals[0], sorted(cal._intervals[0]))
+
+    def test_release_of_a_middle_slice_keeps_both_remainders_ordered(self):
+        cal = Calendar("c")
+        cal.reserve_at(0, 0.0, 1.0)
+        cal.reserve_at(0, 2.0, 4.0)
+        self.assertAlmostEqual(cal.release(0, 0.5, 3.0), 1.5, places=12)
+        self.assertEqual(cal._intervals[0], [(0.0, 0.5), (3.0, 4.0)])
+
+    def test_release_outside_every_interval_is_a_no_op(self):
+        cal = Calendar("c")
+        cal.reserve_at(0, 0.0, 1.0)
+        self.assertEqual(cal.release(0, 5.0, 6.0), 0.0)
+        self.assertEqual(cal._intervals[0], [(0.0, 1.0)])
+
+    def test_release_rejects_an_inverted_range(self):
+        cal = Calendar("c")
+        with self.assertRaises(V2ScheduleError):
+            cal.release(0, 1.0, 0.5)
+
+
+class TestFanOutBroadcast(unittest.TestCase):
+    """F08/c: one transmission per (producer, destination location), not per DAG edge.
+
+    The pre-fix scheduler booked one full transfer per (predecessor, successor) EDGE, so two
+    successors in the same destination location shipped -- and priced -- the producer's
+    `output_bytes` twice (`radio_bytes = 8e6` for a 4e6 output).
+    """
+
+    def _dag(self):
+        t0 = _task(0, compute=1e6, out=4e6, root=True, external=0.0)      # at UE
+        t1 = _task(1, compute=1e6, out=1e6, preds=(0,))
+        t2 = _task(2, compute=1e6, out=1e6, preds=(0,))
+        return V2DAGSpec("d", 0, [t0, t1, t2], helper_id=0)
+
+    def _helper(self):
+        return {0: HelperState(0, 4e6, contact_end_s=100.0, predicted_contact_end_s=100.0)}
+
+    def test_successors_in_the_same_location_share_one_transmission(self):
+        res = schedule_shared([self._dag()], {"d": {0: 0, 1: 1, 2: 1}}, link=LINK,
+                              compute=_compute(), helper_states=self._helper())
+        self.assertAlmostEqual(res.mechanics["radio_bytes"], 4e6, places=6)
+        ul = [r for r in res.radio_ledger if r["hop"] == "MEC_UL"]
+        self.assertEqual(len(ul), 1, "two successors in one location must share one booking")
+        # both consumers are data-ready at the shared broadcast's delivery time
+        self.assertAlmostEqual(res.timings[("d", 1)].ready_s,
+                               res.timings[("d", 2)].ready_s, places=9)
+        self.assertEqual(res.timings[("d", 1)].transfer_in_bytes, 4e6)
+        self.assertEqual(res.timings[("d", 2)].transfer_in_bytes, 4e6)
+
+    def test_successors_at_different_destinations_keep_distinct_transfers(self):
+        res = schedule_shared([self._dag()], {"d": {0: 0, 1: 1, 2: 2}}, link=LINK,
+                              compute=_compute(), helper_states=self._helper())
+        by_dst = {}
+        for rec in res.radio_ledger:
+            by_dst[rec["dst"]] = by_dst.get(rec["dst"], 0.0) + rec["bytes"]
+        self.assertAlmostEqual(by_dst.get("MEC", 0.0), 4e6, places=6)
+        self.assertAlmostEqual(by_dst.get("HELPER", 0.0), 4e6, places=6)
+        self.assertAlmostEqual(res.mechanics["radio_bytes"], 8e6, places=6)
+
+
+class TestPartialAttemptConservationValidator(unittest.TestCase):
+    """F08/b: the validator must re-derive the CPU accounting of a contact failure.
+
+    `energy.schedule_energy` prices `P(attempted)*cpu_attempt_seconds + P(final)*cpu_s`, so the
+    scheduler must conserve the attempted bytes (`attempt_seconds * rate(attempted_location) ==
+    cpu_wasted_bytes`) and re-run the WHOLE task locally (v2 has no checkpointing). Only
+    non-negativity/finiteness was checked before F08.
+    """
+
+    def _failing(self):
+        dag = V2DAGSpec("d", 0, [_task(0, compute=6e6, out=2e6, root=True, sink=True,
+                                       external=1000.0)], helper_id=0)
+        hel = {0: HelperState(0, 4e6, contact_end_s=1.6, predicted_contact_end_s=1.84)}
+        res = schedule_shared([dag], {"d": {0: 2}}, link=LINK, compute=_compute(),
+                              helper_states=hel)
+        return dag, res
+
+    def _validate(self, dag, res):
+        return validate_schedule([dag], {"d": {0: 2}}, LINK, res, Calendar("MEC_CPU"), {}, {},
+                                 Calendar("MEC_UL"), Calendar("MEC_DL"), Calendar("V2V"),
+                                 compute=_compute())
+
+    def test_a_consistent_contact_failure_validates(self):
+        dag, res = self._failing()
+        self.assertTrue(res.timings[("d", 0)].contact_failure)
+        self._validate(dag, res)
+
+    def test_an_unconserved_attempt_is_rejected(self):
+        dag, res = self._failing()
+        tm = res.timings[("d", 0)]
+        # the attempt is billed at `cpu_attempt_seconds`; claiming the helper did 1.5x the
+        # work that those seconds can execute must not validate
+        tm.cpu_wasted_bytes = float(tm.cpu_attempt_seconds) * _compute().helper_cpu_bytes_per_s[0] * 1.5
+        with self.assertRaises(V2ScheduleError):
+            self._validate(dag, res)
+
+    def test_a_partial_restart_is_rejected(self):
+        dag, res = self._failing()
+        res.timings[("d", 0)].cpu_restart_bytes = 3e6      # half a task: no checkpointing in v2
+        with self.assertRaises(V2ScheduleError):
+            self._validate(dag, res)
 
 
 class TestAdversarialLinks(unittest.TestCase):

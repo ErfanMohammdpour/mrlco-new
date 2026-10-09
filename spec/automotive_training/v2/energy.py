@@ -57,7 +57,8 @@ UNMODELED = (
     "MEC/RSU static (non-compute) power: server_static_power_w is null",
     "backhaul / core-network transport energy",
     "battery state dynamics, charging efficiency and reserve accounting",
-    "warm-standby reservation energy (the reservation costs no joules in this model)",
+    "warm-standby reservation energy: the standby is DECLARED planning state only and does "
+    "not occupy a real CPU calendar, so it costs neither time nor joules",
 )
 
 _V2_TO_V1_HOP = {
@@ -245,6 +246,28 @@ def schedule_energy(result: V2ScheduleResult, *, spec: EnergyModelSpec | None = 
             if not math.isfinite(float(value)) or float(value) < 0.0:
                 raise V2EnergyError("non-finite/negative %s in %s/%s: %r"
                                     % (label, tm.dag_id, tm.task_id, value))
+        if tm.contact_failure:
+            # F08/b conservation. The ledger prices `P(attempted) * cpu_attempt_seconds`, so the
+            # seconds it bills must be exactly the bytes it calls wasted:
+            # `cpu_attempt_seconds * rate(attempted_location) == cpu_wasted_bytes`.
+            # `validate_schedule` re-derives this from the compute spec; re-deriving it here from
+            # the rate the scheduler RECORDED guards every caller of the pricing path, because an
+            # inconsistent record would otherwise be converted into joules as if it were fact.
+            attempt_rate = float(getattr(tm, "cpu_attempt_rate_bytes_per_s", 0.0))
+            wasted = float(tm.cpu_wasted_bytes)
+            if attempt_rate > 0.0:
+                served = float(tm.cpu_attempt_seconds) * attempt_rate
+                if abs(served - wasted) > 1e-9 * max(1.0, abs(wasted)):
+                    raise V2EnergyError(
+                        "partial-attempt billing is not conserved for %s/%s: %.12f s at %r B/s "
+                        "= %r bytes but cpu_wasted_bytes = %r"
+                        % (tm.dag_id, tm.task_id, tm.cpu_attempt_seconds, attempt_rate, served,
+                           wasted))
+            executed = float(tm.cpu_executed_bytes)
+            if wasted > executed + 1e-9 * max(1.0, abs(executed)):
+                raise V2EnergyError(
+                    "wasted work exceeds executed work for %s/%s: %r > %r"
+                    % (tm.dag_id, tm.task_id, wasted, executed))
 
     # ---- radio: active service time per booked transfer ----------------------
     for rec in result.radio_ledger:

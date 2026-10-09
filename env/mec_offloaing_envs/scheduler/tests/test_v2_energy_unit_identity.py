@@ -60,19 +60,36 @@ class EnergyUnitIdentityTests(unittest.TestCase):
                         % (tier, payload_bytes))
 
     def test_interrupted_work_is_priced_once_and_consistently(self):
-        """A partial attempt plus a restart must satisfy the identity for each segment."""
-        ts = self.spec.tiers["ue"]
-        rate = self._rates()["ue"]
-        attempted, wasted, restart = 4.0e5, 1.0e5, 4.0e5
+        """The analytic decomposition must match the CODE, not an idealised recovery.
+
+        `schedule_energy` prices a contact failure as
+            P(helper) * cpu_attempt_seconds + P(ue) * cpu_s
+        with `cpu_attempt_seconds = served_s` (the seconds the helper actually ran before
+        disconnection) and `cpu_s = restart_penalty = compute_bytes / ue_rate`. The pre-F08 test
+        decomposed the work as `(attempted - wasted, wasted, restart)`, i.e. it assumed the
+        non-wasted part of the remote attempt is recovered for FREE. v2 implements no
+        checkpointing: `cpu_wasted_bytes = served_s * helper_rate` is the whole attempt and the
+        restart re-runs the whole task, so a third "useful helper work" segment does not exist.
+        """
+        rates = self._rates()
+        attempt_tier, final_tier = "helper", "ue"
+        restart_bytes = 4.0e5
+        served_s = 0.125                                    # seconds actually served remotely
+        wasted_bytes = served_s * rates[attempt_tier]       # == cpu_wasted_bytes
+        restart_s = restart_bytes / rates[final_tier]       # == cpu_s / restart_penalty
         total = 0.0
-        for payload in (attempted - wasted, wasted, restart):
-            T = payload / rate
-            e_dur = ts.kappa * ts.f_hz ** 3 * T
-            e_work = ts.kappa * (payload * 8.0 * self.xi) * ts.f_hz ** 2
-            self.assertAlmostEqual(e_dur / e_work, 1.0, places=12)
+        for tier, seconds, bytes_here in ((attempt_tier, served_s, wasted_bytes),
+                                          (final_tier, restart_s, restart_bytes)):
+            ts = self.spec.tiers[tier]
+            e_dur = ts.kappa * ts.f_hz ** 3 * seconds
+            e_work = ts.kappa * (bytes_here * 8.0 * self.xi) * ts.f_hz ** 2
+            self.assertAlmostEqual(e_dur / e_work, 1.0, places=12,
+                                   msg="%s: duration and work forms disagree" % tier)
             total += e_dur
-        # the sum is the sum of the priced segments, i.e. nothing is free and nothing doubles
-        want = ts.kappa * ((attempted + restart) * 8.0 * self.xi) * ts.f_hz ** 2
+        want = (self.spec.tiers[attempt_tier].kappa * (wasted_bytes * 8.0 * self.xi)
+                * self.spec.tiers[attempt_tier].f_hz ** 2
+                + self.spec.tiers[final_tier].kappa * (restart_bytes * 8.0 * self.xi)
+                * self.spec.tiers[final_tier].f_hz ** 2)
         self.assertAlmostEqual(total / want, 1.0, places=12)
 
     def test_historical_ratio_is_no_longer_observed(self):
