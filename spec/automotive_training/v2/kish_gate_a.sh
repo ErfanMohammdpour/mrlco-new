@@ -114,8 +114,8 @@ def rd(path):
     p = Path(path)
     return json.loads(p.read_text()) if p.exists() else {}
 
-control = rows(out / "control" / "ckpt" / "v2_iterations.jsonl")
-split = rows(out / "split" / "ckpt" / "v2_iterations.jsonl")
+control = rows(out / "control")
+split = rows(out / "split")
 by_control = {int(r["iteration"]): r for r in control}
 by_split = {int(r["iteration"]): r for r in split}
 
