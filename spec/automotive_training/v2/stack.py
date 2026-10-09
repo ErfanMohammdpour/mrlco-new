@@ -15,6 +15,7 @@ The frozen v1 budgets are enforced identically (meta_batch 10, support 20, 3 inn
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -25,7 +26,7 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 from spec.automotive_training.automotive_primary import (
-    CO_PHYSICAL_AXES, CONSTRAINT_NAMES, DUAL_LR, LEGACY_MIXED_AXES,
+    CHECKPOINT_RULE_ID, CO_PHYSICAL_AXES, CONSTRAINT_NAMES, DUAL_LR, LEGACY_MIXED_AXES,
     META_BATCH_SIZE, SUPPORT_TRAJECTORIES_PER_META_TASK, TOKENS_PER_TRAJECTORY,
     VALIDATION_QUERY_COUNT, VALIDATION_SUPPORT_COUNT, AutomotiveDualAdapter,
     AutomotiveDualController, AutomotiveMetaSampler, AutomotivePrimaryError,
@@ -35,10 +36,19 @@ from spec.automotive_training.automotive_primary import (
 from spec.automotive_training.v2.adapters import config_for
 from spec.automotive_training.v2.constraints_v2 import constraints_fingerprint
 from spec.automotive_training.v2.crn import DEFAULT_R_SELECT, DEFAULT_S_SELECT, PROTOCOL_ID
-from spec.automotive_training.v2.env import V2AutomotiveEnv
+from spec.automotive_training.v2.env import V2AutomotiveEnv, stable_seed
 from spec.automotive_training.v2.observation import V2_OBS_VERSION
 
 V2_ALLOWED_LINK_REGIMES = ("stable", "moderate", "degraded")
+
+#: The ONLY reward contract the v2 environment actually implements: the reward is the
+#: telescoping normalized LATENCY of the foreground episode (plus the terminal Lagrangian
+#: penalty). `--reward-mode` used to be accepted and silently ignored; it is now validated and
+#: recorded, and an unimplemented mode is refused instead of being dropped.
+V2_REWARD_MODES = ("latency_only",)
+#: objective id the v2 run declares for its checkpoint selection (F29)
+V2_SELECTION_CRITERION = "automotive_lexicographic_v1"
+V2_ORACLE_SELECTION_CRITERION = "best_of_panel_latency"
 
 
 def _iter_v2_telemetry(paths):
@@ -93,6 +103,17 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
         raise AutomotivePrimaryError(
             "MRLCO requires support_trajectories == %d (frozen)"
             % SUPPORT_TRAJECTORIES_PER_META_TASK)
+    # F15: every knob must reach a consumer or be refused. `reward_mode` was accepted and
+    # silently ignored, so a run could report a reward contract it never applied.
+    if str(reward_mode) not in V2_REWARD_MODES:
+        raise AutomotivePrimaryError(
+            "unsupported reward_mode %r (the v2 environment implements %s); refusing to run "
+            "with a reward contract that would be silently ignored"
+            % (reward_mode, list(V2_REWARD_MODES)))
+    if int(r_select) < 1 or int(s_select) < 1:
+        raise AutomotivePrimaryError("r_select and s_select must both be >= 1")
+    if int(checkpoint_interval) < 1:
+        raise AutomotivePrimaryError("checkpoint_interval must be >= 1")
 
     os.environ["MARGO_OBS_VERSION"] = V2_OBS_VERSION
     from env.mec_offloaing_envs.scheduler import encoder_obs
@@ -149,11 +170,17 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                               helper_busy_s=float(helper_busy_s),
                               background_dags=int(background_dags),
                               background_policy=str(background_policy),
+                              # F15: `use_energy` reaches the environment's energy model instead
+                              # of being an inert builder parameter.
+                              energy_enabled=bool(use_energy),
                               # THE constraint channel the v2 environment actually penalises on
                               constraints_enabled=bool(constraints_enabled),
                               budget_fractions=fractions,
                               scheduler_config_sha256=config_fingerprint(
                                   config_for(train_graphs[0])))
+        # F15: record the applied reward contract on the environment the rollouts run on, so
+        # the configured mode and the executed mode cannot drift apart.
+        env.reward_mode = str(reward_mode)
         if constraints_enabled and env.constraint_manager is not None:
             # The v2 manager is both the penalty authority (`env.step` applies ITS lambda) and
             # the object the frozen training loop dual-steps, so the SAME multipliers drive the
@@ -199,26 +226,42 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
 
     def v2_env_factory(graphs, slots, seed, single_dist):
         """Validation env factory: v2 dynamics and the SAME canonical world builder."""
-        return V2AutomotiveEnv(list(graphs), AutomotiveResourceCluster(), role="validation",
-                               slots_per_task=int(slots), base_seed=int(seed),
-                               single_dist=bool(single_dist),
-                               link_regime=str(link_regime), mec_workers=int(mec_workers),
-                               reliability=bool(reliability),
-                               helper_contact_mean_s=float(helper_contact_mean_s),
-                               helper_contact_cv=float(helper_contact_cv),
-                               helper_busy_s=float(helper_busy_s),
-                               background_dags=int(background_dags),
-                               background_policy=str(background_policy))
+        env = V2AutomotiveEnv(list(graphs), AutomotiveResourceCluster(), role="validation",
+                              slots_per_task=int(slots), base_seed=int(seed),
+                              single_dist=bool(single_dist),
+                              link_regime=str(link_regime), mec_workers=int(mec_workers),
+                              reliability=bool(reliability),
+                              helper_contact_mean_s=float(helper_contact_mean_s),
+                              helper_contact_cv=float(helper_contact_cv),
+                              helper_busy_s=float(helper_busy_s),
+                              background_dags=int(background_dags),
+                              background_policy=str(background_policy),
+                              energy_enabled=bool(use_energy))
+        env.reward_mode = str(reward_mode)
+        return env
 
     flags = decoding_flags(decoding)
+    # F15/F16/F27: EVERY knob reaches the evaluator that consumes it. `background_dags` was the
+    # one missing link: `baseline_panel` read `self.v2_system["background_dags"]` on an object
+    # whose `v2_system` never carried it, so the baselines silently ran with 0 background DAGs
+    # while the policy ran with the configured number. `r_select`/`s_select` now drive the
+    # evaluator's own validation grid, and `reward_mode`/budget/constraints are recorded there so
+    # the cache key and the emitted evidence reflect the real contract.
     held_out = V2HeldOutEvaluator(
         support_graphs=val_support, query_graphs=val_query,
-        policy=_validation_policy(env, decoding, flags),
+        policy=_validation_policy(env, decoding, flags, enable_crn=True),
         source_policy=meta_policy.core_policy,
         ppo_batch_size=int(support_trajectories),
         env_factory=v2_env_factory,
         link_regime=str(link_regime), mec_workers=int(mec_workers),
-        reliability=bool(reliability), r_select=int(r_select), s_select=int(s_select))
+        reliability=bool(reliability), r_select=int(r_select), s_select=int(s_select),
+        background_dags=int(background_dags), background_policy=str(background_policy),
+        helper_contact_mean_s=float(helper_contact_mean_s),
+        helper_contact_cv=float(helper_contact_cv),
+        helper_busy_s=float(helper_busy_s),
+        reward_mode=str(reward_mode),
+        constraints_enabled=bool(constraints_enabled),
+        budget_fractions=fractions)
 
     from meta_trainer import Trainer
     from spec.automotive_training.automotive_trainer import AutomotiveTrainerMixin
@@ -313,12 +356,21 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
             # boundary.
             _gen = getattr(self, "auto_generation_checkpoint", None)
             if callable(_gen):
-                try:
-                    _gen(int(itr))
-                except Exception as exc:                            # noqa: BLE001
-                    self.auto_generation_error = "%s: %s" % (type(exc).__name__, exc)
-                    print("ERROR checkpoint generation failed at iteration %d: %s"
-                          % (int(itr), self.auto_generation_error))
+                # F15: the builder's `checkpoint_interval` is the CADENCE AUTHORITY for the v2
+                # path. It was previously recorded nowhere and never consulted -- the commit
+                # cadence came only from the runner's own copy of the flag. Here the interval
+                # decides whether the generation hook is invoked at all.
+                every = getattr(self, "auto_checkpoint_interval", None)
+                due = (every is None
+                       or (int(itr) + 1) % max(1, int(every)) == 0)
+                self.auto_generation_due = bool(due)
+                if due:
+                    try:
+                        _gen(int(itr))
+                    except Exception as exc:                        # noqa: BLE001
+                        self.auto_generation_error = "%s: %s" % (type(exc).__name__, exc)
+                        print("ERROR checkpoint generation failed at iteration %d: %s"
+                              % (int(itr), self.auto_generation_error))
             if getattr(self, "auto_progress_error", None) or \
                     getattr(self, "auto_phase_timing_error", None):
                 print("WARNING v2 progress telemetry failed: progress=%r phase_timings=%r"
@@ -470,6 +522,17 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                                      else 0),
                     "lambda_broadcast_targets": int(
                         getattr(self, "auto_lambda_broadcast_targets", 0)),
+                    "applied_contract": {
+                        "reward_mode": str(getattr(self, "auto_reward_mode", "latency_only")),
+                        "checkpoint_interval": int(
+                            getattr(self, "auto_checkpoint_interval", 10) or 10),
+                        "r_select": int(getattr(self, "auto_crn", {}).get(
+                            "applied_r_select", 0) or 0),
+                        "s_select": int(getattr(self, "auto_crn", {}).get(
+                            "applied_s_select", 0) or 0),
+                        "selection_criterion": str(getattr(
+                            self, "auto_selection_criterion", "automotive_lexicographic_v1")),
+                    },
                     "world_realization": (env.world_realization_key() if env is not None
                                           and hasattr(env, "world_realization_key") else None),
                     "updated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -683,7 +746,27 @@ def build_automotive_v2_stack(*, seed: int, n_itr: int, ckpt_dir: str,
                               "helper_contact_cv": float(helper_contact_cv),
                               "helper_busy_s": float(helper_busy_s)}
     trainer.auto_crn = {"protocol_id": PROTOCOL_ID, "r_select": int(r_select),
-                        "s_select": int(s_select)}
+                        "s_select": int(s_select),
+                        # F16: the values the trainer's validation path will actually execute.
+                        "applied_r_select": int(r_select),
+                        "applied_s_select": int(s_select)}
+    # F15/F29: the ACTUAL applied contract, read by the checkpoint sidecar and the run evidence.
+    trainer.auto_reward_mode = str(reward_mode)
+    trainer.auto_use_energy = bool(use_energy)
+    trainer.auto_checkpoint_interval = int(checkpoint_interval)
+    trainer.auto_link_regime = str(link_regime)
+    trainer.auto_mec_workers = int(mec_workers)
+    trainer.auto_background_dags = int(background_dags)
+    trainer.auto_selection_criterion = V2_SELECTION_CRITERION
+    trainer.auto_oracle_selection_criterion = V2_ORACLE_SELECTION_CRITERION
+    _constraint_names = list(env.constraint_manager.names) if env.constraint_manager else []
+    _energy_names = [n for n in _constraint_names if "energy" in str(n).lower()]
+    # F29: the sidecar used to hardcode "not_configured"; record whether an ENERGY budget is
+    # actually configured (by name) plus the fact that the energy model itself is active.
+    trainer.auto_energy_constraint = (
+        "configured:" + ",".join(_energy_names) if _energy_names
+        else ("measured_not_constrained" if bool(use_energy) else "not_configured"))
+    trainer.auto_constraint_budget_fractions = dict(fractions)
     return trainer, algo
 
 
@@ -691,109 +774,249 @@ from spec.automotive_training.automotive_primary import AutomotiveHeldOutEvaluat
 
 
 class V2HeldOutEvaluator(AutomotiveHeldOutEvaluator):
-    """v2 held-out evaluator: every baseline is scored on the CANONICAL v2 world.
+    """v2 held-out evaluator: policy and baselines are scored on ONE paired immutable world.
 
-    The inherited `baseline_panel` calls `query_env._schedule(...)`, which `V2AutomotiveEnv`
-    does not define — `__getattr__` then delegated it to the FROZEN V1 ENGINE, so a v2 run
-    silently scored its baselines with v1 dynamics. `baseline_panel` is overridden here to
-    score each plan on the same v2 world/scheduler/energy model as the policy, and
-    `_schedule` is trapped while that panel runs so any remaining delegation raises instead of
-    silently returning v1 numbers.
+    Three audited defects are fixed here, not documented away:
+
+    * **F25 pairing.** The inherited `baseline_panel` evaluates on its own freshly built world,
+      so the policy rollout and the baselines were scored on DIFFERENT worlds (different MC
+      realization, different helper contact window, different task count) while `oracle_s` /
+      `k0_regret_s` subtracted the two. The panel here adopts the PAIRED policy env's world
+      (`query_env.world_for_slot(index)`), its demand realization (`query_env._slot_mc[index]`)
+      and its link process, so the comparison is between two plans on one world.
+    * **F26 no silent v1 delegation.** The v1 `_schedule` trap is armed for the WHOLE
+      evaluation lifetime (in `_make_env`), not inside a lexical block around the panel: outside
+      that block `query_env._schedule` still silently reached the frozen v1 engine. The panel
+      cache is keyed by (epoch, graph ids, world physics, mc identity, config sha, contract sha)
+      instead of the epoch alone.
+    * **F27 real R x S.** `evaluate_all` drives the evaluator's own grid with the configured
+      `r_select`/`s_select` and the trained policy: the deterministic (argmax) block and the
+      CRN sampled block are emitted separately, and neither applies best-of-S.
     """
 
+    def __init__(self, *args, link_regime: str = "stable", mec_workers: int = 1,
+                 reliability: bool = False, r_select: int = DEFAULT_R_SELECT,
+                 s_select: int = DEFAULT_S_SELECT, background_dags: int = 0,
+                 background_policy: str = "all_mec", helper_contact_mean_s: float = 2.0,
+                 helper_contact_cv: float = 0.5, helper_busy_s: float = 0.0,
+                 reward_mode: str = "latency_only", constraints_enabled: bool = False,
+                 budget_fractions: Mapping | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        #: proof-of-routing flag: the injected factory must be the one this stack built
+        self.uses_injected_env_factory = bool(kwargs.get("env_factory") is not None)
+        self.v2_system = {
+            "link_regime": str(link_regime), "mec_workers": int(mec_workers),
+            "reliability": bool(reliability),
+            # F15: the baselines must run with the SAME number of background competitors as the
+            # policy; this key was read by `baseline_panel` but never supplied.
+            "background_dags": int(background_dags),
+            "background_policy": str(background_policy),
+            "helper_contact_mean_s": float(helper_contact_mean_s),
+            "helper_contact_cv": float(helper_contact_cv),
+            "helper_busy_s": float(helper_busy_s),
+            "constraints_enabled": bool(constraints_enabled),
+            "budget_fractions": dict(budget_fractions or {}),
+        }
+        self.crn_protocol = {"protocol_id": PROTOCOL_ID, "r_select": int(r_select),
+                             "s_select": int(s_select)}
+        # F16: the knobs the validation path actually applies, recorded as applied values.
+        self.r_select = int(r_select)
+        self.s_select = int(s_select)
+        self.applied_r_select = int(r_select)
+        self.applied_s_select = int(s_select)
+        self.reward_mode = str(reward_mode)
+        self.obs_version = V2_OBS_VERSION
+        self.baseline_scoring = "v2_canonical_world"
+        self.v1_schedule_trap_armed = False
+
+    # -- F26: lifecycle trap + identity-keyed panel cache ------------------
+    def arm_v1_schedule_trap(self, env) -> None:
+        """Arm the v1 `_schedule` trap on an evaluation env for its WHOLE lifetime."""
+        arm = getattr(env, "set_v1_schedule_trap", None)
+        if arm is None:
+            raise RuntimeError(
+                "the v2 evaluator requires a V2AutomotiveEnv able to trap `_schedule`; "
+                "refusing to score on a path that can reach the frozen v1 engine")
+        arm(True)
+        self.v1_schedule_trap_armed = True
+
+    def _make_env(self, graphs, slots, seed, *, single_dist):
+        env = super()._make_env(graphs, slots, seed, single_dist=single_dist)
+        self.arm_v1_schedule_trap(env)
+        return env
+
+    def _evaluation_contract_sha(self) -> str:
+        """sha256 of the objective/constraint contract the panel was scored under (F26)."""
+        payload = {
+            "reward_mode": str(getattr(self, "reward_mode", "latency_only")),
+            "constraints_enabled": bool(self.v2_system.get("constraints_enabled", False)),
+            "budget_fractions": dict(self.v2_system.get("budget_fractions", {})),
+            "objective": "constrained_latency",
+            "checkpoint_rule": CHECKPOINT_RULE_ID,
+            "selection_criterion": V2_SELECTION_CRITERION,
+        }
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+    def _panel_cache_key(self, epoch, env=None) -> tuple:
+        """Panel identity: epoch + graphs + world physics + mc + config + contract (F26)."""
+        if epoch is None:
+            return None
+        from spec.automotive_training.v2.eval_loop import mc_identity, physics_fingerprint
+
+        graph_ids = tuple(str(getattr(g, "graph_id", i))
+                          for i, g in enumerate(self.query_graphs))
+        if env is None:
+            return ("v2", int(epoch), graph_ids, None, None, None, None, None,
+                    self._evaluation_contract_sha())
+        worlds = tuple(physics_fingerprint(w)
+                       for _, w in sorted((getattr(env, "_worlds", None) or {}).items()))
+        structures = tuple(w.structure_fingerprint_sha256()
+                           for _, w in sorted((getattr(env, "_worlds", None) or {}).items()))
+        mc_ids = tuple(mc_identity(m)
+                       for m in (getattr(env, "_slot_mc", None) or []))
+        config = getattr(env, "world_config", None)
+        config_sha = config.sha256() if config is not None else None
+        scheduler_sha = getattr(env, "scheduler_config_sha256", None)
+        return ("v2", int(epoch), graph_ids, worlds, structures, mc_ids, config_sha,
+                scheduler_sha, self._evaluation_contract_sha())
+
+    def _paired_helper_seed(self, query_env, index: int) -> int:
+        """The helper seed the PAIRED policy env actually derived for this slot."""
+        key = query_env.world_realization_key()
+        if key is not None:
+            return int(stable_seed(query_env.base_seed, "helper", key, int(index)))
+        return int(query_env.base_seed) * 7919 + int(query_env.episodes) * 31 + int(index)
+
+    # -- F25/F27: paired baseline panel ------------------------------------
     def baseline_panel(self, query_env, epoch: int | None = None) -> dict:
-        """v2 baselines in the SAME schema the frozen consumer reads.
+        """v2 baselines in the SAME schema the frozen consumer reads, on the PAIRED world.
 
         The inherited panel called `query_env._schedule(...)`; `V2AutomotiveEnv` does not define
         it, so `__getattr__` delegated the call to the FROZEN V1 ENGINE and the run silently
         scored its baselines with v1 dynamics. Here every candidate is scored on the canonical
-        v2 world by the v2 scheduler, and the entry schema (`all_UE`/`all_MEC`/`all_HELPER`/
-        `greedy_coordinate_descent_MC`/`heft_reference_v2`, `heft_nominal_s`, `heft_plan`,
-        `greedy_plan`, `_name`, `candidate_oracle_s`) matches the frozen consumer exactly.
+        v2 world the POLICY rollout actually used, by the v2 scheduler, and the entry schema
+        (`all_UE`/`all_MEC`/`all_HELPER`/`greedy_coordinate_descent_MC`/`heft_reference_v2`,
+        `heft_nominal_s`, `heft_plan`, `greedy_plan`, `_name`, `candidate_oracle_s`) matches the
+        frozen consumer exactly.
         """
         from spec.automotive_training.automotive_primary import candidate_oracle
         from spec.automotive_training.v2.adapters import plan_map_from_actions, pure_plan
-        from spec.automotive_training.v2.eval_loop import EvalProtocol, baseline_plans, _score
+        from spec.automotive_training.v2.eval_loop import (
+            EvalProtocol, _score, baseline_plans, mc_identity, physics_fingerprint,
+        )
         from spec.automotive_training.v2.heft_bridge import heft_plan_for_graph
-        from spec.automotive_training.v2.link_model import make_process
-        from spec.automotive_training.v2.world import V2WorldConfig, build_world
 
-        if epoch is not None and epoch in self._panel_cache:
-            return self._panel_cache[epoch]
+        cached = self._cached_panel(epoch, query_env)
+        if cached is not None:
+            return cached
+        # The trap is armed for the whole evaluation in `_make_env`; re-arming here is
+        # idempotent and makes a direct call (tests, tooling) equally safe. It is NEVER
+        # disarmed, so the panel can never hand a plan to the v1 engine.
         trap = getattr(query_env, "set_v1_schedule_trap", None)
         if trap is None:
             raise RuntimeError(
                 "the v2 evaluator requires a V2AutomotiveEnv able to trap `_schedule`; "
                 "refusing to score baselines on a path that can reach the v1 engine")
+        trap(True)
         graphs = list(self.query_graphs)
         protocol = EvalProtocol(r_select=int(self.crn_protocol["r_select"]),
-                               s_select=int(self.crn_protocol["s_select"]),
-                               background_dags=int(self.v2_system.get("background_dags", 0)))
+                                s_select=int(self.crn_protocol["s_select"]),
+                                background_dags=int(self.v2_system.get("background_dags", 0)),
+                                mec_workers=int(self.v2_system.get("mec_workers", 1)),
+                                link_regime=str(self.v2_system.get("link_regime", "stable")))
         panel: dict = {}
-        seed_base = int(epoch if epoch is not None else 0)
         for index, graph in enumerate(graphs):
-            trap(True)
-            try:
-                world = build_world(
-                    graph, slot_id=index, mc=None,
-                    config=V2WorldConfig(
-                        background_dags=int(protocol.background_dags),
-                        mec_workers=int(self.v2_system.get("mec_workers", 1))),
-                    helper_seed=seed_base + index)
-                link_process = None
-                if str(self.v2_system.get("link_regime", "stable")) != "stable":
-                    link_process = make_process(str(self.v2_system["link_regime"]),
-                                                seed=seed_base + index)
-                entry: dict = {}
-                # FULL METRICS PER CANDIDATE. `_score` already computes latency, the three
-                # energy boundaries, helper fraction, deadline/queue statistics, wasted work,
-                # V2V airtime and the location mix -- but only `episode_latency_s` was kept, so
-                # every baseline was comparable to the model on LATENCY ALONE and the energy /
-                # miss / airtime columns could not be produced for all_UE, all_MEC, all_HELPER,
-                # greedy, HEFT or the oracle at all. The scalar keys stay (candidate_oracle and
-                # the existing consumers use them); the full block is added alongside.
-                def _score_full(plan_map):
-                    full = _score(world, plan_map, link_process=link_process)
-                    return full
+            # F25: THE PAIRED WORLD. Not a rebuilt one: `mc=None` (the audited defect) meant the
+            # baselines ran a different demand realization and a different helper window from the
+            # policy, and the regret was computed across two worlds.
+            world = query_env.world_for_slot(index)
+            mc = query_env._slot_mc[index] if getattr(query_env, "_slot_mc", None) else None
+            link_process = getattr(query_env, "link_process", None)
+            entry: dict = {}
+            # The scene identity is recorded per candidate group so a consumer can PROVE the
+            # policy and the baselines saw one world.
+            scene = {
+                "world_id": world.world_id,
+                "world_fingerprint_sha256": world.fingerprint_sha256(),
+                "world_physics_sha256": physics_fingerprint(world),
+                "mc_id": mc_identity(mc),
+                "config_sha": world.config.sha256(),
+                "dataset_graph_id": int(world.dataset_graph_id),
+                "helper_seed": int(self._paired_helper_seed(query_env, index)),
+                "n_tasks": int(len(world.foreground.tasks)),
+                "paired_with_policy_world": True,
+            }
 
-                for name, action in (("all_UE", 0), ("all_MEC", 1), ("all_HELPER", 2)):
-                    full = _score_full(pure_plan(graph, action))
-                    entry[name] = float(full["episode_latency_s"])
-                    entry["%s_metrics" % name] = full
-                plans = baseline_plans(world, graph, protocol)
-                full = _score_full(plans["greedy_cd"])
-                entry["greedy_coordinate_descent_MC"] = float(full["episode_latency_s"])
-                entry["greedy_coordinate_descent_MC_metrics"] = full
-                heft_actions, heft_nominal = heft_plan_for_graph(graph)
-                full = _score_full(plan_map_from_actions(graph, list(heft_actions)))
-                entry["heft_reference_v2"] = float(full["episode_latency_s"])
-                entry["heft_reference_v2_metrics"] = full
-                entry["heft_nominal_s"] = float(heft_nominal)
-                entry["heft_plan"] = [int(a) for a in heft_actions]
-                entry["greedy_plan"] = [int(plans["greedy_cd"][t])
-                                        for t in sorted(plans["greedy_cd"])]
-                # `candidate_oracle` compares the SCALAR latency of the named candidates; the
-                # `*_metrics` blocks must not be visible to it.
-                scalar_view = {k: v for k, v in entry.items()
-                               if not k.endswith("_metrics") and isinstance(v, (int, float))}
-                entry["_name"], entry["candidate_oracle_s"] = candidate_oracle(scalar_view)
-                entry["scoring"] = "v2_canonical_world_foreground_episode_latency"
-                panel[index] = entry
-            finally:
-                trap(False)
-        if epoch is not None:
-            self._panel_cache[epoch] = panel
+            def _score_full(plan_map):
+                return _score(world, plan_map, link_process=link_process)
+
+            for name, action in (("all_UE", 0), ("all_MEC", 1), ("all_HELPER", 2)):
+                full = _score_full(pure_plan(graph, action))
+                entry[name] = float(full["episode_latency_s"])
+                entry["%s_metrics" % name] = full
+            plans = baseline_plans(world, graph, protocol, link_process=link_process)
+            full = _score_full(plans["greedy_cd"])
+            entry["greedy_coordinate_descent_MC"] = float(full["episode_latency_s"])
+            entry["greedy_coordinate_descent_MC_metrics"] = full
+            heft_actions, heft_nominal = heft_plan_for_graph(graph)
+            full = _score_full(plan_map_from_actions(graph, list(heft_actions)))
+            entry["heft_reference_v2"] = float(full["episode_latency_s"])
+            entry["heft_reference_v2_metrics"] = full
+            entry["heft_nominal_s"] = float(heft_nominal)
+            entry["heft_plan"] = [int(a) for a in heft_actions]
+            entry["greedy_plan"] = [int(plans["greedy_cd"][t])
+                                    for t in sorted(plans["greedy_cd"])]
+            # `candidate_oracle` compares the SCALAR latency of the named candidates; the
+            # `*_metrics` blocks and the scene identity must not be visible to it.
+            scalar_view = {k: v for k, v in entry.items()
+                           if not k.endswith("_metrics") and isinstance(v, (int, float))}
+            entry["_name"], entry["candidate_oracle_s"] = candidate_oracle(scalar_view)
+            # F29: the oracle is a BEST-OF-PANEL-LATENCY rule and says so in the JSON.
+            entry["oracle_selection_criterion"] = V2_ORACLE_SELECTION_CRITERION
+            entry["candidate_oracle_criterion"] = V2_ORACLE_SELECTION_CRITERION
+            entry["scoring"] = "v2_canonical_world_foreground_episode_latency"
+            entry.update(scene)
+            panel[index] = entry
+        self._store_panel(epoch, panel, query_env)
         return panel
 
-    def __init__(self, *args, link_regime: str = "stable", mec_workers: int = 1,
-                 reliability: bool = False, r_select: int = DEFAULT_R_SELECT,
-                 s_select: int = DEFAULT_S_SELECT, **kwargs):
-        super().__init__(*args, **kwargs)
-        #: proof-of-routing flag: the injected factory must be the one this stack built
-        self.uses_injected_env_factory = bool(kwargs.get("env_factory") is not None)
-        self.v2_system = {"link_regime": link_regime, "mec_workers": int(mec_workers),
-                          "reliability": bool(reliability)}
-        self.crn_protocol = {"protocol_id": PROTOCOL_ID, "r_select": int(r_select),
-                             "s_select": int(s_select)}
-        self.obs_version = V2_OBS_VERSION
-        self.baseline_scoring = "v2_canonical_world"
+    # -- F16/F27: the evaluator's own validation grid ----------------------
+    def evaluate_all(self, k_steps: int, sess=None) -> dict:
+        """Trainer validation entry point: the configured R x S grid on the TRAINED policy.
+
+        `r_select` replaces the hard-coded `SELECT_REPLICATES = 5` (the production default is
+        still 5 whenever the knob is absent) and `s_select` drives the sampled CRN axis. The
+        applied values travel with the result so the run evidence can never claim a grid that
+        was not executed.
+        """
+        if k_steps not in (0, 3):
+            raise AutomotivePrimaryError("k_steps must be 0 or 3 here, got %r" % (k_steps,))
+        from spec.automotive_training.eval_protocol import PRIMARY_DECODING
+
+        out = self.evaluate(int(k_steps), replicates=int(self.r_select),
+                            decoding=PRIMARY_DECODING, sess=sess,
+                            sampled_draws=int(self.s_select))
+        out["applied_r_select"] = int(self.r_select)
+        out["applied_s_select"] = int(self.s_select)
+        out["selection_criterion"] = V2_SELECTION_CRITERION
+        out["oracle_selection_criterion"] = V2_ORACLE_SELECTION_CRITERION
+        out["evaluator"] = "V2HeldOutEvaluator"
+        out["v2_system"] = dict(self.v2_system)
+        return out
+
+    def snapshot(self) -> dict:
+        """Evaluator contract as it was ACTUALLY applied (for run evidence / provenance)."""
+        return {
+            "schema": "v2_held_out_evaluator_v1",
+            "evaluator": "V2HeldOutEvaluator",
+            "r_select": int(self.r_select),
+            "s_select": int(self.s_select),
+            "reward_mode": str(self.reward_mode),
+            "v2_system": dict(self.v2_system),
+            "crn_protocol": dict(self.crn_protocol),
+            "baseline_scoring": str(self.baseline_scoring),
+            "v1_schedule_trap_armed": bool(self.v1_schedule_trap_armed),
+            "oracle_selection_criterion": V2_ORACLE_SELECTION_CRITERION,
+            "selection_criterion": V2_SELECTION_CRITERION,
+            "contract_sha256": self._evaluation_contract_sha(),
+        }

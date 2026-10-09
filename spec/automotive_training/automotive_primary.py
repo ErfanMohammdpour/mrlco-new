@@ -95,6 +95,12 @@ def checkpoint_rule_sha() -> str:
                                      separators=(",", ":")).encode()).hexdigest()
 
 
+def _axis_epoch(base_seed: int, role: str, epoch: int) -> int:
+    """Role-tagged realization epoch: support and query never share a realization (F03)."""
+    material = "margo-axis-v1|%d|%s|%d" % (int(base_seed), str(role), int(epoch))
+    return int(hashlib.sha256(material.encode("utf-8")).hexdigest()[:12], 16) % (2 ** 31 - 1)
+
+
 class AutomotiveResourceCluster(object):
     """Minimal cluster handle for the automotive env.
 
@@ -279,7 +285,47 @@ def _greedy_plan(env, index: int, mc, n_tasks: int = 20) -> list:
 
 #: Rollout metric keys that are LABELS, not measurements. `evaluate` averages every key of
 #: the metric block, which silently coerced `primary_scope` ("system") with float() and raised.
-_NON_NUMERIC_METRIC_KEYS = frozenset({"primary_scope"})
+_NON_NUMERIC_METRIC_KEYS = frozenset({"primary_scope", "unmodelled", "energy_status"})
+
+#: Per-slot telemetry keys that are REQUIRED measurements of the metric block. A missing or
+#: non-finite value is an ERROR: reading it as 0.0 is how a missing tardiness/miss measurement
+#: presented a perfect record (F28).
+_REQUIRED_SLOT_KEYS = (
+    "makespan_s", "hard_violation", "high_tardiness", "medium_tardiness", "firm_miss",
+    "n_tasks_high", "n_tasks_medium", "n_tardy_high", "n_tardy_medium",
+)
+
+
+def _measured_or_none(record: Mapping, key: str):
+    """A measured float, or None when the telemetry carries no measurement at all."""
+    if key not in record:
+        return None
+    value = record.get(key)
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise AutomotivePrimaryError("telemetry %s is not a number: %r" % (key, value)) from exc
+    if not np.isfinite(number):
+        raise AutomotivePrimaryError("telemetry %s is not finite: %r" % (key, value))
+    return number
+
+
+def _require_slot_metrics(record: Mapping, *, slot) -> None:
+    """Fail loudly when a REQUIRED per-slot metric is missing or non-finite (F28)."""
+    for key in _REQUIRED_SLOT_KEYS:
+        if key not in record or record.get(key) is None:
+            raise AutomotivePrimaryError(
+                "REQUIRED rollout metric %r is missing for slot %s; refusing to read it as a "
+                "measured zero" % (key, slot))
+        number = float(record[key])
+        if not np.isfinite(number):
+            raise AutomotivePrimaryError(
+                "REQUIRED rollout metric %r is not finite for slot %s: %r" % (key, slot, number))
+        if number < 0.0:
+            raise AutomotivePrimaryError(
+                "REQUIRED rollout metric %r is negative for slot %s: %r" % (key, slot, number))
 
 
 def per_graph_makespans(paths) -> dict:
@@ -296,18 +342,20 @@ def per_graph_makespans(paths) -> dict:
             slot = int(record.get("slot", len(out)))
             out[slot] = {
                 "graph_index": int(record.get("graph_index", -1)),
-                "makespan_s": float(record.get("makespan_s", float("nan"))),
-                "hard_violation": float(record.get("violation/C_GRAPH_HARD_DEADLINE", 0.0)),
-                "high_tardiness": float(record.get("violation/C_HI_TASK_TARDINESS", 0.0)),
-                "medium_tardiness": float(record.get("violation/C_MED_TASK_TARDINESS", 0.0)),
-                "firm_miss": float(record.get("firm_miss_count", 0.0)),
+                # F28: the REQUIRED deadline/tardiness measurements keep their ABSENCE (None)
+                # instead of being fabricated to 0.0, so `rollout_metric_block` can fail loudly.
+                "makespan_s": _measured_or_none(record, "makespan_s"),
+                "hard_violation": _measured_or_none(record, "violation/C_GRAPH_HARD_DEADLINE"),
+                "high_tardiness": _measured_or_none(record, "violation/C_HI_TASK_TARDINESS"),
+                "medium_tardiness": _measured_or_none(record, "violation/C_MED_TASK_TARDINESS"),
+                "firm_miss": _measured_or_none(record, "firm_miss_count"),
                 "mode": str(record.get("mode", "NA")),
                 "switches": float(record.get("mode_switch_count", 0.0)),
                 "dropped": float(record.get("dropped_task_count", 0.0)),
-                "n_tasks_high": float(record.get("n_tasks_high", 0.0)),
-                "n_tasks_medium": float(record.get("n_tasks_medium", 0.0)),
-                "n_tardy_high": float(record.get("n_tardy_high_tasks", 0.0)),
-                "n_tardy_medium": float(record.get("n_tardy_medium_tasks", 0.0)),
+                "n_tasks_high": _measured_or_none(record, "n_tasks_high"),
+                "n_tasks_medium": _measured_or_none(record, "n_tasks_medium"),
+                "n_tardy_high": _measured_or_none(record, "n_tardy_high_tasks"),
+                "n_tardy_medium": _measured_or_none(record, "n_tardy_medium_tasks"),
                 "high_preserved": bool(record.get("high_preserved", 1.0)),
                 # ENERGY FROM THE MODEL'S OWN ROLLOUT. The v2 environment already puts the
                 # three boundaries into the per-episode `energy_telemetry` record, and this
@@ -315,22 +363,29 @@ def per_graph_makespans(paths) -> dict:
                 # fields were copied out. That is why the baselines (whose energy comes from
                 # `_score`) could be reported with joules while the MODEL could not: the model's
                 # energy was measured on every configured rollout and then discarded here.
-                "system_joules": float(record.get("system_joules", 0.0)),
-                "requester_joules": float(record.get("requester_joules", 0.0)),
-                "mobile_joules": float(record.get("mobile_joules", 0.0)),
+                # F28: absent telemetry stays None (UNMODELLED), never a fabricated 0.0 J.
+                "system_joules": _measured_or_none(record, "system_joules"),
+                "requester_joules": _measured_or_none(record, "requester_joules"),
+                "mobile_joules": _measured_or_none(record, "mobile_joules"),
                 "primary_scope": str(record.get("primary_scope", "")),
                 "constraint_penalty": float(record.get("constraint_penalty", 0.0)),
             }
     return out
 
 
-def _validation_policy(env, decoding: str, flags: Mapping):
-    """Scratch validation policy with the frozen primary/secondary decoding."""
+def _validation_policy(env, decoding: str, flags: Mapping, *, enable_crn: bool = False):
+    """Scratch validation policy with the frozen primary/secondary decoding.
+
+    `enable_crn=True` (v2 only) builds the identity-keyed stateless decoder used by the R x S
+    sampled grid, so each (r, s) policy draw is reproducible without changing the draw law. The
+    frozen v1 path keeps the default `False` and its graph is byte-identical.
+    """
     from policies.meta_seq2seq_policy import Seq2SeqPolicy
 
     policy = Seq2SeqPolicy(obs_dim=env.input_dim, encoder_units=128,
                            decoder_units=128, vocab_size=3,
-                           name="validation_policy_%s" % decoding)
+                           name="validation_policy_%s" % decoding,
+                           enable_crn=bool(enable_crn))
     policy.set_deterministic(bool(flags["greedy"]))
     return policy
 
@@ -401,49 +456,122 @@ def metrics_from_paths(paths) -> dict:
     }
 
 
+def _world_identity_rows(env) -> dict:
+    """Per-slot identity of the worlds a rollout was scored on (F27(3)).
+
+    Empty for a v1 env (no v2 worlds); the v2 env exposes `_worlds` and `_slot_mc`.
+    """
+    worlds = getattr(env, "_worlds", None)
+    if not worlds:
+        return {}
+    from spec.automotive_training.v2.eval_loop import mc_identity, physics_fingerprint
+
+    slot_mc = getattr(env, "_slot_mc", None) or []
+    rows = {}
+    for slot, world in sorted(worlds.items()):
+        mc = slot_mc[int(slot)] if int(slot) < len(slot_mc) else None
+        rows[int(slot)] = {
+            "world_id": world.world_id,
+            "world_fingerprint_sha256": world.fingerprint_sha256(),
+            "world_physics_sha256": physics_fingerprint(world),
+            "mc_id": mc_identity(mc),
+            "config_sha": world.config.sha256(),
+            "dataset_graph_id": int(world.dataset_graph_id),
+        }
+    return rows
+
+
 def rollout_metric_block(by_slot: Mapping) -> dict:
-    """Model metrics of one (query or support) rollout, from per-graph records."""
+    """Model metrics of one (query or support) rollout, from per-graph records.
+
+    FAIL LOUDLY (F28). Every REQUIRED metric is checked here: a missing or non-finite value
+    raises instead of being folded to 0.0. The ENERGY boundaries are the one genuinely
+    optional family (a non-energy rollout carries no joule record); when absent they are
+    reported as UNMODELLED (`energy_status`) with a `None` value, never as a measured zero.
+    """
     values = [v for v in by_slot.values()]
     if not values:
         raise AutomotivePrimaryError("empty rollout: no per-graph telemetry")
+    for slot, record in by_slot.items():
+        _require_slot_metrics(record, slot=slot)
     n = float(len(values))
     n_high = sum(v["n_tasks_high"] for v in values)
     n_med = sum(v["n_tasks_medium"] for v in values)
     tardy_high = sum(v["n_tardy_high"] for v in values)
     tardy_med = sum(v["n_tardy_medium"] for v in values)
     firm = sum(v["firm_miss"] for v in values)
-    return {
+    if n_high <= 0:
+        raise AutomotivePrimaryError(
+            "high_task_tardiness_task_rate is REQUIRED but no HIGH task was measured: a zero "
+            "denominator is not a measured 0.0 rate")
+    if (n_high + n_med) <= 0:
+        raise AutomotivePrimaryError(
+            "firm_task_miss_rate is REQUIRED but no firm (HIGH/MEDIUM) task was measured: a "
+            "zero denominator is not a measured 0.0 rate")
+    # ENERGY: measured -> mean; absent -> UNMODELLED (None), never a measured zero.
+    energy_values = {}
+    energy_status = {}
+    for out_key, slot_key in (("mean_system_joules", "system_joules"),
+                              ("mean_requester_joules", "requester_joules"),
+                              ("mean_mobile_joules", "mobile_joules")):
+        measured = [v.get(slot_key) for v in values]
+        if any(value is None for value in measured):
+            energy_values[out_key] = None
+            energy_status[out_key] = "UNMODELLED"
+            continue
+        numbers = [float(value) for value in measured]
+        if not all(np.isfinite(number) and number >= 0.0 for number in numbers):
+            raise AutomotivePrimaryError(
+                "energy telemetry %s is not a finite non-negative measurement: %r"
+                % (slot_key, numbers))
+        energy_values[out_key] = float(np.mean(numbers))
+        energy_status[out_key] = "measured"
+    block = {
         "query_mean_latency_seconds": float(np.mean([v["makespan_s"] for v in values])),
         "graph_hard_violation_rate": float(np.mean([v["hard_violation"] > 0 for v in values])),
         "mean_graph_violation_s": float(np.mean([v["hard_violation"] for v in values])),
         "graph_high_tardiness_incidence_rate": float(np.mean([v["high_tardiness"] > 0 for v in values])),
         "graph_medium_tardiness_incidence_rate": float(np.mean([v["medium_tardiness"] > 0 for v in values])),
-        "high_task_tardiness_task_rate": (tardy_high / n_high) if n_high else 0.0,
-        "medium_task_tardiness_task_rate": (tardy_med / n_med) if n_med else 0.0,
+        "high_task_tardiness_task_rate": tardy_high / n_high,
+        "medium_task_tardiness_task_rate": (tardy_med / n_med) if n_med else None,
         "n_high_tasks": int(n_high), "n_medium_tasks": int(n_med),
         "n_tardy_high_tasks": int(tardy_high), "n_tardy_medium_tasks": int(tardy_med),
         "mean_high_tardiness_s": float(np.mean([v["high_tardiness"] for v in values])),
         "mean_medium_tardiness_s": float(np.mean([v["medium_tardiness"] for v in values])),
         "firm_task_miss_count": float(firm),
-        "firm_task_miss_rate": (firm / (n_high + n_med)) if (n_high + n_med) else 0.0,
+        "firm_task_miss_rate": firm / (n_high + n_med),
         "mode_switch_rate": float(np.mean([v["switches"] > 0 for v in values])),
         "mean_mode_switch_count": float(np.mean([v["switches"] for v in values])),
         "hi_mode_rate": float(np.mean([v["mode"] == "HI" for v in values])),
         "mc_policy_violation_count": float(sum(1 for v in values if not v["high_preserved"])),
         "mean_dropped_task_count": float(np.mean([v["dropped"] for v in values])),
         # SCOPED ENERGY of the rollout, on the same three boundaries the baselines report.
-        # Absent telemetry yields 0.0; callers that must distinguish "unmeasured" from "zero"
-        # check `n_energy_episodes` against `rollouts`.
-        "mean_system_joules": float(np.mean([v.get("system_joules", 0.0) for v in values])),
-        "mean_requester_joules": float(np.mean([v.get("requester_joules", 0.0) for v in values])),
-        "mean_mobile_joules": float(np.mean([v.get("mobile_joules", 0.0) for v in values])),
+        "mean_system_joules": energy_values["mean_system_joules"],
+        "mean_requester_joules": energy_values["mean_requester_joules"],
+        "mean_mobile_joules": energy_values["mean_mobile_joules"],
+        "energy_status": energy_status,
         "primary_scope": str(values[0].get("primary_scope", "")),
-        "n_energy_episodes": int(sum(1 for v in values
-                                     if float(v.get("system_joules", 0.0)) > 0.0)),
+        "n_energy_episodes": int(sum(
+            1 for v in values if v.get("system_joules") is not None)),
         "mean_constraint_penalty": float(
             np.mean([v.get("constraint_penalty", 0.0) for v in values])),
         "rollouts": int(n),
     }
+    if n_med <= 0:
+        # No MEDIUM task was measured: the MEDIUM rate is genuinely undefined. Report it as
+        # UNMODELLED rather than a measured 0.0.
+        block["medium_task_tardiness_task_rate"] = None
+        block["energy_status"] = dict(energy_status, medium_task_tardiness_task_rate="UNMODELLED")
+    _unmodelled = _unmodelled_components()
+    block["unmodelled"] = _unmodelled
+    return block
+
+
+def _unmodelled_components() -> dict:
+    """RX / static / idle / backhaul / battery terms: outside the modelled boundary."""
+    from spec.automotive_training.v2.energy import UNMODELED
+
+    return {"status": "UNMODELLED", "components": [str(c) for c in UNMODELED]}
 
 
 class AutomotiveHeldOutEvaluator(object):
@@ -576,23 +704,47 @@ class AutomotiveHeldOutEvaluator(object):
             raise AutomotivePrimaryError(
                 "k-step adaptation mutated the CORE policy (max|diff|=%.3g)" % diff)
 
-    def _paired_env(self, graphs, base_seed: int, epoch: int) -> AutomotiveEnv:
-        """Single-distribution env with a PINNED realization epoch (pairing)."""
+    def _paired_env(self, graphs, base_seed: int, epoch: int, *, role: str = "query") -> AutomotiveEnv:
+        """Single-distribution env with a PINNED realization epoch (pairing).
+
+        `role` is the SUPPORT/QUERY axis tag. It is mixed into the realization identity so a
+        graph that appears in BOTH sets never receives one bit-identical realization for
+        adaptation and for scoring: that would score the adapted policy on its own adaptation
+        sample (F03). This is a V2-only correction: the frozen v1 env has no world-key API and
+        keeps its pinned epoch exactly as before, so every previously reported v1 number stays
+        bit-identical.
+        """
         env = self._make_env(graphs, len(graphs), int(base_seed), single_dist=True)
-        env.realization_epoch = int(epoch)
+        setter = getattr(env, "set_world_realization", None)
+        if setter is None:
+            # FROZEN V1: unchanged behaviour.
+            env.realization_epoch = int(epoch)
+            return env
+        # V2: the world/MC/link/helper identity is keyed by "<role>/<base_seed>/<epoch>".
+        env.realization_epoch = _axis_epoch(int(base_seed), str(role), int(epoch))
+        setter("%s/%d/%d" % (str(role), int(base_seed), int(epoch)))
         return env
 
     def _rollout_on(self, env, policy, *, adapt_steps: int, seed: int,
-                    deterministic: bool = True):
+                    deterministic: bool = True, draw_identity=None):
         """Rollout on a prepared env; adaptation uses the same (base_seed, epoch).
 
         `deterministic` selects the decoding for THIS rollout: the frozen protocol uses
         the primary (argmax) decoding for every reported query rollout, while the
         support adaptation keeps stochastic sampling so the inner PPO still sees a
         distribution. The flag is restored afterwards.
+
+        `draw_identity` pins the CRN DRAW IDENTITY for the sampled rollouts of the v2 R x S
+        grid (F27): with it, the same (r, s) key produces the same action draw for every
+        checkpoint and candidate. It is restored afterwards so the deterministic rollouts are
+        unaffected.
         """
         previous = bool(getattr(policy, "_deterministic_default", False))
+        previous_identity = getattr(policy, "_draw_identity", None)
         policy.set_deterministic(bool(deterministic))
+        pin = getattr(policy, "set_draw_identity", None)
+        if pin is not None and draw_identity is not None:
+            pin(draw_identity)
         from samplers.seq2seq_sampler import Seq2SeqSampler
         from samplers.seq2seq_sampler_process import Seq2SeSamplerProcessor
         from baselines.vf_baseline import ValueFunctionBaseline
@@ -624,14 +776,40 @@ class AutomotiveHeldOutEvaluator(object):
                 samples, batch_size=min(self.ppo_batch_size, len(env.graph_indices)),
                 k_steps=int(adapt_steps))
         policy.set_deterministic(previous)
+        if pin is not None:
+            pin(previous_identity)
         return paths
+
+    def _panel_cache_key(self, epoch, env=None) -> tuple:
+        """Identity of a cached baseline panel.
+
+        The frozen v1 panel is a function of the realization epoch alone. The v2 evaluator
+        overrides this to include the WORLD STRUCTURE, the demand realization, the scheduler
+        config and the constraints/objective contract, because a panel built at epoch e was
+        otherwise reused after the graphs, link regime, mec workers, mc realization, budget or
+        objective contract changed (F26).
+        """
+        return None if epoch is None else ("v1", int(epoch))
+
+    def _cached_panel(self, epoch, env=None):
+        """Return the cached panel, or None when the key is not cached."""
+        key = self._panel_cache_key(epoch, env)
+        if key is None:
+            return None
+        return self._panel_cache.get(key)
+
+    def _store_panel(self, epoch, panel, env=None) -> None:
+        key = self._panel_cache_key(epoch, env)
+        if key is not None:
+            self._panel_cache[key] = panel
 
     def baseline_panel(self, query_env, epoch: int | None = None) -> dict:
         """Deterministic candidates evaluated on the SAME realization as the model."""
         from .heft_reference_v2 import heft_reference_v2_plan
 
-        if epoch is not None and epoch in self._panel_cache:
-            return self._panel_cache[epoch]
+        cached = self._cached_panel(epoch, query_env)
+        if cached is not None:
+            return cached
         heft_cache = getattr(self, "_heft_plan_cache", None)
         if heft_cache is None:
             heft_cache = self._heft_plan_cache = {}
@@ -657,14 +835,64 @@ class AutomotiveHeldOutEvaluator(object):
             entry["heft_plan"] = [int(a) for a in heft_actions]
             entry["greedy_plan"] = [int(a) for a in greedy_plan]
             entry["_name"], entry["candidate_oracle_s"] = candidate_oracle(entry)
+            entry["oracle_selection_criterion"] = "best_of_panel_latency"
+            entry["candidate_oracle_criterion"] = "best_of_panel_latency"
             panel[index] = entry
-        if epoch is not None:
-            self._panel_cache[epoch] = panel
+        self._store_panel(epoch, panel, query_env)
         return panel
 
+    def _sampled_grid_cells(self, env, epoch: int, base_seed: int, draws: int) -> list:
+        """REAL sampled-decoding cells of the R x S grid for the TRAINED policy (F27(2)).
+
+        The `s` axis is the CRN policy-draw axis: each draw is pinned by a
+        `(protocol, r, s, batch)` identity, so the same (r, s) reproduces the same action draw
+        for every checkpoint and candidate. The world is NOT rebuilt per s: the env pins one
+        realization per (role, base_seed, epoch), so every s scores the SAME immutable world,
+        which is the pairing the aggregation assumes.
+        """
+        from spec.automotive_training.v2.crn import PROTOCOL_ID as CRN_PROTOCOL_ID
+        from spec.automotive_training.v2.crn import seed_pair as crn_seed_pair
+        from spec.automotive_training.v2.eval_loop import mc_identity, physics_fingerprint
+
+        cells = []
+        for s in range(int(draws)):
+            draw = crn_seed_pair(CRN_PROTOCOL_ID, int(epoch), int(s), "validation_sampled")
+            paths = self._rollout_on(env, self.policy, adapt_steps=0, seed=int(base_seed),
+                                     deterministic=False, draw_identity=draw)
+            by_slot = per_graph_makespans(paths)
+            for slot in sorted(by_slot):
+                world = env.world_for_slot(slot)
+                mc = env._slot_mc[slot] if getattr(env, "_slot_mc", None) else None
+                cells.append({
+                    "candidate": "trained_policy",
+                    "decoding": "sampled_crn",
+                    "r": int(epoch),
+                    "s": int(s),
+                    "slot": int(slot),
+                    "deterministic": False,
+                    "graph_index": int(by_slot[slot]["graph_index"]),
+                    "episode_latency_s": float(by_slot[slot]["makespan_s"]),
+                    "hard_violation_s": float(by_slot[slot]["hard_violation"]),
+                    "mc_violation": (0.0 if bool(by_slot[slot]["high_preserved"]) else 1.0),
+                    "world_id": world.world_id,
+                    "world_fingerprint_sha256": world.fingerprint_sha256(),
+                    "world_physics_sha256": physics_fingerprint(world),
+                    "mc_id": mc_identity(mc),
+                    "config_sha": world.config.sha256(),
+                    "dataset_graph_id": int(world.dataset_graph_id),
+                    "crn_draw_identity": [int(draw[0]), int(draw[1])],
+                })
+        return cells
+
     def evaluate(self, k_steps: int = 0, *, replicates, decoding: str = PRIMARY_DECODING,
-                 with_baselines: bool = True, sess=None) -> dict:
-        """Paired multi-realization evaluation (the frozen protocol)."""
+                 with_baselines: bool = True, sess=None, sampled_draws: int | None = None) -> dict:
+        """Paired multi-realization evaluation (the frozen protocol).
+
+        `sampled_draws` (v2 only) additionally executes the REAL trained policy on the S
+        policy-draw axis of the R x S grid and reports it as a SEPARATE `sampled_decoding`
+        block. The deterministic primary-decoding metrics are unchanged, and no block ever
+        selects best-of-S.
+        """
         if k_steps not in (0, 1, 2, 3, 5):
             raise AutomotivePrimaryError("k_steps must be one of 0/1/2/3/5, got %r" % (k_steps,))
         seeds = realization_seeds(replicates)
@@ -674,14 +902,15 @@ class AutomotiveHeldOutEvaluator(object):
                 "validation policy decoding %r does not match the requested %r"
                 % (getattr(self.policy, "_deterministic_default", None), decoding))
         per_replicate = []
+        sampled_cells = []
         for epoch, base_seed in enumerate(seeds):
             self._sync_from_core(sess)
-            k0_env = self._paired_env(self.query_graphs, base_seed, epoch)
+            k0_env = self._paired_env(self.query_graphs, base_seed, epoch, role="query")
             k0_paths = self._rollout_on(k0_env, self.policy, adapt_steps=0, seed=base_seed,
                                         deterministic=bool(flags["greedy"]))
             k0_by_slot = per_graph_makespans(k0_paths)
             panel = self.baseline_panel(k0_env, epoch=epoch) if with_baselines else \
-                self._panel_cache.get(epoch, {})
+                (self._cached_panel(epoch, k0_env) or {})
             k0_block = rollout_metric_block(k0_by_slot)
             entry = {
                 "replicate": epoch, "base_seed": int(base_seed),
@@ -692,21 +921,26 @@ class AutomotiveHeldOutEvaluator(object):
                 "k0_mode_switch_rate": k0_block["mode_switch_rate"],
                 "k0_metrics": k0_block,
                 "k0_per_graph": {int(k): v["makespan_s"] for k, v in k0_by_slot.items()},
+                # F27(3): the deterministic block also carries the world identity per slot.
+                "query_world_identities": _world_identity_rows(k0_env),
                 "panel": panel,
             }
             if panel:
                 entry["oracle_s"] = float(np.mean([p["candidate_oracle_s"] for p in panel.values()]))
                 entry["oracle_mean_s"] = entry["oracle_s"]
+                entry["oracle_selection_criterion"] = "best_of_panel_latency"
                 entry["k0_regret_s"] = float(np.mean([
                     regret(k0_by_slot[i]["makespan_s"], panel[i]) for i in sorted(panel)]))
+            active_env = k0_env
             if k_steps > 0:
-                support_env = self._paired_env(self.support_graphs, base_seed, epoch)
+                support_env = self._paired_env(self.support_graphs, base_seed, epoch,
+                                               role="support")
                 # support adaptation is STOCHASTIC by contract (inner PPO needs a
                 # distribution); only the reported query rollouts are deterministic
                 self._rollout_on(support_env, self.policy, adapt_steps=int(k_steps),
                                  seed=base_seed, deterministic=False)
                 self._assert_core_unchanged(sess)
-                kq_env = self._paired_env(self.query_graphs, base_seed, epoch)
+                kq_env = self._paired_env(self.query_graphs, base_seed, epoch, role="query")
                 kq_paths = self._rollout_on(kq_env, self.policy, adapt_steps=0,
                                             seed=base_seed,
                                             deterministic=bool(flags["greedy"]))
@@ -723,6 +957,14 @@ class AutomotiveHeldOutEvaluator(object):
                 if panel:
                     entry["k3_regret_s"] = float(np.mean([
                         regret(kq_by_slot[i]["makespan_s"], panel[i]) for i in sorted(panel)]))
+                active_env = kq_env
+            if sampled_draws is not None:
+                cells = self._sampled_grid_cells(active_env, epoch, base_seed,
+                                                 int(sampled_draws))
+                entry["sampled_cells"] = len(cells)
+                entry["sampled_latency_s_mean"] = float(np.mean(
+                    [c["episode_latency_s"] for c in cells])) if cells else float("nan")
+                sampled_cells.extend(cells)
             per_replicate.append(entry)
         out = {
             "protocol_id": PROTOCOL_ID, "protocol_sha": protocol_sha(),
@@ -734,6 +976,33 @@ class AutomotiveHeldOutEvaluator(object):
             "split": "validation",
             "per_replicate": per_replicate,
         }
+        if sampled_draws is not None:
+            # F27(4): the sampled block is emitted SEPARATELY from the deterministic block and
+            # is never merged into the selection metric. F27(5): best-of-S is never used --
+            # the reported number is the nested mean over the R x S grid.
+            out["sampled_decoding"] = {
+                "decoding": "sampled_crn",
+                "candidate": "trained_policy",
+                "r_select": int(len(seeds)),
+                "s_select": int(sampled_draws),
+                "best_of_s_used": False,
+                "selection_rule": ("reported as the nested mean over the R x S grid; the "
+                                   "minimum over s is NEVER used as the policy result"),
+                "cells": sampled_cells,
+                "n_cells": len(sampled_cells),
+                "unique_world_physics_sha256": len({
+                    c["world_physics_sha256"] for c in sampled_cells}),
+                "unique_draw_identities": len({
+                    tuple(c["crn_draw_identity"]) for c in sampled_cells}),
+            }
+            out["deterministic_decoding"] = {
+                "decoding": decoding,
+                "active_axis": ("k3" if k_steps > 0 else "k0"),
+                "selection_criterion": CHECKPOINT_RULE_ID,
+                "query_mean_latency_seconds": out.get(
+                    ("k3" if k_steps > 0 else "k0") + "_latency_s"),
+                "separate_from_sampled_block": True,
+            }
         keys = ["k0_latency_s", "k0_hard_rate", "k0_mc_violations", "k0_mode_switch_rate"]
         if k_steps > 0:
             keys += ["k3_latency_s", "k3_hard_rate", "k3_mc_violations", "k3_mode_switch_rate"]
@@ -770,6 +1039,14 @@ class AutomotiveHeldOutEvaluator(object):
                 if values:
                     out[key] = float(np.mean(values))
         out["energy_constraint"] = "not_configured"
+        # F16: record WHICH axis values were actually applied, so a run's evidence can never
+        # claim a grid it did not execute. The production default stays SELECT_REPLICATES for
+        # the v1 evaluator; the v2 evaluator sets the knobs.
+        out["applied_r_select"] = int(len(seeds))
+        out["applied_s_select"] = (None if sampled_draws is None else int(sampled_draws))
+        out["selection_criterion"] = CHECKPOINT_RULE_ID
+        if per_replicate and per_replicate[0].get("panel"):
+            out["oracle_selection_criterion"] = "best_of_panel_latency"
         return out
 
     def evaluate_all(self, k_steps: int, sess=None) -> dict:
@@ -777,12 +1054,17 @@ class AutomotiveHeldOutEvaluator(object):
         decoding, baselines on the same realizations.
 
         The legacy `k_steps in (0, 3)` interface is kept because the frozen Trainer and
-        its lexicographic checkpoint rule call it with 0 and 3.
+        its lexicographic checkpoint rule call it with 0 and 3. The v2 evaluator carries the
+        `r_select`/`s_select` knobs; when they are absent the production default
+        (`SELECT_REPLICATES = 5`) is used unchanged.
         """
         if k_steps not in (0, 3):
             raise AutomotivePrimaryError("k_steps must be 0 or 3 here, got %r" % (k_steps,))
-        return self.evaluate(int(k_steps), replicates=SELECT_REPLICATES,
-                             decoding=PRIMARY_DECODING, sess=sess)
+        replicates = int(getattr(self, "r_select", SELECT_REPLICATES))
+        sampled = getattr(self, "s_select", None)
+        return self.evaluate(int(k_steps), replicates=replicates,
+                             decoding=PRIMARY_DECODING, sess=sess,
+                             sampled_draws=(None if sampled is None else int(sampled)))
 
 
 def lexicographic_key(metrics: Mapping[str, Any]) -> tuple:

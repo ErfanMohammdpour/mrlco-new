@@ -132,6 +132,51 @@ class AutomotiveTrainerMixin(object):
         return updated
 
     # -- lexicographic validation -------------------------------------------
+    def _validation_checkpoint_record(self, k3: Mapping, itr: int, key) -> dict:
+        """One checkpoint candidate record for the feasibility-aware selector (F29).
+
+        `objective` is the validation latency; `feasible` is the HARD contract (zero graph
+        hard-deadline violation rate AND zero MC policy violation); `total_violation` is the
+        hard violation mass the selector reads. `select_checkpoint` requires all three to be
+        PRESENT, so a missing measurement raises instead of being read as satisfied.
+        """
+        hard = k3.get("graph_hard_violation_rate", 1.0)
+        mc = k3.get("mc_policy_violation_count", 1.0)
+        hard = 1.0 if hard is None else float(hard)
+        mc = 1.0 if mc is None else float(mc)
+        latency = k3.get("query_mean_latency_seconds")
+        latency = float("inf") if latency is None else float(latency)
+        high = k3.get("mean_high_tardiness_s")
+        medium = k3.get("mean_medium_tardiness_s")
+        return {
+            "itr": int(itr),
+            "objective": latency,
+            "feasible": bool(hard <= 0.0 and mc <= 0.0),
+            "total_violation": float(hard) + float(mc),
+            "graph_hard_violation_rate": hard,
+            "mc_policy_violation_count": mc,
+            "mean_high_tardiness_s": 0.0 if high is None else float(high),
+            "mean_medium_tardiness_s": 0.0 if medium is None else float(medium),
+            "lexicographic_key": [str(x) for x in key],
+        }
+
+    def _constraint_sidecar(self) -> dict:
+        """The constraint contract ACTUALLY applied (names + lambda vector + fractions)."""
+        manager = getattr(self, "auto_v2_constraint_manager", None)
+        names = list(manager.names) if manager is not None else []
+        if not names:
+            legacy = getattr(self, "auto_controller", None)
+            names = list(getattr(legacy, "names", []) or [])
+        lambdas = (manager.lambdas_by_name() if manager is not None
+                   else dict(getattr(self, "auto_lambda_broadcast_values", {}) or {}))
+        return {
+            "enabled": bool(names),
+            "names": [str(n) for n in names],
+            "lambda_vector": {str(k): float(v) for k, v in dict(lambdas).items()},
+            "budget_fractions": dict(getattr(self, "auto_constraint_budget_fractions", {}) or {}),
+            "applied_lambda_count": len(names),
+        }
+
     def _run_validation(self, itr):
         from utils import logger
 
@@ -144,6 +189,12 @@ class AutomotiveTrainerMixin(object):
 
         logger.logkv("evaluation/protocol_sha_present", 1.0)
         logger.logkv("evaluation/replicates", float(k3.get("replicates", 0)))
+        # F16: the axis values that were ACTUALLY executed by this validation, not the requested
+        # ones. A run must not be able to report a grid it never ran.
+        logger.logkv("evaluation/applied_r_select",
+                     float(k3.get("applied_r_select", k3.get("replicates", 0)) or 0))
+        logger.logkv("evaluation/applied_s_select",
+                     float(k3.get("applied_s_select", 0) or 0))
         logger.logkv("evaluation/paired_k3_minus_k0_mean_s",
                      float(k3.get("paired_k3_minus_k0_mean_s", float("nan"))))
         logger.logkv("evaluation/paired_k3_better_count",
@@ -214,6 +265,22 @@ class AutomotiveTrainerMixin(object):
                      float(abs(hash(key)) % 1000000007))
         logger.logkv("checkpoint_selection_latency_s",
                      float(k3.get("query_mean_latency_seconds", float("nan"))))
+        # F29: the feasibility-aware selector is actually CALLED on the run path. It is the only
+        # rule that labels a no-feasible-checkpoint case; the lexicographic key still orders the
+        # candidates, but a run can no longer keep a violating checkpoint silently.
+        from spec.automotive_training.v2.constraints_v2 import select_checkpoint
+
+        record = self._validation_checkpoint_record(k3, itr, key)
+        records = list(getattr(self, "auto_checkpoint_records", []) or [])
+        records.append(record)
+        self.auto_checkpoint_records = records
+        selection = select_checkpoint(records, objective_key="objective",
+                                      feasibility_key="feasible", violation_key="total_violation")
+        self.auto_checkpoint_selection = selection
+        logger.logkv("checkpoint_selection_feasible",
+                     1.0 if selection.get("feasible") else 0.0)
+        logger.logkv("checkpoint_selection_candidate_feasible",
+                     1.0 if record["feasible"] else 0.0)
         save = self.best_selection_key is None or key < tuple(self.best_selection_key)
         logger.logkv("checkpoint_is_best_val", 1.0 if save else 0.0)
         if save:
@@ -233,12 +300,31 @@ class AutomotiveTrainerMixin(object):
                 "value": float(k3.get("query_mean_latency_seconds", float("nan"))),
                 "itr": int(itr),
                 "higher_is_better": False,
-                "reward_mode": "latency_only",
+                # F29: the ACTUAL applied contract -- never a hardcoded label.
+                "reward_mode": str(getattr(self, "auto_reward_mode", "latency_only")),
+                "energy_constraint": str(getattr(self, "auto_energy_constraint",
+                                                 "not_configured")),
+                "constraints": self._constraint_sidecar(),
+                # Which of the two coexisting contracts selected this checkpoint. Never implicit.
+                "selection_criterion": str(getattr(self, "auto_selection_criterion",
+                                                   CHECKPOINT_RULE_ID)),
+                "selection_contract_alternatives": ["objective_contract_v1",
+                                                   "automotive_lexicographic_v1"],
+                "oracle_selection_criterion": str(
+                    getattr(self, "auto_oracle_selection_criterion", "best_of_panel_latency")),
+                "applied_r_select": int(k3.get("applied_r_select", 0) or 0),
+                "applied_s_select": (None if k3.get("applied_s_select") is None
+                                     else int(k3["applied_s_select"])),
+                # This candidate's own feasibility, and the selector's verdict over the whole
+                # candidate set (including the explicit "best infeasible retained" label).
+                "candidate_feasible": bool(record["feasible"]),
+                "checkpoint_feasible": bool(selection.get("feasible", False)),
+                "selection_feasible_index": int(selection.get("selected_index", -1)),
+                "selection_note": selection.get("selection_note"),
                 "discount": 0.99,
                 "query_discounted_return": float(k3.get("query_discounted_return", 0.0)),
                 "graph_hard_violation_rate": float(k3.get("graph_hard_violation_rate", 0.0)),
                 "mc_policy_violation_count": float(k3.get("mc_policy_violation_count", 0.0)),
-                "energy_constraint": "not_configured",
             }
             with open(self._ckpt_path("meta_model_best_val.metric.json"), "w") as fh:
                 json.dump(sidecar, fh, indent=2, sort_keys=True)
@@ -308,14 +394,29 @@ class _AutomotiveReportMixin(object):
             "constraints": {
                 "lambdas": (controller.lambdas if controller else {}),
                 "state": (controller.as_dict() if controller else {}),
-                "energy_constraint": "not_configured",
+                # F29: the actual applied energy-constraint contract, never a hardcoded label.
+                "energy_constraint": str(getattr(self, "auto_energy_constraint",
+                                                 "not_configured")),
+                "names": _controller_names(controller),
+                "budget_fractions": dict(getattr(self, "auto_constraint_budget_fractions",
+                                                 {}) or {}),
             },
             "checkpoint_rule": {"rule_id": CHECKPOINT_RULE_ID, "steps": list(CHECKPOINT_RULE),
                                 "sha": checkpoint_rule_sha()},
             "meta_test_access_count": None,
             "deadline_mask": "off",
             "queue_blind_mask_used": False,
-            "objective_mode": "latency_only",
+            "objective_mode": str(getattr(self, "auto_reward_mode", "latency_only")),
+            # F29: WHICH selection contract chose the checkpoint (two coexist).
+            "selection_criterion": str(getattr(self, "auto_selection_criterion",
+                                               CHECKPOINT_RULE_ID)),
+            "oracle_selection_criterion": str(getattr(self, "auto_oracle_selection_criterion",
+                                                      "best_of_panel_latency")),
+            "checkpoint_selection": dict(getattr(self, "auto_checkpoint_selection", {}) or {}),
+            "applied_axes": {"r_select": int(getattr(self, "auto_crn", {}).get(
+                "applied_r_select", 0) or 0),
+                "s_select": int(getattr(self, "auto_crn", {}).get("applied_s_select", 0) or 0)},
+            "checkpoint_interval": int(getattr(self, "auto_checkpoint_interval", 10) or 10),
             "last_validation": dict(getattr(self, "auto_last_validation", {}) or {}),
             "mc_fixture": dict(getattr(self, "auto_mc_fixture", {}) or {}),
             "peak_gpu_bytes": _peak_gpu_bytes(),

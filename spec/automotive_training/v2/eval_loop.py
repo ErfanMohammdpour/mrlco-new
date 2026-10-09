@@ -23,7 +23,9 @@ every (r, s) cell so the pairing is exact.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import math
 import statistics
 import sys
 from dataclasses import dataclass
@@ -41,17 +43,24 @@ REPORTS = ROOT / "spec" / "automotive_training" / "reports" / "v2_system_model"
 from spec.automotive_training.automotive_loader import load_dataset  # noqa: E402
 from spec.automotive_training.v2.adapters import plan_map_from_actions, pure_plan  # noqa: E402
 from spec.automotive_training.v2.constraints_v2 import (  # noqa: E402
-    spec_from_fractions, v2_metrics,
+    V2ConstraintError, require_measurable, spec_from_fractions, v2_metrics,
 )
 from spec.automotive_training.v2.crn import (  # noqa: E402
     DEFAULT_R_SELECT, DEFAULT_S_SELECT, PROTOCOL_ID, gumbel_argmax, gumbel_noise,
     nested_aggregate, paired_delta, protocol_sha, seed_pair,
 )
-from spec.automotive_training.v2.energy import schedule_energy  # noqa: E402
+from spec.automotive_training.v2.energy import UNMODELED, schedule_energy  # noqa: E402
 from spec.automotive_training.v2.link_model import make_process  # noqa: E402
 from spec.automotive_training.v2.world import (  # noqa: E402
     V2World, V2WorldConfig, build_world,
 )
+
+#: SEED NAMESPACES. The environmental realization and the policy-draw noise must never be
+#: derived from the same material string: `seed_pair(PROTOCOL_ID, r, 0, graph)` had the SAME
+#: key as the s=0 Gumbel draw `gumbel_noise(PROTOCOL_ID, r, 0, graph)`, so the environment seed
+#: and the first policy sample were two reads of one namespace. They are separated here (F03).
+ENV_SEED_DOMAIN = PROTOCOL_ID + "|env"
+MC_SEED_DOMAIN = PROTOCOL_ID + "|mc"
 
 #: candidate baselines. `all_*` are pure-location references; `greedy_cd` is a declared
 #: latency-aware coordinate-descent baseline with a 1-sweep computational budget.
@@ -100,13 +109,80 @@ class EvalProtocol:
         return dict(self.__dict__)
 
 
+def mc_identity(mc: Mapping | None) -> str:
+    """Content identity of one MC realization (demand + mode + executed sub-DAG)."""
+    material = json.dumps(mc, sort_keys=True, default=str) if mc is not None else "<no-mc>"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def physics_fingerprint(world: V2World) -> str:
+    """Identity of the world's PHYSICS, deliberately EXCLUDING `world_id`/`slot_id`.
+
+    `V2World.fingerprint_sha256()` includes the world identity label. Two realizations that
+    differ only by label therefore compared unequal while their physics was identical -- and,
+    the audited failure, two realizations whose physics was identical compared unequal, which
+    let a no-op R axis look exogenous. The R axis must be proven on physics, never on a name,
+    so this fingerprint excludes `world_id`, `slot_id` and the scored foreground plan.
+    """
+    payload = {
+        "config": world.config.as_dict(),
+        "dataset_graph_id": int(world.dataset_graph_id),
+        "dags": [{"dag_id": d.dag_id, "owner": int(d.owner), "arrival_s": float(d.arrival_s),
+                  "helper_id": d.helper_id,
+                  "tasks": [[int(t.task_id), float(t.compute_bytes), float(t.output_bytes),
+                             list(t.predecessors), bool(t.is_root), bool(t.is_sink),
+                             str(t.criticality), t.deadline_s, int(t.owner),
+                             float(t.external_input_bytes)] for t in d.tasks]}
+                 for d in world.dags],
+        "helpers": {k: [v.cpu_bytes_per_s, v.busy_until_s, v.contact_start_s, v.contact_end_s,
+                        v.predicted_contact_end_s] for k, v in sorted(world.helpers.items())},
+        "link": vars(world.link),
+        "compute": [world.compute.mec_cpu_bytes_per_s, world.compute.mec_workers,
+                    list(world.compute.ue_cpu_bytes_per_s),
+                    list(world.compute.helper_cpu_bytes_per_s)],
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
+def unmodelled_components() -> dict:
+    """The energy components that are OUT of the modelled boundary, labelled UNMODELLED.
+
+    They are reported as a named gap, never as a measured zero: an unmodelled receiver/static/
+    idle/backhaul/battery term is not a term that was measured to be 0 J.
+    """
+    return {"status": "UNMODELLED", "components": [str(c) for c in UNMODELED]}
+
+
+def replicate_mc(graph, protocol: EvalProtocol, replicate: int) -> dict:
+    """Draw the DEMAND realization for environmental replicate `replicate`.
+
+    The R axis is only exogenous if it moves the physics. The helper contact window alone does
+    not reach the critical path, so a world built with `mc=None` had BIT-IDENTICAL foreground
+    `compute_bytes` for every r and reported `stderr = 0.0` on the published R axis. The demand
+    realization is drawn under its OWN namespace (which includes the replicate index) and is fed
+    to `build_world`, so executed survivors and effective work both move with r.
+    """
+    from spec.automotive_training import mc_runtime
+
+    graph_id = str(getattr(graph, "graph_id", "g"))
+    seed_a, seed_b = seed_pair(MC_SEED_DOMAIN, int(replicate), 0, graph_id)
+    seed = int(seed_a) ^ (int(seed_b) << 1)
+    uncertainty = mc_runtime.load_uncertainty()
+    realized = mc_runtime.draw_realized_demands(graph, seed, uncertainty)
+    mc = mc_runtime.resolve_mode_and_execution(graph, realized, None, uncertainty)
+    if any(str(t.criticality) == "HIGH" for t in graph.tasks):
+        mc_runtime.assert_high_preserved(mc, graph)
+    return mc
+
+
 def replicate_world(graph, protocol: EvalProtocol, replicate: int,
                     dataset_graph_id: int = 0) -> tuple:
     """Build the world for environmental realization `replicate` (identity-keyed seeds)."""
     graph_id = str(getattr(graph, "graph_id", "g"))
-    env_seed, helper_seed = seed_pair(protocol.protocol_id, replicate, 0, graph_id)
+    env_seed, helper_seed = seed_pair(ENV_SEED_DOMAIN, replicate, 0, graph_id)
+    mc = replicate_mc(graph, protocol, replicate)
     world = build_world(graph, slot_id=replicate, world_id="crn_r%d_%s" % (replicate, graph_id),
-                        dataset_graph_id=dataset_graph_id,
+                        dataset_graph_id=dataset_graph_id, mc=mc,
                         config=protocol.world_config(), helper_seed=helper_seed)
     link_process = None
     if str(protocol.link_regime) != "stable":
@@ -120,6 +196,11 @@ def _score(world: V2World, plan_map: Mapping, *, link_process=None) -> dict:
     world.annotate(result)
     ledger = schedule_energy(result)
     metrics = v2_metrics(result, ledger)
+    # FAIL LOUDLY (F28): the fail-loudly gate existed but was only ever called from
+    # `v2_constraint_costs`. Every REQUIRED metric of the scored episode is checked here, so a
+    # missing or non-finite energy/latency/airtime measurement raises instead of being folded
+    # into a downstream zero.
+    require_measurable(metrics, context="v2.eval_loop._score")
     timings = [tm for tm in result.timings.values() if tm.dag_id == world.foreground_id]
     # REAL deadline statistics. `deadline_miss_rate` was hard-coded to 0.0, so every baseline
     # reported a perfect deadline record that was never measured -- while the model's own
@@ -145,14 +226,20 @@ def _score(world: V2World, plan_map: Mapping, *, link_process=None) -> dict:
             tardy_seconds[crit] += late
     judged = sum(n_judged.values())
     missed = sum(tardy.values())
-    return {
+    if judged <= 0:
+        # A miss RATE with a zero denominator is not a measured zero. Reporting one let an
+        # episode with no deadline at all present a perfect deadline record.
+        raise EvalLoopError(
+            "deadline_miss_rate is REQUIRED but no task in world %s carried a deadline; "
+            "refusing to report an unmeasured 0.0" % (world.world_id,))
+    out = {
         "episode_latency_s": float(result.episode_latency_s),
         "world_makespan_s": float(result.world_makespan_s),
         "system_joules": float(ledger.system_joules),
         "requester_joules": float(ledger.requester_joules),
         "mobile_joules": float(ledger.mobile_joules),
         "helper_task_fraction": float(metrics.v2v_task_fraction),
-        "deadline_miss_rate": (float(missed) / float(judged)) if judged else 0.0,
+        "deadline_miss_rate": float(missed) / float(judged),
         "n_judged_tasks": int(judged),
         "n_judged_high": int(n_judged["HIGH"]),
         "n_judged_medium": int(n_judged["MEDIUM"]),
@@ -168,11 +255,32 @@ def _score(world: V2World, plan_map: Mapping, *, link_process=None) -> dict:
         "v2v_airtime_s": float(metrics.v2v_airtime_s),
         "location_mix": {loc: sum(1 for tm in timings if tm.location == loc)
                          for loc in ("UE", "MEC", "HELPER")},
+        # The RX / static / idle / backhaul / battery terms are NOT measured zero: they are
+        # outside the modelled boundary and are reported as an explicit UNMODELLED gap.
+        "unmodelled": unmodelled_components(),
     }
+    for key, value in out.items():
+        if key in _NON_NUMERIC_SCORE_KEYS:
+            continue
+        if isinstance(value, float) and not math.isfinite(value):
+            raise EvalLoopError("scored metric %s is not finite: %r (world %s)"
+                                % (key, value, world.world_id))
+    return out
 
 
-def baseline_plans(world: V2World, graph, protocol: EvalProtocol) -> dict:
-    """The declared baseline panel, all on the SAME v2 world/scheduler/objective."""
+#: score keys that are LABELS/STRUCTURES, never numbers
+_NON_NUMERIC_SCORE_KEYS = frozenset({"location_mix", "unmodelled"})
+
+
+def baseline_plans(world: V2World, graph, protocol: EvalProtocol,
+                   link_process=None) -> dict:
+    """The declared baseline panel, all on the SAME v2 world/scheduler/objective.
+
+    `link_process` is the episode's realized link stream. It is forwarded to every internal
+    trial so the greedy coordinate-descent SEARCH is scored on the same realized link as its
+    final score -- otherwise the search optimised a different (nominal-link) world from the one
+    the plan was reported on.
+    """
     tokens = [int(t) for t in pure_plan(graph, 0).keys()]
     plans = {
         "all_ue": pure_plan(graph, 0),
@@ -187,7 +295,7 @@ def baseline_plans(world: V2World, graph, protocol: EvalProtocol) -> dict:
             for action in (0, 1, 2):
                 trial = dict(chosen)
                 trial[tok] = action
-                value = _score(world, trial)["episode_latency_s"]
+                value = _score(world, trial, link_process=link_process)["episode_latency_s"]
                 if best is None or value < best[0]:
                     best = (value, action)
             chosen[tok] = best[1]
@@ -230,7 +338,15 @@ def evaluate_candidate(graph, name: str, protocol: EvalProtocol,
     cells = []
     for r in range(int(protocol.r_select)):
         world, link_process = replicate_world(graph, protocol, r, dataset_graph_id)
-        plans = baseline_plans(world, graph, protocol)
+        # F27(3): every cell carries the IDENTITY of the world it was scored on, so a row can
+        # never be compared against a row from a different realization without the difference
+        # being visible. `mc_id` is the demand-realization content hash (the R axis's actual
+        # physics), not the world label.
+        world_fp = world.fingerprint_sha256()
+        physics_fp = physics_fingerprint(world)
+        cell_mc_id = mc_identity(replicate_mc(graph, protocol, r))
+        cell_config_sha = world.config.sha256()
+        plans = baseline_plans(world, graph, protocol, link_process=link_process)
         if name in plans:
             plan_map = plans[name]
             deterministic = True
@@ -254,6 +370,13 @@ def evaluate_candidate(graph, name: str, protocol: EvalProtocol,
             metrics["r"] = r
             metrics["s"] = s
             metrics["deterministic"] = bool(deterministic)
+            metrics["graph_id"] = graph_id
+            metrics["world_id"] = world.world_id
+            metrics["world_fingerprint_sha256"] = world_fp
+            metrics["world_physics_sha256"] = physics_fp
+            metrics["mc_id"] = cell_mc_id
+            metrics["config_sha"] = cell_config_sha
+            metrics["dataset_graph_id"] = int(dataset_graph_id)
             cells.append(metrics)
             for key in METRIC_KEYS:
                 replicate_metrics[key].append(float(metrics[key]))
@@ -273,11 +396,16 @@ def evaluate_candidate(graph, name: str, protocol: EvalProtocol,
     return {
         "candidate": name,
         "deterministic": name not in (STOCHASTIC_CANDIDATE,),
+        "decoding": ("deterministic_argmax" if name not in (STOCHASTIC_CANDIDATE,)
+                     else "sampled_crn"),
         "r_select": int(protocol.r_select),
         "s_select": int(protocol.s_select),
         "cells": cells,
         "replicate_means": per_replicate,
         "nested": aggregate,
+        "aggregation": ("mean over s within a replicate, then mean over the R replicate means; "
+                        "stderr on the R replicate means. best-of-S is NEVER used"),
+        "best_of_s_used": False,
     }
 
 
@@ -307,6 +435,16 @@ def run_evaluation(graphs: Sequence, *, protocol: EvalProtocol | None = None,
         for name in names:
             per_graph["candidates"][name] = evaluate_candidate(
                 graph, name, protocol, dataset_graph_id=int(ids[gi]))
+        # R-AXIS EVIDENCE (F27(1)): the per-replicate PHYSICS identity and demand-realization
+        # identity, so a run can prove that R moved the world and not only its name.
+        axis = {}
+        for name in names:
+            for cell in per_graph["candidates"][name]["cells"]:
+                axis.setdefault(int(cell["r"]), (cell["world_physics_sha256"], cell["mc_id"]))
+        per_graph["realization_axis"] = [
+            {"r": r, "world_physics_sha256": axis[r][0], "mc_id": axis[r][1]}
+            for r in sorted(axis)]
+        per_graph["r_axis_moves_physics"] = len({v[0] for v in axis.values()}) > 1
         if reference_candidate not in per_graph["candidates"]:
             raise EvalLoopError("reference candidate %r is not in the panel"
                                 % reference_candidate)
@@ -328,6 +466,34 @@ def run_evaluation(graphs: Sequence, *, protocol: EvalProtocol | None = None,
     out["panel_mean_over_graphs"] = {
         name: {key: float(statistics.fmean(vals)) for key, vals in metrics.items()}
         for name, metrics in totals.items()}
+    # F27(4)/(5): deterministic and stochastic candidates are NEVER merged into one
+    # "policy result". They are emitted as two explicit blocks, each carrying its own
+    # aggregation statement, and neither applies best-of-S selection.
+    deterministic_names = [n for n in names if n in DETERMINISTIC_CANDIDATES]
+    sampled_names = [n for n in names if n not in DETERMINISTIC_CANDIDATES]
+
+    def _decoding_block(block_names, decoding):
+        return {
+            "decoding": decoding,
+            "candidates": {n: dict(out["panel_mean_over_graphs"][n]) for n in block_names},
+            "aggregation": ("mean over s within a replicate, then mean over the R replicate "
+                            "means; stderr on the R replicate means"),
+            "selection_rule": ("the reported result is the distribution mean over the R x S "
+                               "grid; best-of-S (min over s) is NEVER used as the result"),
+            "best_of_s_used": False,
+            "r_select": int(protocol.r_select),
+            "s_select": int(protocol.s_select),
+        }
+
+    out["deterministic_decoding"] = _decoding_block(deterministic_names,
+                                                    "deterministic_argmax")
+    out["sampled_decoding"] = _decoding_block(sampled_names, "sampled_crn")
+    out["aggregation_contract"] = {
+        "nested": True,
+        "best_of_s_used": False,
+        "deterministic_and_sampled_separate": True,
+        "policy_substitution": out["policy_substitution"],
+    }
     return out
 
 
