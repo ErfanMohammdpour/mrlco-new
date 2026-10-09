@@ -203,6 +203,14 @@ class V2AutomotiveEnv:
         self._worlds: dict = {}
         self._world_key = None
         self._v1_schedule_trap = False
+        #: F05: the admission/reliability evidence dict handed to the scheduler at decision
+        #: time, recorded per flat slot so a caller (and the future-blindness regressions) can
+        #: verify that no hidden realization reaches the admission path.
+        self.last_admission_evidence: dict = {}
+        #: F05: (payload_in, compute_bytes, output_bytes) of each graph's NOMINAL (MC-free)
+        #: foreground DAG, keyed by graph_id. `contact_slack` is a decision-time channel and
+        #: must not read the MC-filtered `world.foreground`.
+        self._nominal_payloads: dict = {}
         self._reference_ranges: dict = {}
         self._reference_results: dict = {}
         self._reference_ledgers: dict = {}
@@ -330,6 +338,7 @@ class V2AutomotiveEnv:
         self._reference_ranges = {}
         self._reference_results = {}
         self._reference_ledgers = {}
+        self.last_admission_evidence = {}
         self.helper_states = []
         for flat in range(len(slots)):
             world = self._build_slot_world(flat)
@@ -437,6 +446,15 @@ class V2AutomotiveEnv:
 
         The three pure-location worlds are built from the SLOT'S OWN graph and cached per
         episode; no validation/meta-test statistic is ever consulted.
+
+        F05 (hidden realization): the reference worlds are built from the NOMINAL graph
+        (`mc=None`), i.e. the full declared DAG. The MC realization is a HIDDEN future drawn
+        after the plan-time observation, so letting it select the reference survivors /
+        `effective_equiv` made `refs`, the six `est_wait_*`/`est_energy_*` observation columns
+        and the total-energy budget anchor move with the realization the policy is scored on
+        (a decision-time leak of the hidden future into the observation). EXECUTION is
+        untouched: the episode's own world (`_build_slot_world`) still carries the realized
+        MC and is scheduled against it.
         """
         slot = int(slot)
         if slot in self._reference_ranges:
@@ -445,7 +463,8 @@ class V2AutomotiveEnv:
             return None
         world = self.world_for_slot(slot)
         graph = self.base.graph_objects[world.dataset_graph_id]
-        mc = self.base._slot_mc[slot] if self.base._slot_mc else None
+        # NOMINAL, realization-independent reference graph (F05): never `self.base._slot_mc`.
+        mc = None
         refs_cfg = self.world_config
         if self._world_key is not None:
             ref_helper_seed = stable_seed(self.base_seed, "helper", self._world_key, slot)
@@ -466,6 +485,27 @@ class V2AutomotiveEnv:
             {name: schedule_energy(res) for name, res in plans.items()}
             if self.energy_enabled else {})
         return refs
+
+    def _nominal_payloads_for(self, graph) -> tuple:
+        """(payload_in, compute_bytes, output_bytes) of the NOMINAL (MC-free) foreground DAG.
+
+        F05: `contact_slack` is a DECISION-TIME channel, so its byte inputs must be a property
+        of the declared graph, never of the hidden realization. Reading `world.foreground`
+        (survivors + MC `effective_equiv`) made the slack a function of the realized future.
+        Cached by dataset graph identity (the payload is graph-level, not slot-level).
+        """
+        key = str(graph.graph_id)
+        cache = self._nominal_payloads
+        value = cache.get(key)
+        if value is None:
+            spec = dag_spec_from_graph(graph, dag_id="nominal_%s" % key, owner=0, mc=None)
+            value = (
+                max([float(t.external_input_bytes) for t in spec.tasks] or [0.0]),
+                float(sum(t.compute_bytes for t in spec.tasks)),
+                max([float(t.output_bytes) for t in spec.tasks] or [0.0]),
+            )
+            cache[key] = value
+        return value
 
     def _scheduler_fingerprint(self) -> str:
         """64-hex scheduler fingerprint required by a SCOPED `ReferenceRanges`.
@@ -585,6 +625,12 @@ class V2AutomotiveEnv:
                                         self.link_process.past_outage_fraction(LINK_V2V, 0.0)]))
             evidence = {"link_confidence": conf, "outage_fraction": outage,
                         "evidence_window": "past_only:[0,plan_time]"}
+        # F05: record the DECISION-TIME admission evidence. It is an admission input (the
+        # scheduler turns it into helper/reliability rejections), so it must be reachable by a
+        # regression that checks a hidden realization cannot change it.
+        if not isinstance(getattr(self, "last_admission_evidence", None), dict):
+            self.last_admission_evidence = {}
+        self.last_admission_evidence[int(slot)] = dict(evidence) if evidence else {}
         result = world.with_foreground_actions(graph, actions).schedule(
             link_process=self.link_process, reliability_gate=gate,
             reliability_evidence=evidence,
@@ -843,8 +889,27 @@ class V2AutomotiveEnv:
                 raise V2EnvError(
                     "cannot produce the trainer constraint channels for slot %s: %s"
                     % (slot, exc)) from exc
+        # ---- MC-POLICY TELEMETRY (F15/F28) ----
+        # `mode`, `mode_switch_count`, `dropped_task_count` and `high_preserved` used to be
+        # ABSENT from the v2 telemetry, so `automotive_primary.per_graph_makespans` silently
+        # defaulted them (`0`, `0`, `True`). That made `mc_policy_violation_count` and
+        # `mode_switch_rate` read as measured zeros without any measurement, and made the
+        # MC term of the lexicographic checkpoint rule inert. They are now emitted from the
+        # realized MC resolution, and their absence is an ERROR rather than a fabricated zero.
+        mc_record = None
+        if self.base._slot_mc and int(slot) < len(self.base._slot_mc):
+            mc_record = self.base._slot_mc[int(slot)]
+        if not isinstance(mc_record, Mapping):
+            raise V2EnvError(
+                "slot %s has no MC realization: the trainer's MC-policy metrics (mode, "
+                "mode_switch_count, dropped_task_count, high_preserved) cannot be measured "
+                "and must not be reported as zero" % (slot,))
         out = {
             "schema_version": TELEMETRY_SCHEMA_VERSION,
+            "mode": str(mc_record.get("final_mode")),
+            "mode_switch_count": int(len(mc_record.get("switches") or [])),
+            "dropped_task_count": int(len(mc_record.get("dropped_task_ids") or [])),
+            "high_preserved": 1.0 if bool(mc_record.get("high_preserved")) else 0.0,
             "requester_joules": float(telemetry.requester_joules),
             "mobile_joules": float(telemetry.mobile_joules),
             "system_joules": float(telemetry.system_joules),
@@ -1000,16 +1065,23 @@ class V2AutomotiveEnv:
         budget_ratio = 0.0
         if self.constraint_manager is not None and refs is not None:
             spec = self.constraint_manager.spec
-            if getattr(spec, "total_energy_frac_of_all_ue", None) is not None:
-                # MUST mirror `constraints.budgets_and_scales` exactly. The total-energy
-                # measurement is whole-world SYSTEM scope, so its budget and scale are
-                # anchored on the pure all-MEC plan's SYSTEM energy (measured on this same
-                # world, background included) and NOT on `E_ue`, whose all-UE plan leaves the
-                # shared MEC energy to the background and is therefore tiny. Divergence here
-                # made the policy observe a budget ratio that did not match the constraint it
-                # was actually being scored on.
-                system_reference = float(refs.E_mec)
-                budget = float(spec.total_energy_frac_of_all_ue) * system_reference
+            # MUST mirror `constraints.budgets_and_scales` exactly, INCLUDING the anchor knob
+            # precedence: `total_energy_frac_of_all_mec -> E_mec` (the production V2
+            # configuration), then `total_energy_frac_of_all_ue -> E_ue` (V1 semantics). The
+            # previous code read the `..._of_all_ue` knob unconditionally, so the production
+            # MEC-anchored spec (which sets only `..._of_all_mec`) observed a budget ratio of
+            # exactly 0.0 while its constraints were active. The total-energy measurement is
+            # FOREGROUND-only system scope, so both anchors are the pure-location plan SYSTEM
+            # energies measured on the SAME nominal DAG set (F05: realization-independent).
+            anchor = None
+            if getattr(spec, "total_energy_frac_of_all_mec", None) is not None:
+                anchor = float(refs.E_mec)
+                frac = float(spec.total_energy_frac_of_all_mec)
+            elif getattr(spec, "total_energy_frac_of_all_ue", None) is not None:
+                anchor = float(refs.E_ue)
+                frac = float(spec.total_energy_frac_of_all_ue)
+            if anchor is not None:
+                budget = frac * max(anchor, 0.0)
                 budget_ratio = float(budget / max(max(energies.values()), 1e-12))
         lambdas = (self.constraint_manager.lambdas_by_name()
                    if self.constraint_manager is not None else {})
@@ -1017,14 +1089,18 @@ class V2AutomotiveEnv:
         if helper is not None and world is not None:
             from spec.automotive_training.v2.reliability import contact_slack
 
-            fg = world.foreground
-            payload_in = max([float(t.external_input_bytes) for t in fg.tasks] or [0.0])
+            # F05 (second leak): the payload/compute/output bytes must come from the
+            # CANONICAL (nominal) graph. `world.foreground` is the MC-filtered realized DAG,
+            # so reading it made `contact_slack` a function of the hidden realization
+            # (reproduced: 1.0 vs 0.937546 across epochs with a short contact window, masked
+            # at the default 2.0 s mean).
+            payload_in, compute_bytes, output_bytes = self._nominal_payloads_for(graph)
             slack = float(contact_slack(
                 predicted_contact_end_s=predicted, now_s=0.0, payload_in_bytes=payload_in,
-                compute_bytes=float(sum(t.compute_bytes for t in fg.tasks)),
+                compute_bytes=compute_bytes,
                 v2v_bytes_per_s=float(world.link.v2v_bytes_per_s),
                 helper_bytes_per_s=float(world.compute.helper_cpu_bytes_per_s[0]),
-                output_bytes=float(max([t.output_bytes for t in fg.tasks] or [0.0]))))
+                output_bytes=output_bytes))
         background = float(world.config.background_dags) if world is not None else 0.0
         vector = [
             est[LINK_UL], est[LINK_DL], est[LINK_V2V],

@@ -350,3 +350,159 @@ class TestTotalEnergyScopeConsistency(unittest.TestCase):
         refs = reference_ranges_from_plans(plans, scheduler_config_sha256=SHA)
         # the all-UE plan's SYSTEM energy is far below the all-MEC plan's on this same world
         self.assertGreater(float(refs.E_mec) / max(float(refs.E_ue), 1e-12), 10.0)
+
+
+class TestReferenceEnergiesFollowTheFrozenTierContract(unittest.TestCase):
+    """F11 consequence: every energy reference must be re-derived at RUNTIME from the
+    resolved V2 resource contract `R = f_frozen/(8*xi)`.
+
+    The F11 fix rewrote the scheduling/pricing frequency, so any reference whose value was
+    produced under the OLD per-graph dataset frequency (`f_dataset/(8*xi)`) is stale: the
+    duration form and the work form referred to different `f`. These tests recompute each
+    reference INDEPENDENTLY from `f_frozen`, `xi` and `kappa` (never by re-reading
+    `reference_ranges_from_plans` output) and pin the approved FRACTIONS.
+    """
+
+    def _env(self, background=0):
+        from spec.automotive_training.automotive_loader import load_dataset
+
+        graphs = list(load_dataset().validation_query())[:SLOTS]
+        env = V2AutomotiveEnv(graphs, AutomotiveResourceCluster(), role="validation",
+                              slots_per_task=SLOTS, base_seed=19, single_dist=True,
+                              background_dags=int(background),
+                              constraints_enabled=True,
+                              budget_fractions={"total_energy_mec": 0.5, "ue_energy": 1.0},
+                              scheduler_config_sha256=SHA)
+        env.set_task({"dist_index": 0,
+                      "graph_indices": np.arange(SLOTS, dtype=np.int32)})
+        env.reset()
+        return graphs, env
+
+    def test_each_reference_is_the_analytic_frozen_tier_cpu_work(self):
+        from spec.automotive_training.automotive_resources import (
+            dataset_reference_parameters,
+        )
+        from spec.automotive_training.v2.adapters import config_for, dag_spec_from_graph
+        from spec.automotive_training.v2.energy import frozen_energy_spec
+
+        graphs, env = self._env()
+        xi = float(dataset_reference_parameters()["xi_cycles_per_bit"])
+        tiers = frozen_energy_spec().tiers
+        for slot, graph in enumerate(graphs):
+            refs = env.reference_ranges_for_slot(slot)
+            ledgers = env._reference_ledgers[slot]
+            nominal = dag_spec_from_graph(graph, dag_id="analytic", owner=0, mc=None)
+            workload_bytes = float(sum(float(t.compute_bytes) for t in nominal.tasks))
+            self.assertGreater(workload_bytes, 0.0)
+            # the slot's scheduler rate must BE the analytic frozen-tier rate
+            cfg = config_for(graph)
+            for tier, rate in (("ue", cfg.ue_cpu_bytes_per_second),
+                               ("helper", cfg.helper_cpu_bytes_per_second),
+                               ("mec", cfg.mec_cpu_bytes_per_second)):
+                self.assertAlmostEqual(
+                    float(rate), float(tiers[tier].f_hz) / (8.0 * xi), places=6,
+                    msg="%s scheduler rate is not f_frozen/(8*xi)" % tier)
+            for plan_name, tier in (("all_ue", "ue"), ("all_mec", "mec"),
+                                    ("all_helper", "helper")):
+                # analytic: T = C/f = bytes*8*xi/f  and  E = kappa*C*f^2
+                expected_seconds = workload_bytes * 8.0 * xi / float(tiers[tier].f_hz)
+                expected_joules = float(tiers[tier].kappa) * (
+                    workload_bytes * 8.0 * xi) * float(tiers[tier].f_hz) ** 2
+                ledger = ledgers[plan_name]
+                self.assertAlmostEqual(float(ledger.per_tier_cpu_seconds[tier]),
+                                       expected_seconds, places=9)
+                # the DURATION form and the WORK form coincide: the F11 identity
+                self.assertAlmostEqual(float(ledger.cpu_duration_form_j), expected_joules,
+                                       places=9)
+                self.assertAlmostEqual(float(ledger.cpu_work_form_j), expected_joules,
+                                       places=9)
+                self.assertAlmostEqual(float(ledger.cpu_work_over_duration), 1.0, places=9)
+                reference = {"all_ue": float(refs.E_ue), "all_mec": float(refs.E_mec),
+                             "all_helper": float(refs.E_helper)}[plan_name]
+                self.assertAlmostEqual(reference, float(ledger.system_joules), places=6)
+                # the CPU part can never exceed the system reference
+                self.assertLessEqual(expected_joules, reference + 1e-9)
+            # an all-UE plan is CPU-only, so its reference IS the analytic work
+            self.assertAlmostEqual(
+                float(refs.E_ue),
+                float(tiers["ue"].kappa) * (workload_bytes * 8.0 * xi)
+                * float(tiers["ue"].f_hz) ** 2, places=9)
+
+    def test_references_are_recomputed_from_the_live_contract_not_a_cached_artifact(self):
+        """Invalidate the cache through the LIVE contract: doubling f doubles the rate and
+        quadruples the CPU energy (`E = kappa*C*f^2`), with no frozen reference in between."""
+        import dataclasses
+        from unittest import mock
+
+        import spec.automotive_training.v2.energy as energy_module
+
+        _graphs, env = self._env()
+        baseline = env.reference_ranges_for_slot(0)
+        live = energy_module.frozen_energy_spec()
+        doubled = dataclasses.replace(
+            live, tiers={name: dataclasses.replace(tier, f_hz=2.0 * float(tier.f_hz))
+                         for name, tier in live.tiers.items()})
+        with mock.patch.object(energy_module, "frozen_energy_spec",
+                               lambda path=None: doubled):
+            env._reference_ranges = {}
+            env._reference_results = {}
+            env._reference_ledgers = {}
+            moved = env.reference_ranges_for_slot(0)
+        self.assertNotEqual(float(moved.E_ue), float(baseline.E_ue))
+        # all-UE is CPU-only: the energy scales exactly as f^2
+        self.assertAlmostEqual(float(moved.E_ue), 4.0 * float(baseline.E_ue), places=9)
+        # and restoring the contract restores the value: nothing was frozen/cached
+        env._reference_ranges = {}
+        env._reference_results = {}
+        env._reference_ledgers = {}
+        restored = env.reference_ranges_for_slot(0)
+        self.assertAlmostEqual(float(restored.E_ue), float(baseline.E_ue), places=12)
+        self.assertAlmostEqual(float(restored.E_mec), float(baseline.E_mec), places=12)
+
+    def test_approved_fractions_are_unchanged_and_bound_the_same_dag_and_boundary(self):
+        """(3)+(4): fractions 0.5 (total, all-MEC anchor) and 1.0 (UE) are NOT retuned; the
+        measurement and its reference describe the same FOREGROUND/system boundary."""
+        from spec.automotive_training.v2.constraints_v2 import (
+            spec_from_fractions, v2_constraint_costs,
+        )
+        from spec.automotive_training.v2.energy import schedule_energy
+
+        spec = spec_from_fractions({"total_energy_mec": 0.5, "ue_energy": 1.0})
+        self.assertEqual(float(spec.total_energy_frac_of_all_mec), 0.5)
+        self.assertEqual(float(spec.ue_energy_frac_of_all_ue), 1.0)
+        self.assertIsNone(spec.total_energy_budget_j)
+
+        graphs, env = self._env(background=2)
+        env.reset()
+        _o, _r, _d, info = env.step(np.ones((SLOTS, TOKENS), dtype=int))
+        for slot, record in enumerate(info[2]):
+            refs = env.reference_ranges_for_slot(slot)
+            constraints = record["constraints"]
+            index = list(constraints["names"]).index("total_energy")
+            self.assertAlmostEqual(float(constraints["total_energy_budget"]),
+                                   0.5 * float(refs.E_mec), places=6)
+            self.assertAlmostEqual(float(constraints["total_energy_scale"]),
+                                   float(refs.E_mec), places=6)
+            self.assertAlmostEqual(float(constraints["ue_energy_budget"]),
+                                   1.0 * float(refs.E_ue), places=6)
+            # the constrained measurement is the FOREGROUND-only ledger, which is exactly the
+            # same DAG/ownership boundary the background-free reference plans describe
+            self.assertAlmostEqual(float(constraints["total_energy_raw"]),
+                                   float(record["foreground_system_joules"]), places=6)
+            self.assertLess(float(record["foreground_system_joules"]),
+                            float(record["system_joules"]),
+                            "a background world must keep the foreground boundary separate")
+            self.assertLessEqual(float(record["requester_joules"]),
+                                 float(record["mobile_joules"]) + 1e-9)
+            self.assertLessEqual(float(record["mobile_joules"]),
+                                 float(record["system_joules"]) + 1e-9)
+            # the reference plans are foreground-only: ONE DAG, the pure-location plan
+            for name, result in env._reference_results[slot].items():
+                dags = {str(dag_id) for dag_id, _tid in result.timings}
+                self.assertEqual(len(dags), 1, "%s reference built %d DAGs" % (name, len(dags)))
+            # and the reference energies are the system scope of those plans
+            for name in ("all_ue", "all_mec", "all_helper"):
+                ledger = schedule_energy(env._reference_results[slot][name])
+                self.assertEqual(str(ledger.primary_scope), "system")
+                self.assertEqual(str(refs.energy_scope), "system")
+                self.assertEqual(str(refs.scheduler_config_sha256), SHA)

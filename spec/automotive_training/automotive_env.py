@@ -273,8 +273,14 @@ class AutomotiveEnv(object):
             seed = self.rollout_seed(graph.graph_id, int(flat))
             if self.mc_enabled:
                 realized = mc_runtime.draw_realized_demands(graph, seed, self.uncertainty)
+                # F04: the plan order must be the SLOT'S OWN dataset graph order. Using
+                # `self.orders[self.task_id]` gave every slot graph0's order in the
+                # single_dist layout (task_id is the DISTRIBUTION index, always 0), which is
+                # inert only while the whole corpus shares one decoder order. A topologically
+                # heterogeneous corpus makes `plan_order_ids` raise on a foreign order (or,
+                # silently, walk the mode machine in the wrong order).
                 mc = mc_runtime.resolve_mode_and_execution(
-                    graph, realized, self.orders[self.task_id], self.uncertainty)
+                    graph, realized, self.orders[self._graph_index(int(slot))], self.uncertainty)
                 if any(str(t.criticality) == "HIGH" for t in graph.tasks):
                     mc_runtime.assert_high_preserved(mc, graph)
             else:
