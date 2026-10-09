@@ -281,6 +281,18 @@ class Seq2SeqNetwork():
         # None in off mode (no node exists); a tensor when the shield is active
         self.dead_end_rows = None
         self.sample_dead_end_rows = None
+        # F18/F20: the branch the LAST `get_actions` actually fetched. `crn_decoder_prediction`
+        # means the stateless token-keyed v2 decode; `sample_decoder_prediction` means the
+        # stateful `Categorical(...).sample()`. Recorded so a consumer reads the EXECUTED branch
+        # instead of inferring it from `enable_crn`.
+        self.last_decode_branch = None
+        self.last_draw_identity = None
+        #: The sampling contract this graph implements. `crn_token_keyed_v2` mixes the decode
+        #: step into the stateless seed (`FixedSequenceLearningCRNHelper._token_seed`), so each
+        #: token is an independent draw instead of one seed replayed across the horizon.
+        self.sampling_contract_version = str(
+            getattr(FixedSequenceLearningCRNHelper, "SAMPLING_CONTRACT_VERSION",
+                    "crn_token_keyed_v2"))
 
         self.decoder_full_length = decoder_full_length
         self.enable_cavia = bool(getattr(hparams, "enable_cavia", False))
@@ -977,6 +989,8 @@ class Seq2SeqPolicy():
                 ],
                 feed_dict=feed_dict,
             )
+            self.last_decode_branch = "crn_token_keyed_v2"
+            self.last_draw_identity = [int(crn_seed[0]), int(crn_seed[1])]
         elif deterministic:
             actions, logits, v_value, raw_logits, sample_pi = sess.run(
                 [
@@ -988,6 +1002,8 @@ class Seq2SeqPolicy():
                 ],
                 feed_dict=feed_dict,
             )
+            self.last_decode_branch = "greedy_argmax"
+            self.last_draw_identity = None
         else:
             actions, logits, v_value, raw_logits, sample_pi = sess.run(
                 [
@@ -999,6 +1015,8 @@ class Seq2SeqPolicy():
                 ],
                 feed_dict=feed_dict,
             )
+            self.last_decode_branch = "legacy_stateful_categorical"
+            self.last_draw_identity = None
         self.last_raw_logits = np.asarray(raw_logits)
         # the masked distribution of THAT trajectory: the decoder samples its own
         # next input, so fetching pi in a second sess.run would describe a
@@ -1070,6 +1088,12 @@ class MetaSeq2SeqPolicy():
         self.last_feasible_masks = None
         self.last_raw_logits = None
         self.last_sample_pi = None
+        # F18/F20: the branch the last `get_actions` actually fetched, per task and summarised.
+        self.last_decode_branch = None
+        self.last_decode_branches = []
+        self.sampling_contract_version = str(
+            getattr(FixedSequenceLearningCRNHelper, "SAMPLING_CONTRACT_VERSION",
+                    "crn_token_keyed_v2"))
         self.encoder_type = str(encoder_type)
         self.readout_type = str(readout_type)
 
@@ -1144,6 +1168,11 @@ class MetaSeq2SeqPolicy():
         )
         self.last_raw_logits = raw_logits
         self.last_sample_pi = sample_pis
+        # The branch EVERY task policy actually fetched on this call. A mixed result is
+        # reported as such instead of being flattened to the first task's branch.
+        branches = {self.meta_policies[i].last_decode_branch for i in range(len(observations))}
+        self.last_decode_branches = sorted(str(b) for b in branches)
+        self.last_decode_branch = (branches.pop() if len(branches) == 1 else "mixed")
 
         return meta_actions, meta_logits, meta_v_values
 
@@ -1161,6 +1190,16 @@ class MetaSeq2SeqPolicy():
                 pol.set_draw_identity(None)
             return
         base = [int(seed_pair[0]), int(seed_pair[1])]
+        # F18: the training sampler must only ever pin a TRAINING identity. An evaluation
+        # identity (even first element, `crn.seed_pair`) reaching the training rollout would
+        # silently make a training draw and an evaluation draw the same draw; refuse instead.
+        from spec.automotive_training.v2.crn import PHASE_TRAIN, draw_phase_of
+        phase = draw_phase_of(base)
+        if phase != PHASE_TRAIN:
+            raise ValueError(
+                "training draw identity %r belongs to phase %r, not %r: training and "
+                "evaluation draw spaces are disjoint by construction"
+                % (base, phase, PHASE_TRAIN))
         self._draw_identity = base
         for i, pol in enumerate(self.meta_policies):
             # odd multipliers: distinct per task, deterministic, no reliance on RNG state

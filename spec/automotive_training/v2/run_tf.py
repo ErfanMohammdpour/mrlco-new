@@ -223,6 +223,84 @@ def _resume_bundle_path(ckpt_dir) -> Path:
     return Path(str(ckpt_dir)) / "v2_resume_state.json"
 
 
+def _set_sampler_contract(trainer, contract) -> bool:
+    """Apply the requested sampling contract to the object that OWNS the draw decision.
+
+    `AutomotiveMetaSampler` forwards READS to its inner sampler but a WRITE lands on the wrapper
+    and is invisible to the code that reads it, so the contract is set through the resolved owner
+    (same rule as the draw cursor).
+    """
+    path, owner = _attribute_owner_path(trainer, "sampling_contract_version")
+    if owner is None:
+        _p, owner = _attribute_owner_path(trainer, "draw_branch")
+    if owner is None:
+        return False
+    setter = getattr(owner, "set_sampling_contract", None)
+    if callable(setter):
+        setter(contract)
+    else:
+        owner.sampling_contract_version = str(contract)
+        if hasattr(owner, "token_keyed_draws"):
+            owner.token_keyed_draws = (str(contract) == _sampling_contract_default())
+    return True
+
+
+def _sampling_evidence(trainer, resume_state=None) -> dict:
+    """The sampler branch that EXECUTED, plus the draw identity that was restored.
+
+    `enable_crn=True` says a stateless branch EXISTS; it does not say the rollout took it. The
+    meta sampler counts the branch of every rollout (`draw_branch_counts`) and reports the last
+    one, so this is a measurement. A legacy-path rollout is surfaced explicitly rather than
+    buried inside a boolean.
+    """
+    sampler = getattr(trainer, "auto_sampler", None) or getattr(trainer, "sampler", None)
+    counts = dict(getattr(sampler, "draw_branch_counts", {}) or {})
+    policy = getattr(trainer, "algo", None)
+    policy = getattr(policy, "policy", None)
+    out = {
+        "requested_contract": getattr(trainer, "auto_sampling_contract", None),
+        "observed_contract": _sampling_contract_of(trainer),
+        "last_branch": getattr(sampler, "draw_branch", None),
+        "branch_counts": {str(k): int(v) for k, v in counts.items()},
+        "policy_sampling_contract": getattr(policy, "sampling_contract_version", None),
+        "mask_mode": getattr(policy, "mask_mode", None),
+        "draw_identity_seed": getattr(sampler, "draw_identity_seed", None),
+        "draw_cursor": _read_draw_cursor(trainer),
+        "draw_cursor_path": _draw_identity_owner_path(trainer)[0],
+        "last_draw_key_prefix": getattr(sampler, "draw_key_prefix", None),
+    }
+    if resume_state is not None:
+        out["resume_draw_cursor_path"] = resume_state.get("recorded_draw_cursor_path")
+        out["resume_target_increased"] = bool(resume_state.get("target_increased"))
+        out["resume_stored_iteration_target"] = resume_state.get("stored_iteration_target")
+    legacy = int(counts.get("legacy_stateful_categorical", 0) or 0)
+    keyed = int(counts.get("crn_token_keyed_v2", 0) or 0)
+    out["all_rollouts_token_keyed"] = bool(keyed > 0 and legacy == 0)
+    out["legacy_rollouts"] = legacy
+    if legacy:
+        out["legacy_warning"] = ("%d rollout(s) fell back to the STATEFUL categorical sampler: "
+                                 "those draws are not reproducible across a process boundary"
+                                 % legacy)
+    # the draw cursor must be owned by the object the sampler advances, not by a wrapper
+    out["draw_cursor_owner_is_sampler"] = bool(
+        out["draw_cursor_path"] and str(out["draw_cursor_path"]).endswith("sampler"))
+    return out
+
+
+def _contract_record(trainer, args) -> dict:
+    """The resume-relevant contract as THIS process would write it (F19)."""
+    return {
+        "obs_version": getattr(trainer, "auto_obs_version", None),
+        "dataset_fingerprint": getattr(trainer, "auto_dataset_fingerprint", None),
+        "scheduler_fingerprint": getattr(trainer, "auto_scheduler_fingerprint", None),
+        "sampling_contract": _sampling_contract_of(trainer, args),
+        "validation_interval": int(getattr(args, "validation_interval", 0) or 0),
+        "objective_contract": _objective_contract_of(trainer),
+        "constraint_contract": _constraint_contract_of(trainer),
+        "protocol_id": getattr(trainer, "auto_protocol_id", None),
+    }
+
+
 #: Resume-bundle schema. v1 carried the iteration ledger, duals, sampler counters and the
 #: fingerprints but NOT the environment identity or any RNG state, so a restored process rebuilt
 #: the SAME iteration NUMBER over DIFFERENT worlds (measured: control `ep11_slot19` vs resume
@@ -230,6 +308,172 @@ def _resume_bundle_path(ckpt_dir) -> Path:
 #: an `rng` section, and v1 bundles are REFUSED for exact resume.
 RESUME_SCHEMA_V1 = "v2_resume_state_v1"
 RESUME_SCHEMA = "v2_resume_state_v2"
+
+
+# --- F34: OBSERVED kernel placement -----------------------------------------------------------------
+# `allow_soft_placement=True` lets an op that was PLACED on `/gpu:0` silently EXECUTE on the CPU.
+# The runner used to print the REQUESTED device and record the config, which asserts a device
+# without measuring one. When `--kernel-profile <path.json>` is set, ONE run is executed with
+# `RunOptions(trace_level=FULL_TRACE)` + `RunMetadata`, and the OBSERVED per-op device (from
+# `step_stats.dev_stats`, which is the device the kernel actually ran on) is written out with a
+# GPU/CPU summary. It is OFF by default, and RunOptions/RunMetadata change neither the graph nor
+# the random streams.
+def _profile_run_kwargs() -> dict:
+    """`run(..., options=..., run_metadata=...)` for a full trace under TF 1.15."""
+    import tensorflow as tf
+    options = tf.compat.v1.RunOptions(trace_level=tf.compat.v1.RunOptions.FULL_TRACE)
+    metadata = tf.compat.v1.RunMetadata()
+    return {"options": options, "run_metadata": metadata}, metadata
+
+
+def _profiled_device_record(metadata, graph=None):
+    """OBSERVED per-op device placement from a `RunMetadata` full trace.
+
+    `step_stats.dev_stats` groups the executed kernels BY DEVICE, and every `node_stats` there
+    is a kernel that RAN on that device -- so this measures execution, not placement. The
+    `device` field of each node is the placement the placer chose, kept alongside so a
+    placed-on-GPU / ran-on-CPU fallback is visible.
+    """
+    step = getattr(metadata, "step_stats", None)
+    if step is None:
+        return {"ops": [], "device_counts": {}, "gpu_ops": 0, "cpu_ops": 0,
+                "other_ops": 0, "n_ops": 0, "note": "no step_stats in RunMetadata"}
+    placed = {}
+    if graph is not None:
+        try:
+            for op in graph.get_operations():
+                placed[op.name] = getattr(op, "device", "") or ""
+        except Exception:                                      # pragma: no cover - graph guard
+            placed = {}
+    ops = []
+    device_counts: dict = {}
+    for dev in step.dev_stats:
+        name = str(dev.device)
+        for node in dev.node_stats:
+            memory = getattr(node, "memory", None) or []
+            first = memory[0] if len(memory) else None
+            total_bytes = getattr(first, "total_bytes", None)
+            if total_bytes is None and isinstance(first, dict):
+                total_bytes = first.get("total_bytes", 0)
+            ops.append({
+                "op": str(node.node_name),
+                "device": name,
+                "placed_device": placed.get(str(node.node_name), ""),
+                "all_start_micros": int(node.all_start_micros),
+                "op_time_micros": float(node.op_end_rel_micros - node.op_start_rel_micros),
+                "memory_bytes": int(total_bytes or 0),
+            })
+            device_counts[name] = device_counts.get(name, 0) + 1
+    gpu = sum(n for d, n in device_counts.items() if ":GPU:" in d or "/gpu:" in d.lower())
+    cpu = sum(n for d, n in device_counts.items() if ":CPU:" in d or "/cpu:" in d.lower())
+    return {
+        "ops": ops,
+        "device_counts": device_counts,
+        "gpu_ops": int(gpu),
+        "cpu_ops": int(cpu),
+        "other_ops": int(sum(device_counts.values()) - gpu - cpu),
+        "n_ops": int(sum(device_counts.values())),
+    }
+
+
+def _visible_device_info() -> dict:
+    """The devices this process can actually see (requested/visible/observed are distinct)."""
+    import tensorflow as tf
+    info = {"cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", "<unset>"),
+            "tf_force_gpu_allow_growth": os.environ.get("TF_FORCE_GPU_ALLOW_GROWTH", "<unset>"),
+            "physical_devices": []}
+    try:
+        cfg = tf.compat.v1.ConfigProto()
+        info["config_device_count"] = {str(k): int(v) for k, v in cfg.device_count.items()}
+        info["allow_soft_placement"] = bool(cfg.allow_soft_placement)
+        info["log_device_placement"] = bool(cfg.log_device_placement)
+    except Exception as exc:                                   # pragma: no cover - config guard
+        info["config_error"] = str(exc)[:200]
+    try:
+        from tensorflow.python.client import device_lib
+        info["physical_devices"] = [{"name": d.name, "device_type": d.device_type}
+                                    for d in device_lib.list_local_devices()]
+    except Exception as exc:                                   # pragma: no cover - probe guard
+        info["physical_devices_error"] = str(exc)[:200]
+    try:
+        info["gpu_devices"] = [d.name for d in tf.config.experimental.list_physical_devices("GPU")]
+    except Exception:                                          # pragma: no cover - TF1.15 has none
+        info["gpu_devices"] = []
+    return info
+
+
+class KernelProfiler:
+    """Capture OBSERVED device placement for ONE run without touching training semantics.
+
+    `sess.run` is wrapped: the FIRST run that executed a non-trivial number of kernels is traced
+    with `RunOptions(FULL_TRACE)` and its `RunMetadata` is kept. The traced call returns exactly
+    what the untraced call returns, and `RunOptions`/`RunMetadata` are not part of any random
+    op's inputs, so the RNG stream and every fetched value are unchanged.
+    """
+
+    def __init__(self, path, requested_device="cpu", min_ops=10):
+        self.path = Path(str(path))
+        self.requested_device = str(requested_device)
+        self.min_ops = int(min_ops)
+        self.captured = None
+        self.captured_run_number = None
+        self.runs_seen = 0
+        self._orig_run = None
+
+    def start(self, sess):
+        import tensorflow as tf
+        self._tf = tf
+        self._orig_run = sess.run
+
+        def traced_run(fetches, feed_dict=None, **kwargs):
+            self.runs_seen += 1
+            if self.captured is not None or "options" in kwargs \
+                    or "run_metadata" in kwargs:
+                return self._orig_run(fetches, feed_dict=feed_dict, **kwargs)
+            extra, metadata = _profile_run_kwargs()
+            out = self._orig_run(fetches, feed_dict=feed_dict, **dict(kwargs, **extra))
+            try:
+                n_ops = sum(len(d.node_stats) for d in metadata.step_stats.dev_stats)
+            except Exception:                                  # pragma: no cover - trace guard
+                n_ops = 0
+            if n_ops >= self.min_ops:
+                self.captured = metadata
+                self.captured_run_number = self.runs_seen
+            return out
+
+        sess.run = traced_run
+
+    def stop(self, sess):
+        if self._orig_run is not None:
+            sess.run = self._orig_run
+            self._orig_run = None
+
+    def write(self, graph=None) -> dict:
+        if self.captured is None:
+            doc = {"schema": "v2_kernel_profile_v1", "ok": False,
+                   "reason": "no run reached the profiling op-count threshold (%d)" % self.min_ops,
+                   "runs_seen": int(self.runs_seen),
+                   "requested_device": self.requested_device,
+                   "visible": _visible_device_info()}
+        else:
+            observed = _profiled_device_record(self.captured, graph=graph)
+            doc = {"schema": "v2_kernel_profile_v1", "ok": True,
+                   "requested_device": self.requested_device,
+                   "profiled_run_number": int(self.captured_run_number),
+                   "runs_seen": int(self.runs_seen),
+                   "visible": _visible_device_info(),
+                   "observed": {k: v for k, v in observed.items() if k != "ops"},
+                   "op_device": observed["ops"]}
+            doc["gpu_share"] = (float(observed["gpu_ops"]) / float(observed["n_ops"])
+                                if observed["n_ops"] else 0.0)
+            if self.requested_device == "gpu" and int(observed["gpu_ops"]) == 0:
+                doc["warning"] = ("requested GPU but NO op executed on a GPU device: soft "
+                                  "placement fell back to CPU")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(doc, indent=2, sort_keys=True, default=str) + "\n")
+        os.replace(str(tmp), str(self.path))
+        return doc
 
 
 def _sampler_clone_envs(trainer) -> list:
@@ -383,33 +627,70 @@ def _rng_tuple(entry) -> tuple:
             int(entry["has_gauss"]), float(entry["cached_gaussian"]))
 
 
-def _attribute_owner(trainer, name):
-    """The object whose `__dict__` actually holds `name`.
+def _attribute_owner_path(trainer, name, roots=("sampler", "meta_sampler", "auto_sampler",
+                                                "algo")):
+    """`(dotted_path, object)` of the object whose `__dict__` actually holds `name`.
 
     `AutomotiveMetaSampler` forwards READS to its inner sampler through `__getattr__`, but a WRITE
     on the wrapper lands on the wrapper and is invisible to the code that reads the attribute off
     the inner object. Resolving the true owner through `__dict__` is what makes the restore
     effective; using `hasattr` alone silently wrote the draw cursor (and the counters) to the
     wrapper, which is why the resumed process still replayed draws from the start.
+
+    The search is a BREADTH-FIRST walk over the known wrapper attributes instead of the previous
+    two-level probe: `trainer.auto_sampler.sampler` (the v2 stack) is three levels deep, and the
+    old probe never reached it, so a restore was silently a no-op. The returned path is recorded
+    in the bundle so the restore can be applied to the SAME attribute it was read from.
     """
-    candidates = []
-    for attr in ("sampler", "meta_sampler"):
+    import collections
+
+    queue = collections.deque()
+    seen = set()
+    for attr in roots:
         obj = getattr(trainer, attr, None)
-        if obj is None:
+        if obj is not None:
+            queue.append((attr, obj))
+    while queue:
+        path, obj = queue.popleft()
+        if id(obj) in seen:
             continue
-        inner = getattr(obj, "sampler", None)
-        if inner is not None:
-            candidates.append(inner)
-        candidates.append(obj)
-    for obj in candidates:
+        seen.add(id(obj))
         if name in getattr(obj, "__dict__", {}):
-            return obj
-    return None
+            return path, obj
+        for attr in ("sampler", "meta_sampler", "base_sampler", "inner"):
+            try:
+                child = getattr(obj, attr, None)
+            except Exception:                                  # pragma: no cover - proxy guard
+                child = None
+            if child is not None and child is not obj:
+                queue.append(("%s.%s" % (path, attr), child))
+    return None, None
+
+
+def _attribute_owner(trainer, name):
+    return _attribute_owner_path(trainer, name)[1]
 
 
 def _draw_identity_owner(trainer):
     """The object that owns `_draw_cursor` (the meta sampler, however it is wrapped)."""
-    return _attribute_owner(trainer, "_draw_cursor")
+    return _draw_identity_owner_path(trainer)[1]
+
+
+def _draw_identity_owner_path(trainer, recorded_path=None):
+    """`(path, object)` for `_draw_cursor`, preferring the path the bundle recorded.
+
+    A resume that restored the cursor on a DIFFERENT object than the one that advances it would
+    replay draws; the recorded path makes that impossible to reintroduce silently.
+    """
+    if recorded_path:
+        obj = trainer
+        for part in str(recorded_path).split("."):
+            obj = getattr(obj, part, None)
+            if obj is None:
+                break
+        if obj is not None and "_draw_cursor" in getattr(obj, "__dict__", {}):
+            return str(recorded_path), obj
+    return _attribute_owner_path(trainer, "_draw_cursor")
 
 
 def _read_draw_cursor(trainer) -> int:
@@ -417,12 +698,21 @@ def _read_draw_cursor(trainer) -> int:
     return int(getattr(obj, "_draw_cursor", 0) or 0)
 
 
-def _restore_draw_cursor(trainer, value) -> None:
+def _read_draw_cursor_with_path(trainer) -> tuple:
+    """`(value, dotted_path)` -- the path is persisted so the restore is verifiable."""
+    path, obj = _draw_identity_owner_path(trainer)
+    return int(getattr(obj, "_draw_cursor", 0) or 0), path
+
+
+def _restore_draw_cursor(trainer, value, recorded_path=None) -> bool:
+    """Write the cursor to its ACTUAL owning attribute. Returns whether it was applied."""
     if value is None:
-        return
-    obj = _draw_identity_owner(trainer)
-    if obj is not None:
-        obj._draw_cursor = int(value)
+        return False
+    path, obj = _draw_identity_owner_path(trainer, recorded_path=recorded_path)
+    if obj is None:
+        return False
+    obj._draw_cursor = int(value)
+    return True
 
 
 def _restore_sampler_counters(trainer, counters) -> None:
@@ -547,7 +837,16 @@ def _write_generation(sess, saver, trainer, args, itr) -> Path:
         "schema": "v2_checkpoint_generation_v1",
         "iteration": int(itr),
         "next_iteration": int(itr) + 1,
-        "sampling_contract": getattr(trainer, "auto_sampling_contract", None),
+        "sampling_contract": _sampling_contract_of(trainer, args),
+        # F19: the manifest carries the whole contract, so a resume from a generation whose
+        # bundle is damaged can still be checked against the manifest (and a manifest that
+        # disagrees with its own bundle is itself a mismatch).
+        "obs_version": getattr(trainer, "auto_obs_version", None),
+        "dataset_fingerprint": getattr(trainer, "auto_dataset_fingerprint", None),
+        "scheduler_fingerprint": getattr(trainer, "auto_scheduler_fingerprint", None),
+        "validation_interval": int(getattr(args, "validation_interval", 0) or 0),
+        "objective_contract": _objective_contract_of(trainer),
+        "constraint_contract": _constraint_contract_of(trainer),
         "files": {p.name: _sha256_file(p) for p in required},
         "complete": True,
     }
@@ -568,7 +867,13 @@ def _write_generation(sess, saver, trainer, args, itr) -> Path:
 
 
 def _verify_generation(gen_dir) -> tuple:
-    """(ok, reason). A generation is usable only if every manifest file is present and matches."""
+    """(ok, reason). A generation is usable only if it is EXACTLY the manifest it declares.
+
+    Checks, in order: the manifest exists and parses; its schema is the expected one; every
+    declared file is present with the declared hash; no UNDECLARED file was added (an extra
+    binary or a foreign state bundle would otherwise be trusted as part of the snapshot); the
+    TF index and the state bundle exist. Every failure is a precise reason, never a boolean.
+    """
     gen_dir = Path(gen_dir)
     man = gen_dir / GENERATION_MANIFEST
     if not man.is_file():
@@ -579,13 +884,19 @@ def _verify_generation(gen_dir) -> tuple:
         return False, "manifest unreadable: %s" % exc
     if doc.get("schema") != "v2_checkpoint_generation_v1":
         return False, "unexpected manifest schema %r" % (doc.get("schema"),)
-    for name, want in (doc.get("files") or {}).items():
+    declared = doc.get("files") or {}
+    for name, want in declared.items():
         f = gen_dir / name
         if not f.is_file():
             return False, "missing file %s" % name
         got = _sha256_file(f)
         if got != want:
             return False, "hash mismatch for %s (manifest %s, file %s)" % (name, want[:12], got[:12])
+    present = sorted(p.name for p in gen_dir.iterdir() if p.is_file())
+    extra = [name for name in present
+             if name not in declared and name != GENERATION_MANIFEST]
+    if extra:
+        return False, "undeclared file(s) in generation: %s" % ", ".join(extra)
     if not (gen_dir / "v2_run.ckpt.index").is_file():
         return False, "tf index missing"
     if not (gen_dir / "v2_resume_state.json").is_file():
@@ -632,6 +943,61 @@ def _resolve_resume_ckpt(ckpt_dir) -> str:
     raise V2RunError("no checkpoint found under %s" % (ckpt_dir,))
 
 
+def _read_generation_manifest(gen_dir):
+    """The generation's manifest as a dict, or None when it is absent/unreadable."""
+    man = Path(gen_dir) / GENERATION_MANIFEST
+    if not man.is_file():
+        return None
+    try:
+        doc = json.loads(man.read_text())
+    except Exception:
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def _complete_generations(ckpt_dir) -> list:
+    """Every COMPLETE generation, newest first. `.tmp` staging directories are never included."""
+    gen_root = Path(ckpt_dir) / GEN_DIR
+    if not gen_root.is_dir():
+        return []
+    out = []
+    for d in sorted((p for p in gen_root.iterdir() if p.is_dir()
+                     and not p.name.endswith(".tmp")), reverse=True):
+        ok, _reason = _verify_generation(d)
+        if ok:
+            out.append(d)
+    return out
+
+
+def _prune_generations(ckpt_dir, keep=3, protect=()) -> list:
+    """Delete OLD complete generations, always keeping at least `keep` recoverable ones.
+
+    `protect` names generations that must survive pruning regardless of age (the best-validation
+    generation and the final generation). The NEWEST complete generation is never pruned, so a
+    crash can always resume from the latest boundary. Returns the names that were deleted.
+    """
+    keep = max(1, int(keep))
+    complete = _complete_generations(ckpt_dir)
+    if len(complete) <= keep:
+        return []
+    protected = {str(p) for p in protect if p}
+    newest = complete[0].name
+    survivors = {d.name for d in complete[:keep]}
+    survivors.add(newest)
+    survivors |= {name for name in protected if (Path(ckpt_dir) / GEN_DIR / name).is_dir()}
+    deleted = []
+    for gen in complete:
+        if gen.name in survivors:
+            continue
+        _ok, reason = _verify_generation(gen)
+        if not _ok:                                  # never delete something already unusable
+            print("prune: leaving %s in place (%s)" % (gen.name, reason))
+            continue
+        shutil.rmtree(str(gen))
+        deleted.append(gen.name)
+    return deleted
+
+
 def _build_resume_state(trainer, args) -> dict:
     """The NON-TensorFlow half of a resumable checkpoint.
 
@@ -645,6 +1011,7 @@ def _build_resume_state(trainer, args) -> dict:
     """
     manager = getattr(trainer, "auto_v2_constraint_manager", None)
     sampler = getattr(trainer, "sampler", None)
+    draw_cursor, draw_cursor_path = _read_draw_cursor_with_path(trainer)
     return {
         "schema": RESUME_SCHEMA,
         "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -668,6 +1035,14 @@ def _build_resume_state(trainer, args) -> dict:
         "dataset_fingerprint": getattr(trainer, "auto_dataset_fingerprint", None),
         "scheduler_fingerprint": getattr(trainer, "auto_scheduler_fingerprint", None),
         "v2_system": getattr(trainer, "auto_v2_system", None),
+        # F19: the CONTRACT the numbers were produced under. Each of these is written AND
+        # compared on resume, because a checkpoint that is silently re-interpreted under a
+        # different observation schema, dataset, scheduler, sampling contract or objective is
+        # not a continuation of the same run even when every seed matches.
+        "sampling_contract": _sampling_contract_of(trainer, args),
+        "validation_interval": int(getattr(args, "validation_interval", 0) or 0),
+        "objective_contract": _objective_contract_of(trainer),
+        "constraint_contract": _constraint_contract_of(trainer, manager),
         "constraints": (manager.state() if manager is not None else None),
         "sampler_counters": {str(k): int(v) for k, v in
                              dict(getattr(sampler, "counters", {}) or {}).items()},
@@ -675,7 +1050,10 @@ def _build_resume_state(trainer, args) -> dict:
         # [draw_identity_seed, _draw_cursor] before every `get_actions`, so this counter IS the
         # draw sequence; without it a resumed process would restart the identity at 0 and replay
         # the same draws it already made.
-        "draw_cursor": _read_draw_cursor(trainer),
+        "draw_cursor": draw_cursor,
+        # ... and the ATTRIBUTE it was read from, so the restore lands on the same owner
+        # (`trainer.auto_sampler.sampler` in the v2 stack) instead of a forwarding wrapper.
+        "draw_cursor_path": draw_cursor_path,
         "best_val_objective": getattr(trainer, "best_val_objective", None),
         # F33 additions: the identity that decides WHICH worlds the next iteration sees, and the
         # advanced Python/NumPy random streams. Without these the loop resumes at the right
@@ -683,6 +1061,63 @@ def _build_resume_state(trainer, args) -> dict:
         "environment": _env_identity(getattr(trainer, "env", None), trainer),
         "rng": _rng_state(trainer),
     }
+
+
+def _sampling_contract_default() -> str:
+    """The v2 sampling contract: the stateless, token-keyed categorical draw."""
+    return "crn_token_keyed_v2"
+
+
+def _sampling_contract_of(trainer, args=None) -> str:
+    """The ACTUAL sampling contract: the requested one, else the sampler's own report.
+
+    The trainer attribute is the request (`--sampling-contract`, default
+    `crn_token_keyed_v2`); `draw_branch` / `sampling_contract_version` is what executed. When the
+    sampler reports a branch it actually took, that branch wins, so the bundle can never advertise
+    a contract the sampler did not run.
+    """
+    requested = (getattr(args, "sampling_contract", None)
+                 or getattr(trainer, "auto_sampling_contract", None)
+                 or _sampling_contract_default())
+    sampler = getattr(trainer, "auto_sampler", None) or getattr(trainer, "sampler", None)
+    observed = None
+    for attr in ("sampling_contract_version", "draw_branch"):
+        observed = getattr(sampler, attr, None)
+        if observed:
+            break
+    if str(requested) == _sampling_contract_default() and observed:
+        return str(observed)
+    return str(requested)
+
+
+def _objective_contract_of(trainer) -> str:
+    """A stable signature of the OBJECTIVE/unit contract, independent of the dual values."""
+    doc = {
+        "v2_system": getattr(trainer, "auto_v2_system", None),
+        "reward_mode": getattr(trainer, "auto_reward_mode", None),
+        "decoding": getattr(trainer, "auto_decoding", None),
+        "run_kind": getattr(trainer, "auto_run_kind", None),
+        "method_id": getattr(trainer, "auto_method_id", None),
+        "axes": getattr(trainer, "auto_axes", None),
+    }
+    return hashlib.sha256(json.dumps(doc, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _constraint_contract_of(trainer, manager=None) -> str:
+    """The constraint SCHEMA (names + spec hash + enabled flag), never the dual values."""
+    if manager is None:
+        manager = getattr(trainer, "auto_v2_constraint_manager", None)
+    cfg = getattr(trainer, "auto_v2_constraints", None) or {}
+    names = cfg.get("names")
+    if names is None and manager is not None:
+        names = list(getattr(manager, "names", []) or [])
+    doc = {
+        "enabled": bool(cfg.get("enabled", manager is not None)),
+        "names": [str(n) for n in (names or [])],
+        "spec_sha256": cfg.get("spec_sha256"),
+        "objectives": cfg.get("objectives"),
+    }
+    return hashlib.sha256(json.dumps(doc, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _write_resume_state(trainer, args) -> Path:
@@ -696,7 +1131,93 @@ def _write_resume_state(trainer, args) -> Path:
     return path
 
 
-def _restore_resume_state(trainer, path, args) -> dict:
+def _resume_expected_contract(raw, args, trainer=None, manifest=None) -> dict:
+    """Every contract key whose change makes a resume a DIFFERENT run.
+
+    F19: the bundle already WROTE `obs_version`, `dataset_fingerprint` and
+    `scheduler_fingerprint`, but the comparison only looked at seed/background/link/
+    background_policy/mec_workers, so a checkpoint produced under a different observation
+    schema, dataset, scheduler or sampling contract was silently accepted. The generation
+    manifest records `sampling_contract` too, so it is surfaced here as an independent check:
+    a manifest that disagrees with the bundle is a mismatch of its own.
+    """
+    manifest = manifest or {}
+    manifest_contract = manifest.get("sampling_contract")
+    bundle_contract = raw.get("sampling_contract")
+    # The contract THIS run requests is the authority on the current side: in production
+    # `trainer.auto_sampling_contract` is set from `--sampling-contract`, so reading the trainer
+    # would compare the request against itself and never detect a change.
+    requested_contract = str(getattr(args, "sampling_contract", None)
+                             or _sampling_contract_of(trainer, args)
+                             or _sampling_contract_default())
+    checkpoint_contract = (manifest_contract if manifest_contract is not None
+                           else bundle_contract)
+    expected = {
+        "seed": int(args.seed),
+        "background_dags": int(args.background),
+        "link_regime": str(args.link_regime),
+        "background_policy": str(args.background_policy),
+        "mec_workers": int(args.mec_workers),
+        "obs_version": getattr(trainer, "auto_obs_version", None),
+        "dataset_fingerprint": getattr(trainer, "auto_dataset_fingerprint", None),
+        "scheduler_fingerprint": getattr(trainer, "auto_scheduler_fingerprint", None),
+        "sampling_contract": requested_contract,
+        "validation_interval": int(getattr(args, "validation_interval", 0) or 0),
+        "objective_contract": _objective_contract_of(trainer) if trainer is not None else None,
+        "constraint_contract": (_constraint_contract_of(trainer)
+                                if trainer is not None else None),
+    }
+    if requested_contract != _sampling_contract_default():
+        # ... and when a non-default contract is REQUESTED, the checkpoint's own value is what it
+        # must match: surface it explicitly so the message names both sides.
+        expected["sampling_contract@checkpoint"] = checkpoint_contract
+    if (manifest_contract is not None and bundle_contract is not None
+            and str(manifest_contract) != str(bundle_contract)):
+        expected["sampling_contract@manifest"] = manifest_contract
+    return expected
+
+
+def _resume_mismatches(raw, args, trainer=None, manifest=None) -> list:
+    """The list of `key: checkpoint=... requested=...` contract mismatches. Pure function.
+
+    Split out of `_restore_resume_state` so the rejection rules can be unit-tested with
+    synthetic bundles and no TensorFlow, no session and no checkpoint on disk.
+    """
+    mismatches = []
+    manifest = manifest if isinstance(manifest, dict) else {}
+    for key, value in _resume_expected_contract(raw, args, trainer, manifest).items():
+        if key == "sampling_contract@manifest":
+            # the manifest and the bundle disagree: name both, never silently pick a winner
+            mismatches.append(
+                "sampling_contract: manifest=%r bundle=%r"
+                % (manifest.get("sampling_contract"), raw.get("sampling_contract")))
+            continue
+        if key == "sampling_contract@checkpoint":
+            # a non-default contract was requested: the CHECKPOINT's own record must match it
+            if raw.get("sampling_contract") != value:
+                mismatches.append("sampling_contract: checkpoint=%r requested=%r"
+                                  % (raw.get("sampling_contract"), value))
+            continue
+        if key == "objective_contract" and not raw.get("objective_contract"):
+            # a bundle written before the objective contract was persisted cannot be compared
+            continue
+        if key == "constraint_contract" and not raw.get("constraint_contract"):
+            continue
+        if key == "validation_interval" and raw.get("validation_interval") is None:
+            # older bundles recorded the interval only in the generation manifest
+            manifest_interval = manifest.get("validation_interval")
+            if manifest_interval is None:
+                continue
+            if int(manifest_interval) != int(value):
+                mismatches.append("validation_interval: checkpoint=%r requested=%r"
+                                  % (manifest_interval, value))
+            continue
+        if key in raw and raw[key] != value:
+            mismatches.append("%s: checkpoint=%r requested=%r" % (key, raw[key], value))
+    return mismatches
+
+
+def _restore_resume_state(trainer, path, args, manifest=None) -> dict:
     """Restore the Python-side state and REJECT an incompatible checkpoint."""
     raw = json.loads(Path(str(path)).read_text())
     schema = raw.get("schema")
@@ -711,17 +1232,9 @@ def _restore_resume_state(trainer, path, args) -> dict:
     if schema != RESUME_SCHEMA:
         raise V2RunError("unsupported resume-state schema %r (expected %r)"
                          % (schema, RESUME_SCHEMA))
-    mismatches = []
-    expected = {
-        "seed": int(args.seed),
-        "background_dags": int(args.background),
-        "link_regime": str(args.link_regime),
-        "background_policy": str(args.background_policy),
-        "mec_workers": int(args.mec_workers),
-    }
-    for key, value in expected.items():
-        if key in raw and raw[key] != value:
-            mismatches.append("%s: checkpoint=%r requested=%r" % (key, raw[key], value))
+    if manifest is None:
+        manifest = _read_generation_manifest(Path(str(path)).parent)
+    mismatches = _resume_mismatches(raw, args, trainer=trainer, manifest=manifest)
     manager = getattr(trainer, "auto_v2_constraint_manager", None)
     if manager is not None and raw.get("constraints"):
         manager.load_state(raw["constraints"])       # raises on a spec/schema mismatch
@@ -741,7 +1254,10 @@ def _restore_resume_state(trainer, path, args) -> dict:
     # own accounting of how many trajectories and distinct identities were consumed, so they are
     # restored with the rest of the boundary.
     _restore_sampler_counters(trainer, raw.get("sampler_counters"))
-    _restore_draw_cursor(trainer, raw.get("draw_cursor"))
+    # ... and the draw cursor is written to the attribute it was READ FROM (`draw_cursor_path`),
+    # never to a forwarding wrapper: a wrapper write is invisible to the sampler that advances it.
+    _restore_draw_cursor(trainer, raw.get("draw_cursor"),
+                         recorded_path=raw.get("draw_cursor_path"))
     trainer.last_completed_iteration = int(raw.get("last_completed_iteration", -1))
     trainer.completed_iterations = int(raw.get("completed_iterations", 0))
     trainer.next_iteration = int(raw.get("next_iteration", 0))
@@ -754,10 +1270,19 @@ def _restore_resume_state(trainer, path, args) -> dict:
     # RESUME SEMANTICS: `--iterations` is the TOTAL target, so the loop must start at the
     # first iteration that has NOT completed, not at 0.
     trainer.start_itr = int(trainer.next_iteration)
+    # INCREASING the total target is a legitimate continuation ("run 10 more"); DECREASING it
+    # below work already done is not, and `trainer.start_itr` is the authority for that.
     if trainer.start_itr > int(args.iterations):
         raise V2RunError("checkpoint is already past the requested total target: next=%d "
                          "target=%d" % (trainer.start_itr, int(args.iterations)))
-    return raw
+    stored_target = raw.get("iteration_target")
+    resume_state = dict(raw)
+    resume_state["target_increased"] = bool(
+        stored_target is not None and int(args.iterations) > int(stored_target))
+    resume_state["stored_iteration_target"] = (
+        None if stored_target is None else int(stored_target))
+    resume_state["recorded_draw_cursor_path"] = raw.get("draw_cursor_path")
+    return resume_state
 
 
 def _assert_real_run(evidence: Mapping) -> None:
@@ -823,7 +1348,8 @@ def _assert_real_run(evidence: Mapping) -> None:
                 "penalty path is covered by the controlled fixture tests")
 
 
-def main(argv=None) -> int:
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """The runner's argument parser (exposed so tests can assert the CLI surface)."""
     ap = argparse.ArgumentParser(description="MARGO v2 real TensorFlow runner")
     ap.add_argument("--iterations", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
@@ -859,6 +1385,10 @@ def main(argv=None) -> int:
                          "begin a NEW run (iteration 0, fresh duals, fresh world sequence). This "
                          "is NOT equivalent continuation and is labelled as such in run.json.")
     ap.add_argument("--json", default="/tmp/v2run/v2_tf_run.json")
+    ap.add_argument("--kernel-profile", default=None,
+                    help="F34: write the OBSERVED per-op device placement of ONE profiled run to "
+                         "this JSON path (op name, device, GPU/CPU counts, visible devices). OFF "
+                         "by default; it changes no training semantics and no RNG stream.")
     ap.add_argument("--r-select", type=int, default=2)
     ap.add_argument("--s-select", type=int, default=2)
     ap.add_argument("--device", default="cpu", choices=("cpu", "gpu"),
@@ -872,6 +1402,16 @@ def main(argv=None) -> int:
                     help="grow incrementally instead of pre-allocating the whole cap")
     ap.add_argument("--intra-op", type=int, default=0, help="0 = TensorFlow default")
     ap.add_argument("--inter-op", type=int, default=0, help="0 = TensorFlow default")
+    ap.add_argument("--sampling-contract", default=_sampling_contract_default(),
+                    help="the categorical sampling contract this run REQUESTS. The v2 default is "
+                         "the stateless token-keyed draw (%s); a checkpoint recorded under a "
+                         "different contract is refused on resume (F19)."
+                         % _sampling_contract_default())
+    return ap
+
+
+def main(argv=None) -> int:
+    ap = _build_arg_parser()
     args = ap.parse_args(argv)
 
     started = time.time()
@@ -920,7 +1460,13 @@ def main(argv=None) -> int:
         device_used = "GPU" if str(args.device) == "gpu" else "CPU"
         print("session device=%s gpu_fraction=%s intra_op=%s inter_op=%s"
               % (device_used, args.gpu_fraction, args.intra_op, args.inter_op))
+        # F34: OFF unless asked. `allow_soft_placement=True` means a GPU REQUEST is not evidence
+        # that a GPU EVER RAN, so the requested device is only one half of what is recorded.
+        profiler = (KernelProfiler(args.kernel_profile, requested_device=str(args.device))
+                    if getattr(args, "kernel_profile", None) else None)
         sess = tf.compat.v1.Session(config=session_cfg)
+        if profiler is not None:
+            profiler.start(sess)
         with sess.as_default():
             if args.resume_from and args.warm_start_weights_from:
                 raise V2RunError("--resume-from (exact continuation) and "
@@ -956,16 +1502,26 @@ def main(argv=None) -> int:
             # completed iterations and restart dual ascent from zero.
             resume_state = None
             if args.resume_from:
+                # `_restore_resume_state` reads the GENERATION MANIFEST sitting next to the
+                # bundle (F19): a bundle that is intact but whose manifest advertises a different
+                # sampling contract is not a continuation of this run.
                 resume_state = _restore_resume_state(
                     trainer, _resume_bundle_path(args.ckpt_dir), args)
-                print("resumed from %s at next_iteration=%d target=%d"
-                      % (args.resume_from, trainer.start_itr, int(args.iterations)))
+                print("resumed from %s at next_iteration=%d target=%d%s"
+                      % (args.resume_from, trainer.start_itr, int(args.iterations),
+                         " (target increased from %s)"
+                         % (resume_state.get("stored_iteration_target"),)
+                         if resume_state.get("target_increased") else ""))
             # B1: the saved/restored boundary, BEFORE any reset consumes it. On a resume this
             # is the state the first post-resume iteration will start from; on a control (no
             # --resume-from) it is the initialised state, which is how the very first boundary
             # gets pinned for the fresh run too.
             trainer.auto_state_tracer = tracer
-            trainer.auto_sampling_contract = "crn_token_keyed_v2"
+            # The REQUESTED contract. It is applied to the object that OWNS the draw decision
+            # (the inner meta sampler, never a forwarding wrapper); the sampler then reports the
+            # branch it actually took, and `_sampling_contract_of` records the executed one.
+            trainer.auto_sampling_contract = str(args.sampling_contract)
+            _set_sampler_contract(trainer, str(args.sampling_contract))
 
             def _maybe_generation_checkpoint(itr, _sess=sess, _args=args):
                 every = max(1, int(getattr(_args, "checkpoint_interval", 10) or 10))
@@ -974,6 +1530,11 @@ def main(argv=None) -> int:
                 _saver = tf.compat.v1.train.Saver(max_to_keep=1)
                 gen = _write_generation(_sess, _saver, trainer, _args, int(itr))
                 print("committed checkpoint generation %s" % (gen.name,))
+                # F34/retention: keep at least three COMPLETE recoverable generations and never
+                # the newest one; the final generation is additionally protected below.
+                _deleted = _prune_generations(_args.ckpt_dir, keep=3)
+                if _deleted:
+                    print("pruned checkpoint generations: %s" % (", ".join(_deleted),))
                 return gen
 
             trainer.auto_generation_checkpoint = _maybe_generation_checkpoint
@@ -990,6 +1551,10 @@ def main(argv=None) -> int:
             elapsed = time.time() - started
             ckpt_path = None
             resume_path = None
+            # F34: stop tracing FIRST so no later run is traced, then write the OBSERVED artifact.
+            if profiler is not None:
+                profiler.stop(sess)
+            kernel_profile = (profiler.write(graph=graph) if profiler is not None else None)
             try:
                 if saver is None:
                     saver = tf.compat.v1.train.Saver(max_to_keep=1)
@@ -1000,6 +1565,8 @@ def main(argv=None) -> int:
                                          int(getattr(trainer, "last_completed_iteration",
                                                      int(args.iterations) - 1)))
                 print("committed FINAL checkpoint generation %s" % (_fin.name,))
+                # the FINAL and best-validation generations are protected from retention pruning
+                _prune_generations(args.ckpt_dir, keep=3, protect=(_fin.name,))
             except Exception as exc:
                 raise V2RunError("could not save a real checkpoint: %s" % exc) from exc
             evidence = _collect_evidence(trainer, env, algo, elapsed=elapsed,
@@ -1031,6 +1598,22 @@ def main(argv=None) -> int:
             evidence["device"] = {"requested": str(args.device),
                                   "cuda_visible_devices": os.environ.get(
                                       "CUDA_VISIBLE_DEVICES", "<unset>")}
+            # F34: the OBSERVED placement, not the requested one. `ok=False` records that the
+            # profile could not capture a run; it never aborts training.
+            if kernel_profile is not None:
+                evidence["device"]["kernel_profile"] = {
+                    "path": str(args.kernel_profile),
+                    "ok": bool(kernel_profile.get("ok")),
+                    "gpu_ops": (kernel_profile.get("observed") or {}).get("gpu_ops"),
+                    "cpu_ops": (kernel_profile.get("observed") or {}).get("cpu_ops"),
+                    "n_ops": (kernel_profile.get("observed") or {}).get("n_ops"),
+                    "gpu_share": kernel_profile.get("gpu_share"),
+                    "warning": kernel_profile.get("warning"),
+                }
+            # SAMPLER BRANCH EVIDENCE: report the fetch that ACTUALLY executed (token-keyed v2 vs
+            # the legacy stateful categorical) and how many rollouts took each branch, instead of
+            # restating `enable_crn=True`.
+            evidence["sampling"] = _sampling_evidence(trainer, resume_state)
             evidence["config"] = {
                 "seed": int(args.seed), "iterations": int(args.iterations),
                 "background_dags": int(args.background),
@@ -1048,6 +1631,8 @@ def main(argv=None) -> int:
                 "v2_system": getattr(trainer, "auto_v2_system", None),
                 "v2_constraints": getattr(trainer, "auto_v2_constraints", None),
                 "crn": getattr(trainer, "auto_crn", None),
+                "validation_interval": int(getattr(args, "validation_interval", 0) or 0),
+                "checkpoint_interval": int(getattr(args, "checkpoint_interval", 0) or 0),
             }
             evidence["error"] = failed
             # F31: the verdict must be FINAL before any success artifact is written. The
@@ -1066,6 +1651,7 @@ def main(argv=None) -> int:
                                      % (completed, int(args.iterations)))
             report = {"schema": "v2_tf_run_v1", "ok": failed is None and incomplete_reason is None,
                       "error": failed, "incomplete_reason": incomplete_reason,
+                      "contract": _contract_record(trainer, args),
                       "evidence": evidence,
                       "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started))}
             out = Path(args.json)

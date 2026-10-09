@@ -3,6 +3,15 @@
 
 Requires TensorFlow 1.x with tf.contrib. Missing TF is a failure, not a skip.
 Does not train 3500 outer iterations. Does not use GPU.
+
+F20: `test_ppo_three_applies_and_fresh_adam` used to assert NOTHING but `len(losses) == 3`, so
+its name overclaimed. The named properties are now separate tests below: the inner Adam slots
+are zeroed by the reset and non-zero after one apply, the OUTER Adam moments persist across
+`UpdateMetaPolicy` calls, per-task advantage normalization is mean~0/std~1, actor gradients are
+finite (no NaN/Inf) and the core parameters displace by a non-zero finite amount.
+
+The image has no pytest, so every test is a plain `unittest` test:
+    python -m unittest env.mec_offloaing_envs.scheduler.tests.test_phase3_learning_tf
 """
 
 from __future__ import annotations
@@ -173,6 +182,104 @@ class TestLearningTFSmoke(unittest.TestCase):
         policy_losses, value_losses = self.ppo.UpdatePPOTarget(data, batch_size=20, k_steps=3)
         self.assertEqual(len(policy_losses), 3)
         self.assertEqual(len(value_losses), 3)
+
+    # --- F20: the properties the old name claimed -------------------------------------------------
+    def test_inner_optimizer_slots_are_zeroed_then_nonzero(self):
+        """(i) the inner Adam reset zeroes the slots and one apply fills them."""
+        rng = np.random.RandomState(11)
+        data = _batch(rng, obs_dim=self.obs_dim)
+        self.ppo.reset_inner_optimizer()
+        slots = [v for v in self.ppo.optimizer.variables()]
+        self.assertTrue(slots, "the frozen PPO optimizer must own slot variables")
+        before = self.sess.run(slots)
+        for v in before:
+            self.assertEqual(float(np.max(np.abs(v))), 0.0,
+                             "the Adam slots must start at zero after the reset")
+        self.ppo.UpdatePPOTarget(data, batch_size=20, k_steps=3)
+        after = self.sess.run(slots)
+        moved = [float(np.max(np.abs(a))) for a in after]
+        self.assertTrue(any(m > 0.0 for m in moved),
+                        "one apply must fill at least one Adam slot, got %s" % (moved,))
+        self.assertTrue(all(np.isfinite(a).all() for a in after),
+                        "the Adam slots must stay finite")
+
+    def test_outer_adam_moments_persist_across_meta_updates(self):
+        """(ii) the OUTER optimizer is NOT reset per task: its moments accumulate."""
+        def outer_state():
+            return {"powers": self.sess.run([self.mrlco.outer_optimizer._beta1_power,
+                                             self.mrlco.outer_optimizer._beta2_power]),
+                    "slots": self.sess.run(
+                        [v for v in self.mrlco.outer_optimizer.variables()
+                         if "beta1_power" not in v.name and "beta2_power" not in v.name])}
+
+        rng = np.random.RandomState(12)
+        state0 = outer_state()
+        for v in state0["slots"]:
+            self.assertEqual(float(np.max(np.abs(v))), 0.0,
+                             "the outer Adam slots must start at zero on a fresh run")
+        self.mrlco.UpdatePPOTarget([_batch(rng, obs_dim=self.obs_dim) for _ in range(10)],
+                                   batch_size=20)
+        self.mrlco.UpdateMetaPolicy()
+        state1 = outer_state()
+        p0 = [float(x) for x in state0["powers"]]
+        p1 = [float(x) for x in state1["powers"]]
+        self.assertLess(p1[0], p0[0], "beta1_power must decay across outer updates")
+        self.assertLess(p1[1], p0[1], "beta2_power must decay across outer updates")
+        self.assertTrue(any(float(np.max(np.abs(v))) > 0.0 for v in state1["slots"]),
+                        "the outer Adam moments must be non-zero after one outer step")
+        self.mrlco.UpdatePPOTarget([_batch(rng, obs_dim=self.obs_dim) for _ in range(10)],
+                                   batch_size=20)
+        self.mrlco.UpdateMetaPolicy()
+        state2 = outer_state()
+        p2 = [float(x) for x in state2["powers"]]
+        self.assertLess(p2[0], p1[0],
+                        "the outer Adam moments must PERSIST across UpdateMetaPolicy calls: "
+                        "beta1_power restarted (%s -> %s)" % (p1[0], p2[0]))
+        self.assertLess(p2[1], p1[1])
+
+    def test_per_task_advantage_normalization_is_mean_zero_std_one(self):
+        """(iii) the processor normalizes advantages PER META-TASK (mean~0, std~1)."""
+        from utils import utils
+
+        rng = np.random.RandomState(13)
+        for task in range(10):
+            raw = rng.randn(20, 20).astype(np.float64) * (task + 1) + task  # per-task offset
+            normalized = utils.normalize_advantages(raw)
+            self.assertAlmostEqual(float(np.mean(normalized)), 0.0, places=6)
+            self.assertAlmostEqual(float(np.std(normalized)), 1.0, places=5)
+            self.assertEqual(normalized.shape, raw.shape)
+
+    def test_no_nan_or_inf_in_actor_gradients_or_parameters(self):
+        """(iv) actor gradients are finite; (v) core displacement is non-zero and finite."""
+        rng = np.random.RandomState(14)
+        data = _batch(rng, obs_dim=self.obs_dim)
+        params = self.ppo_policy.get_trainable_variables()
+        grads = self.tf.gradients(self.ppo.total_loss, params)
+        feed = {
+            self.ppo.old_logits: data["logits"],
+            self.ppo.old_v: data["values"],
+            self.ppo.obs: data["observations"],
+            self.ppo.actions: data["actions"],
+            self.ppo.decoder_inputs: np.column_stack(
+                (np.zeros(data["actions"].shape[0], dtype=np.int32), data["actions"][:, :-1])),
+            self.ppo.decoder_full_length: np.array(
+                [data["observations"].shape[1]] * data["observations"].shape[0], dtype=np.int32),
+            self.ppo.advs: data["advantages"],
+            self.ppo.r: data["returns"],
+        }
+        self.ppo.reset_inner_optimizer()
+        values = self.sess.run([g for g in grads if g is not None], feed_dict=feed)
+        self.assertTrue(values, "the actor loss must have at least one gradient")
+        for g in values:
+            self.assertTrue(np.isfinite(g).all(), "actor gradient contains NaN/Inf")
+        before = self.sess.run(params)
+        self.ppo.UpdatePPOTarget(data, batch_size=20, k_steps=3)
+        after = self.sess.run(params)
+        displacement = float(sum(float(np.linalg.norm(a - b)) for a, b in zip(before, after)))
+        self.assertTrue(np.isfinite(displacement))
+        self.assertGreater(displacement, 0.0, "the inner PPO must displace the core parameters")
+        for a in after:
+            self.assertTrue(np.isfinite(a).all(), "adapted parameters contain NaN/Inf")
 
     def test_value_clip_tf_matches_numpy(self):
         from spec.learning_ops import clipped_value_prediction

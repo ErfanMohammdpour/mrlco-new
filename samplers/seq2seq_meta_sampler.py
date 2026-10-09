@@ -11,6 +11,21 @@ import os
 import time
 import itertools
 
+# The TRAINING draw-space namespace. Imported from the CRN protocol module so there is exactly
+# one definition of the phase constants: training identities always have parity
+# `TRAINING_PHASE_SALT % 2 == 1` and evaluation identities (crn.seed_pair) parity 0, which is
+# what makes the two draw spaces disjoint by construction (F18).
+from spec.automotive_training.v2.crn import (
+    PHASE_TRAIN, TRAINING_PHASE_SALT, draw_phase_of, training_seed_pair,
+)
+
+#: The v2 stateless, token-keyed sampling contract. `run_tf.py` stamps this on the trainer;
+#: the sampler reports the branch it ACTUALLY took per rollout so a consumer can tell
+#: `crn_token_keyed_v2` from the legacy stateful path instead of trusting a flag.
+SAMPLING_CONTRACT_VERSION = "crn_token_keyed_v2"
+DRAW_BRANCH_TOKEN_KEYED = "crn_token_keyed_v2"
+DRAW_BRANCH_LEGACY_STATEFUL = "legacy_stateful_categorical"
+
 class Seq2SeqMetaSampler(Sampler):
     """
     Sampler for Meta-RL
@@ -42,6 +57,30 @@ class Seq2SeqMetaSampler(Sampler):
         self.parallel = parallel
         self.total_timesteps_sampled = 0
 
+        # --- V2 DRAW IDENTITY (training phase) -------------------------------------------------
+        # `draw_identity_seed` is the run seed set by the stack; the identity that reaches the
+        # policy is `training_seed_pair(seed, cursor)`, i.e. an ODD first element, while every
+        # evaluation identity from `crn.seed_pair` has an EVEN one. A training draw can
+        # therefore never be replayed as, or confused with, an evaluation draw.
+        self.draw_identity_seed = 0
+        self._draw_cursor = 0
+        #: phase namespace this sampler draws in ("train"); checked by `draw_identity()`.
+        self.draw_phase = PHASE_TRAIN
+        #: OBSERVED branch of the most recent rollout + how many times each branch ran. These
+        #: are what `run_tf.py` records, so "the v2 sampler was used" is a measurement of the
+        #: fetch that actually happened rather than a restatement of the request.
+        self.draw_branch = None
+        self.draw_branch_counts = {DRAW_BRANCH_TOKEN_KEYED: 0,
+                                   DRAW_BRANCH_LEGACY_STATEFUL: 0}
+        self.draw_key_prefix = None
+        self.draw_cursor_path = "auto_sampler.sampler._draw_cursor"
+        #: The REQUESTED contract. `run_tf.py --sampling-contract` records it on the trainer (see
+        #: `set_sampling_contract`); the default is the v2 token-keyed contract. A non-v2 request
+        #: deliberately does NOT pin an identity, so the draw really is the legacy stateful one
+        #: instead of a v2 identity being requested and a legacy branch reported.
+        self.sampling_contract_version = SAMPLING_CONTRACT_VERSION
+        self.token_keyed_draws = True
+
         # setup vectorized environment
         if self.parallel:
             self.vec_env = MetaParallelEnvExecutor(env, self.meta_batch_size, self.envs_per_task, self.max_path_length)
@@ -57,6 +96,32 @@ class Seq2SeqMetaSampler(Sampler):
         self.vec_env.set_tasks(tasks)
 
         return tasks
+
+    def set_sampling_contract(self, contract) -> str:
+        """Record the REQUESTED sampling contract and resolve the draw branch.
+
+        Called by `run_tf.py` with `--sampling-contract` (default `crn_token_keyed_v2`). A request
+        for any other contract disables the identity pinning on purpose, so the run really uses
+        the legacy stateful draw instead of reporting one branch and taking another.
+        """
+        self.sampling_contract_version = str(contract)
+        self.token_keyed_draws = (str(contract) == SAMPLING_CONTRACT_VERSION)
+        return self.sampling_contract_version
+
+    def draw_identity(self, cursor=None) -> list:
+        """The TRAINING draw identity `[seed, cursor]` handed to the policy for one rollout.
+
+        Public (and pure) so the identity can be tested and journaled without running a
+        rollout: `draw_identity(c)` is a function of the run seed and the cursor alone, and it
+        is always in the `train` phase namespace.
+        """
+        c = int(self._draw_cursor if cursor is None else cursor)
+        pair = training_seed_pair(int(getattr(self, "draw_identity_seed", 0) or 0), c)
+        phase = draw_phase_of(pair)
+        if phase != PHASE_TRAIN:
+            raise RuntimeError("training draw identity %r is not in the %r phase"
+                               % (pair, PHASE_TRAIN))
+        return [int(pair[0]), int(pair[1])]
 
     def obtain_samples(self, log=False, log_prefix=''):
         """
@@ -92,20 +157,38 @@ class Seq2SeqMetaSampler(Sampler):
             # obs_per_task = np.split(np.asarray(obses), self.meta_batch_size)
             obs_per_task = np.array(obses)
 
-            # V2 SAMPLING CONTRACT (F33/F20): pin an IDENTITY-KEYED draw before this rollout.
+            # V2 SAMPLING CONTRACT (F33/F20/F18): pin an IDENTITY-KEYED draw before this rollout.
             # Without it `get_actions` falls through to `Categorical(...).sample(seed=...)`, whose
             # op-level TF random stream is seeded once per process and whose ADVANCED DRAW HISTORY
             # is not part of a Saver checkpoint -- a resumed process then replays a different draw
             # sequence. The identity advances with `self._draw_cursor`, which is derived from the
             # sampler counters that ARE part of the resume bundle, so the sequence continues
             # exactly across a process boundary instead of restarting.
-            base_seed = int(getattr(self, "draw_identity_seed", 0) or 0)
+            #
+            # The identity is built in the TRAINING phase namespace (`draw_identity`), so it can
+            # never collide with an evaluation draw identity (F18).
             cursor = int(getattr(self, "_draw_cursor", 0))
+            pin_pair = self.draw_identity(cursor)
             self._draw_cursor = cursor + 1
+            pinned = False
             pin = getattr(policy, "set_draw_identity", None)
-            if pin is not None and getattr(policy, "enable_crn", False):
-                pin([base_seed, cursor])
+            if (pin is not None and getattr(policy, "enable_crn", False)
+                    and getattr(self, "token_keyed_draws", True)):
+                pin(pin_pair)
+                pinned = True
             actions, logits, values = policy.get_actions(obs_per_task)
+            # F20/F17: record the branch that ACTUALLY executed. A pinned identity is only
+            # effective if the policy kept the stateless decoder reachable (`enable_crn` and the
+            # crn_seed placeholder) and the decode did not fall back to the stateful sampler.
+            observed = getattr(policy, "last_decode_branch", None)
+            if observed is None:
+                observed = (DRAW_BRANCH_TOKEN_KEYED if pinned
+                            else DRAW_BRANCH_LEGACY_STATEFUL)
+            if observed not in self.draw_branch_counts:
+                self.draw_branch_counts[observed] = 0
+            self.draw_branch_counts[observed] += 1
+            self.draw_branch = observed
+            self.draw_key_prefix = [int(pin_pair[0]), int(pin_pair[1])]
             # The mask the rollout actually used: store it, never recompute it at
             # update time, otherwise the PPO importance ratio stops being a
             # likelihood ratio (see reports/MASKED_PPO_INTERFACE_6b.md).

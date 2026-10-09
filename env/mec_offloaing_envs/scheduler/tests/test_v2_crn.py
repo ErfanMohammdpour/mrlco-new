@@ -14,9 +14,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from spec.automotive_training.v2.crn import (  # noqa: E402
-    CRNError, DEFAULT_R_SELECT, DEFAULT_S_SELECT, PROTOCOL_ID,
-    categorical_probabilities, frozen_protocol, gumbel_argmax, gumbel_noise,
-    nested_aggregate, paired_delta, protocol_sha, seed_pair,
+    CRNError, DEFAULT_R_SELECT, DEFAULT_S_SELECT, EVALUATION_PHASE_SALT, PHASE_EVAL,
+    PHASE_TRAIN, PROTOCOL_ID, TRAINING_PHASE_SALT,
+    categorical_probabilities, draw_phase_of, frozen_protocol, gumbel_argmax, gumbel_noise,
+    nested_aggregate, paired_delta, protocol_sha, seed_pair, training_seed_pair,
 )
 
 
@@ -106,6 +107,98 @@ class TestAggregation(unittest.TestCase):
         self.assertEqual(doc["s_select"], DEFAULT_S_SELECT)
         self.assertIn("Gumbel", doc["action_rule"])
         self.assertEqual(protocol_sha(), protocol_sha())
+
+    def test_advertised_key_matches_the_implementation(self):
+        """F18: the frozen document must not advertise a key the code does not use.
+
+        `key` used to include `token_index`/`action_index` while `seed_pair` keyed only on
+        (protocol, r, s, graph). The document now separates the seed key from the full draw key,
+        and `seed_pair` is required to be insensitive to the token/action axes.
+        """
+        doc = frozen_protocol()
+        self.assertEqual(doc["key"], "(protocol_id, replicate, sample, graph_id)")
+        self.assertIn("token_index", doc["draw_key"])
+        self.assertIn("action_index", doc["draw_key"])
+        a = seed_pair(PROTOCOL_ID, 1, 2, "g")
+        self.assertEqual(a, seed_pair(PROTOCOL_ID, 1, 2, "g"))
+        # no token/action argument exists at all: the seed cannot depend on them
+        import inspect
+        self.assertEqual(list(inspect.signature(seed_pair).parameters),
+                         ["protocol_id", "replicate", "sample", "graph_id"])
+        self.assertIn("training", doc["phases"])
+        self.assertIn("evaluation", doc["phases"])
+
+    def test_per_token_substreams_are_independent(self):
+        """A per-token substream means one token's noise does not move another token's draw:
+        perturbing token 0's logits leaves every other token's action unchanged."""
+        tokens, vocab = 24, 3
+        logits = np.zeros((tokens, vocab))
+        noise = gumbel_noise(PROTOCOL_ID, 0, 0, "g", tokens, vocab)
+        base = gumbel_argmax(logits, noise)
+        perturbed_logits = logits.copy()
+        perturbed_logits[0] = [10.0, 0.0, 0.0]
+        moved = gumbel_argmax(perturbed_logits, noise)
+        self.assertEqual(int(moved[0]), 0)
+        self.assertTrue(np.array_equal(base[1:], moved[1:]),
+                        "only token 0 may move; a shared stream would move every token")
+        # and the substreams are genuinely different draws, not the same row repeated
+        self.assertFalse(np.array_equal(noise[0], noise[1]))
+        self.assertFalse(np.array_equal(noise[1], noise[2]))
+
+    def test_per_token_substream_seed_is_distinct_and_stable(self):
+        """The per-token substream seed (the same derivation the TF helper uses) is a function of
+        the token index: no two tokens can be handed the same seed, and it is reproducible."""
+        from spec.automotive_training.v2.crn import _token_seed
+
+        base = seed_pair(PROTOCOL_ID, 2, 3, "g")
+        seeds = [_token_seed(base, t) for t in range(64)]
+        self.assertEqual(len(set(seeds)), 64, "two tokens share a substream seed")
+        self.assertEqual(seeds, [_token_seed(base, t) for t in range(64)])
+        self.assertNotEqual(_token_seed(base, 0), _token_seed(seed_pair(PROTOCOL_ID, 2, 4, "g"), 0))
+        for s in seeds:
+            self.assertGreaterEqual(s, 0)
+            self.assertLess(s, 2 ** 32)
+
+    def test_evaluation_seed_is_stable_across_calls(self):
+        """The evaluation key is a pure function: the same key gives the same pair FOREVER."""
+        first = [seed_pair(PROTOCOL_ID, r, s, "g%d" % g)
+                 for r in range(3) for s in range(3) for g in range(3)]
+        second = [seed_pair(PROTOCOL_ID, r, s, "g%d" % g)
+                  for r in range(3) for s in range(3) for g in range(3)]
+        self.assertEqual(first, second)
+
+
+class TestDrawPhasesAreDisjoint(unittest.TestCase):
+    """F18: training and evaluation draw spaces cannot collide (pure parity argument)."""
+
+    def test_phase_constants_have_opposite_parity(self):
+        self.assertEqual(TRAINING_PHASE_SALT % 2, 1)
+        self.assertEqual(EVALUATION_PHASE_SALT % 2, 0)
+        self.assertEqual(draw_phase_of(training_seed_pair(0, 0)), PHASE_TRAIN)
+        self.assertEqual(draw_phase_of(seed_pair(PROTOCOL_ID, 0, 0, "g")), PHASE_EVAL)
+
+    def test_training_pair_encodes_seed_and_cursor(self):
+        self.assertEqual(training_seed_pair(7, 3), (15, 3))
+        self.assertEqual(training_seed_pair(0, 0), (1, 0))
+        with self.assertRaises(CRNError):
+            training_seed_pair(-1, 0)
+        with self.assertRaises(CRNError):
+            training_seed_pair(2 ** 31, 0)
+
+    def test_no_training_key_equals_any_evaluation_key(self):
+        train = {training_seed_pair(seed, cursor)
+                 for seed in range(48) for cursor in range(48)}
+        evaluation = {seed_pair(PROTOCOL_ID, r, s, "g%d" % g)
+                      for r in range(8) for s in range(8) for g in range(8)}
+        self.assertEqual(train & evaluation, set())
+        self.assertFalse(any(draw_phase_of(p) == PHASE_EVAL for p in train))
+        self.assertFalse(any(draw_phase_of(p) == PHASE_TRAIN for p in evaluation))
+
+    def test_draw_phase_rejects_a_non_pair(self):
+        with self.assertRaises(CRNError):
+            draw_phase_of([1])
+        with self.assertRaises(CRNError):
+            draw_phase_of(None)
 
 
 if __name__ == "__main__":
