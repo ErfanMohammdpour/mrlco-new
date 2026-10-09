@@ -128,15 +128,21 @@ class TestRewardPenaltyIsReal(unittest.TestCase):
                 # R = J_0 - gamma^N J_N - penalty). Asserting the raw terminal value against
                 # `base[-1] - applied` would encode the old, gamma-mis-scaled convention.
                 from spec.objective_contract import SHAPING_DISCOUNT
-                w = SHAPING_DISCOUNT ** (len(got) - 1)
-                np.testing.assert_allclose(float(got[-1]), float(base[-1]) - applied / w,
+                g = SHAPING_DISCOUNT
+                # APPROVED RETURN-CONTRACT (`gamma_N_v2`): the env passes
+                # terminal_scale=gamma**N with terminal_weight=gamma**(N-1), so the terminal
+                # token is charged `gamma * applied` and the discounted contribution is
+                # `gamma**N * applied`. That makes R = J_0 - gamma^N*(J_N + P), an exact affine
+                # function of the approved constrained latency. The superseded form charged
+                # `applied / gamma**(N-1)` (contribution exactly `applied`), which is the
+                # different weighted objective J_N + P/gamma**N.
+                np.testing.assert_allclose(float(got[-1]), float(base[-1]) - g * applied,
                                            rtol=1e-4, atol=1e-4)
-                # and the discounted contribution of the charge is exactly the penalty
-                self.assertAlmostEqual(
-                    float(np.sum(got * (SHAPING_DISCOUNT ** np.arange(len(got)))))
+                contrib = (
+                    float(np.sum(got * (g ** np.arange(len(got)))))
                     - float(np.sum(np.asarray(base, dtype=float)
-                                   * (SHAPING_DISCOUNT ** np.arange(len(base))))),
-                    -applied, places=4)
+                                   * (g ** np.arange(len(base))))))
+                self.assertAlmostEqual(contrib, -(g ** len(got)) * applied, places=4)
         self.assertGreater(checked, 0, "the fixture must contain an over-budget slot")
 
     def test_telemetry_exposes_violations_and_denominators(self):

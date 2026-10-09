@@ -711,7 +711,8 @@ class V2AutomotiveEnv:
                 gamma = float(getattr(self, "shaping_discount", SHAPING_DISCOUNT))
                 n_tokens = max(1, len(rewards))
                 penalty = self.constraint_manager.apply_penalty(
-                    rewards, costs, terminal_weight=gamma ** (n_tokens - 1))
+                    rewards, costs, terminal_weight=gamma ** (n_tokens - 1),
+                    terminal_scale=gamma ** n_tokens)
                 self.constraint_manager.observe(costs)
                 self.last_constraint_costs.append(costs)
             else:

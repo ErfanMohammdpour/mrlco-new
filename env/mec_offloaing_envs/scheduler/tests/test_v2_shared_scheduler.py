@@ -144,7 +144,20 @@ class TestFrozenGraphIntegration(unittest.TestCase):
         self.env = _env(self.graphs)
         self.plans = [([1] * 20), ([1] * 20), ([1] * 20)]
 
-    def test_single_dag_matches_v1_makespan_within_tolerance(self):
+    def test_single_dag_makespan_ratio_to_v1_follows_the_resource_contract(self):
+        """V2 schedules at the ENERGY-PRICING frequency; V1 schedules at the graph frequency.
+
+        The two are no longer required to agree. Under `frozen_tier_f_v2` the V2 CPU rate is
+        `f_frozen/(8*xi)` while V1 uses `f_dataset/(8*xi)`, so a compute-bound V2 makespan is
+        longer by exactly `f_dataset/f_frozen`. The old assertion (<=10% of V1) encoded the
+        inconsistent contract in which the duration used one frequency and the energy another.
+
+        What must hold instead is the CONTRACT: the V2 duration is the work at the frozen
+        frequency, and the ratio to V1 is the frequency ratio (up to the transfer terms, which do
+        not scale with the CPU frequency).
+        """
+        from spec.automotive_training.automotive_resources import dataset_reference_parameters
+        from spec.automotive_training.v2.energy import frozen_energy_spec
         graph = self.graphs[0]
         mc = self.env._slot_mc[0]
         v1, _e, _m = self.env._schedule(0, [1] * 20, mc)
@@ -154,8 +167,23 @@ class TestFrozenGraphIntegration(unittest.TestCase):
         res = schedule_shared([dag], {"g0": plan_map_from_actions(graph, [1] * 20)},
                               link=link, compute=compute)
         v1_ms = float(v1.makespan_seconds)
-        self.assertAlmostEqual(res.makespan_s, v1_ms, delta=0.10 * v1_ms,
-                               msg="v2 single-DAG must be close to v1 (delta<=10%)")
+        xi = float(dataset_reference_parameters()["xi_cycles_per_bit"])
+        f_graph = float(graph.resource["f_mec_hz"])
+        f_energy = float(frozen_energy_spec().tiers["mec"].f_hz)
+        # the V2 MEC rate must be the physical rate at the ENERGY frequency
+        self.assertAlmostEqual(
+            float(compute.mec_cpu_bytes_per_s), f_energy / (8.0 * xi), places=6,
+            msg="V2 must schedule at the energy-pricing frequency (contract frozen_tier_f_v2)")
+        # and the V1 rate is the physical rate at the GRAPH frequency
+        self.assertAlmostEqual(float(compute.mec_cpu_bytes_per_s) * (f_graph / f_energy),
+                               f_graph / (8.0 * xi), places=6)
+        # V2 must be SLOWER than V1 whenever the graph frequency exceeds the energy frequency
+        if f_graph > f_energy:
+            self.assertGreater(res.makespan_s, v1_ms,
+                               "V2 schedules at the energy frequency, so it cannot be faster "
+                               "than V1 scheduling at a higher graph frequency")
+        else:
+            self.assertLessEqual(res.makespan_s, v1_ms + 1e-9)
 
     def test_two_concurrent_dags_queue_on_shared_mec(self):
         graph = self.graphs[0]

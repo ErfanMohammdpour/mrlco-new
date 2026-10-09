@@ -170,6 +170,13 @@ class ConstraintCostBatch(list):
         return out
 
 
+#: Penalty return-contribution contract. `gamma_N_v2` makes the discounted return
+#: `R = J_0 - gamma^N*(J_N + P)`, an exact affine function of the approved constrained latency
+#: `J_N + P`. The earlier `gamma_(N-1)` form produced `R = J_0 - gamma^N*J_N - P`, which is the
+#: DIFFERENT weighted objective `J_N + P/gamma^N`.
+PENALTY_RETURN_SCALE = "gamma_N_v2"
+
+
 @dataclass
 class V2ConstraintManager:
     """Per-worker dual state: hold lambda fixed inside a rollout, update once per iteration."""
@@ -234,7 +241,8 @@ class V2ConstraintManager:
 
     def apply_penalty(self, rewards: Sequence[float],
                       costs: ConstraintCosts,
-                      *, terminal_weight: float = 1.0) -> float:
+                      *, terminal_weight: float = 1.0,
+                      terminal_scale: float = 1.0) -> float:
         """Charge `-penalty` on the TERMINAL token. Returns the applied penalty.
 
         The episode cost is charged exactly once: charging it on every token would multiply it
@@ -255,7 +263,25 @@ class V2ConstraintManager:
             if not (weight > 0.0) or not math.isfinite(weight):
                 raise V2ConstraintError(
                     "terminal_weight must be finite and > 0, got %r" % (terminal_weight,))
-            rewards[-1] = float(rewards[-1]) - penalty / weight
+            # RETURN-CONTRIBUTION CONTRACT (`PENALTY_RETURN_SCALE`). The terminal token carries
+            # discount gamma^(N-1) in the PPO return, so charging `penalty/weight` makes the
+            # penalty's discounted contribution exactly `penalty`:
+            #     R = J_0 - gamma^N * J_N - P
+            # That is the weighted objective `J_N + P/gamma^N`, NOT `J_N + P`. The approved
+            # terminal cost is the CONSTRAINED LATENCY `J_N + P`, and ranking by R must equal
+            # ranking by `-(J_N + P)` (spec/objective_contract.py). `terminal_scale` expresses
+            # the intended discounted contribution directly: the charge is
+            # `terminal_scale * penalty`, whose discounted contribution is that times
+            # `weight`. The V2 environment passes `terminal_scale=gamma**N` to get
+            #     R = J_0 - gamma^N * (J_N + P)
+            # which is an exact affine function of the approved cost. The DEFAULT is 1.0
+            # (contribution `P`, the historical honest form) so an unwitting caller can never
+            # silently drop the penalty; the approved form is an explicit opt-in.
+            scale = float(terminal_scale)
+            if not math.isfinite(scale) or scale < 0.0:
+                raise V2ConstraintError(
+                    "terminal_scale must be finite and >= 0, got %r" % (terminal_scale,))
+            rewards[-1] = float(rewards[-1]) - (scale * penalty) / weight
         return penalty
 
     def observe(self, costs: ConstraintCosts) -> None:

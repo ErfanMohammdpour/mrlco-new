@@ -33,8 +33,51 @@ from .shared_scheduler import (
 )
 
 
+#: V2 resource/timing/energy contract. v1 scheduled with the PER-GRAPH dataset frequency
+#: (`f_dataset / (8*xi)`) while the event ledger priced CPU energy at the FROZEN tier frequency,
+#: so the two identities `E = P*T` and `E = kappa*C*f^2` referred to different `f`
+#: (measured: dataset 422 MHz / 845 MHz / 6.74 GHz vs frozen 1 / 1.5 / 10 GHz, i.e.
+#: `E_duration/E_work = R_physical/R_scheduled != 1`). v2 uses ONE frequency for scheduling AND
+#: pricing: the rate is the physical rate at the frozen tier frequency,
+#: `R = f_frozen / (8*xi)`, which makes `E_duration == E_work` exactly by construction.
+V2_RESOURCE_CONTRACT = "frozen_tier_f_v2"
+
+
 def config_for(graph) -> Any:
-    return co_physical_config_for_graph(graph.resource, source_sha256="v2-adapter")
+    """V2 scheduler config under the resolved resource contract (one frequency for T and E)."""
+    cfg = co_physical_config_for_graph(graph.resource, source_sha256="v2-adapter")
+    return _apply_v2_resource_contract(cfg, graph)
+
+
+def _apply_v2_resource_contract(cfg, graph):
+    """Rewrite the CPU service rates to the physical rates at the ENERGY-PRICING frequency.
+
+    The ledger prices dynamic power as `P = kappa*f^3` with the frozen tier frequency, so the
+    duration must be `T = C/f_frozen = bytes*8*xi/f_frozen`. Scheduling with any other frequency
+    silently breaks `E = P*T == kappa*C*f^2`.
+    """
+    from spec.automotive_training.automotive_resources import dataset_reference_parameters
+    from spec.automotive_training.v2.energy import frozen_energy_spec
+    xi = float(dataset_reference_parameters().get("xi_cycles_per_bit"))
+    if not (xi > 0.0):
+        raise ValueError("xi_cycles_per_bit must be positive, got %r" % (xi,))
+    tiers = frozen_energy_spec().tiers
+    rates = {
+        "ue_cpu_bytes_per_second": float(tiers["ue"].f_hz) / (8.0 * xi),
+        "helper_cpu_bytes_per_second": float(tiers["helper"].f_hz) / (8.0 * xi),
+        "mec_cpu_bytes_per_second": float(tiers["mec"].f_hz) / (8.0 * xi),
+    }
+    try:
+        import dataclasses
+        if dataclasses.is_dataclass(cfg):
+            return dataclasses.replace(cfg, **rates)
+        for k, v in rates.items():
+            setattr(cfg, k, v)
+        return cfg
+    except Exception as exc:                                     # pragma: no cover
+        raise RuntimeError(
+            "could not apply the V2 resource contract %r to the scheduler config: %s"
+            % (V2_RESOURCE_CONTRACT, exc)) from exc
 
 
 def shared_mec_capacity(graphs: Sequence, *, mode: str = "median") -> float:
