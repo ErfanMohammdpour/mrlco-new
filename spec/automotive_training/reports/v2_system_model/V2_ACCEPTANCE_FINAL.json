@@ -1,50 +1,108 @@
 {
-  "blocker": {
-    "alternates_checked": {
-      "kish-core 188.121.120.169": "reachable but no docker and no /opt/margo",
-      "kish-core-old proxy host zarafe (100.115.180.59)": "unreachable",
-      "pfm-cpu 185.213.167.163:3031": "reachable, docker present, no margo/TF1.15 image, 4 CPUs, 15 GB RAM"
-    },
-    "impact": "Gate A steps 3-4, Gate C and the 1500-iteration campaign all require that host",
-    "observed": "ICMP + TCP timeout for >25 minutes (30 consecutive attempts)",
-    "resource": "GPU host kish-ai (185.213.165.199:3031) unreachable"
-  },
   "branch": "phase5-realistic-system-v2",
   "campaign_1500": {
-    "launcher_committed": true,
-    "monitor_committed": true,
-    "reason": "conditional authorization requires Gate A resume/eval, Gate B formal and Gate C to pass; none of the remaining ones could be executed",
-    "status": "NOT_LAUNCHED"
+    "container_id": "e12b6321dfaa",
+    "container_name": "margo-v2-1500-seed0-20261010T082558Z",
+    "eta_hours_to_1500": 13.7,
+    "gpu_memory_free_mib": 373,
+    "gpu_memory_used_mib_before_after": [
+      22580,
+      23709
+    ],
+    "image": "margo-phase4-tf115-nv2212:latest",
+    "image_id": "82bc781bc288",
+    "launch_command": "bash spec/automotive_training/v2/kish_launch_campaign.sh /opt/margo/mrlco-v2-src /opt/margo/campaigns 1500",
+    "launcher_pid": 1692337,
+    "measured_mean_iteration_s": 33.4,
+    "measured_median_iteration_s": 29.6,
+    "meta_test": "closed",
+    "monitor_command": "bash spec/automotive_training/v2/kish_monitor_campaign.sh <RUN> 60 45",
+    "observed_at": {
+      "complete_generations": 2,
+      "completed_iterations": 27,
+      "iteration_target": 1500,
+      "next_iteration": 27,
+      "outer_updates_completed": 27,
+      "phase": "constraints",
+      "stalled_minutes": 0,
+      "validations_completed": 1
+    },
+    "resume_command": "re-run the launcher against the same RUN dir with --resume-from /out/ckpt",
+    "run_dir": "/opt/margo/campaigns/primary_1500_seed0_20261010T082558Z",
+    "source_mount": "read-only",
+    "source_sha": "527da36499fc974b5b111d225e1c3e42c7d26eff",
+    "status": "RUNNING",
+    "vllm_and_qdrant_untouched": true
   },
-  "code_revision": "3a42c7b",
+  "code_revision": "f8e408e",
+  "code_revision_campaign_source": "527da36",
   "code_revision_parent": "9e80a16",
   "container_image": "margo-phase4-tf115-nv2212:latest",
   "gate_A_cpu_continuation": {
-    "blocked_by": "GPU host unreachable",
-    "comparison_verdict": "NOT_PRODUCED",
-    "control_to_6": "PASS (EXIT=0, 6/6 completed, 432 s, 6 ledger rows)",
-    "fresh_process_resume_to_6": "STARTED, NOT OBSERVED TO COMPLETION",
-    "isolated_eval_of_final_checkpoint": "NOT_RUN",
-    "split_part1_to_2_with_generation": "PASS (EXIT=0, 2/2 completed, 213 s, gen_00000001)"
+    "artifact": "acceptance_chain1/gateA/GATE_A_VERDICT.json",
+    "comparison": {
+      "duals_world_counters_identical": true,
+      "energy_rel_diffs": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "iterations_compared": 6,
+      "worst_relative_difference": 1.6198344414228063e-16
+    },
+    "control_to_6": "PASS (EXIT=0, 6/6, 426 s, 6 ledger rows)",
+    "fresh_process_resume_to_6": "PASS (EXIT=0, 317 s, ledger continues to 6 rows)",
+    "isolated_eval_of_final_checkpoint": "PASS (start_iteration=6, resume_mode=exact_continuation, k3 latency 0.202641 s)",
+    "split_part1_to_2_with_generation": "PASS (EXIT=0, 2/2, 213 s, gen_00000001)",
+    "status": "PASS"
   },
   "gate_B_recovery_and_paired": {
+    "chain_flag": "GATE_B_OK (all modules EXIT=0)",
     "legacy_schema_refusal": "PASS (15/15)",
     "paired_policy_panel_worlds": "PASS",
     "partial_generation_recovery": "PASS (16/16)",
     "real_RxS_on_real_policy_TF": "PASS (test_v2_stack 21/21)",
     "resume_contract_and_target_increase": "PASS (15/15)",
+    "status": "PASS",
     "validation_does_not_mutate_train_duals": "PASS"
   },
   "gate_C_production_gpu_smoke_fraction_0_5": {
-    "blocked_by": "GPU host unreachable",
-    "missing_evidence": [
-      "observed GPU kernel placement (gpu_ops>0)",
-      "measured GPU timing/resource usage",
-      "3 completed production outer iterations at fraction 0.5"
+    "active_constraints": [
+      "ue_energy",
+      "total_energy"
     ],
-    "status": "NOT_RUN"
+    "artifact": "acceptance_chain1/gateC/GATE_C_VERDICT.json",
+    "complete_generations": [
+      "gen_00000000",
+      "gen_00000001",
+      "gen_00000002"
+    ],
+    "isolated_final_checkpoint_eval": true,
+    "iterations_completed": 3,
+    "lambdas": {
+      "total_energy": 0.0,
+      "ue_energy": 0.0
+    },
+    "observed_kernel_placement": {
+      "cpu_ops": 0,
+      "fallback_warning": null,
+      "gpu_ops": 3476,
+      "gpu_share": 1.0,
+      "n_ops": 3476
+    },
+    "outer_updates_completed": 3,
+    "state_finite": true,
+    "status": "PASS",
+    "validations_completed": 1
   },
   "meta_test_access_count": 0,
+  "post_campaign_source_diff": [
+    "spec/automotive_training/v2/kish_gate_c.sh (verdict key)",
+    "spec/automotive_training/v2/kish_monitor_campaign.sh (progress path)"
+  ],
   "schema": "v2_acceptance_final_v1",
   "tests": {
     "container_tf_failures": 0,
@@ -57,9 +115,9 @@
     }
   },
   "verdicts": {
-    "campaign_operational_acceptance": "NOT_READY",
-    "implementation_acceptance": "SUBSTANTIALLY_PASSED_PENDING_GATE_A_RESUME_AND_GATE_C",
-    "learning_competitiveness": "NOT_MEASURED"
+    "campaign_operational_acceptance": "PASS",
+    "implementation_acceptance": "PASS",
+    "learning_competitiveness": "NOT_YET_MEASURED (single seed; final/best-validation evaluation pending completion)"
   },
   "working_tree_clean": true
 }

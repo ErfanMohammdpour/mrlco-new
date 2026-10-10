@@ -66,9 +66,12 @@ Configuration: seed 0, total-energy fraction 0.05, UE fraction 0.05, R=2/S=2, CP
 |---|---|---|
 | 1. uninterrupted control to 6 | **PASS** | `EXIT=0`, `iterations_completed=6`, `elapsed=432 s`, 6 per-iteration ledger rows |
 | 2. separate process to 2 + committed generation | **PASS** | `EXIT=0`, `iterations_completed=2`, `elapsed=213 s`, `gen_00000001` committed |
-| 3. fresh process resumes to TOTAL 6 | **STARTED, not observed to completion** | was executing when the GPU host became unreachable |
-| 4. isolated evaluation (`--eval-only`) of the final checkpoint | **NOT RUN** | same reason |
-| comparison verdict | **NOT PRODUCED** | same reason |
+| 3. fresh process resumes to TOTAL 6 | **PASS** | `EXIT=0`, `elapsed=317 s`, ledger continues to 6 rows |
+| 4. isolated evaluation (`--eval-only`) of the final checkpoint | **PASS** | `start_iteration=6`, `resume_mode=exact_continuation`, k3 latency 0.202641 s |
+| comparison verdict | **PASS** | 6 iterations compared, worst relative difference **1.62e-16**; energy diffs all exactly 0; duals, world realization and counters identical in every iteration |
+
+Re-run end-to-end on the final revision (`527da36`, tree clean) after the network outage:
+`GATE_A_EXIT=0`, artifact `acceptance_chain1/gateA/GATE_A_VERDICT.json`.
 
 The comparison driver (`kish_gate_a.sh` + `gate_a_compare.py`) is committed and compares, iteration
 by iteration: system joules, penalty sum, duals, world realization and the completed counters.
@@ -76,6 +79,9 @@ by iteration: system joules, penalty sum, duals, world realization and the compl
 ---
 
 ## 4. Gate B — recovery, legacy refusal, paired R x S
+
+Gate B was executed on the final revision as one of the chain stages (`GATE_B_OK`); every module
+returned `EXIT=0`.
 
 | check | state | evidence |
 |---|---|---|
@@ -88,25 +94,56 @@ by iteration: system joules, penalty sum, duals, world realization and the compl
 
 ---
 
-## 5. Gate C — production GPU smoke at fraction 0.5
+## 5. Gate C — production GPU smoke at fraction 0.5 — **PASS**
 
-**NOT RUN.** The GPU host (`ssh kish-ai`, 185.213.165.199:3031) became unreachable before it
-started. Consequence: the observed-GPU-kernel-placement artifact (`gpu_ops > 0`), the measured
-GPU timings and the 3-completed-iteration production smoke at the approved fractions are **not
-established**, and the F34 hook is tested only for its parsing/behaviour logic (CPU image).
+Executed on the supported CUDA-11.8 TF1.15/contrib image at the approved production settings
+(seed 0, background 2 / `all_mec`, moderate links, total-energy fraction 0.5 with the
+foreground all-MEC reference, UE fraction 1.0, R/S 2/2, validation interval 50, trace off,
+GPU fraction 0.03, intra/inter 8/2), then the final post-update checkpoint evaluated in an
+isolated `--eval-only` context. Artifact: `acceptance_chain1/gateC/GATE_C_VERDICT.json`.
+
+| check | observed |
+|---|---|
+| completed outer iterations | **3** (target 3) |
+| outer updates completed | **3** — equal to completed iterations |
+| validations completed | 1 |
+| state finite | **True** |
+| complete transactional generations | `gen_00000000`, `gen_00000001`, `gen_00000002` |
+| **observed kernel placement** | `gpu_ops = 3476`, `cpu_ops = 0`, `n_ops = 3476`, **gpu_share = 1.0**, no fallback warning |
+| declared active constraints | `['ue_energy', 'total_energy']`, lambdas `{total_energy: 0.0, ue_energy: 0.0}` (legitimate at fraction 0.5) |
+| isolated final-checkpoint evaluation | present, `--eval-only` on the last generation |
+| exit code vs `run.json` | process `EXIT=0`, `ok: true`, `error: null` |
+
+F34 is therefore **satisfied by measurement**: the core TF compute kernels executed on the GPU
+(100 % of the profiled ops), not merely requested.
 
 ---
 
-## 6. Campaign
+## 6. Campaign — **LAUNCHED and RUNNING**
 
-**NOT LAUNCHED.** The authorized 1500-iteration launch is conditional on Gate C and on Gate A
-step 3/4 completing; neither was reached. The launcher
-(`kish_launch_campaign.sh`) and monitor (`kish_monitor_campaign.sh`) are committed, pin the
-frozen production settings (1500 total completed outer iterations, seed 0, background 2 /
-`all_mec`, moderate links, total-energy fraction 0.5 foreground all-MEC referenced, UE fraction
-1.0, R/S 2/2, validation 50, checkpoint 10, `crn_token_keyed_v2`, trace off, read-only source
-mount) and record the identity/fingerprint manifest. `meta_test_access_count` stayed 0 throughout
-(no meta-test path was executed in this round).
+Launched automatically by the chain after A, B and C all passed.
+
+```
+run dir     /opt/margo/campaigns/primary_1500_seed0_20261010T082558Z
+source      /opt/margo/mrlco-v2-src  @ 527da36499fc974b5b111d225e1c3e42c7d26eff (dirty 0)
+            mounted READ-ONLY; the only repo-HEAD differences are two ops scripts
+image       margo-phase4-tf115-nv2212:latest (82bc781bc288)
+container   e12b6321dfaa  (name margo-v2-1500-seed0-20261010T082558Z)
+launcher    pid 1692337
+launch      bash spec/automotive_training/v2/kish_launch_campaign.sh \
+                /opt/margo/mrlco-v2-src /opt/margo/campaigns 1500
+monitor     bash spec/automotive_training/v2/kish_monitor_campaign.sh <RUN> 60 45
+resume      re-run the launcher against the same RUN dir, adding --resume-from /out/ckpt
+```
+
+Observed at 27/1500 (well past the two-completed-updates bar): `state=RUNNING`,
+`completed_iterations=27`, `outer_updates_completed=27`, `validations_completed=1`,
+`next_iteration=27`, `phase=constraints`, `complete_generations=2`, `stalled_minutes=0`,
+`container_alive=true`. Mean measured iteration 33.4 s (median 29.6 s) → **≈14 h to 1500**.
+GPU memory went 22580 → 23709 MiB used with 373 MiB still free: the campaign took only its
+bounded 0.03 fraction and **vLLM/qdrant were not touched**.
+
+`meta_test_access_count` stayed 0; no meta-test path was executed.
 
 ---
 
@@ -126,7 +163,7 @@ mount) and record the identity/fingerprint manifest. `meta_test_access_count` st
 
 ---
 
-## 8. Exact blocker at the time of writing
+## 8. The outage that interrupted the first pass (resolved)
 
 The GPU host `kish-ai` (**185.213.165.199:3031**) — the only host carrying the TF1.15/contrib
 image and the margo environment — became unreachable: ICMP and TCP both time out, for more than
@@ -138,7 +175,8 @@ image and the margo environment — became unreachable: ICMP and TCP both time o
 | `pfm-cpu` 185.213.167.163:3031 | yes | docker present but no margo/TF1.15 image, 4 CPUs / 15 GB, and it is a different service |
 | `kish-core-old` proxy `zarafe` (100.115.180.59) | no | tailnet jump host unreachable |
 
-Consequently Gate A steps 3–4, Gate B's formal run, Gate C and the 1500-iteration campaign could
-not be executed. The complete acceptance chain is scripted and committed
-(`kish_continue.sh`): it syncs the frozen revision, runs A → B → C, and launches the campaign
-**only** if all three pass.
+The host came back with the same uptime (5 days), i.e. it had never rebooted — the outage was a
+network-path blackhole, and the first-pass Gate A run had in fact already completed all four
+steps with `EXIT=0`. On recovery the whole chain was re-executed end-to-end on the final revision
+with one audited comparator, and it passed: `GATE_A_EXIT=0` → `GATE_B_OK` → `GATE_C_PASS=1` →
+launch.
