@@ -98,84 +98,8 @@ echo ""
 echo "=============================================================="
 echo "Gate A  comparison $(date -u +%FT%TZ)"
 echo "=============================================================="
-python3 - "$OUT" <<'PY'
-import json, sys, math
-from pathlib import Path
-
-out = Path(sys.argv[1])
-
-def rows(path):
-    p = Path(path)
-    if not p.exists():
-        return []
-    return [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
-
-def rd(path):
-    p = Path(path)
-    return json.loads(p.read_text()) if p.exists() else {}
-
-control = rows(out / "control")
-split = rows(out / "split")
-by_control = {int(r["iteration"]): r for r in control}
-by_split = {int(r["iteration"]): r for r in split}
-
-def rel(a, b):
-    if a is None or b is None:
-        return None
-    a = float(a); b = float(b)
-    denom = max(abs(a), abs(b), 1e-12)
-    return abs(a - b) / denom
-
-compared = []
-worst = 0.0
-for itr in sorted(set(by_control) & set(by_split)):
-    c, s = by_control[itr], by_split[itr]
-    row = {"iteration": itr,
-           "control_J": c.get("mean_system_joules"), "resume_J": s.get("mean_system_joules"),
-           "control_penalty_sum": (c.get("iteration_delta") or {}).get("penalty_sum"),
-           "resume_penalty_sum": (s.get("iteration_delta") or {}).get("penalty_sum"),
-           "lambdas_equal": bool(c.get("lambdas") == s.get("lambdas")),
-           "world_equal": bool(c.get("world_realization") == s.get("world_realization")),
-           "sampler_counters_equal": bool(
-               c.get("outer_updates_completed") == s.get("outer_updates_completed")
-               and c.get("validations_completed") == s.get("validations_completed")),
-           }
-    row["energy_rel_diff"] = rel(row["control_J"], row["resume_J"])
-    row["penalty_rel_diff"] = rel(row["control_penalty_sum"], row["resume_penalty_sum"])
-    for key in ("energy_rel_diff", "penalty_rel_diff"):
-        if row[key] is not None:
-            worst = max(worst, row[key])
-    compared.append(row)
-
-cj, sj = rd(out / "control.json"), rd(out / "split.json")
-ej = rd(out / "control_eval.json")
-verdict = {
-    "schema": "v2_gate_a_verdict_v1",
-    "control_completed": cj.get("iterations_completed"),
-    "resume_completed": sj.get("iterations_completed"),
-    "control_target": cj.get("iterations_requested"),
-    "resume_target": sj.get("iterations_requested"),
-    "resume_start_iteration": ej.get("start_iteration"),
-    "compared_iterations": compared,
-    "worst_relative_difference": worst,
-    "exact_match_all_compared_iterations": bool(
-        compared and worst <= 1e-12
-        and all(r["lambdas_equal"] and r["world_equal"] and r["sampler_counters_equal"]
-                for r in compared)),
-    "control_json_error": cj.get("error"),
-    "resume_json_error": sj.get("error"),
-    "isolated_eval_present": bool(ej),
-    "isolated_eval_k3_latency_s": (ej.get("k3") or {}).get("query_mean_latency_s"),
-    "isolated_eval_completed_iterations": ej.get("completed_iterations"),
-}
-(out / "GATE_A_VERDICT.json").write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n")
-print(json.dumps(verdict, indent=2, sort_keys=True))
-print("")
-print("GATE A: %s" % ("PASS" if (verdict["exact_match_all_compared_iterations"]
-                                 and verdict["control_completed"] == 6
-                                 and verdict["resume_completed"] == 6
-                                 and verdict["isolated_eval_present"]) else "FAIL"))
-PY
+python3 "$(cd "$(dirname "$0")" && pwd)/gate_a_compare.py" "$OUT"
+A_VERDICT=$?
 
 echo ""
 echo "exits: control=$CONTROL_EXIT split1=$SPLIT1_EXIT split2=$SPLIT2_EXIT evalonly=$EVAL_EXIT"

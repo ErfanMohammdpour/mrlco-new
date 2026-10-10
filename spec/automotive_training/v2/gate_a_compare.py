@@ -43,7 +43,19 @@ def _rel(a, b):
 
 
 def _report(path: Path) -> dict:
-    return json.loads(path.read_text()) if path.exists() else {}
+    """The run report, flattened so counters are readable.
+
+    `run_tf.py` writes the counters under `evidence`; older consumers read them at the top
+    level, so both layouts are supported.
+    """
+    if not path.exists():
+        return {}
+    doc = json.loads(path.read_text())
+    flat = dict(doc)
+    if isinstance(doc.get("evidence"), dict):
+        for key, value in doc["evidence"].items():
+            flat.setdefault(key, value)
+    return flat
 
 
 def main(argv):
@@ -102,7 +114,7 @@ def main(argv):
         "isolated_eval_present": bool(ej),
         "isolated_eval_start_iteration": ej.get("start_iteration"),
         "isolated_eval_completed_iterations": ej.get("completed_iterations"),
-        "isolated_eval_k3_latency_s": (ej.get("k3") or {}).get("query_mean_latency_s"),
+        "isolated_eval_k3_latency_s": (ej.get("k3") or {}).get("query_mean_latency_seconds"),
         "PASS": bool(exact and reached and ej),
     }
     (out / "GATE_A_VERDICT.json").write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n")

@@ -78,6 +78,9 @@ def rd(name):
     return json.loads(p.read_text()) if p.exists() else {}
 
 run = rd("run.json")
+evd = run.get("evidence") if isinstance(run.get("evidence"), dict) else {}
+for _k, _v in (evd or {}).items():
+    run.setdefault(_k, _v)
 prof = rd("kernel_profile.json")
 ev = rd("final_eval.json")
 gens = sorted(p.name for p in (out / "ckpt" / "generations").glob("gen_*")) \
