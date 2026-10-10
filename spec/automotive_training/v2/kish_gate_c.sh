@@ -113,7 +113,7 @@ checks = {
     "kernel_profiled_run_number": prof.get("profiled_run_number"),
     "kernel_visible_devices": (prof.get("visible") or {}).get("physical_devices"),
     "final_eval_present": bool(ev),
-    "final_eval_k3_latency_s": (ev.get("k3") or {}).get("query_mean_latency_s"),
+    "final_eval_k3_latency_s": (ev.get("k3") or {}).get("query_mean_latency_seconds"),
     "final_eval_lambdas": ev.get("lambdas"),
     "final_eval_completed_iterations": ev.get("completed_iterations"),
 }

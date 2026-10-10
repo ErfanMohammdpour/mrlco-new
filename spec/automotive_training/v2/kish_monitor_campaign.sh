@@ -18,8 +18,18 @@ INTERVAL="${2:-60}"
 STALL_MIN="${3:-25}"
 
 HB="$RUN/heartbeat.json"
-PROGRESS="$RUN/v2_progress.json"
-[ -f "$PROGRESS" ] || PROGRESS="$RUN/ckpt/v2_progress.json"
+# The trainer writes its ledger into the RUN directory (the parent of --ckpt-dir). The path is
+# resolved INSIDE the loop: a one-shot fallback at startup would latch onto the ckpt path before
+# the first iteration creates the real file and then report nulls for the whole run.
+progress_path() {
+  if [ -f "$RUN/v2_progress.json" ]; then
+    printf '%s' "$RUN/v2_progress.json"
+  elif [ -f "$RUN/ckpt/v2_progress.json" ]; then
+    printf '%s' "$RUN/ckpt/v2_progress.json"
+  else
+    printf '%s' "$RUN/v2_progress.json"
+  fi
+}
 MANIFEST="$RUN/RUN_MANIFEST.json"
 PIDFILE="$RUN/monitor.pid"
 echo $$ > "$PIDFILE"
@@ -71,6 +81,7 @@ while :; do
   launcher_alive="no"
   [ -n "${launcher:-}" ] && kill -0 "$launcher" 2>/dev/null && launcher_alive="yes"
 
+  PROGRESS="$(progress_path)"
   completed=$(json_get "$PROGRESS" completed_iterations)
   target=$(json_get "$PROGRESS" iteration_target)
   next_itr=$(json_get "$PROGRESS" next_iteration)
