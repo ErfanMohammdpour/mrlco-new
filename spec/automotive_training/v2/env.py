@@ -109,6 +109,11 @@ class V2EpisodeTelemetry:
     n_medium_tasks: int = 0
     world_id: str = ""
     world_fingerprint_sha256: str = ""
+    #: Planner-side helper downgrades. A HELPER placement is refused when its required output
+    #: transfer cannot leave inside the contact window (`egress`) or when its serialised ingress
+    #: cannot arrive inside it (`ingress`). Exposed per episode so a production run can be
+    #: checked for "did this rule fire at all" instead of trusting that it is not dead code.
+    helper_downgrades: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return dict(self.__dict__)
@@ -816,6 +821,10 @@ class V2AutomotiveEnv:
                 n_medium_tasks=int(sum(1 for t in result.timings.values()
                                        if t.dag_id == world.foreground_id
                                        and _crit_of(by_id, t) == "MEDIUM")),
+                helper_downgrades={
+                    "egress_infeasible": int(result.queue_stats.get("helper_egress_infeasible", 0)),
+                    "ingress_infeasible": int(result.queue_stats.get("helper_ingress_infeasible", 0)),
+                },
                 world_id=str(world.world_id),
                 world_fingerprint_sha256=str(world.fingerprint_sha256()))
             self.last_telemetry.append(telemetry)
