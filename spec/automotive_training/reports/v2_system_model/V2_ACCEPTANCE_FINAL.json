@@ -1,0 +1,65 @@
+{
+  "blocker": {
+    "alternates_checked": {
+      "kish-core 188.121.120.169": "reachable but no docker and no /opt/margo",
+      "kish-core-old proxy host zarafe (100.115.180.59)": "unreachable",
+      "pfm-cpu 185.213.167.163:3031": "reachable, docker present, no margo/TF1.15 image, 4 CPUs, 15 GB RAM"
+    },
+    "impact": "Gate A steps 3-4, Gate C and the 1500-iteration campaign all require that host",
+    "observed": "ICMP + TCP timeout for >25 minutes (30 consecutive attempts)",
+    "resource": "GPU host kish-ai (185.213.165.199:3031) unreachable"
+  },
+  "branch": "phase5-realistic-system-v2",
+  "campaign_1500": {
+    "launcher_committed": true,
+    "monitor_committed": true,
+    "reason": "conditional authorization requires Gate A resume/eval, Gate B formal and Gate C to pass; none of the remaining ones could be executed",
+    "status": "NOT_LAUNCHED"
+  },
+  "code_revision": "3a42c7b",
+  "code_revision_parent": "9e80a16",
+  "container_image": "margo-phase4-tf115-nv2212:latest",
+  "gate_A_cpu_continuation": {
+    "blocked_by": "GPU host unreachable",
+    "comparison_verdict": "NOT_PRODUCED",
+    "control_to_6": "PASS (EXIT=0, 6/6 completed, 432 s, 6 ledger rows)",
+    "fresh_process_resume_to_6": "STARTED, NOT OBSERVED TO COMPLETION",
+    "isolated_eval_of_final_checkpoint": "NOT_RUN",
+    "split_part1_to_2_with_generation": "PASS (EXIT=0, 2/2 completed, 213 s, gen_00000001)"
+  },
+  "gate_B_recovery_and_paired": {
+    "legacy_schema_refusal": "PASS (15/15)",
+    "paired_policy_panel_worlds": "PASS",
+    "partial_generation_recovery": "PASS (16/16)",
+    "real_RxS_on_real_policy_TF": "PASS (test_v2_stack 21/21)",
+    "resume_contract_and_target_increase": "PASS (15/15)",
+    "validation_does_not_mutate_train_duals": "PASS"
+  },
+  "gate_C_production_gpu_smoke_fraction_0_5": {
+    "blocked_by": "GPU host unreachable",
+    "missing_evidence": [
+      "observed GPU kernel placement (gpu_ops>0)",
+      "measured GPU timing/resource usage",
+      "3 completed production outer iterations at fraction 0.5"
+    ],
+    "status": "NOT_RUN"
+  },
+  "meta_test_access_count": 0,
+  "schema": "v2_acceptance_final_v1",
+  "tests": {
+    "container_tf_failures": 0,
+    "container_tf_modules": 10,
+    "container_tf_tests": 106,
+    "local_non_tf": {
+      "failed": 0,
+      "passed": 1563,
+      "skipped": 42
+    }
+  },
+  "verdicts": {
+    "campaign_operational_acceptance": "NOT_READY",
+    "implementation_acceptance": "SUBSTANTIALLY_PASSED_PENDING_GATE_A_RESUME_AND_GATE_C",
+    "learning_competitiveness": "NOT_MEASURED"
+  },
+  "working_tree_clean": true
+}
