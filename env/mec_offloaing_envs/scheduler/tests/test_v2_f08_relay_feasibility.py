@@ -395,5 +395,70 @@ class TestWorkAndEnergyConservation(unittest.TestCase):
                                    float(dag.tasks[tm.task_id].compute_bytes), places=6)
 
 
+class TestConcurrentPeerContention(unittest.TestCase):
+    """Two DAGs contend for ONE helper over the shared V2V channel.
+
+    This is the class the re-verification Gate A caught in the FIRST iteration: the first fix
+    planned ingress on a non-mutating overlay and then re-planned on the real calendar, so a peer
+    DAG's booking between the two steps produced a (legitimate) difference and the code raised
+
+        V2ScheduleError: ingress probe/commit mismatch for ('w_support/1017/1_slot5_fg', 3, 'UE'):
+        probed ... 0.0718  but the commit re-planned [V2V 0.0879, 0.1054]
+
+    Reserve-then-verify removes the second plan entirely, so a peer booking cannot produce a
+    mismatch: it only changes what gets booked, and therefore what gets checked. This fixture
+    schedules TWO DAGs over the same helper in one pass and asserts that no raise occurs, that
+    every helper-touching ledger record stays inside the window, and that `validate=True` and
+    `validate=False` produce identical plans.
+    """
+
+    def _world(self, contact_end):
+        fg_t0 = _task(0, compute=1e6, out=1e6, root=True, external=1000.0)
+        fg_t1 = _task(1, compute=1e5, out=1e6, preds=(0,), sink=True)
+        fg = _dag("fg", [fg_t0, fg_t1], helper_id=0)
+        bg_t0 = _task(0, compute=1e6, out=1e6, root=True, external=1000.0, sink=True)
+        bg = _dag("bg", [bg_t0], helper_id=0, arrival=0.0)
+        helpers = _helper(contact_end, predicted=contact_end)
+        compute = V2ComputeSpec(10e6, 1, (1e6,), (4e6,))
+        plans = {"fg": {0: 2, 1: 2}, "bg": {0: 2}}
+        return [fg, bg], plans, helpers, compute
+
+    def test_contention_never_raises_and_both_paths_agree(self):
+        dags, plans, helpers, compute = self._world(contact_end=1.0)
+        res_v = schedule_shared(dags, plans, link=LINK, compute=compute,
+                                helper_states=helpers, validate=True)
+        res_nv = schedule_shared(dags, plans, link=LINK, compute=compute,
+                                 helper_states=helpers, validate=False)
+        _assert_helper_records_inside_window(self, res_v, 1.0)
+        _assert_helper_records_inside_window(self, res_nv, 1.0)
+        _assert_ready_times_are_resident(self, dags, res_v)
+        # the unchecked plan must re-validate clean and be numerically identical to the checked
+        for key in res_v.timings:
+            self.assertEqual(res_v.timings[key].location, res_nv.timings[key].location)
+            self.assertAlmostEqual(res_v.timings[key].finish_s, res_nv.timings[key].finish_s,
+                                   places=12)
+        for name in ("helper_egress_infeasible", "helper_ingress_infeasible"):
+            self.assertEqual(res_v.queue_stats[name], res_nv.queue_stats[name])
+        _validate(dags[0], res_v, helpers, compute)
+        _validate(dags[1], res_v, helpers, compute)
+
+    def test_contention_can_downgrade_a_late_second_ingress_without_raising(self):
+        # Window big enough for ONE helper visit (ingress ~0.1 + compute ~0.25 + egress ~0.1)
+        # but not for two serialised visits; the peer books the channel first, so the second
+        # helper placement must fall back instead of booking an out-of-window transfer.
+        dags, plans, helpers, compute = self._world(contact_end=0.6)
+        res = schedule_shared(dags, plans, link=LINK, compute=compute,
+                              helper_states=helpers, validate=True)
+        _assert_helper_records_inside_window(self, res, 0.6)
+        _assert_ready_times_are_resident(self, dags, res)
+        downgraded = (res.queue_stats["helper_egress_infeasible"]
+                      + res.queue_stats["helper_ingress_infeasible"])
+        self.assertGreaterEqual(downgraded, 1,
+                                "a too-late helper placement must be downgraded, not booked")
+        # at least one helper placement must survive (the window fits one visit)
+        self.assertGreater(sum(1 for tm in res.timings.values() if tm.location == HELPER), 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

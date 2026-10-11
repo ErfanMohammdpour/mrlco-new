@@ -33,11 +33,13 @@ Declared F08 semantics (each pinned by a test in `scheduler/tests/test_v2_*`):
 * **Contact feasibility is route-aware.** The return pre-check asks when the data actually
   LEAVES the helper (last HELPER-source hop end) for EVERY required successor destination, so
   it sees the direct-V2I `MEC_ULH` hop instead of assuming a `HELPER -> UE` relay.
-* **Ingress is serialised, not planned in isolation.** The ingress probe of one task chains
-  its required routes on a NON-MUTATING overlay of the shared calendars (every pending leg is
-  visible to the next), so a second/third simultaneous ingress to the same helper cannot
-  silently slip past `contact_end` and be booked: the probe sees the real serialised
-  delivery time, exactly like the later `book()` does.
+* **Ingress is reserved-then-verified, atomically, on the real calendars.** A helper
+  placement's required input routes are booked on the AUTHORITATIVE shared calendars and the
+  COMMITTED intervals themselves are checked against the contact window; an inadmissible
+  placement releases exactly those intervals and rebuilds for the requester. Because there is
+  no separate "probe" plan to reproduce, a peer DAG booking a shared channel in between cannot
+  invalidate the decision: it changes what is booked, and therefore what is checked. Chained
+  ingresses to one helper are serialised by the same real calendars the later `book()` sees.
 * **Egress feasibility is enforced before a HELPER -> UE relay is booked.** The departure
   pre-check asks when the result actually LEAVES the helper (last HELPER-source hop end,
   `_helper_departure`) for EVERY required destination, with the CPU end the helper really
@@ -116,36 +118,12 @@ class Calendar:
     #: number of `plan_service` searches that had to fall back to the best feasible candidate
     #: instead of a converged fixed point (surfaced in `V2ScheduleResult.mechanics`)
     fixed_point_fallbacks: int = 0
-    #: NON-MUTATING forecast overlay: [(server_index, start_s, end_s), ...] reservations that a
-    #: planning probe is about to commit. `plan_service` sees them (so chained probes can
-    #: serialise against each other) but they are never written to `_intervals`; the real
-    #: booking commits them through `reserve_at` only once the whole probe is admissible. See
-    #: the multi-ingress serialisation rule in the module docstring.
-    _plan_overlay: list = field(default_factory=list)
-
     def __post_init__(self) -> None:
         self._intervals = [[] for _ in range(max(1, int(self.servers)))]
-
-    def set_plan_overlay(self, reservations) -> None:
-        """Install the pending-reservation overlay used by the NEXT `plan_service` call."""
-        self._plan_overlay = [(int(i), float(s), float(e)) for i, s, e in reservations]
-
-    def clear_plan_overlay(self) -> None:
-        self._plan_overlay = []
-
-    def _overlaid(self, idx: int):
-        """`_intervals[idx]` plus the pending overlay entries for that server, sorted."""
-        if not self._plan_overlay:
-            return self._intervals[idx]
-        extra = [(s, e) for i, s, e in self._plan_overlay if i == int(idx)]
-        if not extra:
-            return self._intervals[idx]
-        return sorted(list(self._intervals[idx]) + extra)
 
     def _earliest_fit(self, ready: float, duration: float):
         best = None
         for idx, intervals in enumerate(self._intervals):
-            intervals = self._overlaid(idx)
             t = float(ready)
             for start, end in intervals:            # sorted by start
                 if t + duration <= start + 1e-12:
@@ -212,8 +190,8 @@ class Calendar:
         return max(0.0, released)
 
     def _fits(self, idx: int, start: float, end: float) -> bool:
-        """True when [start, end) overlaps neither a reservation nor a pending overlay entry."""
-        for s, e in self._overlaid(int(idx)):
+        """True when [start, end) does not overlap any reservation of server `idx`."""
+        for s, e in self._intervals[int(idx)]:
             if start < e - 1e-12 and s < end - 1e-12:
                 return False
         return True
@@ -612,12 +590,14 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         A successor placed elsewhere needs the output there; a task with no successor that is
         not the sink needs nothing. A sink's output always ends at its requester's UE.
 
-        A task WITH successors also requires the UE: any of those successors can later be
-        forced to restart locally (an ingress that no longer fits, or a downgrade cascade), and
-        v2 implements no checkpointing, so the only copy it could restart from is one that has
-        already reached the requester. Requiring the UE makes the successor gate's fallback
-        feasible BY CONSTRUCTION instead of leaving a HELPER -> UE relay that
-        `validate_schedule` would have to reject after the fact.
+        A task WITH successors also requires the UE. Any of those successors can later be
+        forced to restart locally (an ingress that no longer fits, a contact failure of its own,
+        or a downgrade cascade), and its fallback relay can only start once that attempt ends --
+        i.e. potentially as late as `contact_end`. v2 implements no checkpointing, so the only
+        copy it could restart from is one that already reached the requester. Requiring the UE
+        therefore makes every successor's fallback feasible BY CONSTRUCTION (the predecessor is
+        refused the helper, and it fails its own egress gate, before any relay can be booked
+        after disconnection) instead of leaving the validator to reject it after the fact.
         """
         dsts = []
         if spec.is_sink or succ_by_dag[dag_id][task_id]:
@@ -645,14 +625,16 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     egress_infeasible = 0
     ingress_infeasible = 0
 
-    def _fallback_input_available(pred_key):
+    def _fallback_input_available(pred_key, relay_after=None):
         """Can predecessor `pred_key` still hand its output to the requester's UE in time?
 
-        The question is asked about the PREDECESSOR's own window: its result must be able to
-        leave the helper (`_helper_departure` from its own finish time, F08/d) before
-        `contact_end`. Any later deadline would be wrong -- the block below runs at the
-        SUCCESSOR's turn only to decide the successor's placement, and using the successor's
-        CPU end would ask for a relay that the predecessor's window never had to contain.
+        The question is asked about the PREDECESSOR's window, with the departure floored at the
+        successor's own CPU end when that is later (`relay_after`): the fallback relay is
+        booked at `max(successor_cpu_end, predecessor_finish)` -- the restart reserves its CPU
+        only at `contact_end`, but the RELAY that feeds it runs as soon as the requester is
+        free, i.e. after the successor's own (failed) attempt. Using only the predecessor's own
+        finish would under-state the relay's start and let a placement through whose fallback
+        relay then lands after `contact_end`.
 
         Three honest answers, in order:
           * it finished on the UE or the MEC: nothing has to move, so True;
@@ -667,159 +649,73 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         payload = float(by_dag[pred_key[0]][pred_key[1]].output_bytes)
         if payload <= 0.0:
             return True
-        return (_helper_departure(UE, tm.finish_s, payload)
+        ready_at = float(tm.finish_s)
+        if relay_after is not None:
+            ready_at = max(ready_at, float(relay_after))
+        # a HELPER -> UE relay must actually COMPLETE inside the window (the validator adds no
+        # slack of its own), with the one shared slack as the only tolerance
+        return (_helper_departure(UE, ready_at, payload)
                 <= contact_end + CONTACT_SLACK_S)
 
-    #: calendars the pending-ingress overlay may touch (the shared radio + the two CPU pools do
-    #: not carry transfers, so only the radio calendars are overlaid)
-    def _radio_calendars():
-        return (ul, dl, v2v)
+    def record_bookings(routes, dag_id, task_id, acc):
+        """Append the ledger/telemetry records for routes whose intervals are already booked.
 
-    def _set_overlay(pending):
-        for cal in _radio_calendars():
-            cal.set_plan_overlay([(idx, s, e) for c, idx, s, e in pending if c is cal])
-
-    def _clear_overlay():
-        for cal in _radio_calendars():
-            cal.clear_plan_overlay()
-
-    def probe_ingress(requests, contact_window):
-        """Plan every REQUIRED ingress route TOGETHER and decide whether it is admissible.
-
-        `requests` is an ordered [(src, dst, ready_s, payload_bytes, key), ...]. Every route is
-        planned on a NON-MUTATING overlay of the radio calendars that already holds every leg
-        planned for the earlier requests, and the planning cursor advances past each planned
-        leg, so a second/third simultaneous ingress to one helper sees the real serialised
-        delivery time instead of the (too optimistic) queue-free one. No real calendar is
-        touched: a rejected probe leaves nothing behind.
-
-        `contact_window` is (start, end) for a helper destination or (None, None) for a MEC
-        destination: no ingress leg may start before `start` and no ARRIVAL may end after `end`.
-        Returns (admissible, pending, ready_for); `pending` is the [(calendar, server_index,
-        start, end), ...] the probe proved feasible and `ready_for[key]` the delivery time that
-        `book_ingress` then commits verbatim.
+        Only the RECORD is produced here; the intervals themselves were committed by
+        `reserve_transfer`, which is the single authority on the calendar. A route is recorded
+        only AFTER it was verified admissible, so a refused-and-released booking can never
+        leave a phantom ledger record. A zero-byte transfer books (and occupies) its hops but
+        adds no ledger record, exactly as the single-hop `book()` path does.
         """
-        pending = []
-        pending_by_key = {}
-        ready_for = {}
-        window_start, window_end = contact_window
-        cursor = None
-        for src, dst, ready, payload, key in requests:
-            base_ready = float(ready)
-            if window_start is not None:
-                base_ready = max(base_ready, float(window_start))
-            if cursor is not None:
-                base_ready = max(base_ready, cursor)
-            _set_overlay(pending)
-            route_legs = _planned_route(src, dst, base_ready, float(payload))
-            legs_here = []
-            for hop, _hsrc, _hdst, start, end, _r, _d, idx in route_legs:
-                entry = (calendar_of[hop], idx, float(start), float(end))
-                legs_here.append(entry)
-                pending.append(entry)
-                cursor = float(end)
-            pending_by_key[key] = legs_here
-            arrival = float(route_legs[-1][4]) if route_legs else base_ready
-            # the SAME slack the egress gate uses (`CONTACT_SLACK_S`): an ingress that is
-            # "feasible" past the window while the matching departure is refused would strand
-            # the task between the two gates
-            if (window_end is not None
-                    and arrival > float(window_end) + CONTACT_SLACK_S):
-                _clear_overlay()
-                return False, [], {}
-            ready_for[key] = arrival
-        _clear_overlay()
-        return True, pending_by_key, ready_for
+        t = None
+        for (hop, hsrc, hdst, start, end, service, wait, outage_wait, outage_events, payload,
+             _idx) in [b for route in routes for b in route]:
+            t = end
+            if float(payload) > 0.0:
+                radio_events.append((start, end, calendar_of[hop].name, float(payload)))
+                radio_ledger.append({
+                    "dag_id": dag_id, "task_id": int(task_id), "hop": hop,
+                    "direction": "%s->%s" % (hsrc, hdst), "src": hsrc, "dst": hdst,
+                    "bytes": float(payload), "start_s": start, "end_s": end,
+                    "service_s": float(service), "outage_s": float(outage_wait),
+                    "queue_wait_s": float(wait), "outage_events": int(outage_events),
+                    "retained_channel": True,
+                })
+                cls = _hop_class(hop)
+                acc["tx"][cls] += float(service)
+                acc["wait"][cls] += float(wait)
+                acc["outage_wait"] += float(outage_wait)
+                acc["outage_events"] += int(outage_events)
+        return t
 
-    def book_ingress(requests, pending_by_key, ready_for, dag_id, task_id, acc,
-                     window_start=None):
-        """Commit exactly the intervals `probe_ingress` proved feasible, or raise.
+    def release_bookings(booked):
+        """Hand a just-committed (and now refused) route back to the calendars.
 
-        The probe and this commit run back to back with no reservation in between, so
-        re-planning each request against the same pending overlay must reproduce the probed
-        interval leg by leg. Re-planning request k sees the overlay of the legs that are still
-        UN-BOOKED at that moment (the later requests) -- and NOT its own already probed entry,
-        which would push the re-plan behind itself -- which is exactly the calendar state the
-        probe saw when it planned request k. A divergence would mean committing an interval
-        that was never feasibility-checked, so it raises instead of booking silently.
-
-        Every leg is booked (and logged/priced) even when its payload is zero, because a
-        multi-hop route must still occupy each hop in order; only the ledger record of a
-        zero-byte transfer is skipped, exactly as `book()` does. Returns {key: arrival_s}.
+        `Calendar.release` exists from the earlier F08 round precisely for this: an interval
+        that was booked and then proven worthless must not keep occupying a shared channel.
+        Returns the released seconds.
         """
-        arrived = {}
-        cursor = None
-        #: legs the probe checked that this commit has not booked yet: the overlay the next
-        #: re-plan must use (the probe saw exactly the later, still un-booked requests' legs).
-        pending = [entry for req in requests for entry in pending_by_key.get(req[4], ())]
-        for src, dst, base_ready, payload, key in requests:
-            ready = float(base_ready)
-            if window_start is not None:
-                ready = max(ready, float(window_start))
-            if cursor is not None:
-                ready = max(ready, cursor)
-            # the current request's own probed legs are NOT part of the overlay it is planned
-            # against (the probe planned them against exactly these un-booked later legs)
-            own = list(pending_by_key.get(key, ()))
-            _set_overlay([entry for entry in pending if all(entry is not o for o in own)])
-            route_legs = _planned_route(src, dst, ready, float(payload))
-            if len(route_legs) != len(own):
-                _clear_overlay()
-                raise V2ScheduleError(
-                    "ingress probe/commit mismatch for %r: %d legs probed but the commit "
-                    "re-planned %d" % (key, len(own), len(route_legs)))
-            for (hop, hsrc, hdst, start, end, leg_ready, _dur, idx), entry in zip(
-                    route_legs, own):
-                if (entry[0] is not calendar_of[hop] or entry[1] != idx
-                        or abs(entry[2] - start) > 1e-12 or abs(entry[3] - end) > 1e-12):
-                    _clear_overlay()
-                    raise V2ScheduleError(
-                        "ingress probe/commit mismatch for %r: probed %r but the commit "
-                        "re-planned [%s %r, %r]"
-                        % (key, entry, hop, start, end))
-                booked = reserve_transfer(calendar_of[hop], leg_ready, float(payload), hop)
-                if (abs(booked[0] - start) > 1e-9 * max(1.0, abs(start))
-                        or abs(booked[1] - end) > 1e-9 * max(1.0, abs(end))):
-                    _clear_overlay()
-                    raise V2ScheduleError(
-                        "ingress commit did not reproduce the probed interval on %s for %r: "
-                        "probed [%.12f, %.12f] but booked [%.12f, %.12f]"
-                        % (calendar_of[hop].name, key, start, end, booked[0], booked[1]))
-                for pos, cand in enumerate(pending):
-                    if cand is entry:
-                        pending.pop(pos)
-                        break
-                if float(payload) > 0.0:
-                    radio_events.append((booked[0], booked[1], calendar_of[hop].name,
-                                         float(payload)))
-                    radio_ledger.append({
-                        "dag_id": dag_id, "task_id": int(task_id), "hop": hop,
-                        "direction": "%s->%s" % (hsrc, hdst), "src": hsrc, "dst": hdst,
-                        "bytes": float(payload), "start_s": booked[0], "end_s": booked[1],
-                        "service_s": float(booked[2]), "outage_s": float(booked[4]),
-                        "queue_wait_s": float(booked[3]), "outage_events": int(booked[5]),
-                        "retained_channel": True,
-                    })
-                    cls = _hop_class(hop)
-                    acc["tx"][cls] += float(booked[2])
-                    acc["wait"][cls] += float(booked[3])
-                    acc["outage_wait"] += float(booked[4])
-                    acc["outage_events"] += int(booked[5])
-                cursor = float(booked[1])
-            arrival = float(route_legs[-1][4]) if route_legs else ready
-            if abs(arrival - float(ready_for[key])) > 1e-9 * max(1.0, abs(arrival)):
-                _clear_overlay()
-                raise V2ScheduleError(
-                    "ingress probe/commit mismatch for %r: probed arrival %.12f but the "
-                    "commit re-planned %.12f (an unverified interval would have been booked)"
-                    % (key, float(ready_for[key]), arrival))
-            arrived[key] = arrival
-        _clear_overlay()
-        if pending:
-            raise V2ScheduleError(
-                "ingress probe/commit mismatch: %d probed legs were never booked"
-                % len(pending))
-        return arrived
+        released = 0.0
+        for (hop, _hsrc, _hdst, start, end, _s, _w, _o, _e, _payload, idx) in booked:
+            released += calendar_of[hop].release(int(idx), float(start), float(end))
+        return released
+
+    def book_route(src, dst, ready, payload, dag_id, task_id, acc):
+        """Book EVERY hop of a route on the real calendars and return its booked intervals.
+
+        This is the authority: the returned intervals are the ones the final schedule contains.
+        The caller decides admissibility from THESE intervals and either keeps them or hands
+        them to `release_bookings`. Nothing here compares against a separately computed plan.
+        """
+        t = float(ready)
+        booked = []
+        for hop, hsrc, hdst in _route_steps(src, dst, link):
+            (start, end, service, wait, outage_wait, outage_events, _idx) = reserve_transfer(
+                calendar_of[hop], t, float(payload), hop)
+            booked.append((hop, hsrc, hdst, float(start), float(end), float(service),
+                           float(wait), float(outage_wait), int(outage_events),
+                           float(payload), int(_idx)))
+            t = float(end)
+        return booked
 
     def _service_detail(start, payload, base, link_name):
         """(channel occupancy s, outage wait s, outage events) for a transfer starting at `start`.
@@ -892,7 +788,9 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         """Book exactly ONE interval for a transfer (rate at the ACTUAL booked start).
 
         Returns (booked_start, booked_end, active_service_s, queue_wait_s, outage_wait_s,
-        outage_events). `Calendar.plan_service` resolves the start/duration fixed point
+        outage_events, server_index). The index lets a caller that discovers the booking is
+        worthless hand the exact interval back to `Calendar.release`. `Calendar.plan_service`
+        resolves the start/duration fixed point
         WITHOUT touching the calendar, so no provisional reservation can be left behind and
         the same transfer is never booked twice (the audited over-reservation defect).
         """
@@ -913,7 +811,6 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
             return hit[0]
 
         idx, start, duration, end = cal.plan_service(ready, duration_fn)
-        cal.clear_plan_overlay()        # a real booking never plans against a pending overlay
         cal.reserve_at(idx, start, end)
         detail = cache.get(round(float(start), 12))
         if detail is None:
@@ -923,7 +820,8 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                 "booked occupancy %.12f disagrees with the service integral %.12f on %s"
                 % (duration, detail[0], cal.name))
         active = max(0.0, float(detail[0]) - float(detail[1]))
-        return start, end, active, max(0.0, start - ready), detail[1], detail[2]
+        return (start, end, active, max(0.0, start - ready), detail[1], detail[2],
+                int(idx))
 
     def _new_acc():
         return {"tx": {"ul": 0.0, "dl": 0.0, "v2v": 0.0},
@@ -932,11 +830,10 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
 
     def book(src, dst, ready, payload, dag_id, task_id, acc):
         """Reserve every hop of a route, record the event ledger, return the delivery time."""
-        _clear_overlay()                # never book against a stale pending overlay
         t = float(ready)
         for hop, hsrc, hdst in _route_steps(src, dst, link):
             cal = calendar_of[hop]
-            start, end, service, wait, outage_wait, outage_events = reserve_transfer(
+            (start, end, service, wait, outage_wait, outage_events, _idx) = reserve_transfer(
                 cal, t, payload, hop)
             if float(payload) > 0.0:
                 radio_events.append((start, end, cal.name, float(payload)))
@@ -1038,13 +935,57 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
     #: producer's output is transmitted ONCE per destination location and shared by every
     #: successor placed there (a broadcast); see the reuse branch in the booking loop.
     delivered: dict = {}
+    #: (dag_id, task_id) -> the transfers (and ledger records) that task booked, so a placement
+    #: that a LATER successor proves inadmissible can hand them back and be re-planned locally
+    #: (`_release` + `delivered` rollback). Without this the only options would be an invalid
+    #: schedule or a schedule aborted by the validator.
+    task_booked: dict = {}
+    #: (dag_id, task_id) -> True when a successor proved this helper placement unusable and the
+    #: task must be re-queued as a local (UE) plan. This is the cascade that makes the
+    #: `_required_dsts` UE requirement bite: the predecessor, once local, no longer needs the
+    #: relay that could not fit.
+    forced_ue: set = set()
+    #: (dag_id, task_id) -> keys this task added to `delivered` (rolled back on a re-plan)
+    task_delivered: dict = {}
     while ready_heap:
         _arr, dag_id, task_id = heapq.heappop(ready_heap)
+        if (dag_id, task_id) in forced_ue:
+            forced_ue.discard((dag_id, task_id))
+            effective_loc[(dag_id, task_id)] = UE
+            # A successor proved this task's helper placement unusable, so the task is re-planned
+            # locally. If it was already processed, its committed transfers and ledger records
+            # are handed back first: the schedule must not keep an interval that supported a
+            # placement nobody uses (and the consumers must not read bytes that were released).
+            if (dag_id, task_id) in timings:
+                _old_routes = task_booked.pop((dag_id, task_id), [])
+                for _key in task_delivered.pop((dag_id, task_id), []):
+                    delivered.pop(_key, None)
+                _led = len(radio_ledger)
+                while (_led > 0 and str(radio_ledger[_led - 1]["dag_id"]) == dag_id
+                       and int(radio_ledger[_led - 1]["task_id"]) == int(task_id)):
+                    _led -= 1
+                del radio_ledger[_led:]
+                _starts = [float(rec[3]) for route in _old_routes for rec in route
+                           if float(rec[9]) > 0.0]
+                if _starts:
+                    _cut = min(i for i, ev in enumerate(radio_events)
+                               if float(ev[0]) >= min(_starts) - 1e-9)
+                    del radio_events[_cut:]
+                for _route in _old_routes:
+                    for _rec in _route:
+                        calendar_of[_rec[0]].release(int(_rec[10]), float(_rec[3]),
+                                                     float(_rec[4]))
+                del timings[(dag_id, task_id)]
+                del finish[(dag_id, task_id)]
         dag = dag_by_id[dag_id]
         spec = by_dag[dag_id][task_id]
         location = effective_loc[(dag_id, task_id)]
         helper_rejected, reliability_rejected, p_success = admission[(dag_id, task_id)]
         acc = _new_acc()
+        #: transfers this task committed in THIS pass (so a refusal can hand them back) and the
+        #: `delivered` keys it created (so a rollback cannot leave stale broadcast state)
+        _booked_for_task: list = []
+        _delivered_for_task: list = []
         state = (helper_states or {}).get(dag.helper_id)
         contact_start = 0.0
         contact_end = float("inf")
@@ -1065,52 +1006,210 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
         # inside the realized contact window and (b) the task's OUTPUT can actually leave it
         # again for every required destination. The pre-fix scheduler did neither: it booked
         # ingress as early as the calendar allowed and discovered the disconnection afterwards
-        # (`UE -> HELPER` booked and priced entirely after `contact_end`), it planned each
-        # predecessor route in ISOLATION so a second simultaneous ingress to one helper slipped
-        # past the window, and it committed the helper before the first forbidden DEPARTURE,
-        # leaving a successor to discover it and book a HELPER -> UE relay that could not
-        # happen (the 1500-iteration campaign abort).
+        # (`UE -> HELPER` booked and priced entirely after `contact_end`), and it committed the
+        # helper before the first forbidden DEPARTURE, leaving a successor to discover it and
+        # book a HELPER -> UE relay that could not happen (the campaign abort).
         #
-        # The ingress probe is a non-mutating forecast over the real radio calendars that
-        # chains the pending legs of the same task on an overlay so simultaneous ingresses
-        # serialise, and `book_ingress` then commits exactly the intervals it checked. The
-        # placement decision is structural, not a validation step, so it holds for
-        # `validate=False` (the prefix/telescoping path PPO scores) exactly as it does for
-        # `validate=True`: no inadmissible helper placement is ever committed.
+        # The ingress decision is made by RESERVE-THEN-VERIFY, atomically. There is no separate
+        # "probe" plan to reproduce: the legs are booked on the REAL calendars (the authority),
+        # the committed intervals themselves are checked against the contact window, and an
+        # inadmissible placement RELEASES exactly those intervals and rebuilds for the UE. The
+        # calendar therefore never keeps an unverified interval, and a peer DAG booking a
+        # shared channel in between cannot invalidate the decision (it simply changes what is
+        # booked and therefore what is checked). The decision is structural, not a validation
+        # step, so it holds for `validate=False` exactly as for `validate=True`.
 
         def _ingress_requests_for(final_location):
             """The transfers this task needs when it finally runs at `final_location`.
 
             Rebuilt from the FINAL location, never from the abandoned HELPER attempt, so a
-            downgrade keeps every predecessor that is not already resident at the requester and
+            downgrade keeps exactly the predecessors that are not resident at the requester and
             drops the transfers nobody performs (the root's own external input is local to the
-            UE, and a helper predecessor that stayed on the helper still needs its relay).
+            UE, and a predecessor already ON the helper still needs its `HELPER -> UE` relay).
+            Transfers already booked for this destination location are reused, not re-booked.
             """
             out = []
             if (spec.is_root and float(spec.external_input_bytes) > 0.0
                     and final_location != UE):
                 # v1 engine semantics: the external input is uploaded before execution; it may
                 # be transmitted to the helper only once the contact window has opened.
-                out.append((UE, final_location, float(dag.arrival_s),
-                            float(spec.external_input_bytes), ("root", dag_id, task_id)))
+                base = (max(float(dag.arrival_s), contact_start)
+                        if final_location == HELPER else float(dag.arrival_s))
+                out.append((UE, final_location, base, float(spec.external_input_bytes),
+                            ("root", dag_id, task_id), base))
             for p in spec.predecessors:
                 pt = timings[(dag_id, p)]
-                payload = float(by_dag[dag_id][p].output_bytes)
                 key = (dag_id, p, final_location)
-                if pt.location == final_location:
+                if pt.location == final_location or key in delivered:
                     continue
-                if key in delivered:
-                    # already transmitted once for this destination location (broadcast)
-                    continue
-                out.append((pt.location, final_location, float(pt.finish_s), payload, key))
+                payload = float(by_dag[dag_id][p].output_bytes)
+                base = pt.finish_s
+                if final_location == HELPER:
+                    base = max(float(pt.finish_s), contact_start)
+                out.append((pt.location, final_location, base, payload, key, base))
             return out
 
+        def _release(booked):
+            """Give back every interval of a just-booked route (returns the seconds released).
+
+            Each booked tuple carries the server index `reserve_transfer` used, so the exact
+            interval is handed back to the exact server (the F08 `Calendar.release` API).
+            """
+            released = 0.0
+            for (hop, _hs, _hd, start, end, _sv, _w, _o, _e, _pl, idx) in booked:
+                released += calendar_of[hop].release(int(idx), float(start), float(end))
+            return released
+
+        def _check_ingress_window(booked):
+            """Do the COMMITTED intervals of this route all fit the contact window?
+
+            Checked from the booked intervals themselves: no leg may start before
+            `contact_start` and the final ARRIVAL may not exceed `contact_end` beyond the one
+            shared slack (`CONTACT_SLACK_S`).
+            """
+            if state is None or not math.isfinite(contact_end):
+                return True
+            for (_hop, _hs, _hd, start, end, _sv, _w, _o, _e, _pl, _ix) in booked:
+                if float(start) < contact_start - CONTACT_SLACK_S:
+                    return False
+                if float(end) > contact_end + CONTACT_SLACK_S:
+                    return False
+            return True
+
+        def _book_verified(reqs):
+            """Atomically book a list of ingress routes and verify the contact window.
+
+            Returns (admissible, booked_routes, delivered_times). On refusal the
+            already-committed intervals are released, so the real calendars end up exactly as
+            they started.
+            """
+            booked_all = []
+            arrived = {}
+            for src_loc, dst_loc, base, payload, key, _floor in reqs:
+                route = book_route(src_loc, dst_loc, base, payload, dag_id, task_id, acc)
+                booked_all.append(route)
+                arrived[key] = float(route[-1][4]) if route else float(base)
+            if not _check_ingress_window([b for route in booked_all for b in route]):
+                _release([b for route in booked_all for b in route])
+                return False, [], {}
+            record_bookings(booked_all, dag_id, task_id, acc)
+            return True, booked_all, arrived
+
+        def _refuse_helper_placement():
+            """Abandon the HELPER placement and rebuild the ingress for the requester."""
+            nonlocal location
+            location = UE
+            effective_loc[(dag_id, task_id)] = UE
+
+        _last_booked = []
+        _tentative_acc = _new_acc()
+        #: True while the task is still planned for the HELPER. A refusal at the ingress stage
+        #: downgrades it permanently; without that flag the rebuilt UE ingress could not tell a
+        #: healthy helper->UE relay apart from the same transfer being the only surviving copy
+        #: of a predecessor that is about to disconnect.
+        _was_helper = location == HELPER
+
+        def _rollback_ledger(mark_events, mark_ledger):
+            """Drop the records of a tentative route that the gates then refused."""
+            del radio_events[mark_events:]
+            del radio_ledger[mark_ledger:]
+
+        def _commit_ledger(release_acc):
+            """Fold the tentative booking's TX/queue accounting into the task's accumulator."""
+            for cls in ("ul", "dl", "v2v"):
+                acc["tx"][cls] += release_acc["tx"][cls]
+                acc["wait"][cls] += release_acc["wait"][cls]
+            acc["outage_wait"] += release_acc["outage_wait"]
+            acc["outage_events"] += release_acc["outage_events"]
+
+        def _book_into_final_location(was_helper):
+            """Book exactly the transfers the FINAL `location` needs. Returns the arrived map.
+
+            `was_helper` says whether the task is being planned FOR the helper (as opposed to
+            already refused): only then does a helper->UE relay have to be re-checked against
+            the predecessor's window, because only then can refusing it still make the
+            predecessor fall back.
+
+            Records the committed routes in `_last_booked` so a later refusal (the successor
+            gate) can hand exactly those intervals back.
+            """
+            nonlocal in_bytes, _last_booked
+            reqs = _ingress_requests_for(location)
+            arrived = {}
+            _last_booked = []
+            # A HELPER-resident predecessor must be able to hand its result to the requester
+            # before disconnection, because this task may have to restart locally from it (and
+            # because the fallback relay is booked from the requester only after this attempt
+            # ends). The relay's start is bounded below by `max(this attempt's ingress, the
+            # requester's own attachment)`, so the tight test is the predecessor's departure
+            # check with the floor at `max(ready, predecessor_finish)` -- using `ready` alone
+            # under-states it when the task's own ingress is pushed late, and that under-stated
+            # placement is exactly what used to end in a relay booked after contact_end.
+            # Refusing here (before anything is booked) makes this task fall back, which in turn
+            # forces the predecessor to fail its own egress requirement and fall back too.
+            for p in spec.predecessors:
+                _pk = (dag_id, p)
+                if timings[_pk].location != HELPER:
+                    continue
+                if not _fallback_input_available(_pk):
+                    # The predecessor's result cannot reach the requester, so it cannot feed
+                    # either this helper attempt or the local restart this task would fall back
+                    # to. The predecessor's own placement is the thing that must change: mark it
+                    # for a local re-plan (its committed transfers are handed back when it is
+                    # re-processed) and re-queue it ahead of this task. This task is then
+                    # re-queued too, so it decides again with the predecessor on the UE.
+                    forced_ue.add(_pk)
+                    heapq.heappush(ready_heap, (float(dag.arrival_s), dag_id, p))
+                    heapq.heappush(ready_heap, (float(dag.arrival_s), dag_id, task_id))
+                    return "REPLAN"
+            
+            if location == HELPER and state is not None and math.isfinite(contact_end):
+                admissible, booked_routes, arrived = _book_verified(reqs)
+                if not admissible:
+                    return None
+                _booked_for_task.extend(booked_routes)
+                task_booked[(dag_id, task_id)] = list(_booked_for_task)
+                for entry in reqs:
+                    if entry[4] != ("root", dag_id, task_id):
+                        delivered[entry[4]] = float(arrived[entry[4]])
+                        _delivered_for_task.append(entry[4])
+                        task_delivered[(dag_id, task_id)] = list(_delivered_for_task)
+            else:
+                routes = []
+                for src_loc, dst_loc, base, payload, key, _floor in reqs:
+                    booked = book_route(src_loc, dst_loc, base, payload, dag_id, task_id,
+                                        _tentative_acc)
+                    routes.append(booked)
+                    arrived[key] = float(booked[-1][4]) if booked else float(base)
+                    if key != ("root", dag_id, task_id):
+                        delivered[key] = arrived[key]
+                        _delivered_for_task.append(key)
+                        task_delivered[(dag_id, task_id)] = list(_delivered_for_task)
+                record_bookings(routes, dag_id, task_id, _tentative_acc)
+                _last_booked = routes
+                _booked_for_task.extend(routes)
+                task_booked[(dag_id, task_id)] = list(_booked_for_task)
+            # bytes actually carried at this location: the transfers booked above plus the
+            # already-booked broadcasts this task reuses (counted by the caller)
+            carried = sum(float(payload) for _s, _d, _b, payload, _k, _f in reqs)
+            in_bytes = getattr(_book_into_final_location, "_reuse_bytes", 0.0) + carried
+            _book_into_final_location._reuse_bytes = 0.0
+            return arrived
+
         in_bytes = 0.0
-        ingress_requests = _ingress_requests_for(location)
+
+        # ---- ingress: RESERVE-THEN-VERIFY (atomic) ----
+        # 1. book the transfers the tentative `location` needs on the REAL calendars;
+        # 2. check the COMMITTED intervals against the contact window;
+        # 3. if they do not fit, `Calendar.release` exactly those intervals, downgrade to the
+        #    UE and book the requester-side ingress instead.
+        # Nothing is ever compared against a separately computed plan and nothing raises for an
+        # inadmissible placement. A peer DAG booking a shared channel in between cannot
+        # invalidate the decision: it changes what gets booked, and therefore what gets checked.
         for p in spec.predecessors:
             pt = timings[(dag_id, p)]
             if pt.location == location:
-                ready = max(ready, pt.finish_s)
+                ready = max(ready, float(pt.finish_s))
             elif (dag_id, p, location) in delivered:
                 # ---- count-once broadcast (F08/c) ----
                 # Two successors in the SAME destination location consume one physical
@@ -1118,73 +1217,68 @@ def schedule_shared(dags: Sequence[V2DAGSpec], plans: Mapping[str, Sequence[int]
                 # first consumer books it (and pays its radio time/energy), the second reuses
                 # the already-booked delivery and only records that it received the bytes.
                 ready = max(ready, delivered[(dag_id, p, location)])
-                in_bytes += float(by_dag[dag_id][p].output_bytes)
+                _book_into_final_location._reuse_bytes = (
+                    getattr(_book_into_final_location, "_reuse_bytes", 0.0)
+                    + float(by_dag[dag_id][p].output_bytes))
         if spec.is_root and float(spec.external_input_bytes) > 0.0 and location != UE:
             in_bytes += float(spec.external_input_bytes)
 
-        def _refuse_helper_placement():
-            """Abandon the HELPER placement and rebuild the ingress for the requester."""
-            nonlocal location, ingress_requests, in_bytes
-            location = UE
-            effective_loc[(dag_id, task_id)] = UE
-            ingress_requests = _ingress_requests_for(UE)
-            in_bytes = sum(float(e[3]) for e in ingress_requests)
+        _ev_mark, _led_mark = len(radio_events), len(radio_ledger)
+        arrived = _book_into_final_location(_was_helper)
+        if arrived == "REPLAN":
+            # a predecessor was re-queued for a local re-plan: this task will be re-processed
+            # right after it, with nothing committed in this pass
+            continue
+        if arrived is None:
+            # (F08/e) the COMMITTED ingress does not fit the realized window (or the helper
+            # predecessor cannot be fed): the intervals were already released, so nothing is
+            # kept and nothing is billed for a helper the task cannot use. Plan the task
+            # locally and book the requester-side ingress instead.
+            _refuse_helper_placement()
+            _was_helper = False
+            ingress_infeasible += 1
+            in_bytes = 0.0
+            _tentative_acc = _new_acc()
+            _ev_mark, _led_mark = len(radio_events), len(radio_ledger)
+            arrived = _book_into_final_location(False)
+        if arrived:
+            for key, end in arrived.items():
+                ready = max(ready, float(end))
 
-        if (location == HELPER and state is not None and math.isfinite(contact_end)
-                and ingress_requests):
-            ok, _pending, _ready = probe_ingress(ingress_requests,
-                                                 (contact_start, contact_end))
-            if not ok:
-                # (F08/e) the ingress cannot arrive inside the contact window: plan locally.
-                # The overlay was discarded, so nothing was booked and nothing is billed.
-                _refuse_helper_placement()
-                ingress_infeasible += 1
-
-        # ---- EGRESS feasibility is enforced where it binds: the HELPER CPU branch ----
-        # The departure check (`_last_departure`) runs with the CPU end the helper actually
-        # reserves; when the result cannot leave in time the placement is abandoned INSIDE that
-        # branch, before any HELPER -> UE relay is booked. A projected gate HERE would decide
-        # the same question with a CPU end the helper might never get (another DAG can still
-        # take the interval) and would have to re-derive the failure accounting.
-
-        # ---- a successor may only be admitted to a helper when its fallback is realizable ----
+        # ---- a successor may only be admitted to a helper when its fallback can be fed ----
         # If a HELPER-resident predecessor can no longer hand its output to the requester's UE
-        # before disconnection, a successor placed on the helper could never be restarted from
-        # it (v2 has no checkpointing and no requester-local copy), and a later fallback would
-        # try to book a HELPER -> UE relay that cannot happen. Downgrade the successor BEFORE
-        # its ingress is committed: the predecessor then fails its own egress gate and falls
-        # back too, so no stranded data and no fabricated transfer is ever booked.
-        if location == HELPER and state is not None and math.isfinite(contact_end):
+        # before disconnection, this task could never be restarted from it (v2 has no
+        # checkpointing and no requester-local copy), and its later fallback would book a
+        # HELPER -> UE relay that runs after `contact_end`. The relay that would feed the
+        # fallback runs at `max(predecessor_finish, this task's attempt end)`, so the tight
+        # bound on when it can complete is `ingress_arrival + (predecessor_finish +
+        # relay_duration - relay_after_floor)`; asking the predecessor's departure check with
+        # the floor at THIS task's ingress arrival is exactly that bound (it ignores only the
+        # predecessor's own queue wait, which makes it optimistic and therefore safe).
+        #
+        # This runs AFTER the ingress commit because two cases need it: a HELPER -> HELPER
+        # predecessor edge books nothing at all (so the ingress gate cannot see it), and when
+        # the ingress was committed the refusal must release exactly those committed intervals.
+        if (location == HELPER and state is not None and math.isfinite(contact_end)):
+            ingress_floor = max([float(v) for v in arrived.values()] or [contact_start])
             for p in spec.predecessors:
                 if timings[(dag_id, p)].location != HELPER:
                     continue
-                if not _fallback_input_available((dag_id, p)):
+                if not _fallback_input_available((dag_id, p), relay_after=ingress_floor):
                     _refuse_helper_placement()
                     ingress_infeasible += 1
+                    _release([b for route in _last_booked for b in route])
+                    _rollback_ledger(_ev_mark, _led_mark)
+                    _last_booked = []
+                    _tentative_acc = _new_acc()
+                    in_bytes = 0.0
+                    _ev_mark, _led_mark = len(radio_events), len(radio_ledger)
+                    _was_helper = False
+                    arrived = _book_into_final_location(False)
+                    for key, end in arrived.items():
+                        ready = max(ready, float(end))
                     break
-
-        # ---- book the input transfers for the FINAL location ----
-        if ingress_requests:
-            window = ((contact_start, contact_end)
-                      if location == HELPER and state is not None
-                      and math.isfinite(contact_end) else (None, None))
-            ok, pending_by_key, ready_for = probe_ingress(ingress_requests, window)
-            if not ok:
-                raise V2ScheduleError(
-                    "ingress for %s/%s cannot be planned after the placement was fixed"
-                    % (dag_id, task_id))
-            arrived = book_ingress(ingress_requests, pending_by_key, ready_for, dag_id,
-                                   task_id, acc,
-                                   window_start=(contact_start if location == HELPER
-                                                 else None))
-            for entry in ingress_requests:
-                ready = max(ready, arrived[entry[4]])
-                if entry[4] != ("root", dag_id, task_id) and location != UE:
-                    # the bytes this placement actually carried (a broadcast reuse was counted
-                    # above, a HELPER downgrade rebuilt the list from scratch)
-                    in_bytes += float(entry[3])
-                if entry[4] != ("root", dag_id, task_id):
-                    delivered[entry[4]] = float(arrived[entry[4]])
+        _commit_ledger(_tentative_acc)
 
         # ---- CPU phase ----
         contact_failure = False
