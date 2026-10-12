@@ -1,0 +1,73 @@
+{
+  "action_mix": {
+    "HELPER": 0,
+    "MEC": 800,
+    "UE": 0,
+    "fraction": {
+      "HELPER": 0.0,
+      "MEC": 1.0,
+      "UE": 0.0
+    }
+  },
+  "best_validation_checkpoint": {
+    "hard_violation_rate": 0.0,
+    "itr": 600,
+    "latency_s": 0.0907,
+    "mc_violations": 0.0
+  },
+  "deadline_criticality": {
+    "graph_hard_violation_rate": 0.0,
+    "high_tardiness_incidence_rate": 0.025,
+    "high_task_tardiness_rate": 0.003,
+    "mc_policy_violation_count": 0.0,
+    "medium_tardiness_incidence_rate": 0.0,
+    "mode_switch_rate": 0.988
+  },
+  "energy_system_j": {
+    "all_MEC": 91.61,
+    "greedy": 86.08,
+    "heft_v2": 90.41,
+    "model_k3": 91.56
+  },
+  "latency_s": {
+    "all_MEC": 0.0917,
+    "greedy": 0.087,
+    "heft_v2": 0.0906,
+    "k0_regret_s": 0.0049,
+    "k3_regret_s": 0.0049,
+    "model_k0": 0.0917,
+    "model_k3": 0.0917,
+    "oracle": 0.0868
+  },
+  "limitations": [
+    "single seed (0)",
+    "meta-test still closed",
+    "total-energy budget anchored on the all-MEC plan, so all-MEC is trivially feasible"
+  ],
+  "model_energy_scopes_j": {
+    "mobile": 0.0022,
+    "requester": 0.0022,
+    "system": 91.56
+  },
+  "run": {
+    "completed_iterations": 1500,
+    "dir": "/opt/margo/campaigns/primary_1500_seed0_20261011T065431Z",
+    "lambdas": {
+      "total_energy": 0.348,
+      "ue_energy": 0.0
+    },
+    "outer_updates": 1500,
+    "resume_mode": "fresh",
+    "source_sha": "ce562cf4",
+    "state_finite": true,
+    "tracebacks": 0,
+    "validations": 30
+  },
+  "schema": "v2_final_results_v1",
+  "verdicts": {
+    "campaign_operational_acceptance": "PASS",
+    "implementation_acceptance": "PASS",
+    "learning_competitiveness": "NOT_ESTABLISHED_NEGATIVE_RESULT",
+    "summary": "the trained policy collapsed to all-MEC; it matches the all-MEC baseline (0.0917 s / 91.56 J) and loses to the MC-aware greedy baseline (0.0870 s / 86.08 J); adaptation adds nothing (k0 == k3). No selective offloading, no V2V/HELPER use learned. Single seed."
+  }
+}
